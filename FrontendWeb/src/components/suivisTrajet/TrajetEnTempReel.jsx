@@ -1,5 +1,5 @@
 // components/passager/RealTimeTracking.jsx
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet';
 import L from 'leaflet';
@@ -43,32 +43,7 @@ import EmergencyButton from '../passager/EmergencyButton';
 
 // MapController is now imported from shared components
 
-// ── Haversine distance (km) between two GPS coords ──
-const haversineDistance = (coord1, coord2) => {
-  if (!coord1 || !coord2) return 0;
-  const [lat1, lon1] = coord1;
-  const [lat2, lon2] = coord2;
-  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 0;
-  const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
-
-// ── Normalize coordinates to [lat, lng] array ──
-const normalizeCoords = (loc) => {
-  if (!loc) return null;
-  if (Array.isArray(loc) && loc.length >= 2) return [loc[0], loc[1]];
-  if (typeof loc === 'object' && loc.lat != null && loc.lng != null) return [loc.lat, loc.lng];
-  return null;
-};
-
-const RealTimeTracking = React.memo(({
+const RealTimeTracking = ({
   role = 'passenger',
   trip,
   driver,
@@ -80,51 +55,35 @@ const RealTimeTracking = React.memo(({
   onShareTrip
 }) => {
   // États
-  const initialDriverPos = normalizeCoords(driver?.currentLocation) || normalizeCoords(driver?.location) || [9.6412, -13.5784];
-  const [driverPosition, setDriverPosition] = useState(initialDriverPos);
+  const [driverPosition, setDriverPosition] = useState(
+    driver?.currentLocation || driver?.location || [9.6412, -13.5784]
+  );
   const [passengerPosition] = useState(
     trip?.pickupCoords || [9.6412, -13.5784]
   );
+  const [progress, setProgress] = useState(0);
   const [isTripStarted, setIsTripStarted] = useState(true);
   const [isTripEnded, setIsTripEnded] = useState(false);
+  const [speed, setSpeed] = useState(42);
   const [currentTime, setCurrentTime] = useState('--:--');
   const [showNotification, setShowNotification] = useState(false);
   const [notification, setNotification] = useState({ message: '', type: '' });
-  const [tripStartTime] = useState(() => trip?.startedAt ? new Date(trip.startedAt) : new Date());
+  const [batteryLevel, setBatteryLevel] = useState(85);
+  const [connectionStatus, setConnectionStatus] = useState('excellent');
+  const [estimatedArrival, setEstimatedArrival] = useState('14:45');
 
   // Références
   const mapRef = useRef();
+  const progressInterval = useRef();
   const timeInterval = useRef();
-  const lastPositionRef = useRef({ coords: initialDriverPos, time: Date.now() });
-  const calculatedSpeedRef = useRef(0);
-
-  // ── Sync driverPosition from incoming prop changes (socket updates) ──
-  useEffect(() => {
-    const newPos = normalizeCoords(driver?.location) || normalizeCoords(driver?.currentLocation);
-    if (newPos && (newPos[0] !== driverPosition[0] || newPos[1] !== driverPosition[1])) {
-      // Calculate speed from position delta if no speed prop
-      const now = Date.now();
-      const prevTime = lastPositionRef.current.time;
-      const prevCoords = lastPositionRef.current.coords;
-      const dt = (now - prevTime) / 1000; // seconds
-      if (dt > 0 && prevCoords) {
-        const dist = haversineDistance(prevCoords, newPos); // km
-        const spd = (dist / dt) * 3600; // km/h
-        if (spd < 200) { // sanity check
-          calculatedSpeedRef.current = spd;
-        }
-      }
-      lastPositionRef.current = { coords: newPos, time: now };
-      setDriverPosition(newPos);
-    }
-  }, [driver?.location, driver?.currentLocation]);
+  const tripSimulationInterval = useRef();
 
   // Données calculées à partir des props
   const tripData = {
     departure: {
       coords: trip?.pickupCoords || [9.6412, -13.5784],
-      name: trip?.pickup || trip?.depart || 'Point de départ',
-      address: trip?.pickup || trip?.depart || ''
+      name: trip?.pickup || 'Point de départ',
+      address: trip?.pickup || ''
     },
     destination: {
       coords: trip?.destinationCoords || [9.6412, -13.5784],
@@ -149,95 +108,20 @@ const RealTimeTracking = React.memo(({
       }
     },
     trip: {
-      totalDistance: parseFloat(String(trip?.estimatedDistance || trip?.distanceKm || '8.0').replace(' km', '')) || 8.0,
-      totalDuration: parseInt(String(trip?.estimatedDuration || trip?.dureeMin || '20').replace(' min', '')) || 20,
+      totalDistance: parseFloat(trip?.estimatedDistance?.replace(' km', '')) || 8.0,
+      traveledDistance: 0,
+      totalDuration: parseInt(trip?.estimatedDuration?.replace(' min', '')) || 20,
+      elapsedMinutes: 0,
+      remainingMinutes: parseInt(trip?.estimatedDuration?.replace(' min', '')) || 20,
       price: {
-        estimated: parseInt(String(trip?.estimatedPrice || trip?.prix || '15000').replace(/\D/g, '')) || 15000,
+        estimated: parseInt(trip?.estimatedPrice?.replace(/\D/g, '')) || 15000,
         serviceFee: 1000,
         trafficSurcharge: 0,
-        total: (parseInt(String(trip?.estimatedPrice || trip?.prix || '15000').replace(/\D/g, '')) || 15000) + 1000
+        total: (parseInt(trip?.estimatedPrice?.replace(/\D/g, '')) || 15000) + 1000
       },
       paymentMethod: trip?.paymentMethod || 'Orange Money'
     }
   };
-
-  // ── Dynamic metrics computed from live GPS position ──
-  const dynamicMetrics = useMemo(() => {
-    // Robust extraction of coordinates
-    const getCoords = (data, prefix) => {
-      if (data?.[`${prefix}Coords`]) return normalizeCoords(data[`${prefix}Coords`]);
-      if (data?.[`${prefix}Lat`] != null && data?.[`${prefix}Lng`] != null) {
-        return [Number(data[`${prefix}Lat`]), Number(data[`${prefix}Lng`])];
-      }
-      return null;
-    };
-
-    const departureCoords = getCoords(trip, 'pickup') || getCoords(trip, 'depart') || tripData.departure.coords;
-    const destinationCoords = getCoords(trip, 'destination') || tripData.destination.coords;
-
-    // Total distance from the trip record
-    const totalDistance = tripData.trip.totalDistance || haversineDistance(departureCoords, destinationCoords);
-    const totalDuration = tripData.trip.totalDuration;
-
-    // Distance from departure to current driver position
-    const traveledDistance = haversineDistance(departureCoords, driverPosition);
-    // Distance from current driver position to destination
-    const remainingDistance = haversineDistance(driverPosition, destinationCoords);
-
-    // Progress calculation
-    // We use traveledDistance / (traveledDistance + remainingDistance) as a live ratio,
-    // but we can also use traveledDistance / totalDistance for a more "fixed path" feel.
-    // Let's use a hybrid to avoid jumps if GPS is slightly off the line.
-    let progress = 0;
-    const totalLive = traveledDistance + remainingDistance;
-
-    if (totalLive > 0) {
-      // If we are significantly further than totalDistance, clamp it.
-      // 51% issue might be because totalLive was huge due to bad coordinates.
-      progress = Math.min(100, Math.max(0, (traveledDistance / totalLive) * 100));
-    }
-
-    // Snapping logic
-    if (remainingDistance < 0.1) progress = 100;
-
-    // Speed estimation logic (min 10km/h for ETA if moving, to avoid infinite time)
-    const propSpeed = driver?.speed || 0;
-    const calcSpeed = calculatedSpeedRef.current;
-    const avgSpeed = totalDuration > 0 ? (totalDistance / totalDuration) * 60 : 25;
-    let speed = propSpeed > 1 ? propSpeed : (calcSpeed > 1 ? calcSpeed : avgSpeed);
-
-    // Safety min speed for moving vehicles
-    if (speed < 5 && traveledDistance > 0.05 && remainingDistance > 0.05) {
-      speed = 10; // 10km/h min to give a realistic ETA
-    }
-
-    // Remaining time estimation
-    let remainingMinutes;
-    if (speed > 1) {
-      remainingMinutes = Math.round((remainingDistance / speed) * 60);
-    } else {
-      remainingMinutes = Math.round(totalDuration * (1 - progress / 100));
-    }
-    remainingMinutes = Math.max(0, remainingMinutes);
-
-    // Elapsed time
-    const elapsedMs = Date.now() - tripStartTime.getTime();
-    const elapsedMinutes = Math.max(0, Math.round(elapsedMs / 60000));
-
-    // ETA string
-    const etaDate = new Date(Date.now() + remainingMinutes * 60000);
-    const eta = `${etaDate.getHours().toString().padStart(2, '0')}:${etaDate.getMinutes().toString().padStart(2, '0')}`;
-
-    return {
-      traveledDistance: Math.min(traveledDistance, totalDistance).toFixed(1),
-      remainingDistance: Math.max(0, remainingDistance).toFixed(1),
-      progress: Math.round(progress),
-      speed: Math.round(speed),
-      remainingMinutes,
-      elapsedMinutes,
-      eta
-    };
-  }, [driverPosition, trip, tripData.departure.coords, tripData.destination.coords, tripData.trip.totalDistance, tripData.trip.totalDuration, driver?.speed, tripStartTime]);
 
   // Mise à jour de l'heure
   const updateTime = useCallback(() => {
@@ -286,15 +170,20 @@ const RealTimeTracking = React.memo(({
   // Gestionnaire d'annulation
   const handleCancelTrip = () => {
     if (window.confirm('Êtes-vous sûr de vouloir annuler ce trajet ?\nDes frais d\'annulation peuvent s\'appliquer.')) {
+      clearInterval(tripSimulationInterval.current);
+      clearInterval(progressInterval.current);
+
       setIsTripEnded(true);
       showToast('Trajet annulé. Un remboursement sera traité.', 'warning');
+
       if (onCancelTrip) onCancelTrip();
     }
   };
 
   // Gestionnaire de fin de trajet
   const handleEndTrip = () => {
-    if (dynamicMetrics.progress >= 95 || isTripEnded) {
+    if (progress >= 95 || isTripEnded) {
+      clearInterval(tripSimulationInterval.current);
       setIsTripEnded(true);
       showToast('✅ Trajet terminé avec succès!', 'success');
       if (onEndTrip) onEndTrip();
@@ -326,11 +215,6 @@ const RealTimeTracking = React.memo(({
     if (onShareTrip) onShareTrip(shareData);
   };
 
-  const handleResetTrip = () => {
-    setIsTripEnded(false);
-    showToast('🔄 Vue réinitialisée', 'info');
-  };
-
 
   // Les icônes sont maintenant centralisées dans leafletIcons.js
 
@@ -341,8 +225,20 @@ const RealTimeTracking = React.memo(({
     updateTime();
     timeInterval.current = setInterval(updateTime, 60000);
 
+    // Simulation de la batterie
+    const batteryInterval = setInterval(() => {
+      setBatteryLevel(prev => {
+        const newLevel = prev - 0.5;
+        if (newLevel <= 20) {
+          showToast('🔋 Batterie faible !', 'warning');
+        }
+        return newLevel > 0 ? newLevel : 0;
+      });
+    }, 30000);
+
     return () => {
       clearInterval(timeInterval.current);
+      clearInterval(batteryInterval);
     };
   }, [updateTime]);
 
@@ -356,8 +252,10 @@ const RealTimeTracking = React.memo(({
     }
   }, [driverPosition]);
 
-  // Calcul de l'ETA (now dynamic)
-  const calculateETA = () => dynamicMetrics.eta;
+  // Calcul de l'ETA
+  const calculateETA = () => {
+    return estimatedArrival;
+  };
 
   // Styles de notification
   const notificationStyles = {
@@ -433,7 +331,7 @@ const RealTimeTracking = React.memo(({
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                {isTripEnded ? 'Trajet terminé' : dynamicMetrics.progress >= 100 ? 'Arrivé à destination' : 'Trajet en cours'}
+                {isTripEnded ? 'Trajet terminé' : 'Trajet en cours'}
               </h1>
               <div className="flex flex-wrap items-center gap-4 text-gray-600 dark:text-gray-400">
                 <div className="flex items-center">
@@ -464,19 +362,19 @@ const RealTimeTracking = React.memo(({
           <div className="mb-6">
             <div className="flex justify-between items-center mb-3">
               <span className="text-gray-600 dark:text-gray-300">Progression du trajet</span>
-              <span className="font-bold text-green-700 dark:text-green-400">{dynamicMetrics.progress}%</span>
+              <span className="font-bold text-green-700 dark:text-green-400">{progress}%</span>
             </div>
             <div className="w-full h-3 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
               <motion.div
                 className="h-full bg-gradient-to-r from-green-500 to-blue-600"
                 initial={{ width: 0 }}
-                animate={{ width: `${dynamicMetrics.progress}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.5 }}
               />
             </div>
             <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-2">
-              <span>{dynamicMetrics.traveledDistance} km parcourus</span>
-              <span>{dynamicMetrics.remainingDistance} km restants</span>
+              <span>{tripData.trip.traveledDistance} km parcourus</span>
+              <span>{(tripData.trip.totalDistance - tripData.trip.traveledDistance).toFixed(1)} km restants</span>
             </div>
           </div>
 
@@ -538,8 +436,8 @@ const RealTimeTracking = React.memo(({
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Vitesse</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">{dynamicMetrics.speed} km/h</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-500">{dynamicMetrics.speed > 50 ? 'Rapide' : dynamicMetrics.speed > 0 ? 'Modérée' : 'Arrêt'}</p>
+                  <p className="font-bold text-gray-800 dark:text-gray-100">{speed} km/h</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-500">{speed > 50 ? 'Rapide' : 'Modérée'}</p>
                 </div>
               </div>
             </motion.div>
@@ -554,8 +452,8 @@ const RealTimeTracking = React.memo(({
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Temps restant</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">{dynamicMetrics.remainingMinutes} min</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-500">Arrivée: {dynamicMetrics.eta}</p>
+                  <p className="font-bold text-gray-800 dark:text-gray-100">{tripData.trip.remainingMinutes} min</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-500">Arrivée: {calculateETA()}</p>
                 </div>
               </div>
             </motion.div>
@@ -705,11 +603,11 @@ const RealTimeTracking = React.memo(({
               <div className="text-sm opacity-90 mb-1">ARRIVÉE ESTIMÉE</div>
               <div className="text-3xl font-bold mb-2">{calculateETA()}</div>
               <div className="text-sm opacity-90">
-                Dans <span className="font-bold">{dynamicMetrics.remainingMinutes} minutes</span>
+                Dans <span className="font-bold">{tripData.trip.remainingMinutes} minutes</span>
               </div>
               <div className="flex items-center mt-4 text-xs opacity-80">
                 <Navigation className="w-3 h-3 mr-1" />
-                <span>{dynamicMetrics.traveledDistance} / {tripData.trip.totalDistance} km • {dynamicMetrics.elapsedMinutes} min écoulées</span>
+                <span>{tripData.trip.totalDistance} km • {tripData.trip.totalDuration} min</span>
               </div>
             </motion.div>
 
@@ -825,7 +723,7 @@ const RealTimeTracking = React.memo(({
       {/* Bouton d'annulation */}
     </div>
   );
-});
+};
 
 // Valeurs par défaut pour les props
 RealTimeTracking.defaultProps = {

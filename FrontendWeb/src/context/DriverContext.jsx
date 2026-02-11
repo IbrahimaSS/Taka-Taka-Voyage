@@ -12,7 +12,6 @@ import { socketService } from "../services/socketService";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { GeolocationService } from "../services/geolocation";
 import { useAuth } from "./AuthContext";
-import { toast } from "react-hot-toast";
 
 const DriverContext = createContext();
 export const useDriverContext = () => useContext(DriverContext);
@@ -112,11 +111,6 @@ export const DriverProvider = ({ children }) => {
     tripRequestsRef.current = tripRequests;
   }, [tripRequests]);
 
-  const acceptedTripsRef = useRef([]);
-  useEffect(() => {
-    acceptedTripsRef.current = acceptedTrips;
-  }, [acceptedTrips]);
-
   const currentPickupTripIdRef = useRef(null);
   useEffect(() => {
     currentPickupTripIdRef.current = currentPickupTripId;
@@ -197,7 +191,7 @@ export const DriverProvider = ({ children }) => {
   );
 
   // ────────────────────────────────────────────────
-  // 2) Connexion socket
+  // 2) Connexion socket + listeners
   // ────────────────────────────────────────────────
   useEffect(() => {
     if (!isOnline || !DRIVER.id) {
@@ -214,111 +208,54 @@ export const DriverProvider = ({ children }) => {
 
     setIsConnecting(true);
     setStatus("available");
+
     socketService.connect(DRIVER.id, "CHAUFFEUR", DRIVER.nom, DRIVER.prenom);
-
-    return () => {
-      // Cleanup for connection if isOnline becomes false or DRIVER.id changes
-      socketService.disconnect();
-    };
-  }, [DRIVER.id, isOnline]);
-
-  // ✅ 3) LISTENERS SOCKET (Stables)
-  useEffect(() => {
-    if (!isOnline) return;
 
     socketService.on("course:demande", handleNewTripRequest);
 
     const onAcceptedOk = ({ reservationId } = {}) => {
       if (!reservationId) return;
+
       setStats((prev) => ({ ...prev, acceptedToday: prev.acceptedToday + 1 }));
-      const req = tripRequestsRef.current.find((r) => String(r.id) === String(reservationId));
+
+      const req = tripRequestsRef.current.find((r) => r.id === reservationId);
 
       if (req) {
         setAcceptedTrips((prev) => {
-          if (prev.some((t) => String(t.id) === String(reservationId))) return prev;
+          if (prev.some((t) => t.id === reservationId)) return prev;
           return [{ ...req, pickupStatus: "pending" }, ...prev];
         });
       } else {
         console.warn("⚠️ [DRIVER] Accept OK mais requête introuvable:", reservationId);
       }
-      setTripRequests((prev) => prev.filter((r) => String(r.id) !== String(reservationId)));
+
+      setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
     };
 
     const onAlreadyTaken = ({ message, reservationId } = {}) => {
       console.warn("⚠️ [DRIVER] course déjà prise:", message);
       if (reservationId) {
-        const rid = String(reservationId);
-        setTripRequests((prev) => prev.filter((r) => String(r.id) !== rid));
-        processedRequestIds.current.delete(rid);
-        // On s'assure de fermer d'éventuels toasts liés à cette requête si on en avait ajouté
-        toast.dismiss(`req-${rid}`);
+        setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
+        processedRequestIds.current.delete(reservationId);
       }
     };
 
     const onRefusedOk = ({ reservationId } = {}) => {
       if (!reservationId) return;
+
       setStats((prev) => ({ ...prev, rejectedToday: prev.rejectedToday + 1 }));
-      setTripRequests((prev) => prev.filter((r) => String(r.id) !== String(reservationId)));
-      processedRequestIds.current.delete(String(reservationId));
+      setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
+      processedRequestIds.current.delete(reservationId);
     };
 
-    socketService.on("reservation:join:ok", ({ reservationId }) => {
-      console.log(`✅ [DRIVER] Room join success for RID=${reservationId}`);
-    });
-
-    socketService.on("reservation:join:refused", ({ reservationId, message }) => {
-      console.warn(`❌ [DRIVER] Room join refused for RID=${reservationId}: ${message}`);
-    });
-
-    const onTripCancelled = ({ reservationId, message } = {}) => {
-      console.log("📩 [DRIVER] trip_cancelled/course:annulee reçu", { reservationId, message });
+    const onTripCancelled = ({ reservationId } = {}) => {
       if (!reservationId) return;
-      const rid = String(reservationId);
 
-      // Récupérer les infos du trajet AVANT de le supprimer des listes
-      let cancelledTrip = null;
+      setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
+      setAcceptedTrips((prev) => prev.filter((t) => t.id !== reservationId));
+      processedRequestIds.current.delete(reservationId);
 
-      setTripRequests((prev) => {
-        const found = prev.find(r => String(r.id) === rid);
-        if (found) cancelledTrip = found;
-        return prev.filter((r) => String(r.id) !== rid);
-      });
-
-      setAcceptedTrips((prev) => {
-        const found = prev.find(t => String(t.id) === rid);
-        if (found) cancelledTrip = found;
-        return prev.filter((t) => String(t.id) !== rid);
-      });
-
-      processedRequestIds.current.delete(rid);
-      processedRequestIds.current.delete(Number(rid)); // Sécurité
-
-      // Notification visuelle très explicite avec entête
-      const passengerInfo = cancelledTrip?.passengerName ? `de ${cancelledTrip.passengerName}` : "";
-
-      toast.error(
-        <div className="flex flex-col gap-1">
-          <span className="text-lg font-extrabold uppercase tracking-tight">🚫 Course Annulée</span>
-          <span className="text-sm font-medium opacity-90">
-            {message || `La course ${passengerInfo} a été annulée par le passager`}
-          </span>
-        </div>,
-        {
-          id: `cancel-${rid}`,
-          duration: 10000,
-          style: {
-            backgroundColor: '#ef4444',
-            padding: '16px',
-            color: '#ffffff',
-            borderRadius: '12px',
-            minWidth: '300px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-          }
-        }
-      );
-
-      if (String(currentPickupTripIdRef.current) === rid) {
-        console.log("⚠️ [DRIVER] La course active actuelle a été annulée !");
+      if (currentPickupTripIdRef.current === reservationId) {
         setCurrentPickupTripId(null);
         setTripStep("idle");
         setStatus("available");
@@ -328,8 +265,8 @@ export const DriverProvider = ({ children }) => {
     socketService.on("course:acceptee_confirmation", onAcceptedOk);
     socketService.on("course:deja_prise", onAlreadyTaken);
     socketService.on("course:refusee_confirmation", onRefusedOk);
-    socketService.on("course:annulee", onTripCancelled);
     socketService.on("trip_cancelled", onTripCancelled);
+    socketService.on("course:annulee", onTripCancelled);
 
     setIsConnecting(false);
 
@@ -338,25 +275,13 @@ export const DriverProvider = ({ children }) => {
       socketService.off("course:acceptee_confirmation", onAcceptedOk);
       socketService.off("course:deja_prise", onAlreadyTaken);
       socketService.off("course:refusee_confirmation", onRefusedOk);
-      socketService.off("course:annulee", onTripCancelled);
       socketService.off("trip_cancelled", onTripCancelled);
-      socketService.off("reservation:join:ok");
-      socketService.off("reservation:join:refused");
+      socketService.off("course:annulee", onTripCancelled);
     };
-  }, [isOnline, handleNewTripRequest]);
-
-  // ✅ 4) ROOM RE-JOINING (Séparé)
-  useEffect(() => {
-    if (!isOnline || acceptedTrips.length === 0) return;
-
-    console.log(`🔄 [DRIVER] Re-joining rooms for ${acceptedTrips.length} active trips...`);
-    acceptedTrips.forEach(trip => {
-      socketService.emit("reservation:join", { reservationId: trip.id || trip.reservationId });
-    });
-  }, [isOnline, acceptedTrips.length]);
+  }, [isOnline, DRIVER, handleNewTripRequest]);
 
   // ────────────────────────────────────────────────
-  // 5) GPS en continu (uniquement si course active)
+  // 3) GPS en continu (uniquement si course active)
   // ────────────────────────────────────────────────
   useEffect(() => {
     if (!isOnline || !driverLocation || !currentPickupTripId) return;
@@ -429,28 +354,9 @@ export const DriverProvider = ({ children }) => {
     setAcceptedTrips((prev) =>
       prev.map((t) => (t.id === reservationId ? { ...t, pickupStatus: "picked_up" } : t))
     );
+    // On reste dans l'état de ramassage jusqu'à ce que le chauffeur décide de démarrer globalement
+    // ou s'il y a d'autres passagers à récupérer.
     setTripStep("ready_to_start");
-  };
-
-  const pickupAndStart = (reservationId) => {
-    // 1. Mettre à jour l'état local immédiatement
-    setAcceptedTrips((prev) =>
-      prev.map((t) => (t.id === reservationId ? { ...t, pickupStatus: "picked_up" } : t))
-    );
-
-    // 2. Calculer les IDs à envoyer (inclure celui qu'on vient de valider)
-    const alreadyPickedUp = acceptedTripsRef.current
-      .filter((t) => t.pickupStatus === "picked_up" && t.id !== reservationId)
-      .map((t) => t.id);
-
-    const pickedUpIds = [reservationId, ...alreadyPickedUp];
-
-    // 3. Émettre l'événement
-    socketService.emit("course:demarrer_global", { reservationIds: pickedUpIds });
-
-    // 4. Mettre à jour le step
-    setTripStep("in_progress");
-    setStatus("busy");
   };
 
   const startGlobalTrip = () => {
@@ -464,19 +370,6 @@ export const DriverProvider = ({ children }) => {
     socketService.emit("course:demarrer_global", { reservationIds: pickedUpIds });
     setTripStep("in_progress");
     setStatus("busy");
-  };
-
-  const finishTrip = (reservationId) => {
-    if (!reservationId) return;
-    socketService.emit("course:terminer", { reservationId });
-    setAcceptedTrips((prev) => prev.filter((t) => t.id !== reservationId));
-
-    // Si c'était la course active, on nettoie
-    if (reservationId === currentPickupTripId) {
-      setCurrentPickupTripId(null);
-      setTripStep(null);
-      setStatus("online");
-    }
   };
 
   const startCourse = () => {
@@ -509,10 +402,8 @@ export const DriverProvider = ({ children }) => {
       selectPickupTrip,
       signalArrival,
       confirmPassengerPickup,
-      pickupAndStart,
       startCourse,
       startGlobalTrip,
-      finishTrip,
       reportDispute,
 
       calculateDistance,

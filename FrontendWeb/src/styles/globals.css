@@ -667,7 +667,7 @@
 
 /* Global scrollbar styles from second file */
 ::-webkit-scrollbar {
-  @apply w-2;
+  @apply w-2 h-2;
 }
 
 ::-webkit-scrollbar-track {

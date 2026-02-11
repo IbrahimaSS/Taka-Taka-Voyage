@@ -1,16 +1,15 @@
-// src/hooks/useDriverActions.js
-import { useCallback, useState } from 'react';
+import { useState, useCallback } from 'react';
+import { adminService } from '../services/adminService';
 
 /**
  * Hook réutilisable pour les actions "Activer / Désactiver / Suspendre" d'un chauffeur,
  * avec modale de confirmation + toast.
  *
  * @param {Object} params
- * @param {Array} params.drivers - Liste actuelle (optionnel, pas nécessaire si setDrivers utilise un updater)
- * @param {Function} params.setDrivers - setState React: setDrivers(prev => ...)
+ * @param {Function} params.refresh - Fonction pour rafraîchir la liste
  * @param {Function} params.showToast - (title, message, type) => void
  */
-export default function useDriverActions({ setDrivers, showToast } = {}) {
+export default function useDriverActions({ refresh, showToast } = {}) {
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     type: null,
@@ -18,23 +17,47 @@ export default function useDriverActions({ setDrivers, showToast } = {}) {
     action: null, // 'activate' | 'deactivate' | 'suspend'
   });
 
+  const [isLoading, setIsLoading] = useState(false);
+
   const closeConfirmationModal = useCallback(() => {
     setConfirmationModal({ isOpen: false, type: null, driver: null, action: null });
+    setIsLoading(false);
   }, []);
 
   const openStatusModal = useCallback((driver, action) => {
-    const type =
-      action === 'activate'
-        ? 'success'
-        : action === 'deactivate'
-          ? 'warning'
-          : 'danger';
+    let title = '';
+    let message = '';
+    let confirmText = '';
+    let confirmVariant = 'success';
+    let type = 'success';
+
+    if (action === 'activate') {
+      title = 'Activer le chauffeur';
+      message = `Êtes-vous sûr de vouloir activer le compte de ${driver.name} ?`;
+      confirmText = 'Activer';
+    } else if (action === 'deactivate') {
+      title = 'Désactiver le chauffeur';
+      message = `Le chauffeur ${driver.name} ne pourra plus accepter de courses. Continuer ?`;
+      confirmText = 'Désactiver';
+      confirmVariant = 'warning';
+      type = 'warning';
+    } else if (action === 'suspend') {
+      title = 'Suspendre le chauffeur';
+      message = `Le compte de ${driver.name} sera suspendu. Cette action est réversible.`;
+      confirmText = 'Suspendre';
+      confirmVariant = 'danger';
+      type = 'danger';
+    }
 
     setConfirmationModal({
       isOpen: true,
-      type,
       driver,
       action,
+      title,
+      message,
+      confirmText,
+      confirmVariant,
+      type
     });
   }, []);
 
@@ -43,42 +66,42 @@ export default function useDriverActions({ setDrivers, showToast } = {}) {
       const { driver, action } = confirmationModal;
       if (!driver || !action) return;
 
+      setIsLoading(true);
       const newStatus =
         action === 'activate'
-          ? 'active'
+          ? 'ACTIF'
           : action === 'deactivate'
-            ? 'inactive'
-            : 'suspended';
+            ? 'INACTIF'
+            : 'SUSPENDU';
 
-      // TODO API (admin/chauffeurs):
-      // Remplacer la maj locale par un appel backend (ex: adminService / driverService)
-      // Exemple: POST /admin/validations ou PATCH /drivers/:id/status
-      if (typeof setDrivers === 'function') {
-        setDrivers((prev) =>
-          Array.isArray(prev)
-            ? prev.map((d) => (d.id === driver.id ? { ...d, status: newStatus } : d))
-            : prev
-        );
+      try {
+        await adminService.updateDriverStatus(driver.id, newStatus);
+
+        if (showToast) {
+          const label =
+            newStatus === 'ACTIF'
+              ? 'activé'
+              : newStatus === 'INACTIF'
+                ? 'désactivé'
+                : 'suspendu';
+
+          showToast(
+            'Statut modifié',
+            `Le chauffeur ${driver.name} a été ${label}${comment ? ` (${comment})` : ''}.`,
+            newStatus === 'ACTIF' ? 'success' : newStatus === 'INACTIF' ? 'warning' : 'danger'
+          );
+        }
+
+        if (refresh) refresh();
+        closeConfirmationModal();
+      } catch (error) {
+        console.error('Erreur lors du changement de statut:', error);
+        if (showToast) showToast('Erreur', 'Impossible de modifier le statut', 'error');
+      } finally {
+        setIsLoading(false);
       }
-
-      if (showToast) {
-        const label =
-          newStatus === 'active'
-            ? 'activé'
-            : newStatus === 'inactive'
-              ? 'désactivé'
-              : 'suspendu';
-
-        showToast(
-          'Statut modifié',
-          `Le chauffeur ${driver.name} a été ${label}${comment ? ` (${comment})` : ''}.`,
-          newStatus === 'active' ? 'success' : newStatus === 'inactive' ? 'warning' : 'danger'
-        );
-      }
-
-      closeConfirmationModal();
     },
-    [confirmationModal, setDrivers, showToast, closeConfirmationModal]
+    [confirmationModal, refresh, showToast, closeConfirmationModal]
   );
 
   return {
@@ -86,5 +109,6 @@ export default function useDriverActions({ setDrivers, showToast } = {}) {
     openStatusModal,
     confirmAction,
     closeConfirmationModal,
+    isLoading,
   };
 }

@@ -1,5 +1,5 @@
 // Passenger.jsx — VERSION FINALE COMPLETE (searching OK + stop searching on accept)
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PassengerNavbar from '../components/passager/PassengerNavbar';
 import BookingSection from '../components/passager/BookingSection';
@@ -12,7 +12,6 @@ import TripConfirmationModal from '../components/passager/TripConfirmationModal'
 import Evaluations from '../components/passager/Evaluation';
 import TripStatusModal from '../components/passager/TripStatusModal';
 import Planning from '../components/passager/Planning';
-import ConfirmModal from '../components/admin/ui/ConfirmModal';
 import { usePassenger } from '../context/PassengerContext';
 import toast, { Toaster } from 'react-hot-toast';
 import { tripService } from '../services/tripService';
@@ -28,14 +27,6 @@ import {
   Car,
   Star,
   Calendar,
-  AlertCircle,
-  Clock,
-  Navigation,
-  CheckCircle,
-  HelpCircle,
-  AlertTriangle,
-  Phone,
-  X,
 } from 'lucide-react';
 
 import RealTimeTracking from '../components/suivisTrajet/TrajetEnTempReel';
@@ -58,9 +49,6 @@ const Passenger = () => {
   const [showTripStatusModal, setShowTripStatusModal] = useState(false);
   const [showTripComplete, setShowTripComplete] = useState(false);
   const [showTripRating, setShowTripRating] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
-
 
   const {
     passenger: user,
@@ -77,7 +65,6 @@ const Passenger = () => {
 
   const [isOnMapView, setIsOnMapView] = useState(false);
   const [isOnTrackingView, setIsOnTrackingView] = useState(false);
-  const [isSearchIndicatorDismissed, setIsSearchIndicatorDismissed] = useState(false);
 
   const [arrivalSecondsRemaining, setArrivalSecondsRemaining] = useState(null);
   const arrivalIntervalRef = useRef(null);
@@ -119,8 +106,8 @@ const Passenger = () => {
     const rid = currentTrip?.reservationId;
     const isImmediate = currentTrip?.typeCourse === 'IMMEDIATE';
     const okStatus = tripStatus === 'searching' || tripStatus === 'driver_found' || tripStatus === 'approaching' || tripStatus === 'arrived';
-    return !!rid && isImmediate && okStatus && !isOnMapView && !isSearchIndicatorDismissed;
-  }, [currentTrip?.reservationId, currentTrip?.typeCourse, tripStatus, isOnMapView, isSearchIndicatorDismissed]);
+    return !!rid && isImmediate && okStatus;
+  }, [currentTrip?.reservationId, currentTrip?.typeCourse, tripStatus]);
 
   const handleBookTrip = (tripData) => {
     setCurrentTrip(tripData);
@@ -229,14 +216,14 @@ const Passenger = () => {
     setCurrentTrip((prev) => ({ ...prev, driver, status: 'driver_found' }));
   };
 
-  const handleShowOnMap = useCallback(() => {
+  const handleShowOnMap = () => {
     setIsOnMapView(true);
     setShowTripStatusModal(false);
     setActiveTab('home');
     toast.success('Chauffeur affiché sur la carte');
-  }, []);
+  };
 
-  const handleStartTrip = useCallback(() => {
+  const handleStartTrip = () => {
     clearTimers();
 
     setTimeout(() => {
@@ -254,7 +241,7 @@ const Passenger = () => {
       setShowTripStatusModal(false);
       toast.success('Trajet démarré ! Suivi en temps réel activé.');
     }, 600);
-  }, [clearTimers, setCurrentTrip, setTripStatus]);
+  };
 
   const handleNavigateToTracking = () => {
     if (tripStatus === 'en_route') {
@@ -265,65 +252,39 @@ const Passenger = () => {
     }
   };
 
-  const handleViewPlanning = useCallback(() => {
+  const hadalOnViewPlanning = () => {
     setShowTripStatusModal(false);
     setActiveTab('planning');
-  }, []);
+  };
 
-  const handleBackToMap = useCallback(() => {
+  const handleBackToMap = () => {
     setIsOnTrackingView(false);
     setIsOnMapView(true);
     setActiveTab('home');
-  }, []);
+  };
 
-  const handleCancelTrip = useCallback(async (data = {}) => {
-    // 1. Capture ID before state clears
-    const reservationId = currentTrip?.reservationId;
-    const reason = data?.reason || 'Le passager a annulé la course';
-
-    // 2. Update UI immediately (Optimistic UI)
-    // Order matters: close heavy UI first
-    setShowTripStatusModal(false);
-    setShowCancelConfirm(false);
-    setShowArrivalModal(false);
-    setIsOnTrackingView(false);
-    setIsOnMapView(false);
-
-    // Then clear data
-    setTripStatus('cancelled');
-    setCurrentTrip(null);
-    setCurrentDriver(null);
-    setCancelReason("");
-
-    toast.success('Course annulée', { id: 'trip-cancelled-manual' });
-
-    // 3. Perform background cleanup
+  const handleCancelTrip = async () => {
     clearTimers();
     toast.dismiss('searching');
 
+    const reservationId = currentTrip?.reservationId;
     if (reservationId) {
       try {
-        // Fire and forget (almost)
-        tripService.cancel(reservationId, { reason }).catch(e => console.warn('Cancel API background fail:', e));
-        socketService.emit('course:annuler', {
-          reservationId,
-          source: 'PASSAGER',
-          message: reason
-        });
+        await tripService.cancel(reservationId, { reason: 'CANCELLED_BY_PASSENGER' });
       } catch (e) {
-        console.warn('Cancel emission failed:', e?.message);
+        console.warn('Cancel API failed:', e?.message);
       }
+      socketService.emit('course:annuler', { reservationId, source: 'PASSAGER' });
     }
-  }, [currentTrip?.reservationId, clearTimers]);
 
-  const cancelReasons = [
-    "Temps d'attente trop long",
-    "Changement de plans",
-    "Prix trop élevé",
-    "Chauffeur en retard",
-    "Problème avec le véhicule",
-    "Autre raison",
-  ];
+    setTripStatus('cancelled');
+    setIsOnTrackingView(false);
+    setIsOnMapView(false);
+    setCurrentDriver(null);
+    setCurrentTrip(null);
+    toast.info('Course annulée');
+    setShowTripStatusModal(false);
+  };
 
   useEffect(() => {
     return () => {
@@ -339,55 +300,40 @@ const Passenger = () => {
       setShowArrivalModal(false);
     }
 
-    if (tripStatus === 'approaching') {
-      setIsOnMapView(true);
-      setIsSearchIndicatorDismissed(false); // Show small banner
-      setShowTripStatusModal(false); // Close grand modal if moving
-    }
-
     if (tripStatus === 'en_route') {
       setIsOnTrackingView(true);
       setIsOnMapView(false);
     }
 
-    // Modal sequence
-    let autoHideTimer = null;
-    if (tripStatus === 'driver_found') {
-      setIsSearchIndicatorDismissed(true); // Hide small banner initially
-      setShowTripStatusModal(true); // Show grand modal immediately
-
-      autoHideTimer = setTimeout(() => {
-        setShowTripStatusModal(false);
-      }, 30000);
+    if (tripStatus === 'approaching') {
+      setIsOnMapView(true);
     }
-
-    // ✅ Sync Fix: auto-close modals if trip is inactive
-    if (!tripStatus || tripStatus === 'idle' || tripStatus === 'cancelled' || tripStatus === 'completed') {
-      setShowTripStatusModal(false);
-      setShowArrivalModal(false);
-      setShowCancelConfirm(false);
-    }
-
-    return () => {
-      if (autoHideTimer) clearTimeout(autoHideTimer);
-    };
   }, [tripStatus]);
 
+  if (isLoadingProfile) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-transparent">
+        <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-400 font-medium animate-pulse">
+          Chargement de votre session...
+        </p>
+      </div>
+    );
+  }
 
-  const handleCompleteTrip = useCallback(() => {
+  const handleCompleteTrip = () => {
     setTripStatus('completed');
     setIsOnTrackingView(false);
     setIsOnMapView(false);
 
-    setCurrentTrip((prev) => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        status: 'completed',
-        completedAt: new Date().toISOString(),
-        driver: currentDriver,
-      };
-    });
+    const completedTrip = {
+      ...currentTrip,
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      driver: currentDriver,
+    };
+
+    setCurrentTrip(completedTrip);
 
     if (currentTrip?.paymentTime === 'advance') {
       setShowTripRating(true);
@@ -398,9 +344,9 @@ const Passenger = () => {
     }
 
     toast.success('Trajet terminé avec succès !');
-  }, [currentDriver, currentTrip?.paymentTime, setCurrentTrip, setTripStatus]);
+  };
 
-  const handlePostTripPaymentSuccess = useCallback((paymentData) => {
+  const handlePostTripPaymentSuccess = (paymentData) => {
     setShowTripComplete(false);
 
     const updatedTrip = {
@@ -416,48 +362,32 @@ const Passenger = () => {
     setCurrentTrip(updatedTrip);
     setShowTripRating(true);
     toast.success('Paiement effectué avec succès !');
-  }, [currentTrip, setCurrentTrip]);
+  };
 
-  const handleRatingComplete = useCallback(() => {
+  const handleRatingComplete = () => {
     setShowTripRating(false);
     setCurrentTrip(null);
     setCurrentDriver(null);
     setTripStatus('idle');
     toast.success('Merci pour votre évaluation !');
-  }, [setCurrentDriver, setCurrentTrip, setTripStatus]);
+  };
 
-  const handleRateTrip = useCallback((ratingData) => {
+  const handleRateTrip = (ratingData) => {
     console.log('Trip rated:', ratingData);
     setShowTripStatusModal(false);
     setCurrentTrip(null);
     setCurrentDriver(null);
     setTripStatus('idle');
     toast.success('Merci pour votre évaluation !');
-  }, [setCurrentDriver, setCurrentTrip, setTripStatus]);
+  };
 
-  const handleTabChange = useCallback((tabId) => {
+  const handleTabChange = (tabId) => {
     if (tabId !== 'home') {
       setIsOnTrackingView(false);
       setIsOnMapView(false);
     }
     setActiveTab(tabId);
-  }, []);
-
-  const handleCloseStatusModal = useCallback(() => setShowTripStatusModal(false), []);
-  const handleOpenCancelConfirm = useCallback(() => setShowCancelConfirm(true), []);
-  const handleContactDriver = useCallback(() => {
-    if (currentDriver?.phone) window.open(`tel:${currentDriver.phone}`);
-  }, [currentDriver?.phone]);
-
-  const handleSearchAgain = useCallback(() => {
-    toast.dismiss('searching');
-    setShowTripStatusModal(false);
-    setCurrentTrip(null);
-    setCurrentDriver(null);
-    setTripStatus('idle');
-    setIsOnMapView(false);
-    setIsOnTrackingView(false);
-  }, [setCurrentDriver, setCurrentTrip, setTripStatus]);
+  };
 
   const renderContent = () => {
     if (activeTab === 'home') {
@@ -498,17 +428,6 @@ const Passenger = () => {
         return <BookingSection onBookTrip={handleBookTrip} />;
     }
   };
-
-  if (isLoadingProfile) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-slate-800 dark:text-slate-100">
-        <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="font-medium animate-pulse">
-          Chargement de votre session...
-        </p>
-      </div>
-    );
-  }
 
   const isFullScreenViewActive = isOnTrackingView || showTripComplete || showTripRating;
   const isTripInProgress = tripStatus === 'en_route';
@@ -652,7 +571,7 @@ const Passenger = () => {
                       Suivi Carte
                     </button>
                     <button
-                      onClick={() => setShowCancelConfirm(true)}
+                      onClick={handleCancelTrip}
                       className="py-3.5 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 rounded-2xl font-semibold flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/40 transition-all"
                     >
                       <X className="w-5 h-5 mr-2" />
@@ -682,7 +601,7 @@ const Passenger = () => {
             setActiveTab('home');
             setIsOnMapView(true);
           }}
-          onCancel={() => setShowCancelConfirm(true)}
+          onCancel={handleCancelTrip}
           onContact={() => window.open(`tel:${currentDriver?.phone}`)}
           onTrack={handleShowOnMap}
         />
@@ -724,80 +643,29 @@ const Passenger = () => {
 
         <TripStatusModal
           isOpen={showTripStatusModal}
-          onClose={handleCloseStatusModal}
+          onClose={() => setShowTripStatusModal(false)}
           status={tripStatus}
           driver={currentDriver}
           tripDetails={currentTrip}
           arrivalSecondsRemaining={arrivalSecondsRemaining}
-          onCancel={handleOpenCancelConfirm}
-          onContact={handleContactDriver}
+          onCancel={handleCancelTrip}
+          onContact={() => window.open(`tel:${currentDriver?.phone}`)}
           onTrack={handleShowOnMap}
-          onViewPlanning={handleViewPlanning}
+          onViewPlanning={hadalOnViewPlanning}
           onStartTrip={handleStartTrip}
           onTripComplete={handleCompleteTrip}
-          onSearchAgain={handleSearchAgain}
+          onSearchAgain={() => {
+            toast.dismiss('searching');
+            setShowTripStatusModal(false);
+            setCurrentTrip(null);
+            setCurrentDriver(null);
+            setTripStatus('idle');
+            setIsOnMapView(false);
+            setIsOnTrackingView(false);
+          }}
           onDriverFound={handleDriverFound}
           onRateTrip={handleRateTrip}
         />
-
-        <ConfirmModal
-          isOpen={showCancelConfirm}
-          onClose={() => {
-            setShowCancelConfirm(false);
-            setCancelReason("");
-          }}
-          onConfirm={(reasonArg) => {
-            // Le texte écrit dans la modal (reasonArg) est prioritaire sur le bouton sélectionné
-            const reason = (typeof reasonArg === 'string' && reasonArg.trim()) ? reasonArg : cancelReason;
-            handleCancelTrip({ reason });
-          }}
-          title="Confirmer l'annulation"
-          message="Souhaitez-vous annuler cette course ? Merci de nous indiquer la raison pour nous aider à nous améliorer."
-          type="warning"
-          confirmText="Confirmer l'annulation"
-          cancelText="Retour"
-          confirmVariant="danger"
-          showComment={true}
-          commentLabel="Votre message personnel"
-          commentPlaceholder="Expliquez pourquoi en quelques mots..."
-          commentValue={cancelReason}
-          onCommentChange={(val) => setCancelReason(val)}
-          destructive={true}
-        >
-          <div className="space-y-3 mb-6">
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Ou sélectionnez une option rapide :
-            </p>
-            <div className="grid grid-cols-1 gap-2">
-              {cancelReasons.map((reason, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCancelReason(reason)}
-                  className={`w-full text-left px-5 py-4 rounded-2xl border text-sm font-medium transition-all duration-300 transform active:scale-[0.98] ${cancelReason === reason
-                    ? "border-primary-500 bg-primary-50/50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-400 shadow-lg shadow-primary-500/10"
-                    : "border-gray-200/60 dark:border-gray-700/50 bg-white/40 dark:bg-gray-800/20 hover:border-primary-300 dark:hover:border-primary-500/50 hover:bg-white dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-300 shadow-sm"
-                    }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>{reason}</span>
-                    {cancelReason === reason && (
-                      <CheckCircle className="w-4 h-4 text-primary-500" />
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl">
-            <p className="text-sm text-amber-800 dark:text-amber-300 font-medium flex items-center">
-              <AlertTriangle className="w-5 h-5 mr-3 flex-shrink-0" />
-              <span>
-                <strong>Note :</strong> Des frais d'annulation peuvent s'appliquer si le chauffeur est déjà en route.
-              </span>
-            </p>
-          </div>
-        </ConfirmModal>
 
         <footer className="mt-12 py-12 bg-gradient-to-r from-gray-900 to-gray-800 dark:bg-gray-800/40 text-white transition-colors duration-300">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

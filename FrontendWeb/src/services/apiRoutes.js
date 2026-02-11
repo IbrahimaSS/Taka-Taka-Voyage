@@ -39,10 +39,6 @@ export const API_ROUTES = {
     },
     motDePasse: "/passager/mot-de-passe",
     notifications: "/passager/notifications",
-    evaluations: {
-      submit: "/passager/evaluations",
-      stats: "/passager/evaluations/passager/stats",
-    },
   },
 
   // ===================== ADMIN =====================
@@ -86,6 +82,7 @@ export const API_ROUTES = {
       stats: "/admin/paiements/stats",
       evolution: "/admin/paiements/evolution",
       repartition: "/admin/paiements/repartition",
+      repartitionType: "/admin/paiements/repartition-type",
       list: "/admin/paiements",
       details: (id) => `/admin/paiements/${id}`,
     },

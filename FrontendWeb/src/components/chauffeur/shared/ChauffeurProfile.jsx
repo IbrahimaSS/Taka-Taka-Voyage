@@ -248,21 +248,24 @@ const ChauffeurProfile = () => {
                     <div className="flex items-center space-x-6 mb-8">
                         <div className="relative">
                             <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center shadow-lg overflow-hidden border-4 border-white dark:border-gray-700 relative">
-                                <img
-                                    src={getImageUrl(profileData.avatar)}
-                                    alt="Profile"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                    }}
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center text-white text-3xl font-bold">
-                                    {profileData.prenom && profileData.nom ? (
-                                        `${profileData.prenom[0]}${profileData.nom[0]}`
-                                    ) : (
-                                        <User className="w-16 h-16" />
-                                    )}
-                                </div>
+                                {profileData.avatar ? (
+                                    <img
+                                        src={getImageUrl(profileData.avatar)}
+                                        alt="Profile"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="absolute inset-0 flex items-center justify-center text-white text-3xl font-bold">
+                                        {profileData.prenom && profileData.nom ? (
+                                            `${profileData.prenom[0]}${profileData.nom[0]}`
+                                        ) : (
+                                            <User className="w-16 h-16" />
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
                             {isEditing && (
@@ -416,7 +419,12 @@ const ChauffeurProfile = () => {
                                                 <stat.icon className={`w-5 h-5 text-${stat.color}-600 dark:text-${stat.color}-400`} />
                                             </div>
                                         </div>
-                                        <Progress value={stat.progress} className="h-1.5" />
+                                        <Progress
+                                            value={stat.progress}
+                                            className={`progress-fill dark:bg-gray-700`}
+                                            showLabel={false}
+                                            animated={true}
+                                        />
                                     </div>
                                 ))}
                             </div>

@@ -125,11 +125,12 @@ const Sidebar = ({
                       />
                     );
                   }
-                  return null;
+                  return (
+                    <div className="absolute inset-0 h-full w-full bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center text-white text-xs font-bold">
+                      {profile.prenom && profile.nom ? `${profile.prenom[0]}${profile.nom[0]}` : <User className="h-5 w-5" />}
+                    </div>
+                  );
                 })()}
-                <div className="absolute inset-0 h-full w-full bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center text-white text-xs font-bold">
-                  {profile.prenom && profile.nom ? `${profile.prenom[0]}${profile.nom[0]}` : <User className="h-5 w-5" />}
-                </div>
               </div>
               {role === ROLES.CHAUFFEUR && (
                 <span className="absolute -bottom-1 -right-1 h-4 w-4 bg-amber-400 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center">

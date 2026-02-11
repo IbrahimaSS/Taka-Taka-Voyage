@@ -25,7 +25,7 @@ import Settings from '../components/admin/sections/Settings';
 import UserProfile from '../components/admin/profile/UserProfile';
 
 // UI Components
-import Toast from '../components/admin/ui/Toaste';
+import Toast from '../components/admin/ui/Toast';
 import Modal from '../components/admin/ui/Modale';
 
 function AdminApp() {
@@ -46,8 +46,8 @@ function AdminApp() {
     return () => clearInterval(interval);
   }, []);
 
-  const showToast = (message, type = 'success', duration = 3000) => {
-    setToast({ message, type, duration });
+  const showToast = (title, message, type = 'success') => {
+    setToast({ title, message, type });
   };
 
   const showModal = (content) => {
@@ -69,7 +69,7 @@ function AdminApp() {
       />
 
       {/* Main Content */}
-      <div className={`flex-1 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
+      <div className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
         }`}>
         {/* Header */}
         <Header

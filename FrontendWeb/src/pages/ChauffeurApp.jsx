@@ -29,7 +29,7 @@ import { Toaster } from 'react-hot-toast';
 import { ROLES } from '../config/navConfig';
 
 const LiveTrackingWrapper = () => {
-  const { acceptedTrips, driverLocation, finishTrip } = useDriverContext();
+  const { acceptedTrips, driverLocation } = useDriverContext();
   const navigate = useNavigate();
 
   const mainTrip = acceptedTrips?.length > 0 ? acceptedTrips[0] : null;
@@ -41,18 +41,13 @@ const LiveTrackingWrapper = () => {
       trip={mainTrip}
       driver={{
         name: "Vous",
-        location: driverLocation ? [driverLocation.lat, driverLocation.lng] : null,
-        currentLocation: driverLocation ? [driverLocation.lat, driverLocation.lng] : null,
-        speed: driverLocation?.speed || 0,
-        heading: driverLocation?.heading || 0,
+        location: driverLocation,
+        currentLocation: driverLocation,
         rating: 4.9,
-        vehicle: mainTrip?.vehicle || { brand: "Toyota", model: "Van", plate: "TK-001-GK" },
+        vehicle: { brand: "Toyota", model: "Van", plate: "TK-001-GK" },
       }}
       onBack={() => navigate("/chauffeur/tracking")}
       onEndTrip={() => {
-        if (mainTrip?.reservationId || mainTrip?.id) {
-          finishTrip(mainTrip.reservationId || mainTrip.id);
-        }
         navigate("/chauffeur");
       }}
     />

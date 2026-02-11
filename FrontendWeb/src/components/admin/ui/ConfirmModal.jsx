@@ -31,17 +31,10 @@ const ConfirmModal = ({
   loading = false,
   destructive = false,
   size = 'md',
-  commentValue = "",
-  onCommentChange,
   children
 }) => {
-  const [comment, setComment] = useState(commentValue);
+  const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState('');
-
-  // Sincroniser le commentaire interne avec la prop externe
-  React.useEffect(() => {
-    setComment(commentValue);
-  }, [commentValue]);
 
   // Configuration basée sur le type
   const typeConfig = {
@@ -159,13 +152,13 @@ const ConfirmModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
       {/* Overlay */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={handleClose}
       />
 
@@ -215,7 +208,7 @@ const ConfirmModal = ({
         <div className="flex-1 overflow-y-auto p-6">
           {/* Contenu additionnel */}
           {children && (
-            <div className="bg-gray-50/50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/50 rounded-2xl p-4 mb-4">
+            <div className="bg-gray-50/50 rounded-xl p-4 mb-4">
               {children}
             </div>
           )}
@@ -242,9 +235,7 @@ const ConfirmModal = ({
                 placeholder={commentPlaceholder}
                 value={comment}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setComment(val);
-                  onCommentChange?.(val);
+                  setComment(e.target.value);
                   if (commentError) validateComment();
                 }}
                 maxLength={maxCommentLength}

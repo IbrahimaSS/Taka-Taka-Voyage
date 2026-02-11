@@ -27,8 +27,6 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import evaluationService from '../../services/evaluationService';
-import { toast } from 'react-hot-toast';
 
 const TripRating = ({ trip, onRatingComplete, onBack }) => {
   const navigate = useNavigate();
@@ -68,7 +66,7 @@ const TripRating = ({ trip, onRatingComplete, onBack }) => {
   ];
 
   // Émojis disponibles
-  const emojis = [
+ const emojis = [
     { id: 'excellent', icon: Smile, label: 'Excellent', color: 'text-green-600' },
     { id: 'good', icon: ThumbsUp, label: 'Très bien', color: 'text-blue-600' },
     { id: 'average', icon: Meh, label: 'Correct', color: 'text-yellow-600' },
@@ -105,66 +103,31 @@ const TripRating = ({ trip, onRatingComplete, onBack }) => {
   };
 
   // Soumission de l'évaluation
-  const handleSubmitRating = async () => {
-    if (!trip?.reservationId && !trip?.id) {
-      toast.error('Erreur: Identifiant du trajet manquant');
-      return;
-    }
-
+  const handleSubmitRating = () => {
     setIsSubmitting(true);
-
-    // Mapping des tags UI vers l'énumération Backend
-    const tagMapping = {
-      'Conduite fluide': 'CONDUITE_FLUIDE',
-      'Véhicule propre': 'VEHICULE_PROPRE',
-      'Très ponctuel': 'TRES_PONCTUEL',
-      'Service courtois': 'SERVICE_COURTOIS',
-      'Prix juste': 'PRIX_JUSTE'
-    };
-
-    // Mapping des emojis UI vers l'énumération Backend
-    const emojiMapping = {
-      'excellent': 'EXCELLENT',
-      'good': 'TRES_BIEN',
-      'average': 'CORRECT',
-      'poor': 'MEDIOCRE'
-    };
 
     // Données de l'évaluation
     const ratingData = {
-      reservationId: trip.reservationId || trip.id,
-      noteGlobale: overallRating,
-      details: {
-        conduite: categoryRatings.driving,
-        ponctualite: categoryRatings.punctuality,
-        proprete: categoryRatings.cleanliness,
-        communication: categoryRatings.communication
-      },
-      ressenti: emojiMapping[selectedEmoji] || 'CORRECT',
-      pointsForts: selectedTags
-        .map(tag => tagMapping[tag])
-        .filter(Boolean),
-      commentaire: comment
+      overallRating,
+      categoryRatings,
+      selectedEmoji,
+      selectedTags,
+      comment,
+      tripId: trip?.id || 'TRIP-' + Date.now(),
+      driverId: trip?.driver?.id,
+      timestamp: new Date().toISOString()
     };
 
-    try {
-      await evaluationService.creerEvaluation(ratingData);
+    console.log('Rating submitted:', ratingData);
 
+    // Simulation d'envoi
+    setTimeout(() => {
       setIsSubmitting(false);
-      createConfetti();
-      toast.success('Merci pour votre évaluation !');
-
-      // Appeler la fonction de complétion après un court délai
-      setTimeout(() => {
-        if (onRatingComplete) {
-          onRatingComplete(ratingData);
-        }
-      }, 1500);
-    } catch (error) {
-      setIsSubmitting(false);
-      toast.error(error.message || 'Erreur lors de l\'envoi de l\'évaluation');
-      console.error('Submit rating error:', error);
-    }
+      // Appeler la fonction de complétion
+      if (onRatingComplete) {
+        onRatingComplete(ratingData);
+      }
+    }, 2000);
   };
 
   // Passer l'évaluation
@@ -226,33 +189,33 @@ const TripRating = ({ trip, onRatingComplete, onBack }) => {
       {/* Header */}
       <nav className="glass-header shadow-sm sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800">
         <div className="flex  justify-between items-center  w-full mx-auto px-10 py-4">
+         
 
 
-
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-              <Car className="w-6 h-6 text-white" />
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
+                <Car className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                  Taka<span className="gradient-text">Taka</span>
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Évaluation du trajet</p>
+              </div>
             </div>
-            <div>
-              <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Taka<span className="gradient-text">Taka</span>
-              </span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Évaluation du trajet</p>
-            </div>
-          </div>
+         
 
-
-          <div className="flex items-center space-x-6">
+         <div className="flex items-center space-x-6">
             <motion.button
-              whileHover={{ x: -5 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleGoBack}
-              className="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="font-medium">Retour</span>
-            </motion.button>
-          </div>
+            whileHover={{ x: -5 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleGoBack}
+            className="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Retour</span>
+          </motion.button>
+         </div>
         </div>
       </nav>
 
@@ -379,24 +342,24 @@ const TripRating = ({ trip, onRatingComplete, onBack }) => {
               Comment s'est passé votre trajet ?
             </h3>
             <div className="flex flex-wrap justify-center gap-4">
-              {emojis.map((emoji) => {
-                const IconComponent = emoji.icon;
-                return (
-                  <button
-                    key={emoji.id}
-                    onClick={() => setSelectedEmoji(emoji.id)}
-                    className={`emoji-option p-4 rounded-xl border-2 transition-all ${selectedEmoji === emoji.id
-                      ? 'border-green-500 bg-green-50 dark:bg-green-900/30 shadow-md shadow-green-100 dark:shadow-none font-bold'
-                      : 'border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700'
-                      }`}
-                  >
-                    <div className="mb-2">
-                      <IconComponent className={`w-8 h-8 ${emoji.color}`} />
-                    </div>
-                    <div className={`font-medium text-sm ${emoji.color}`}>{emoji.label}</div>
-                  </button>
-                );
-              })}
+             {emojis.map((emoji) => {
+            const IconComponent = emoji.icon;
+            return (
+              <button
+                key={emoji.id}
+                onClick={() => setSelectedEmoji(emoji.id)}
+                className={`emoji-option p-4 rounded-xl border-2 transition-all ${selectedEmoji === emoji.id
+                  ? 'border-green-500 bg-green-50 dark:bg-green-900/30 shadow-md shadow-green-100 dark:shadow-none font-bold'
+                  : 'border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700'
+                  }`}
+              >
+                <div className="mb-2">
+                  <IconComponent className={`w-8 h-8 ${emoji.color}`} />
+                </div>
+                <div className={`font-medium text-sm ${emoji.color}`}>{emoji.label}</div>
+              </button>
+            );
+          })}
             </div>
           </div>
 

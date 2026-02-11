@@ -6,7 +6,7 @@ import {
   Phone, Calendar, Download, Eye, History,
   Loader
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvent } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvent } from 'react-leaflet';
 import toast from 'react-hot-toast';
 import 'leaflet/dist/leaflet.css';
 
@@ -61,9 +61,7 @@ const recentTrips = [
   },
 ];
 
-
-
-const BookingSection = React.memo(({
+const BookingSection = ({
   onBookTrip,
   currentTrip,
   currentDriver,
@@ -356,7 +354,7 @@ const BookingSection = React.memo(({
 
   // Déterminer si on doit afficher le chauffeur
   const shouldShowDriver = currentDriver &&
-    ['driver_found', 'approaching', 'arrived'].includes(tripStatus) &&
+    (tripStatus === 'driver_found' || tripStatus === 'arrived') &&
     isOnMapView;
 
   // Déterminer si on doit afficher les contrôles de trajet
@@ -604,19 +602,6 @@ const BookingSection = React.memo(({
                       </Button>
                     )}
                   </motion.div>
-                ) : ['driver_found', 'approaching', 'arrived', 'en_route'].includes(tripStatus) ? (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    className="w-full py-4 bg-green-500 hover:bg-green-600 border-none shadow-lg shadow-green-500/20"
-                    icon={Phone}
-                    fullWidth
-                    onClick={() =>
-                      window.open(`tel:${currentDriver?.phone || currentDriver?.telephone}`)
-                    }
-                  >
-                    Appeler le chauffeur
-                  </Button>
                 ) : (
                   <Button
                     type="submit"
@@ -759,18 +744,6 @@ const BookingSection = React.memo(({
                       </Popup>
                     </Marker>
                   )}
-                  {shouldShowDriver && currentDriver.location && pickupLocation && (
-                    <Polyline
-                      positions={[currentDriver.location, pickupLocation]}
-                      pathOptions={{
-                        color: '#22c55e',
-                        weight: 4,
-                        opacity: 0.8,
-                        dashArray: '8, 12',
-                        lineCap: 'round'
-                      }}
-                    />
-                  )}
                 </MapContainer>
 
                 {/* Indicateur de mode */}
@@ -895,7 +868,7 @@ const BookingSection = React.memo(({
       </motion.div >
 
       {/* Modal d'historique complet */}
-      <Modal
+      < Modal
         isOpen={showTripHistory}
         onClose={() => setShowTripHistory(false)}
         title="Historique complet des trajets"
@@ -916,9 +889,9 @@ const BookingSection = React.memo(({
             </div>
           </div>
         </div>
-      </Modal>
+      </Modal >
     </>
   );
-});
+};
 
 export default BookingSection;

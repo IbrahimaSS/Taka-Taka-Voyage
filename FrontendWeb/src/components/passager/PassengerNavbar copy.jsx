@@ -7,7 +7,6 @@ import { fr } from 'date-fns/locale';
 import { usePassenger } from '../../context/PassengerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotificationCenter } from '../../context/NotificationContext';
-import { useAuth } from '../../context/AuthContext';
 
 const PassengerNavbar = ({
   activeTab,
@@ -21,14 +20,16 @@ const PassengerNavbar = ({
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const { passenger } = usePassenger();
   const { theme, toggleTheme, isDark } = useTheme();
-  const { user, logout } = useAuth();
 
-  // Fusionner les données utilisateur authentifié avec les données passager
-  const userProfile = {
-    name: user?.nom && user?.prenom ? `${user.prenom} ${user.nom}` : (user?.nom || passenger?.name || 'Utilisateur'),
-    email: user?.email || passenger?.email || '',
-    avatar: user?.avatar || passenger?.avatar || null,
-    phone: user?.telephone || passenger?.phone || ''
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  const getImageUrl = (avatar) => {
+    if (!avatar) return null;
+    if (avatar.startsWith("data:") || avatar.startsWith("http")) return avatar;
+
+    const baseUrl = API_URL.replace(/\/api$/, '');
+    const cleanPath = avatar.startsWith('/') ? avatar : `/${avatar}`;
+    return `${baseUrl}${cleanPath}`;
   };
 
   // Integrated real notifications
@@ -203,40 +204,20 @@ const PassengerNavbar = ({
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center space-x-3 focus:outline-none group"
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-600 to-blue-600 flex items-center justify-center ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900 overflow-hidden relative">
-                  {(() => {
-                    const avatar = userProfile.avatar || user?.photoUrl;
-                    if (avatar) {
-                      const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                      const baseUrl = apiURL.replace(/\/api$/, '');
-                      const avatarUrl = (avatar.startsWith('data:') || avatar.startsWith('http'))
-                        ? avatar
-                        : `${baseUrl}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
-
-                      return (
-                        <img
-                          src={avatarUrl}
-                          alt={userProfile.name}
-                          className="w-full h-full object-cover z-10"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      );
-                    }
-                    return null;
-                  })()}
-                  <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">
-                    {userProfile.name ? (
-                      userProfile.name.split(' ').map(n => n[0]).join('').toUpperCase()
-                    ) : (
-                      <User className="w-5 h-5" />
-                    )}
-                  </div>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/20 dark:to-blue-900/20 flex items-center justify-center ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900 overflow-hidden">
+                  {passenger?.photoUrl || passenger?.avatar || passenger?.photo ? (
+                    <img
+                      src={getImageUrl(passenger?.photoUrl || passenger?.avatar || passenger?.photo)}
+                      alt={passenger?.nom || "User"}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-5 h-5 text-blue-700 dark:text-blue-400" />
+                  )}
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {userProfile.name}
+                    {passenger ? `${passenger.prenom || ""} ${passenger.nom || ""}` : "Chargement..."}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Mode Passager</p>
                 </div>
@@ -255,46 +236,11 @@ const PassengerNavbar = ({
                   animate={{ opacity: 1, y: 0 }}
                   className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 py-2 z-50 overflow-hidden"
                 >
-                  <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center relative">
-                        {(() => {
-                          const avatar = userProfile.avatar || user?.photoUrl;
-                          if (avatar) {
-                            const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                            const baseUrl = apiURL.replace(/\/api$/, '');
-                            const avatarUrl = (avatar.startsWith('data:') || avatar.startsWith('http'))
-                              ? avatar
-                              : `${baseUrl}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
-
-                            return (
-                              <img
-                                src={avatarUrl}
-                                alt={userProfile.name}
-                                className="w-full h-full object-cover z-10"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                }}
-                              />
-                            );
-                          }
-                          return null;
-                        })()}
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-green-600 to-blue-600 text-white font-bold">
-                          {userProfile.name ? (
-                            userProfile.name.split(' ').map(n => n[0]).join('').toUpperCase()
-                          ) : (
-                            <User className="w-6 h-6" />
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">
-                          {userProfile.name}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{userProfile.email}</p>
-                      </div>
-                    </div>
+                  <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {passenger ? `${passenger.prenom} ${passenger.nom}` : "Utilisateur"}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{passenger?.email || ""}</p>
                   </div>
                   <div className="py-1">
                     {tabs.slice(4).map((tab) => {
@@ -315,13 +261,7 @@ const PassengerNavbar = ({
                     })}
                   </div>
                   <div className="border-t border-gray-100 dark:border-gray-700 pt-1">
-                    <button
-                      onClick={async () => {
-                        await logout();
-                        navigate('/connexion');
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center"
-                    >
+                    <button className="w-full text-left px-4 py-2.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center">
                       <LogOut className="w-4 h-4 mr-3 opacity-70" />
                       <span className="text-sm font-medium">Déconnexion</span>
                     </button>

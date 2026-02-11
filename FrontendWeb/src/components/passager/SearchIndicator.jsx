@@ -17,11 +17,10 @@ const SearchIndicator = ({
   onContact,
   onTrack
 }) => {
-  if (status !== 'searching' && status !== 'driver_found' && status !== 'approaching' && status !== 'arrived') return null;
+  if (status !== 'searching' && status !== 'driver_found' && status !== 'arrived') return null;
 
   const isSearching = status === 'searching';
-  const isDriverFound = status === 'driver_found' || status === 'approaching' || status === 'arrived';
-  const canTrack = status === 'approaching' || status === 'arrived';
+  const isDriverFound = status === 'driver_found' || status === 'arrived';
 
   return (
     <AnimatePresence>
@@ -106,9 +105,6 @@ const SearchIndicator = ({
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {driver.vehicle?.brand || ""} {driver.vehicle?.model || ""} • {driver.vehicle?.plate || ""}
                     </p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 font-medium">
-                      📞 {driver.phone || "—"} • ✉️ {driver.email || "—"}
-                    </p>
                   </div>
                 </div>
 
@@ -119,15 +115,14 @@ const SearchIndicator = ({
               </div>
 
               <div className="flex space-x-2">
-                {canTrack && (
-                  <button
-                    onClick={onTrack}
-                    className="flex-1 py-2.5 px-4 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-medium flex items-center justify-center hover:opacity-90 transition-opacity"
-                  >
-                    <Navigation className="w-4 h-4 mr-2" />
-                    Suivre sur la carte
-                  </button>
-                )}
+                <button
+                  // ✅ IMPORTANT: utilise onTrack (map) si fourni
+                  onClick={onTrack || onGoToHome}
+                  className="flex-1 py-2.5 px-4 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl font-medium flex items-center justify-center hover:opacity-90 transition-opacity"
+                >
+                  <Navigation className="w-4 h-4 mr-2" />
+                  Voir sur la carte
+                </button>
 
                 <button
                   onClick={onContact}

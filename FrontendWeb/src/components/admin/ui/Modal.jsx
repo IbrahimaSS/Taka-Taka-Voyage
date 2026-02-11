@@ -38,7 +38,7 @@ const Modal = ({ isOpen, onClose, children, title, size = 'md', closeOnOverlayCl
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/10 z-[1000]"
+            className="fixed inset-0 bg-black/10  backdrop-blur-sm z-[1000]"
             onClick={closeOnOverlayClick ? onClose : undefined}
           />
 

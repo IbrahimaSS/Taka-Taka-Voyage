@@ -11,21 +11,28 @@ const Table = ({
   hoverable = true
 }) => {
   return (
-    <div className={`overflow-x-auto rounded-lg border-gray-200 bg-white  ${className}`}>
-      <table className="w-full">
+    <div className={`overflow-x-auto w-full max-w-full rounded-lg border-gray-200 bg-white  ${className}`}>
+      <table className="w-full min-w-[800px]">
         <thead>
           <tr className="bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-900 dark:to-gray-800/80">
-            {headers.map((header, index) => (
-              <th
-                key={index}
-                className={clsx(
-                  'text-left py-4 px-6 text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider',
-                  compact && 'py-3 px-4'
-                )}
-              >
-                {header}
-              </th>
-            ))}
+            {headers.map((header, index) => {
+              const isObject = typeof header === 'object' && header !== null;
+              const label = isObject ? header.label : header;
+              const headerClassName = isObject ? header.className : '';
+
+              return (
+                <th
+                  key={index}
+                  className={clsx(
+                    'text-left py-4 px-6 text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider',
+                    compact && 'py-3 px-4',
+                    headerClassName
+                  )}
+                >
+                  {label}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody className={clsx(

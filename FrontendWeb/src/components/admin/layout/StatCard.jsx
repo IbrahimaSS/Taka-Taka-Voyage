@@ -11,11 +11,6 @@ const StatCard = ({
   title,
   value,
   icon: Icon,
-  color = 'primary',
-  trend = 'up',
-  percentage = 0,
-  progress = 0,
-  description,
   loading = false,
   onClick,
   animated = true,
@@ -139,3 +134,4 @@ export const StatCardHighlight = (props) => <StatCard {...props} highlight spark
 export const StatCardInteractive = (props) => <StatCard {...props} animated onClick={props.onClick} />;
 
 export default StatCard;
+

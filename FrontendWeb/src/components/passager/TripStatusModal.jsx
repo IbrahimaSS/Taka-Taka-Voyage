@@ -17,9 +17,7 @@ import {
   Shield,
   BadgePercent,
   Flag,
-  Mail,
 } from "lucide-react";
-import clsx from "clsx";
 
 import Modal from "../admin/ui/Modal";
 import Button from "../admin/ui/Bttn";
@@ -32,12 +30,12 @@ import ConfirmModal from "../admin/ui/ConfirmModal";
  * TripStatusModal
  * - AUCUNE simulation ici.
  * - Le parent doit mettre à jour:
- *    status: 'searching' | 'driver_found' | 'approaching' | 'arrived' | 'en_route' | 'completed' | 'cancelled' | 'scheduled'
+ *    status: 'searching' | 'driver_found' | 'arrived' | 'en_route' | 'completed' | 'cancelled' | 'scheduled'
  *    driver: objet chauffeur reçu via socket "course:acceptee"
  *    tripDetails: détails réservation
  *    arrivalSecondsRemaining: optionnel (si tu le calcules ailleurs)
  */
-const TripStatusModal = React.memo(({
+const TripStatusModal = ({
   isOpen,
   onClose,
   status,
@@ -53,9 +51,18 @@ const TripStatusModal = React.memo(({
   onTripComplete,
   arrivalSecondsRemaining,
 }) => {
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
 
-
+  const cancelReasons = [
+    "Temps d'attente trop long",
+    "Changement de plans",
+    "Prix trop élevé",
+    "Chauffeur en retard",
+    "Problème avec le véhicule",
+    "Autre raison",
+  ];
 
   const formatPrice = (price) => {
     if (!price) return "0 GNF";
@@ -81,12 +88,6 @@ const TripStatusModal = React.memo(({
       },
       driver_found: {
         title: "✅ Chauffeur trouvé",
-        description: "Un chauffeur a accepté votre course.",
-        icon: Car,
-        color: "green",
-      },
-      approaching: {
-        title: "🚗 Chauffeur en route",
         description: "Votre chauffeur arrive bientôt.",
         icon: Car,
         color: "green",
@@ -125,8 +126,16 @@ const TripStatusModal = React.memo(({
     return map[status] || map.searching;
   }, [status]);
 
-  const handleCancelRequest = () => {
-    onCancel?.();
+  const handleCancel = async () => {
+    setIsCancelling(true);
+    try {
+      // ✅ pas de fake wait: si tu veux, tu peux enlever ce délai
+      await onCancel?.({ reason: cancelReason });
+      setCancelReason("");
+      setShowCancelConfirm(false);
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const handleStartTrip = () => {
@@ -177,7 +186,7 @@ const TripStatusModal = React.memo(({
           </div>
         </div>
 
-        <Button variant="danger" fullWidth onClick={handleCancelRequest}>
+        <Button variant="danger" fullWidth onClick={() => setShowCancelConfirm(true)}>
           Annuler la recherche
         </Button>
       </CardContent>
@@ -230,10 +239,11 @@ const TripStatusModal = React.memo(({
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
-                        className={`w-4 h-4 ${i < Math.floor(rating)
-                          ? "text-amber-400 dark:text-amber-500 fill-amber-400 dark:fill-amber-500"
-                          : "text-gray-300 dark:text-gray-600"
-                          }`}
+                        className={`w-4 h-4 ${
+                          i < Math.floor(rating)
+                            ? "text-amber-400 dark:text-amber-500 fill-amber-400 dark:fill-amber-500"
+                            : "text-gray-300 dark:text-gray-600"
+                        }`}
                       />
                     ))}
                     <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">{rating}</span>
@@ -253,15 +263,6 @@ const TripStatusModal = React.memo(({
                   {driver.vehicle?.brand || driver.vehicleBrand || "—"} {driver.vehicle?.model || driver.vehicleModel || ""} •{" "}
                   {driver.vehicle?.plate || driver.plate || "—"}
                 </span>
-              </div>
-
-              <div className="space-y-1 pl-8">
-                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                  <Phone className="w-4 h-4 mr-2" /> {driver.phone || driver.telephone || "—"}
-                </div>
-                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                  <Mail className="w-4 h-4 mr-2" /> {driver.email || "—"}
-                </div>
               </div>
 
               <div className="flex items-center justify-between">
@@ -324,7 +325,10 @@ const TripStatusModal = React.memo(({
         </Card>
 
         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-          <Button variant="danger" fullWidth onClick={handleCancelRequest}>
+          <Button variant="primary" fullWidth icon={Map} onClick={onTrack}>
+            Suivre sur la carte
+          </Button>
+          <Button variant="danger" onClick={() => setShowCancelConfirm(true)} className="sm:w-auto">
             Annuler
           </Button>
         </div>
@@ -451,19 +455,65 @@ const TripStatusModal = React.memo(({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="md" closeOnOverlayClick={status !== "searching"}>
-      <div className="space-y-6">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{statusConfig.title}</h2>
-          <p className="text-gray-600 dark:text-gray-400">{statusConfig.description}</p>
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} size="md" closeOnOverlayClick={status !== "searching"}>
+        <div className="space-y-6">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{statusConfig.title}</h2>
+            <p className="text-gray-600 dark:text-gray-400">{statusConfig.description}</p>
+          </div>
+
+          {status === "searching" && renderSearching()}
+          {status === "driver_found" && renderDriverFound()}
+          {status !== "searching" && status !== "driver_found" && renderOtherStatuses()}
+        </div>
+      </Modal>
+
+      <ConfirmModal
+        isOpen={showCancelConfirm}
+        onClose={() => {
+          setShowCancelConfirm(false);
+          setCancelReason("");
+        }}
+        onConfirm={handleCancel}
+        title="Confirmer l'annulation"
+        message="Êtes-vous sûr de vouloir annuler cette course ? Des frais d'annulation peuvent s'appliquer."
+        type="warning"
+        confirmText="Confirmer l'annulation"
+        cancelText="Retour"
+        confirmVariant="danger"
+        loading={isCancelling}
+        showComment={true}
+        commentLabel="Raison de l'annulation (facultatif)"
+        commentPlaceholder="Sélectionnez une raison ou écrivez votre propre raison"
+        commentValue={cancelReason}
+        onCommentChange={setCancelReason}
+        destructive={true}
+      >
+        <div className="space-y-2 mb-4">
+          {cancelReasons.map((reason, index) => (
+            <button
+              key={index}
+              onClick={() => setCancelReason(reason)}
+              className={`w-full text-left px-4 py-2 rounded-lg border text-sm ${
+                cancelReason === reason
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+                  : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+              }`}
+            >
+              {reason}
+            </button>
+          ))}
         </div>
 
-        {status === "searching" && renderSearching()}
-        {(status === "driver_found" || status === "approaching") && renderDriverFound()}
-        {status !== "searching" && status !== "driver_found" && status !== "approaching" && renderOtherStatuses()}
-      </div>
-    </Modal>
+        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <p className="text-sm text-amber-800 dark:text-amber-300">
+            ⚠️ Annulation tardive : des frais de 1 000 GNF peuvent s'appliquer si le chauffeur est déjà en route.
+          </p>
+        </div>
+      </ConfirmModal>
+    </>
   );
-});
+};
 
 export default TripStatusModal;

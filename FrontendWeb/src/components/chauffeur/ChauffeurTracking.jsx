@@ -219,7 +219,6 @@ const StatsPanel = ({
     onCallPassenger,
     signalArrival,
     confirmPassengerPickup,
-    pickupAndStart,
     startGlobalTrip
 }) => {
     const totalRevenue = acceptedTrips.reduce((acc, t) => acc + (t.estimatedFare || 0), 0);
@@ -309,16 +308,14 @@ const StatsPanel = ({
 
                 {tripStep === 'at_pickup' && activeTrip && (
                     <Button
-                        variant="success"
+                        variant="secondary"
                         size="large"
-                        icon={FlagIcon}
-                        onClick={() => handleConfirm(() => {
-                            pickupAndStart(activeTrip.id);
-                        })}
+                        icon={User}
+                        onClick={() => handleConfirm(() => confirmPassengerPickup(activeTrip.id))}
                         fullWidth
-                        className="h-12 shadow-lg shadow-emerald-500/30"
+                        className="h-12"
                     >
-                        Démarrer le trajet
+                        Passager à bord
                     </Button>
                 )}
 
@@ -357,8 +354,8 @@ const StatsPanel = ({
                 title="Confirmer l'action"
                 message={
                     tripStep === 'to_pickup' ? "Confirmez-vous votre arrivée au point de RDV ?" :
-                        tripStep === 'at_pickup' ? "Confirmez-vous le démarrage de la course ?" :
-                            "Confirmez-vous le démarrage global du trajet ?"
+                        tripStep === 'at_pickup' ? "Confirmez-vous que le passager est à bord ?" :
+                            "Confirmez-vous le démarrage de la course ?"
                 }
                 confirmText="Confirmer"
                 cancelText="Annuler"
@@ -377,7 +374,6 @@ const ChauffeurTracking = () => {
         selectPickupTrip,
         signalArrival,
         confirmPassengerPickup,
-        pickupAndStart,
         startGlobalTrip,
         reportDispute,
         calculateDistance
@@ -408,12 +404,7 @@ const ChauffeurTracking = () => {
     // Simulation de vitesse (à remplacer par vrai GPS plus tard)
     useEffect(() => {
         setIsLoading(false);
-        if (tripStep === 'in_progress') {
-            navigate('/chauffeur/live-tracking');
-            return;
-        }
-
-        if (tripStep === 'to_pickup') {
+        if (tripStep === 'in_progress' || tripStep === 'to_pickup') {
             const interval = setInterval(() => {
                 setSpeed(prev => {
                     const change = Math.random() * 10 - 5;
@@ -424,7 +415,7 @@ const ChauffeurTracking = () => {
         } else {
             setSpeed(0);
         }
-    }, [tripStep, navigate]);
+    }, [tripStep]);
 
     const activeTrip = acceptedTrips.find(t => t.id === currentPickupTripId);
     const activePickupCoords = activeTrip?.pickupCoords || null;
@@ -495,7 +486,6 @@ const ChauffeurTracking = () => {
                 onCallPassenger={handleCallPassenger}
                 signalArrival={signalArrival}
                 confirmPassengerPickup={confirmPassengerPickup}
-                pickupAndStart={pickupAndStart}
                 startGlobalTrip={startGlobalTrip}
             />
 
