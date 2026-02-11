@@ -1,0 +1,689 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Global styles (classic dashboard style)
+  - keep existing class names (glass-*) for backward compatibility
+  - use solid, professional surfaces instead of heavy glassmorphism
+*/
+
+@layer base {
+  * {
+    @apply font-poppins;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  :root {
+    --sidebar-width: 280px;
+    --sidebar-collapsed: 80px;
+    --header-height: 64px;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 antialiased;
+  }
+
+  /* Alternative gradient body from second file (for specific contexts) */
+  body.passenger-body {
+    @apply bg-gradient-to-br from-green-50/50 to-blue-50/50 min-h-screen;
+  }
+
+  /* Make focus outlines consistent across the app */
+  :focus-visible {
+    outline: none;
+  }
+}
+
+@layer components {
+
+  /* ============ SURFACES / TOKENS ============ */
+  .surface {
+    @apply bg-white dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700/70;
+  }
+
+  .surface-muted {
+    @apply bg-gray-50 dark:bg-gray-900;
+  }
+
+  .text-muted {
+    @apply text-gray-600 dark:text-gray-400;
+  }
+
+  .ring-primary {
+    @apply focus-visible:ring-2 focus-visible:ring-primary-500/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950;
+  }
+
+  /* ============ BACKWARD COMPAT (glass-*) ============ */
+  .glass-sidebar {
+    @apply bg-white dark:bg-gray-800 border-r-2 border-gray-200/30 dark:border-gray-800/70 shadow-lg;
+  }
+
+  .glass-header {
+    @apply border-b border-gray-200/70 dark:border-gray-800/70;
+    @apply supports-[backdrop-filter]:backdrop-blur-lg supports-[backdrop-filter]:bg-white/70 supports-[backdrop-filter]:dark:bg-gray-900/60;
+  }
+
+  .glass-card {
+    @apply bg-white dark:bg-gray-800 border border-gray-200/70 dark:border-gray-800/70 shadow-sm;
+    @apply transition-shadow duration-200 hover:shadow-md;
+  }
+
+  /* ============ NAV / SIDEBAR ============ */
+  .mobile-menu-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-40;
+  }
+
+  /* Sidebar collapsed styles from second file */
+  .sidebar-collapsed {
+    width: 140px !important;
+    background-color: #28b4c9;
+  }
+
+  .sidebar-collapsed .sidebar-content {
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.3s ease;
+  }
+
+  .sidebar-collapsed .menu-item span,
+  .sidebar-collapsed .logo-text,
+  .sidebar-collapsed .profile-details,
+  .sidebar-collapsed .revenue-card,
+  .sidebar-collapsed .logout-text {
+    display: none !important;
+  }
+
+  .sidebar-collapsed .menu-item {
+    justify-content: center;
+    padding: 16px !important;
+  }
+
+  .sidebar-collapsed .menu-item .w-8 {
+    margin: 0 !important;
+  }
+
+  .sidebar-collapsed .logo {
+    justify-content: center;
+  }
+
+  .sidebar-collapsed .profil-admin {
+    justify-content: center;
+    padding: 16px !important;
+  }
+
+  .sidebar-collapsed .deconnexion {
+    justify-content: center;
+    padding: 16px !important;
+  }
+
+  /* Menu items from second file */
+  .menu-item {
+    @apply flex items-center space-x-4 p-4 rounded-xl transition-all duration-300 hover:bg-gray-50 hover:translate-x-1 relative overflow-hidden;
+  }
+
+  .menu-item.active {
+    @apply bg-gradient-to-r from-green-50/50 to-blue-50/50 text-green-600 border-l-4 border-green-500 shadow-sm;
+  }
+
+  /* ============ HEADER DROPDOWNS ============ */
+  .notification-dropdown,
+  .profile-dropdown {
+    @apply rounded-2xl surface shadow-xl overflow-hidden;
+  }
+
+  /* ============ CARDS ============ */
+  .stat-card {
+    @apply rounded-xl dark:bg-gray-800 surface shadow-lg border transition-transform duration-200;
+    @apply relative overflow-hidden;
+  }
+
+  .stat-card:hover {
+    @apply -translate-y-0.5 shadow-md;
+  }
+
+ 
+  .chart-container {
+    @apply rounded-2xl surface shadow-sm p-6;
+  }
+
+  /* ============ BUTTONS ============ */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold;
+    @apply transition-colors duration-200 ring-primary;
+    @apply disabled:opacity-60 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-primary-600 to-secondary-600 text-white shadow-sm;
+    @apply hover:from-primary-700 hover:to-secondary-700;
+  }
+
+  /* Alternative green-blue gradient button from second file */
+  .btn-primary.gradient-green-blue {
+    @apply bg-gradient-to-r from-green-500 to-blue-600 text-white font-medium px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 active:translate-y-0 relative overflow-hidden;
+  }
+
+  .btn-secondary {
+    @apply btn surface text-gray-900 dark:text-gray-100;
+    @apply hover:bg-gray-50 dark:hover:bg-gray-700/60;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-700 dark:text-gray-200;
+    @apply hover:bg-gray-100/70 dark:hover:bg-gray-800/60;
+  }
+
+  /* ============ FORMS ============ */
+  .form-label {
+    @apply block text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2;
+  }
+
+  .form-input,
+  .search-input {
+    @apply w-full rounded-xl px-4 py-3 text-sm;
+    @apply bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700;
+    @apply placeholder:text-gray-400 dark:placeholder:text-gray-500;
+    @apply ring-primary;
+  }
+
+  /* ============ TABLES ============ */
+  .table-container {
+    @apply rounded-2xl surface shadow-sm overflow-hidden;
+  }
+
+  .table-header {
+    @apply bg-gray-50 dark:bg-gray-900 border-b border-gray-200/70 dark:border-gray-800/70;
+  }
+
+  .table-row {
+    @apply border-b border-gray-100 dark:border-gray-800/60 last:border-0;
+    @apply transition-colors duration-150 hover:bg-gray-50/70 dark:hover:bg-gray-800/30;
+  }
+
+  /* Table row hover effect from second file */
+  .table-row.with-hover-effect {
+    @apply transition-all duration-200 hover:bg-gray-50 hover:translate-x-1;
+  }
+
+  .table-cell {
+    @apply px-6 py-4 text-sm;
+  }
+
+  /* ============ BADGES ============ */
+  .status-badge {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold;
+  }
+
+  .status-success {
+    @apply status-badge bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300;
+  }
+
+  .status-warning {
+    @apply status-badge bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300;
+  }
+
+  .status-error {
+    @apply status-badge bg-rose-100 text-rose-800 dark:bg-rose-950/30 dark:text-rose-300;
+  }
+
+  .status-info {
+    @apply status-badge bg-blue-100 text-blue-800 dark:bg-blue-950/30 dark:text-blue-300;
+  }
+
+  /* Additional status badges from second file */
+  .status-completed {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .status-pending {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+
+  .status-cancelled {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .status-in-progress {
+    @apply bg-blue-100 text-blue-800;
+  }
+
+  .status-pill {
+    @apply px-3 py-1.5 rounded-full text-xs font-medium uppercase tracking-wider inline-flex items-center;
+  }
+
+  /* ============ PASSAGER (module) ============ */
+  /*
+    The passager UI was originally in a separate Vite app with its own globals.
+    To avoid CSS collisions with the Admin/Chauffeur module, we only keep
+    prefixed utility classes used by the passager components.
+  */
+  .passenger-glass {
+    @apply bg-white/95 backdrop-blur-lg border border-white/20 shadow-sm rounded-2xl;
+    @apply hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200;
+  }
+
+  .passenger-card {
+    @apply bg-white rounded-2xl border border-gray-200 shadow-sm;
+    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+  }
+
+  .passenger-btn-primary {
+    @apply bg-gradient-to-r from-emerald-500 to-blue-600 text-white font-semibold;
+    @apply px-6 py-3 rounded-xl shadow-lg;
+    @apply hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .passenger-input {
+    @apply w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl;
+    @apply transition-all duration-300;
+    @apply focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none focus:shadow-lg;
+  }
+
+  .vehicle-option {
+    @apply border-2 border-gray-200 rounded-xl p-6;
+    @apply transition-all duration-300 hover:border-emerald-500 hover:shadow-lg cursor-pointer;
+  }
+
+  .vehicle-option.selected {
+    @apply border-emerald-500 bg-gradient-to-br from-emerald-50/50 to-blue-50/50 shadow-lg;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent;
+  }
+
+  .progress-bar {
+    @apply w-full h-2 bg-gray-200 rounded-full overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full bg-gradient-to-r from-emerald-500 to-blue-600 rounded-full transition-all duration-500;
+  }
+
+  /* ============ FILTERS & PAGINATION ============ */
+  .filter-chip {
+    @apply px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer;
+  }
+
+  .filter-chip.active {
+    @apply bg-gradient-to-r from-green-500 to-blue-600 text-white;
+  }
+
+  .filter-chip:not(.active) {
+    @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+  }
+
+  .pagination-btn {
+    @apply w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 transition-colors;
+  }
+
+  .pagination-btn.active {
+    @apply bg-gradient-to-r from-green-500 to-blue-600 text-white border-transparent;
+  }
+
+  .trip-action-btn {
+    @apply w-9 h-9 flex items-center justify-center rounded-lg transition-colors;
+  }
+
+  /* ============ TOGGLE SWITCH ============ */
+  .toggle-switch {
+    @apply relative inline-flex items-center h-6 rounded-full w-11;
+  }
+
+  .toggle-switch input {
+    @apply sr-only;
+  }
+
+  .toggle-switch-bg {
+    @apply absolute h-6 w-11 rounded-full bg-gray-300 transition-colors duration-200;
+  }
+
+  .toggle-switch-knob {
+    @apply absolute left-1 h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200;
+  }
+
+  .toggle-switch input:checked+.toggle-switch-bg {
+    @apply bg-green-500;
+  }
+
+  .toggle-switch input:checked~.toggle-switch-knob {
+    @apply translate-x-5;
+  }
+
+  /* ============ DETAILS PANEL ============ */
+  .trip-details-panel {
+    @apply fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 transition-transform duration-300 ease-in-out;
+  }
+
+  .trip-details-panel.closed {
+    transform: translateX(100%);
+  }
+
+  .trip-details-panel.open {
+    transform: translateX(0);
+  }
+
+  /* ============ GRADIENT BACKGROUNDS ============ */
+  .bg-gradient-primary {
+    background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
+  }
+
+  .bg-gradient-secondary {
+    background: linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%);
+  }
+
+  /* ============ CALENDAR STYLES ============ */
+  .react-calendar-custom {
+    .react-calendar {
+      width: 100%;
+      border: none;
+      font-family: inherit;
+    }
+
+    .react-calendar__navigation button {
+      color: #059669;
+      min-width: 44px;
+      background: none;
+      font-size: 16px;
+      margin-top: 8px;
+    }
+
+    .react-calendar__navigation button:enabled:hover,
+    .react-calendar__navigation button:enabled:focus {
+      background-color: #f0fdf4;
+      border-radius: 10px;
+    }
+
+    .react-calendar__navigation button[disabled] {
+      background-color: #f0f0f0;
+    }
+
+    .react-calendar__tile {
+      padding: 10px 6.6667px;
+      background: none;
+      text-align: center;
+      line-height: 16px;
+      border-radius: 10px;
+      position: relative;
+    }
+
+    .react-calendar__tile:enabled:hover,
+    .react-calendar__tile:enabled:focus {
+      background-color: #f0fdf4;
+    }
+
+    .react-calendar__tile--now {
+      background: linear-gradient(to right, #10b981, #3b82f6);
+      color: white;
+      font-weight: bold;
+    }
+
+    .react-calendar__tile--active {
+      background: #d1fae5;
+      color: #059669;
+      font-weight: bold;
+    }
+
+    .react-calendar__tile--active:enabled:hover,
+    .react-calendar__tile--active:enabled:focus {
+      background: #a7f3d0;
+    }
+
+    .react-calendar__month-view__days__day--weekend {
+      color: #dc2626;
+    }
+
+    .react-calendar__month-view__days__day--neighboringMonth {
+      color: #d1d5db;
+    }
+
+    .react-calendar__month-view__weekdays {
+      text-align: center;
+      text-transform: uppercase;
+      font-weight: bold;
+      font-size: 0.75em;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .react-calendar__month-view__weekdays__weekday {
+      padding: 8px;
+    }
+  }
+
+  .premium-calendar-v5 .react-calendar {
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .premium-calendar-v5 .react-calendar__navigation {
+    height: 48px;
+    margin-bottom: 24px;
+  }
+
+  .premium-calendar-v5 .react-calendar__navigation button {
+    border-radius: 12px;
+    font-weight: 700;
+    color: #1e293b;
+    font-size: 0.9rem;
+  }
+
+  .premium-calendar-v5 .react-calendar__navigation button:hover {
+    background-color: #f8fafc !important;
+  }
+
+  .premium-calendar-v5 .react-calendar__tile {
+    padding: 16px 0 !important;
+    border-radius: 16px !important;
+    font-weight: 600 !important;
+    font-size: 0.8rem !important;
+    color: #475569 !important;
+    position: relative;
+  }
+
+  .premium-calendar-v5 .react-calendar__tile--now {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+
+  .premium-calendar-v5 .react-calendar__tile--active {
+    background: linear-gradient(to right, #22c55e, #2563eb) !important;
+    color: white !important;
+    box-shadow: 0 10px 25px -5px rgba(34, 197, 94, 0.3);
+  }
+
+  .premium-calendar-v5 .react-calendar__month-view__weekdays__weekday {
+    font-size: 0.7rem;
+    color: #94a3b8 !important;
+    text-decoration: none !important;
+    font-weight: 700;
+    padding: 12px 0;
+  }
+
+  .premium-calendar-v5 .react-calendar__month-view__weekdays__weekday abbr {
+    text-decoration: none;
+    border: none;
+  }
+
+  .premium-calendar-v5 .react-calendar__month-view__days__day--neighboringMonth {
+    opacity: 0.2;
+  }
+}
+
+@layer utilities {
+  .content-padding {
+    @apply p-4 md:p-6 lg:p-8;
+  }
+
+  .content-container {
+    @apply mx-auto w-full max-w-7xl;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gradient-to-b from-primary-300 to-secondary-400 rounded-full;
+  }
+
+  .shadow-soft {
+    box-shadow: 0 2px 14px -6px rgba(2, 6, 23, 0.12);
+  }
+
+  /* Custom scrollbars from second file */
+  .custom-scrollbar-v5::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar-v5::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar-v5::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+  }
+
+  .modal-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .modal-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+
+  .modal-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #22c55e, #3b82f6);
+    border-radius: 10px;
+  }
+
+  /* Animations from second file */
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+  }
+
+  .animate-slide-in-up {
+    animation: slideInUp 0.3s ease-out;
+  }
+
+  .animate-pulse-green {
+    animation: pulse-green 2s infinite;
+  }
+
+  .pulse-ring {
+    position: relative;
+  }
+
+  .pulse-ring::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    border: 2px solid #22c55e;
+    animation: pulse-ring 1.5s infinite;
+  }
+
+  /* Leaflet container */
+  .leaflet-container {
+    z-index: 1;
+    border-radius: 12px;
+  }
+}
+
+/* Animation keyframes */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-green {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+
+  80%,
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* Global scrollbar styles from second file */
+::-webkit-scrollbar {
+  @apply w-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gradient-to-b from-green-500 to-blue-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply from-green-600 to-blue-700;
+}
+
+@media print {
+  .no-print {
+    @apply hidden;
+  }
+}
