@@ -1,0 +1,89 @@
+Détailler de chaque processus pour le chauffeur.
+
+
+Processus de mise en ligne/hors ligne :
+    Le chauffeur active ou désactive sa disponibilité.
+    Gérer le statut de disponibilité (en ligne / hors ligne / occupé)
+
+Processus de réception d'une course :
+
+    Notification d'une nouvelle course.
+
+    Consultation des détails (point de départ, destination, prix, distance, nom du passager).
+
+    Acceptation ou refus de la course.
+
+    Premier chauffeur qui accepte devient officiel, les autres reçoivent une notification “Course déjà acceptée”
+
+Processus de prise en charge d'une course :
+    Une fois acceptée, le statut du du chauffeur est a 'occupé' et le chauffeur se rend au point de départ.
+
+     Visualiser le trajet sur la carte (OpenStreetMap)
+
+    Suivre la navigation vers le point de départ du passager
+
+    Il peut contacter le passager.
+
+    Il signale son arrivée au point de départ.
+
+Processus de début de course :
+
+    Le chauffeur démarre la course (bouton "Démarrer le trajet").
+
+    Le suivi GPS est activé .
+
+    le chauffeur et le passager peuvent tous suivre le trajet en temps reel sur le fichier (TrajetEnTempReel.jsx)
+
+Processus de fin de course :
+
+    Le chauffeur arrive à destination et clique sur "Terminer".
+
+    Le système enregistre la distance finale et calcule le prix final.
+
+Processus de paiement :
+    
+    Si le passager avait payer au moment de la reservation du trajet le chauffeur est informer 
+
+    Si le paiement est en espèces, le chauffeur confirme la réception.
+
+    Si le paiement est électronique, le système attend la confirmation et le chauffeur est informer.
+
+    Le chauffeur peut consulter l'état du paiement.
+
+Processus de gestion des litiges en cours de trajet :
+    - Le chauffeur peut signaler un litige.
+    - Il peut suivre l'évolution du litige.
+
+
+
+
+NB: 
+ et je veux que tu m'affiche les courses les plus proches du chauffeur. et que le chauffeur puisse voir les courses qui sont a 5km de lui.
+ et je veux que tu le face bien avec une bonne expertise et une bonne experience utilisateur.   
+ et n'hesite pas a me poser des questions si tu as besoin de plus d'informations.
+ et ne modifie pas les styles de textes et les couleurs des boutons et des icônes ...etc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
