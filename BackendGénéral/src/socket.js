@@ -1,6 +1,8 @@
 const Notification = require("./models/Notifications");
 const Reservation = require("./models/Reservations");
 const Utilisateurs = require("./models/Utilisateurs");
+const Trajet = require("./models/Trajets");
+const Paiement = require("./models/Paiements");
 
 // Anti double accept (mémoire)
 // ⚠️ TODO [PRODUCTION] : Ces locks mémoire sont perdus au redémarrage du serveur
@@ -48,6 +50,7 @@ module.exports = (io) => {
         socket.join(roomMain);
         socket.join(roomUser);
         socket.join(roomPassager);
+        if (ROLE === "CHAUFFEUR") socket.join("CHAUFFEURS");
 
         console.log(`✅ [SOCKET_CONNECT] Rooms jointes pour ${ROLE} (${userId}): ${roomMain}, ${roomUser}, ${roomPassager}`);
       }
@@ -70,6 +73,7 @@ module.exports = (io) => {
         socket.join(`${ROLE}_${sid}`);
         socket.join(`USER_${sid}`);
         socket.join(`PASSAGER_${sid}`);
+        if (ROLE === "CHAUFFEUR") socket.join("CHAUFFEURS");
 
         const updated = await Utilisateurs.findByIdAndUpdate(
           userId,
@@ -157,6 +161,7 @@ module.exports = (io) => {
         reservation.chauffeur = socket.user.id;
         reservation.statut = "ACCEPTEE";
         await reservation.save();
+        await Utilisateurs.findByIdAndUpdate(socket.user.id, { trajetEnCours: true });
 
         // Room de suivi
         socket.join(`RESERVATION_${rid}`);
@@ -167,12 +172,16 @@ module.exports = (io) => {
         });
 
         const pid = String(reservation.passager._id);
+        const chauffeurDoc = await Utilisateurs.findById(socket.user.id);
         const payload = {
           reservationId: rid,
           chauffeur: {
             id: socket.user.id,
-            nom: socket.user.nom,
-            prenom: socket.user.prenom,
+            nom: chauffeurDoc?.nom || socket.user.nom,
+            prenom: chauffeurDoc?.prenom || socket.user.prenom,
+            telephone: chauffeurDoc?.telephone || "",
+            email: chauffeurDoc?.email || "",
+            vehicle: chauffeurDoc?.vehicle || null
           },
         };
 
@@ -187,6 +196,12 @@ module.exports = (io) => {
         socket.emit("course:acceptee_confirmation", {
           reservationId: rid,
           message: "Course acceptée avec succès",
+        });
+
+        // ✅ SYNC: Informer TOUS les autres chauffeurs que la course est prise
+        io.to("CHAUFFEURS").emit("course:deja_prise", {
+          reservationId: rid,
+          message: "Cette course a été acceptée par un autre chauffeur"
         });
 
         console.log(`✅ Course ${rid} acceptée par ${socket.user.id}`);
@@ -221,17 +236,36 @@ module.exports = (io) => {
           });
         }
 
-        const pid = String(reservation.passager._id);
-        io.to(`PASSAGER_${pid}`).emit("course:refusee_par_chauffeur", {
-          reservationId,
-          chauffeurId: socket.user.id,
-          message: "Un chauffeur a refusé. Recherche en cours...",
-        });
+        // ✅ 1. Marquer cette offre comme REFUSEE en DB
+        await Reservation.updateOne(
+          { _id: reservationId, "offresEnvoyees.chauffeur": socket.user.id },
+          { $set: { "offresEnvoyees.$.statut": "REFUSEE", "offresEnvoyees.$.tempsReponseMs": Date.now() - new Date(reservation.createdAt).getTime() } }
+        );
 
         socket.emit("course:refusee_confirmation", {
           reservationId,
           message: "Course refusée",
         });
+
+        // ✅ 2. Vérifier s'il reste d'autres chauffeurs ENVOYEE
+        const updatedRes = await Reservation.findById(reservationId);
+        const stillWaiting = updatedRes.offresEnvoyees.some(o => o.statut === "ENVOYEE");
+
+        const pid = String(reservation.passager?._id || reservation.passager);
+
+        if (!stillWaiting) {
+          console.log(`🚫 Plus aucun chauffeur disponible pour RID=${reservationId}`);
+          io.to(`PASSAGER_${pid}`).emit("course:aucune_disponibilite", {
+            reservationId,
+            message: "Désolé, aucun chauffeur n'est disponible pour le moment."
+          });
+        } else {
+          // Si d'autres attendent, on notifie juste le refus individuel
+          io.to(`PASSAGER_${pid}`).emit("course:refusee_par_chauffeur", {
+            reservationId,
+            message: "Un chauffeur a décliné. Recherche toujours en cours..."
+          });
+        }
       } catch (err) {
         console.error("❌ Erreur course:refuser:", err);
         socket.emit("course:erreur", { message: "Erreur serveur" });
@@ -280,6 +314,9 @@ module.exports = (io) => {
         reservation.statut = "ASSIGNEE";
         await reservation.save();
 
+        // ✅ FIX: s'assurer que le chauffeur rejoint la room de la réservation pour les updates (dont annulation)
+        socket.join(`RESERVATION_${reservationId}`);
+
         io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:chauffeur_en_route", {
           reservationId,
           message: "Le chauffeur est en route pour vous récupérer",
@@ -313,7 +350,7 @@ module.exports = (io) => {
 
         io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:chauffeur_arrive", {
           reservationId,
-          message: "Votre chauffeur est arrivé",
+          message: "Votre chauffeur est arrivé, prêt pour le voyage !",
         });
 
         socket.emit("course:arrivee_signalee", { reservationId });
@@ -345,11 +382,40 @@ module.exports = (io) => {
         reservation.dateDebut = new Date();
         await reservation.save();
 
+        // ✅ PERSISTANCE DU TRAJET
+        try {
+          await Trajet.findOneAndUpdate(
+            { reservation: reservationId },
+            {
+              reservation: reservationId,
+              passager: reservation.passager._id,
+              chauffeur: socket.user.id,
+              depart: reservation.depart,
+              destination: reservation.destination,
+              distanceKm: reservation.distanceKm,
+              dureeMin: reservation.dureeMin,
+              prix: reservation.prix,
+              statut: "EN_COURS",
+              dateDebut: reservation.dateDebut
+            },
+            { upsert: true, new: true }
+          );
+          console.log(`✅ Trajet créé/mis à jour pour RID=${reservationId}`);
+        } catch (tErr) {
+          console.error("❌ Erreur création Trajet:", tErr.message);
+        }
+
         socket.join(`RESERVATION_${reservationId}`);
 
         io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:demarre", {
           reservationId,
           message: "Trajet démarré – suivi en temps réel activé",
+          pickupCoords: [reservation.departLat, reservation.departLng],
+          destinationCoords: [reservation.destinationLat, reservation.destinationLng],
+          depart: reservation.depart,
+          destination: reservation.destination,
+          distanceKm: reservation.distanceKm,
+          dureeMin: reservation.dureeMin
         });
 
         socket.emit("course:demarre_confirmation", { reservationId });
@@ -376,6 +442,28 @@ module.exports = (io) => {
             reservation.statut = "EN_COURS";
             reservation.dateDebut = new Date();
             await reservation.save();
+
+            // ✅ PERSISTANCE DU TRAJET (Carpooling)
+            try {
+              await Trajet.findOneAndUpdate(
+                { reservation: rid },
+                {
+                  reservation: rid,
+                  passager: reservation.passager._id,
+                  chauffeur: socket.user.id,
+                  depart: reservation.depart,
+                  destination: reservation.destination,
+                  distanceKm: reservation.distanceKm,
+                  dureeMin: reservation.dureeMin,
+                  prix: reservation.prix,
+                  statut: "EN_COURS",
+                  dateDebut: reservation.dateDebut
+                },
+                { upsert: true, new: true }
+              );
+            } catch (tErr) {
+              console.error(`❌ Erreur Trajet RID=${rid}:`, tErr.message);
+            }
 
             socket.join(`RESERVATION_${rid}`);
 
@@ -413,6 +501,44 @@ module.exports = (io) => {
         reservation.dateFin = new Date();
         await reservation.save();
 
+        // ✅ FINALISATION DU TRAJET ET CRÉATION PAIEMENT
+        try {
+          // 1. Update Trajet
+          const trajet = await Trajet.findOneAndUpdate(
+            { reservation: reservationId },
+            { statut: "TERMINEE", dateFin: reservation.dateFin },
+            { new: true }
+          );
+
+          // 2. Création Paiement (Simulation commission 20%)
+          const commissionRate = 0.20;
+          const montantTotal = reservation.prix;
+          const commissionPlateforme = Math.round(montantTotal * commissionRate);
+          const montantChauffeur = montantTotal - commissionPlateforme;
+
+          await Paiement.findOneAndUpdate(
+            { reservation: reservationId },
+            {
+              reservation: reservationId,
+              passager: reservation.passager._id,
+              chauffeur: socket.user.id,
+              montantTotal,
+              commissionPlateforme,
+              montantChauffeur,
+              statut: "PAYE", // On suppose payé à la fin (ou selon moyen de paiement)
+              methode: reservation.paiement?.methode || "CASH"
+            },
+            { upsert: true, new: true }
+          );
+
+          console.log(`✅ Trajet & Paiement finalisés pour RID=${reservationId}`);
+        } catch (pErr) {
+          console.error("❌ Erreur finalisation Trajet/Paiement:", pErr.message);
+        }
+
+        // Release driver availability
+        await Utilisateurs.findByIdAndUpdate(socket.user.id, { trajetEnCours: false });
+
         io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:terminee", {
           reservationId,
           message: "Course terminée",
@@ -426,43 +552,101 @@ module.exports = (io) => {
       }
     });
 
-    socket.on("course:annuler", async ({ reservationId, source = "SYSTEM" } = {}) => {
+    socket.on("course:annuler", async ({ reservationId, source = "SYSTEM", message } = {}) => {
+      console.log(`📡 [SOCKET] Reception course:annuler pour RID=${reservationId}`, { source, message });
       try {
-        if (!reservationId) return;
+        if (!reservationId) {
+          console.warn("⚠️ [SOCKET] course:annuler annulé: reservationId manquant");
+          return;
+        }
 
         const reservation = await Reservation.findById(reservationId).populate("passager");
-        if (!reservation) return;
+        if (!reservation) {
+          console.warn(`⚠️ [SOCKET] course:annuler annulé: reservation ${reservationId} introuvable`);
+          return;
+        }
 
         const uid = socket.user?.id;
         const role = socket.user?.role;
+        console.log(`🔍 [SOCKET] Auth check: User=${uid}, Role=${role}, ResaPassager=${reservation.passager?._id}, ResaChauffeur=${reservation.chauffeur}`);
 
         const allowedPassenger = role === "PASSAGER" && String(reservation.passager?._id) === String(uid);
         const allowedDriver = role === "CHAUFFEUR" && reservation.chauffeur && String(reservation.chauffeur) === String(uid);
 
         if (!allowedPassenger && !allowedDriver) {
+          console.warn("❌ [SOCKET] course:annuler REJETE: Non autorisé", { uid, role, passager: reservation.passager?._id, chauffeur: reservation.chauffeur });
           return socket.emit("course:erreur", { message: "Non autorisé" });
         }
 
-        if (["TERMINEE", "ANNULEE"].includes(reservation.statut)) {
-          return socket.emit("course:annulation_refusee", { reservationId, message: "Déjà terminée/annulée" });
+        console.log(`✅ [SOCKET] course:annuler AUTORISE par ${role}`);
+
+        const isAlreadyCancelled = ["TERMINEE", "ANNULEE"].includes(reservation.statut);
+
+        if (!isAlreadyCancelled) {
+          reservation.statut = "ANNULEE";
+          reservation.annuleeLe = new Date(); // Champ correct selon le schéma Reservations.js
+
+          // ✅ FIX: annuleePar doit être un ObjectId (uid) et non une string "PASSAGER"
+          if (uid) {
+            reservation.annuleePar = uid;
+          }
+
+          try {
+            await reservation.save();
+            console.log(`✅ [SOCKET] Reservation ${reservationId} marquée ANNULEE en base`);
+          } catch (saveErr) {
+            console.error("❌ [SOCKET] Erreur lors du save() de l'annulation:", saveErr.message);
+            // On continue quand même l'émission pour le real-time
+          }
         }
 
-        reservation.statut = "ANNULEE";
-        reservation.dateAnnulation = new Date();
-        reservation.annuleePar = source || role || "SYSTEM";
-        await reservation.save();
+        const cancelMsg = message || "Course annulée par le passager";
 
+        // 1. Notifier le passager
+        console.log(`📡 [SOCKET] Emission course:annulee vers PASSAGER_${reservation.passager._id}`);
         io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:annulee", {
           reservationId,
-          message: "Course annulée",
+          message: cancelMsg,
         });
 
+        // 2. Notifier le chauffeur (ou tous si recherche)
         if (reservation.chauffeur) {
-          io.to(`CHAUFFEUR_${reservation.chauffeur}`).emit("course:annulee", {
+          const chauffeurId = String(reservation.chauffeur);
+          console.log(`📡 [SOCKET] Emission course:annulee vers CHAUFFEUR_${chauffeurId}`);
+
+          // ✅ FIX Carpooling: ne libérer le chauffeur que s'il n'a plus AUCUNE course active
+          const activeOtherReservations = await Reservation.countDocuments({
+            chauffeur: chauffeurId,
+            _id: { $ne: reservationId },
+            statut: { $in: ["ACCEPTEE", "ASSIGNEE", "ARRIVEE", "EN_COURS"] }
+          });
+
+          if (activeOtherReservations === 0) {
+            console.log(`🧹 [SOCKET] Libération chauffeur ${chauffeurId}`);
+            await Utilisateurs.findByIdAndUpdate(chauffeurId, { trajetEnCours: false });
+          }
+
+          io.to(`CHAUFFEUR_${chauffeurId}`).emit("course:annulee", {
             reservationId,
-            message: "Course annulée",
+            message: cancelMsg,
+            source: source || role
           });
         }
+
+        // On notifie TOUJOURS la room CHAUFFEURS pour nettoyer aussi ceux qui sont en recherche
+        console.log("📡 [SOCKET] Emission course:annulee vers CHAUFFEURS");
+        io.to("CHAUFFEURS").emit("course:annulee", {
+          reservationId,
+          message: cancelMsg,
+          isSearching: !reservation.chauffeur
+        });
+
+        // 3. Notifier la room de la réservation (pour mise à jour map, etc.)
+        console.log(`📡 [SOCKET] Emission course:annulee vers RESERVATION_${reservationId}`);
+        io.to(`RESERVATION_${reservationId}`).emit("course:annulee", {
+          reservationId,
+          message: cancelMsg
+        });
 
         socket.emit("course:annulee_confirmation", { reservationId });
         releaseReservationLock(reservationId);

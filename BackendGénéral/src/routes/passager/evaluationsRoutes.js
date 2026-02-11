@@ -5,6 +5,7 @@ const {
     listerEvaluationsPassager,
     detailEvaluationPassager,
     statsEvaluationsPassager,
+    creerEvaluation,
 } = require("../controllers/passager/evaluationsControllers");
 
 const verifierToken = require("../../middlewares/authMiddlewares").verifierToken;
@@ -19,5 +20,8 @@ router.get("/passager/:evaluationId", verifierToken, verifierStatutActif, detail
 
 // Stats (cards)
 router.get("/passager/stats", verifierToken, verifierStatutActif, statsEvaluationsPassager);
+
+// Soumettre une évaluation
+router.post("/", verifierToken, verifierStatutActif, creerEvaluation);
 
 module.exports = router;

@@ -44,8 +44,6 @@ const utilisateurSchema = new mongoose.Schema(
         },
 
         photoUrl: String,
-        localisation: { type: String, default: "" },
-        adresse: { type: String, default: "" },
         badges: { type: [String], default: [] },
 
         nombreTrajets: {

@@ -134,3 +134,4 @@ export const StatCardHighlight = (props) => <StatCard {...props} highlight spark
 export const StatCardInteractive = (props) => <StatCard {...props} animated onClick={props.onClick} />;
 
 export default StatCard;
+
