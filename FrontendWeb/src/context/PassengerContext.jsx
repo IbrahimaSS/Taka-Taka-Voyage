@@ -65,10 +65,60 @@ export const PassengerProvider = ({ children }) => {
       if (!user._id && !user.id) { // If user is from local storage and might be incomplete
         fetchProfile();
       }
+      fetchActiveTrip(); // ✅ Restore active trip on load
     } else {
       setPassenger(null);
     }
   }, [user, fetchProfile]);
+
+  // ✅ New function to restore state
+  const fetchActiveTrip = async () => {
+    try {
+      // Endpoint hypothetique - à adapter selon API réelle.
+      // Si n'existe pas, il faudra le créer ou utiliser une liste filtrée
+      const { data } = await axios.get(`${API_URL}/api/reservations/active`, { withCredentials: true });
+
+      if (data?.success && data?.reservation) {
+        const r = data.reservation;
+        console.log("🔄 [CONTEXT] Restoring active trip:", r._id);
+
+        setCurrentTrip({
+          reservationId: r._id,
+          pickup: r.depart || r.pickupAddress,
+          destination: r.destination || r.destinationAddress,
+          pickupCoords: [r.departLat, r.departLng],
+          destinationCoords: [r.destinationLat, r.destinationLng],
+          status: r.statut?.toLowerCase(),
+          driver: r.chauffeur,
+          price: r.prix,
+          vehicleType: r.typeVehicule,
+          paymentMethod: r.paiement?.methode || "CASH",
+          createdAt: r.createdAt
+        });
+
+        setTripStatus(r.statut?.toLowerCase());
+
+        if (r.chauffeur) {
+          setSelectedDriver({
+            id: r.chauffeur._id || r.chauffeur.id,
+            nom: r.chauffeur.nom,
+            prenom: r.chauffeur.prenom,
+            name: `${r.chauffeur.prenom} ${r.chauffeur.nom}`,
+            phone: r.chauffeur.telephone,
+            vehicle: r.chauffeur.vehicle || r.chauffeur.vehicule,
+            rating: r.chauffeur.rating || 4.8,
+            totalTrips: r.chauffeur.coursesEffectuees || 0
+          });
+        }
+
+        // ✅ IMPORTANT: Re-rejoindre la room socket pour recevoir les updates position
+        console.log(`🔌 [CONTEXT] Re-joining room: RESERVATION_${r._id}`);
+        socketService.emit("reservation:join", { reservationId: r._id });
+      }
+    } catch (err) {
+      console.warn("⚠️ [CONTEXT] No active trip found or error:", err.message);
+    }
+  };
 
   // ===================== GEOLOCATION =====================
   useEffect(() => {
@@ -158,6 +208,8 @@ export const PassengerProvider = ({ children }) => {
         name: `${chauffeur?.prenom || ""} ${chauffeur?.nom || ""}`.trim(),
         vehicle: chauffeur?.vehicle || chauffeur?.vehicule || { plate: "N/A", model: "N/A" },
         phone: chauffeur?.telephone || chauffeur?.phone || chauffeur?.contact,
+        email: chauffeur?.email,
+        photo: chauffeur?.photo,
         eta: "Arrivée imminente",
         distance: "Proche"
       });
@@ -177,30 +229,71 @@ export const PassengerProvider = ({ children }) => {
       });
 
       // ✅ Rejoindre la room RESERVATION pour position:chauffeur
+      console.log(`🔌 [CONTEXT] Joining reservation room: RESERVATION_${reservationId}`);
       socketService.emit("reservation:join", { reservationId });
 
       toast.success("✅ Chauffeur trouvé !", { id: "driver-found" });
     };
 
     const onEnRoute = ({ reservationId, message } = {}) => {
+      // ✅ Accepter si c'est la course courante OU si on n'a pas encore de course chargée (au cas où)
       const trip = currentTripRef.current;
-      if (trip?.reservationId && String(trip.reservationId) !== String(reservationId)) return;
+      if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
+
+      console.log(`📩 [CONTEXT] course:chauffeur_en_route reçu for RID=${reservationId}`);
       setTripStatus("approaching");
       setCurrentTrip((prev) => (prev ? { ...prev, status: "approaching" } : prev));
       toast.success(message || "🚗 Votre chauffeur est en route !", { id: "driver-en-route" });
     };
 
     const onArrived = ({ reservationId } = {}) => {
+      console.log(`🔔 [SOCKET] course:chauffeur_arrive REÇU pour RID=${reservationId}`);
       const trip = currentTripRef.current;
-      if (trip?.reservationId && String(trip.reservationId) !== String(reservationId)) return;
+
+      // Sécurité : si on n'a aucune course, on ignore (ou on pourrait fetcher)
+      if (!trip?.reservationId) {
+        console.warn("⚠️ [SOCKET] Arrivée signalée mais pas de course active locale.");
+        return;
+      }
+
+      // Check souple (String comparison)
+      if (!sameRid(trip.reservationId, reservationId)) {
+        console.warn(`⚠️ [SOCKET] ID Mismatch arrivée : Reçu ${reservationId} vs Actuel ${trip.reservationId}`);
+        // Dans le doute, si c'est la seule course active, on peut décider de forcer (à voir selon cas d'usage)
+        return;
+      }
+
+      console.log("✅ [CONTEXT] Validation OK. Passage du statut à 'arrived'.");
+
+      // ✅ Mise à jour critique
       setTripStatus("arrived");
-      setCurrentTrip((prev) => (prev ? { ...prev, status: "arrived" } : prev));
-      toast.success("📍 Votre chauffeur est arrivé", { id: "driver-arrived" });
+      setCurrentTrip((prev) => {
+        if (!prev) return null;
+        return { ...prev, status: "arrived" };
+      });
+
+      // Feedback utilisateur immédiat
+      toast.success("📍 VOTRE CHAUFFEUR EST ARRIVÉ !", {
+        id: "driver-arrived-urgent",
+        duration: 8000,
+        icon: '👋',
+        style: {
+          borderRadius: '10px',
+          background: '#333',
+          color: '#fff',
+          fontWeight: 'bold',
+        },
+      });
+
+      // Petit hack : vibrer si sur mobile
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
     };
 
     const onStarted = ({ reservationId } = {}) => {
       const trip = currentTripRef.current;
-      if (trip?.reservationId && String(trip.reservationId) !== String(reservationId)) return;
+      if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
+
+      console.log(`📩 [CONTEXT] course:demarre reçu for RID=${reservationId}`);
       setTripStatus("en_route");
       setCurrentTrip((prev) => (prev ? { ...prev, status: "en_route" } : prev));
       toast.success("🚀 Trajet démarré", { id: "trip-started" });
@@ -208,15 +301,24 @@ export const PassengerProvider = ({ children }) => {
 
     const onGlobalStarted = ({ reservationId, message } = {}) => {
       const trip = currentTripRef.current;
-      if (trip?.reservationId && String(trip.reservationId) !== String(reservationId)) return;
+      if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
+
+      console.log(`📩 [CONTEXT] course:demarre_global reçu for RID=${reservationId}`);
       setTripStatus("en_route");
       setCurrentTrip((prev) => (prev ? { ...prev, status: "en_route" } : prev));
       toast.success(message || "🚀 Le trajet commence !", { id: "trip-started-global" });
     };
 
     const onPosition = (data) => {
-      const { lat, lng } = data;
+      // console.log("📍 Position reçue (RAW):", data); 
+      const { lat, lng, reservationId } = data;
+
+      // Optional: Check reservation ID if critical
+      // const trip = currentTripRef.current;
+      // if (trip?.reservationId && reservationId && !sameRid(trip.reservationId, reservationId)) return;
+
       if (lat != null && lng != null) {
+        // console.log("📍 Position updated in context");
         setSelectedDriver((prev) => (prev ? { ...prev, location: [lat, lng] } : prev));
       }
     };
@@ -224,7 +326,9 @@ export const PassengerProvider = ({ children }) => {
     // ✅ Fix 3 : écouter la fin de course côté backend
     const onCompleted = ({ reservationId } = {}) => {
       const trip = currentTripRef.current;
-      if (trip?.reservationId && String(trip.reservationId) !== String(reservationId)) return;
+      if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
+
+      console.log(`📩 [CONTEXT] course:terminee reçu for RID=${reservationId}`);
       setTripStatus("completed");
       toast.success("🏁 Trajet terminé ! Merci d'avoir voyagé avec TakaTaka", { id: "trip-completed" });
       setTimeout(() => {
@@ -237,7 +341,9 @@ export const PassengerProvider = ({ children }) => {
     // ✅ Fix 4 : écouter l'annulation côté backend
     const onCancelled = ({ reservationId, message } = {}) => {
       const trip = currentTripRef.current;
-      if (trip?.reservationId && String(trip.reservationId) !== String(reservationId)) return;
+      if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
+
+      console.log(`📩 [CONTEXT] course:annulee reçu for RID=${reservationId}`);
       toast.dismiss("searching");
       setTripStatus("cancelled");
       setCurrentTrip(null);
@@ -249,6 +355,8 @@ export const PassengerProvider = ({ children }) => {
     socketService.on("course:acceptee", onAccepted);
     socketService.on("course:chauffeur_en_route", onEnRoute);
     socketService.on("course:chauffeur_arrive", onArrived);
+    socketService.on("course:arrivee", onArrived);
+    socketService.on("course:signaler_arrivee", onArrived); // AJOUT: Ceinture et bretelles
     socketService.on("course:demarre", onStarted);
     socketService.on("course:demarre_global", onGlobalStarted);
     socketService.on("position:chauffeur", onPosition);
@@ -259,6 +367,8 @@ export const PassengerProvider = ({ children }) => {
       socketService.off("course:acceptee", onAccepted);
       socketService.off("course:chauffeur_en_route", onEnRoute);
       socketService.off("course:chauffeur_arrive", onArrived);
+      socketService.off("course:arrivee", onArrived); // N'oubliez pas de clean celui-là aussi
+      socketService.off("course:signaler_arrivee", onArrived);
       socketService.off("course:demarre", onStarted);
       socketService.off("course:demarre_global", onGlobalStarted);
       socketService.off("position:chauffeur", onPosition);
@@ -266,6 +376,20 @@ export const PassengerProvider = ({ children }) => {
       socketService.off("course:annulee", onCancelled);
     };
   }, [passenger?._id, passenger?.id]);
+
+  // ✅ FIX CRITIQUE: Re-joindre la room si on a une course en cours (ex: F5)
+  useEffect(() => {
+    if (currentTrip?.reservationId &&
+      ["driver_found", "approaching", "arrived", "en_route", "started"].includes(tripStatus || currentTrip.status)) {
+      console.log(`🔄 [FIX] Re-Joining room for active trip: ${currentTrip.reservationId}`);
+      socketService.emit("reservation:join", { reservationId: currentTrip.reservationId });
+
+      // Si on est "en_route", on s'assure que le status local est bon
+      if (currentTrip.status === 'en_route' && tripStatus !== 'en_route') {
+        setTripStatus('en_route');
+      }
+    }
+  }, [currentTrip?.reservationId, tripStatus]);
 
   // ===================== 1) DEFINE TRIP =====================
   const defineTrip = (tripData) => {

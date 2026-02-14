@@ -73,6 +73,10 @@ const utilisateurSchema = new mongoose.Schema(
                 type: String,
                 enum: ["MOTO", "TAXI", "VOITURE", "BUS"],
             },
+            marque: { type: String, trim: true },
+            modele: { type: String, trim: true },
+            immatriculation: { type: String, trim: true, uppercase: true },
+            couleur: { type: String, trim: true },
             places: {
                 type: Number,
                 default: 1,

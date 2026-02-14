@@ -6,7 +6,7 @@ import {
   Phone, Calendar, Download, Eye, History,
   Loader
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvent } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvent, Polyline } from 'react-leaflet';
 import toast from 'react-hot-toast';
 import 'leaflet/dist/leaflet.css';
 
@@ -354,12 +354,12 @@ const BookingSection = ({
 
   // Déterminer si on doit afficher le chauffeur
   const shouldShowDriver = currentDriver &&
-    (tripStatus === 'driver_found' || tripStatus === 'arrived') &&
+    (tripStatus === 'driver_found' || tripStatus === 'approaching' || tripStatus === 'arrived') &&
     isOnMapView;
 
   // Déterminer si on doit afficher les contrôles de trajet
   const shouldShowTripControls = currentDriver &&
-    (tripStatus === 'driver_found' || tripStatus === 'arrived');
+    (tripStatus === 'driver_found' || tripStatus === 'approaching' || tripStatus === 'arrived');
 
   // Recherche en cours
   const isSearching = tripStatus === 'searching';
@@ -643,12 +643,12 @@ const BookingSection = ({
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {selectionMode ? (
                       <span className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-2 ${selectionMode === 'pickup' ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${selectionMode === 'pickup' ? 'bg-green-500' : 'bg-red-500'}`} />
                         Cliquez pour sélectionner le {selectionMode === 'pickup' ? 'départ' : 'destination'}
                       </span>
                     ) : shouldShowDriver ? (
                       <span className="flex items-center">
-                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse mr-2" />
+                        <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse mr-2" />
                         Votre chauffeur arrive dans {currentDriver.eta}
                       </span>
                     ) : (
@@ -743,6 +743,12 @@ const BookingSection = ({
                         </div>
                       </Popup>
                     </Marker>
+                  )}
+                  {shouldShowDriver && currentDriver.location && pickupLocation && (
+                    <Polyline
+                      positions={[currentDriver.location, pickupLocation]}
+                      pathOptions={{ color: '#22c55e', weight: 5, opacity: 0.8, dashArray: '10, 15', lineCap: 'round' }}
+                    />
                   )}
                 </MapContainer>
 

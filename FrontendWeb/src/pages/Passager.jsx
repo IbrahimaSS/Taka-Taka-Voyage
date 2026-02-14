@@ -26,7 +26,10 @@ import {
   Headphones,
   Car,
   Star,
-  Calendar,
+  Phone,
+  Navigation,
+  X,
+  Calendar
 } from 'lucide-react';
 
 import RealTimeTracking from '../components/suivisTrajet/TrajetEnTempReel';
@@ -69,8 +72,6 @@ const Passenger = () => {
   const [arrivalSecondsRemaining, setArrivalSecondsRemaining] = useState(null);
   const arrivalIntervalRef = useRef(null);
   const searchTimeoutRef = useRef(null);
-  const [showArrivalModal, setShowArrivalModal] = useState(false);
-  const arrivalModalTimeoutRef = useRef(null);
 
   // user is now managed by context
 
@@ -83,12 +84,7 @@ const Passenger = () => {
       clearTimeout(searchTimeoutRef.current);
       searchTimeoutRef.current = null;
     }
-    if (arrivalModalTimeoutRef.current) {
-      clearTimeout(arrivalModalTimeoutRef.current);
-      arrivalModalTimeoutRef.current = null;
-    }
     setArrivalSecondsRemaining(null);
-    setShowArrivalModal(false);
   };
 
   const tabs = [
@@ -210,6 +206,22 @@ const Passenger = () => {
     }
   };
 
+  // Auto-switch to tracking view when trip starts
+  useEffect(() => {
+    if (tripStatus === 'en_route') {
+      setIsOnTrackingView(true);
+      setIsOnMapView(false);
+      setActiveTab('home');
+    }
+  }, [tripStatus]);
+
+  // Gestion des notifications de statut
+  useEffect(() => {
+    if (currentTrip?.status) {
+      setTripStatus(currentTrip.status);
+    }
+  }, [currentTrip]);
+
   const handleDriverFound = (driver) => {
     setCurrentDriver(driver);
     setTripStatus('driver_found');
@@ -217,10 +229,18 @@ const Passenger = () => {
   };
 
   const handleShowOnMap = () => {
-    setIsOnMapView(true);
+    // Si la course a démarré, on va sur la vue tracking
+    if (tripStatus === 'en_route') {
+      setIsOnTrackingView(true);
+      setIsOnMapView(false);
+    } else {
+      // Sinon (approche/arrivée), on reste sur la home avec la carte
+      setIsOnMapView(true);
+      setIsOnTrackingView(false);
+    }
     setShowTripStatusModal(false);
     setActiveTab('home');
-    toast.success('Chauffeur affiché sur la carte');
+    toast.success('Suivi du chauffeur activé');
   };
 
   const handleStartTrip = () => {
@@ -294,12 +314,6 @@ const Passenger = () => {
   }, []);
 
   useEffect(() => {
-    if (tripStatus === 'arrived') {
-      setShowArrivalModal(true);
-    } else {
-      setShowArrivalModal(false);
-    }
-
     if (tripStatus === 'en_route') {
       setIsOnTrackingView(true);
       setIsOnMapView(false);
@@ -506,91 +520,7 @@ const Passenger = () => {
 
       <Toaster position="top-right" containerStyle={{ zIndex: 9999 }} />
 
-      <AnimatePresence>
-        {showArrivalModal && currentDriver && (
-          <motion.div
-            key="arrival-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            style={{ zIndex: 99999 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-gray-900 max-w-md w-full rounded-3xl overflow-hidden shadow-2xl"
-            >
-              <div className="bg-gradient-to-r from-green-500 to-blue-600 p-6 text-center text-white">
-                <div className="w-20 h-20 rounded-full bg-white/20 mx-auto flex items-center justify-center mb-4 backdrop-blur-md">
-                  <Car className="w-10 h-10 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold italic">Votre chauffeur est arrivé !</h3>
-                <p className="text-white/80 mt-1">Il vous attend au point de départ.</p>
-              </div>
 
-              <div className="p-6">
-                <div className="flex items-center space-x-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 flex items-center justify-center">
-                    <User className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <h4 className="font-bold text-gray-900 dark:text-white text-lg">
-                      {currentDriver.name}
-                    </h4>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">
-                      {currentDriver.vehicle?.brand || "Véhicule"} {currentDriver.vehicle?.model || ""} • {currentDriver.vehicle?.plate || "N/A"}
-                    </p>
-                    <div className="flex items-center mt-1">
-                      <Star className="w-4 h-4 text-yellow-500 fill-current mr-1" />
-                      <span className="text-sm font-medium dark:text-gray-300">{currentDriver.rating || "5.0"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <button
-                    onClick={() => window.open(`tel:${currentDriver.phone}`)}
-                    className="w-full py-4 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold flex items-center justify-center transition-all shadow-lg shadow-green-500/30"
-                  >
-                    <Phone className="w-5 h-5 mr-2" />
-                    Appeler le chauffeur
-                  </button>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => {
-                        setShowArrivalModal(false);
-                        handleShowOnMap();
-                      }}
-                      className="py-3.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-2xl font-semibold flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
-                    >
-                      <Navigation className="w-5 h-5 mr-2" />
-                      Suivi Carte
-                    </button>
-                    <button
-                      onClick={handleCancelTrip}
-                      className="py-3.5 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 rounded-2xl font-semibold flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/40 transition-all"
-                    >
-                      <X className="w-5 h-5 mr-2" />
-                      Annuler
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span>Démarrage automatique à la montée abord</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {shouldShowSearchIndicator && (
         <SearchIndicator

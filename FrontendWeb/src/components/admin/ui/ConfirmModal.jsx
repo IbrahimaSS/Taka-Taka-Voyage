@@ -189,9 +189,9 @@ const ConfirmModal = ({
                 <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
                   {finalTitle}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300 mt-1">
+                <div className="text-gray-600 dark:text-gray-300 mt-1">
                   {message}
-                </p>
+                </div>
               </div>
             </div>
             <button

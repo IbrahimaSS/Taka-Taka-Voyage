@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import { leafletIcons, ensureLeafletIcons } from '../maps/leafletIcons';
 import MapController from '../maps/MapController';
 import { GeolocationService } from '../../services/geolocation';
+import { socketService } from '../../services/socketService';
 import {
   Car,
   User,
@@ -40,6 +41,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import EmergencyButton from '../passager/EmergencyButton';
+import { useDriverContext } from '../../context/DriverContext';
 
 // MapController is now imported from shared components
 
@@ -55,8 +57,12 @@ const RealTimeTracking = ({
   onShareTrip
 }) => {
   // États
+  const driverCtx = role === 'driver' ? useDriverContext() : null;
+  const isSimulating = driverCtx?.isSimulating || false;
+  const setIsSimulating = driverCtx?.setIsSimulating || (() => { });
+
   const [driverPosition, setDriverPosition] = useState(
-    driver?.currentLocation || driver?.location || [9.6412, -13.5784]
+    driver?.currentLocation || driver?.location || null
   );
   const [passengerPosition] = useState(
     trip?.pickupCoords || [9.6412, -13.5784]
@@ -76,7 +82,7 @@ const RealTimeTracking = ({
   const mapRef = useRef();
   const progressInterval = useRef();
   const timeInterval = useRef();
-  const tripSimulationInterval = useRef();
+  const driverStartPositionRef = useRef(null); // Position du chauffeur au démarrage du suivi
 
   // Données calculées à partir des props
   const tripData = {
@@ -108,16 +114,37 @@ const RealTimeTracking = ({
       }
     },
     trip: {
-      totalDistance: parseFloat(trip?.estimatedDistance?.replace(' km', '')) || 8.0,
+      totalDistance: (() => {
+        const val = trip?.estimatedDistance;
+        if (typeof val === 'number') return val;
+        return parseFloat(String(val || '').replace(' km', '')) || 8.0;
+      })(),
       traveledDistance: 0,
-      totalDuration: parseInt(trip?.estimatedDuration?.replace(' min', '')) || 20,
+      totalDuration: (() => {
+        const val = trip?.estimatedDuration;
+        if (typeof val === 'number') return val;
+        return parseInt(String(val || '').replace(' min', '')) || 20;
+      })(),
       elapsedMinutes: 0,
-      remainingMinutes: parseInt(trip?.estimatedDuration?.replace(' min', '')) || 20,
+      remainingMinutes: (() => {
+        const val = trip?.estimatedDuration;
+        if (typeof val === 'number') return val;
+        return parseInt(String(val || '').replace(' min', '')) || 20;
+      })(),
       price: {
-        estimated: parseInt(trip?.estimatedPrice?.replace(/\D/g, '')) || 15000,
+        // Safe price formatting
+        estimated: (() => {
+          const priceRaw = trip?.estimatedPrice || trip?.price || '0';
+          const price = String(priceRaw).replace(/[^0-9]/g, '');
+          return parseInt(price || 0);
+        })() || 15000,
         serviceFee: 1000,
         trafficSurcharge: 0,
-        total: (parseInt(trip?.estimatedPrice?.replace(/\D/g, '')) || 15000) + 1000
+        total: (() => {
+          const priceRaw = trip?.estimatedPrice || trip?.price || '0';
+          const price = String(priceRaw).replace(/[^0-9]/g, '');
+          return (parseInt(price || 0) || 15000) + 1000;
+        })()
       },
       paymentMethod: trip?.paymentMethod || 'Orange Money'
     }
@@ -170,7 +197,6 @@ const RealTimeTracking = ({
   // Gestionnaire d'annulation
   const handleCancelTrip = () => {
     if (window.confirm('Êtes-vous sûr de vouloir annuler ce trajet ?\nDes frais d\'annulation peuvent s\'appliquer.')) {
-      clearInterval(tripSimulationInterval.current);
       clearInterval(progressInterval.current);
 
       setIsTripEnded(true);
@@ -183,7 +209,7 @@ const RealTimeTracking = ({
   // Gestionnaire de fin de trajet
   const handleEndTrip = () => {
     if (progress >= 95 || isTripEnded) {
-      clearInterval(tripSimulationInterval.current);
+      clearInterval(progressInterval.current);
       setIsTripEnded(true);
       showToast('✅ Trajet terminé avec succès!', 'success');
       if (onEndTrip) onEndTrip();
@@ -216,7 +242,6 @@ const RealTimeTracking = ({
   };
 
 
-  // Les icônes sont maintenant centralisées dans leafletIcons.js
 
   // Effets
   useEffect(() => {
@@ -242,20 +267,133 @@ const RealTimeTracking = ({
     };
   }, [updateTime]);
 
-  // Centrer la carte sur le chauffeur lors des mises à jour réelles
+  // ✅ FIX: Mettre à jour la position locale quand le prop driver change (socket)
   useEffect(() => {
-    if (mapRef.current && driverPosition) {
-      mapRef.current.setView(driverPosition, mapRef.current.getZoom(), {
+    if (driver?.location || driver?.currentLocation) {
+      setDriverPosition(driver.location || driver.currentLocation);
+    }
+  }, [driver]);
+
+  // ✅ FIX: Écouter les mises à jour de position via Socket (pour le chauffeur en mode simulation/test)
+  useEffect(() => {
+    const onPositionUpdate = (data) => {
+      if (data && data.lat && data.lng) {
+        setDriverPosition({ lat: data.lat, lng: data.lng });
+      }
+    };
+
+    // Si on est le chauffeur, on veut aussi voir ce que le serveur diffuse (utile pour les simulations ou si le GPS local est bloqué)
+    if (role === 'driver' || role === 'passenger') {
+      socketService.on('position:chauffeur', onPositionUpdate);
+    }
+
+    return () => {
+      socketService.off('position:chauffeur', onPositionUpdate);
+    };
+  }, [role]);
+
+  // ✅ FIX: Auto-zoom pour tout voir (Chauffeur + Départ + Arrivée)
+  useEffect(() => {
+    if (mapRef.current && driverPosition && tripData.departure.coords) {
+      const bounds = L.latLngBounds([
+        driverPosition,
+        tripData.departure.coords,
+        tripData.destination.coords
+      ]);
+
+      mapRef.current.flyToBounds(bounds, {
+        padding: [50, 50],
         animate: true,
-        duration: 1
+        duration: 2
       });
     }
-  }, [driverPosition]);
+  }, [driverPosition, tripData.departure.coords, tripData.destination.coords]);
 
-  // Calcul de l'ETA
-  const calculateETA = () => {
-    return estimatedArrival;
-  };
+  // ✅ CALCUL DYNAMIQUE DU PROGRÈS
+  const [realTimeMetrics, setRealTimeMetrics] = useState({
+    distanceTraveled: 0,
+    distanceRemaining: tripData.trip.totalDistance,
+    progress: 0,
+    durationRemaining: tripData.trip.totalDuration
+  });
+
+  useEffect(() => {
+    if (tripData?.destination?.coords && tripData?.departure?.coords && driverPosition) {
+
+      // Helpers pour sécuriser les coords
+      const getLat = (pos) => parseFloat(pos?.lat || pos?.[0]);
+      const getLng = (pos) => parseFloat(pos?.lng || pos?.[1]);
+
+      const driverLat = getLat(driverPosition);
+      const driverLng = getLng(driverPosition);
+      const destLat = getLat(tripData.destination.coords);
+      const destLng = getLng(tripData.destination.coords);
+      const depLat = getLat(tripData.departure.coords);
+      const depLng = getLng(tripData.departure.coords);
+
+      // ✅ FIX: Sauvegarder la position initiale du chauffeur au premier rendu VALIDE
+      // C'est cette position qui sert de "point 0%" pour le calcul de progression.
+      // On ignore le point de départ théorique s'il est utilisé comme simple placeholder au début.
+      const isPlaceholder = depLat === driverLat && depLng === driverLng;
+
+      if (!driverStartPositionRef.current && driverPosition && !isPlaceholder) {
+        console.log("📍 [TRACKING] Capturing start position:", { driverLat, driverLng });
+        driverStartPositionRef.current = { lat: driverLat, lng: driverLng };
+        // Au tout début, on force 0%
+        setRealTimeMetrics({
+          distanceTraveled: 0,
+          distanceRemaining: tripData.trip.totalDistance,
+          progress: 0,
+          durationRemaining: tripData.trip.totalDuration,
+          formattedDuration: tripData.trip.totalDuration >= 60
+            ? `${Math.floor(tripData.trip.totalDuration / 60)}h ${tripData.trip.totalDuration % 60} min`
+            : `${tripData.trip.totalDuration} min`
+        });
+        setProgress(0);
+        return;
+      }
+
+      // Si on n'a pas encore de position de départ capturée, on utilise le point de départ théorique du trajet
+      const startLat = driverStartPositionRef.current?.lat || depLat;
+      const startLng = driverStartPositionRef.current?.lng || depLng;
+
+      // 1. Distance totale du trajet = position initiale du chauffeur → destination
+      const distTotal = GeolocationService.calculateDistance(startLat, startLng, destLat, destLng) || Math.max(0.1, tripData.trip.totalDistance);
+
+      // 2. Distance restante = position actuelle du chauffeur → destination
+      const distRemaining = GeolocationService.calculateDistance(driverLat, driverLng, destLat, destLng);
+
+      // 3. Distance parcourue = Total - Restant (bornée à 0 minimum)
+      let distTraveled = Math.max(0, distTotal - distRemaining);
+
+      // 4. Pourcentage — borné entre 0% et 100%
+      let pct = (distTraveled / distTotal) * 100;
+      pct = Math.min(100, Math.max(0, pct));
+
+      // 5. Temps restant — Règle de 3 sur la durée initiale estimée
+      const timeRemaining = Math.max(1, Math.round((distRemaining / distTotal) * tripData.trip.totalDuration));
+
+      // 5b. Format lisible
+      const formattedDuration = timeRemaining >= 60
+        ? `${Math.floor(timeRemaining / 60)}h ${timeRemaining % 60} min`
+        : `${timeRemaining} min`;
+
+      // 6. Mise à jour de l'ETA
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + timeRemaining);
+      const newEta = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      setRealTimeMetrics({
+        distanceTraveled: parseFloat(distTraveled.toFixed(1)),
+        distanceRemaining: parseFloat(distRemaining.toFixed(1)),
+        progress: Math.round(pct),
+        durationRemaining: timeRemaining,
+        formattedDuration
+      });
+      setProgress(Math.round(pct)); // Sync avec l'état existant pour la barre
+      setEstimatedArrival(newEta);   // Sync avec l'état existant pour l'ETA
+    }
+  }, [driverPosition, tripData.destination.coords, tripData.departure.coords, tripData.trip.totalDistance, tripData.trip.totalDuration]);
 
   // Styles de notification
   const notificationStyles = {
@@ -331,7 +469,7 @@ const RealTimeTracking = ({
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                {isTripEnded ? 'Trajet terminé' : 'Trajet en cours'}
+                {isTripEnded ? 'Trajet terminé' : (trip?.status === 'approaching' ? 'Chauffeur en approche' : 'Trajet en cours')}
               </h1>
               <div className="flex flex-wrap items-center gap-4 text-gray-600 dark:text-gray-400">
                 <div className="flex items-center">
@@ -353,7 +491,7 @@ const RealTimeTracking = ({
               </div>
               <div className="hidden md:block text-right">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Arrivée estimée</p>
-                <p className="text-xl font-bold text-green-700 dark:text-green-500">{calculateETA()}</p>
+                <p className="text-xl font-bold text-green-700 dark:text-green-500">{estimatedArrival}</p>
               </div>
             </div>
           </div>
@@ -373,8 +511,8 @@ const RealTimeTracking = ({
               />
             </div>
             <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-2">
-              <span>{tripData.trip.traveledDistance} km parcourus</span>
-              <span>{(tripData.trip.totalDistance - tripData.trip.traveledDistance).toFixed(1)} km restants</span>
+              <span>{realTimeMetrics.distanceTraveled} km parcourus</span>
+              <span>{realTimeMetrics.distanceRemaining} km restants</span>
             </div>
           </div>
 
@@ -452,8 +590,8 @@ const RealTimeTracking = ({
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Temps restant</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-100">{tripData.trip.remainingMinutes} min</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-500">Arrivée: {calculateETA()}</p>
+                  <p className="font-bold text-gray-800 dark:text-gray-100">{realTimeMetrics.formattedDuration || '-- min'}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-500">Arrivée: {estimatedArrival}</p>
                 </div>
               </div>
             </motion.div>
@@ -481,12 +619,21 @@ const RealTimeTracking = ({
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Actualiser
                   </motion.button>
-                  <button
-                    onClick={handleResetTrip}
-                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                  >
-                    Réinitialiser démo
-                  </button>
+
+                  {role === 'driver' && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsSimulating(!isSimulating)}
+                      className={`flex items-center gap-2 px-4 py-1.5 rounded-xl border-2 transition-all font-bold text-xs ${isSimulating
+                        ? 'bg-amber-500 border-amber-600 text-white animate-pulse'
+                        : 'bg-white dark:bg-gray-800 border-emerald-500 text-emerald-600'
+                        }`}
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isSimulating ? 'animate-spin' : ''}`} />
+                      {isSimulating ? 'SIMULATION ACTIVE' : 'SIMULER MOUVEMENT'}
+                    </motion.button>
+                  )}
                 </div>
               </div>
 
@@ -503,25 +650,34 @@ const RealTimeTracking = ({
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
 
-                  <MapController center={driverPosition} zoom={15} />
+                  {/* MapController removed to avoid conflict with flyToBounds */}
+                  {/* <MapController center={driverPosition} zoom={15} /> */}
 
-                  {/* Marqueurs */}
+                  {/* Marqueurs avec Halo pour visibilité "GROS" */}
+                  <Circle
+                    center={tripData.departure.coords}
+                    radius={30}
+                    pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.4, weight: 2 }}
+                  />
                   <Marker position={tripData.departure.coords} icon={leafletIcons.start}>
                     <Popup>
                       <div className="p-2">
                         <p className="font-bold text-green-600">📍 Départ</p>
                         <p className="text-sm">{tripData.departure.name}</p>
-                        <p className="text-xs text-gray-500">{tripData.departure.address}</p>
                       </div>
                     </Popup>
                   </Marker>
 
+                  <Circle
+                    center={tripData.destination.coords}
+                    radius={30}
+                    pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.4, weight: 2 }}
+                  />
                   <Marker position={tripData.destination.coords} icon={leafletIcons.end}>
                     <Popup>
                       <div className="p-2">
                         <p className="font-bold text-red-600">🏁 Destination</p>
                         <p className="text-sm">{tripData.destination.name}</p>
-                        <p className="text-xs text-gray-500">{tripData.destination.address}</p>
                       </div>
                     </Popup>
                   </Marker>
@@ -546,17 +702,21 @@ const RealTimeTracking = ({
                     </Popup>
                   </Marker>
 
-                  {/* Trajet */}
-                  <Polyline
-                    positions={[tripData.departure.coords, driverPosition]}
-                    pathOptions={{ color: '#22c55e', weight: 4, opacity: 0.7 }}
-                  />
+                  {/* Trajet Driver -> Passenger (Approche) - Uniquement si positions différentes */}
+                  {driverPosition && tripData.departure.coords && (
+                    <Polyline
+                      positions={[driverPosition, tripData.departure.coords]}
+                      pathOptions={{ color: '#22c55e', weight: 6, opacity: 0.9, dashArray: '15, 15', lineCap: 'round', lineJoin: 'round' }}
+                    />
+                  )}
 
-                  {/* Trajet restant */}
-                  <Polyline
-                    positions={[driverPosition, tripData.destination.coords]}
-                    pathOptions={{ color: '#94a3b8', weight: 3, opacity: 0.5, dashArray: '10, 10' }}
-                  />
+                  {/* Trajet Passenger -> Destination (Future Course) */}
+                  {tripData.departure.coords && tripData.destination.coords && (
+                    <Polyline
+                      positions={[tripData.departure.coords, tripData.destination.coords]}
+                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.4 }}
+                    />
+                  )}
 
                   {/* Zone d'arrivée */}
                   <Circle
@@ -601,9 +761,9 @@ const RealTimeTracking = ({
               className="bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-2xl p-6 shadow-lg"
             >
               <div className="text-sm opacity-90 mb-1">ARRIVÉE ESTIMÉE</div>
-              <div className="text-3xl font-bold mb-2">{calculateETA()}</div>
+              <div className="text-3xl font-bold mb-2">{estimatedArrival}</div>
               <div className="text-sm opacity-90">
-                Dans <span className="font-bold">{tripData.trip.remainingMinutes} minutes</span>
+                Dans <span className="font-bold">{realTimeMetrics?.formattedDuration || '-- min'}</span>
               </div>
               <div className="flex items-center mt-4 text-xs opacity-80">
                 <Navigation className="w-3 h-3 mr-1" />
@@ -650,6 +810,8 @@ const RealTimeTracking = ({
                   <Flag className="w-5 h-5" />
                   <span>{isTripEnded ? 'Trajet terminé' : "J'arrive à destination"}</span>
                 </motion.button>
+
+
               </div>
             </motion.div>
 
