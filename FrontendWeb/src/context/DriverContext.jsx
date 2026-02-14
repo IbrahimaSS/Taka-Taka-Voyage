@@ -55,10 +55,12 @@ export const DriverProvider = ({ children }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [status, setStatus] = useState("offline"); // offline | available | busy
 
-  const { location: realLocation } = useGeolocation({
+  const geolocationOptions = useMemo(() => ({
     enableHighAccuracy: true,
     maximumAge: 2000,
-  });
+  }), []);
+
+  const { location: realLocation } = useGeolocation(geolocationOptions);
 
   const [driverLocation, setDriverLocation] = useState({
     lat: 9.6412,
@@ -89,6 +91,10 @@ export const DriverProvider = ({ children }) => {
     rejectedToday: 0,
   });
 
+  // Mode simulation pour les tests
+  const [isSimulating, setIsSimulating] = useState(false);
+  const simulationIntervalRef = useRef(null);
+
   // Anti doublon
   const processedRequestIds = useRef(new Set());
 
@@ -110,6 +116,11 @@ export const DriverProvider = ({ children }) => {
   useEffect(() => {
     tripRequestsRef.current = tripRequests;
   }, [tripRequests]);
+
+  const acceptedTripsRef = useRef([]);
+  useEffect(() => {
+    acceptedTripsRef.current = acceptedTrips;
+  }, [acceptedTrips]);
 
   const currentPickupTripIdRef = useRef(null);
   useEffect(() => {
@@ -282,20 +293,82 @@ export const DriverProvider = ({ children }) => {
 
   // ────────────────────────────────────────────────
   // 3) GPS en continu (uniquement si course active)
+  //    - Phase to_pickup/at_pickup: broadcast vers currentPickupTripId
+  //    - Phase in_progress: broadcast vers TOUTES les réservations acceptées
   // ────────────────────────────────────────────────
   useEffect(() => {
-    if (!isOnline || !driverLocation || !currentPickupTripId) return;
+    if (!isOnline || !driverLocation) return;
 
+    // Déterminer les reservationIds à broadcaster
+    const getTargetIds = () => {
+      if (tripStepRef.current === "in_progress") {
+        return acceptedTripsRef.current
+          .filter((t) => t.pickupStatus === "picked_up" || t.id === currentPickupTripIdRef.current)
+          .map((t) => t.id);
+      }
+      if (currentPickupTripIdRef.current) {
+        return [currentPickupTripIdRef.current];
+      }
+      return [];
+    };
+
+    const ids = getTargetIds();
+    if (ids.length === 0) return;
+
+    // ✅ Broadcast position toutes les 4s (ou plus vite si simulation)
     const interval = setInterval(() => {
-      socketService.emit("position:update", {
-        reservationId: currentPickupTripId,
-        lat: driverLocation.lat,
-        lng: driverLocation.lng,
-      });
-    }, 4000);
+      const currentIds = getTargetIds();
+      for (const rid of currentIds) {
+        socketService.emit("position:update", {
+          reservationId: rid,
+          lat: driverLocationRef.current?.lat ?? driverLocation.lat,
+          lng: driverLocationRef.current?.lng ?? driverLocation.lng,
+        });
+      }
+    }, isSimulating ? 2000 : 4000);
 
     return () => clearInterval(interval);
-  }, [isOnline, driverLocation, currentPickupTripId]);
+  }, [isOnline, currentPickupTripId, tripStep, isSimulating]);
+
+  // ────────────────────────────────────────────────
+  // 4) Logique de Simulation
+  // ────────────────────────────────────────────────
+  useEffect(() => {
+    if (isSimulating && tripStep === "in_progress") {
+      // Si pas d'ID spécifique, prendre le premier trajet "picked_up"
+      const activeTrip = currentPickupTripId
+        ? acceptedTrips.find(t => t.id === currentPickupTripId)
+        : acceptedTrips.find(t => t.pickupStatus === "picked_up");
+
+      if (!activeTrip) return;
+
+      const dest = normalizeCoords(activeTrip.destinationCoords);
+      if (!dest) return;
+
+      simulationIntervalRef.current = setInterval(() => {
+        setDriverLocation(prev => {
+          const latDiff = dest.lat - prev.lat;
+          const lngDiff = dest.lng - prev.lng;
+          const dist = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+
+          if (dist < 0.0001) {
+            setIsSimulating(false);
+            return prev;
+          }
+
+          // Avancer de ~50m par seconde (environ 0.0005 degrés)
+          return {
+            lat: prev.lat + (latDiff / dist) * 0.0005,
+            lng: prev.lng + (lngDiff / dist) * 0.0005
+          };
+        });
+      }, 1000);
+
+      return () => clearInterval(simulationIntervalRef.current);
+    } else {
+      setIsSimulating(false);
+    }
+  }, [isSimulating, tripStep, currentPickupTripId, acceptedTrips]);
 
   // ────────────────────────────────────────────────
   // 4) Expiration demandes
@@ -359,15 +432,27 @@ export const DriverProvider = ({ children }) => {
     setTripStep("ready_to_start");
   };
 
-  const startGlobalTrip = () => {
-    // Émet un signal global pour tous les passagers "picked_up"
-    const pickedUpIds = acceptedTrips
+  const startGlobalTrip = (specificTripIds = null) => {
+    // Émet un signal global pour tous les passagers "picked_up" ou ceux spécifiés
+    const pickedUpIds = specificTripIds || acceptedTrips
       .filter((t) => t.pickupStatus === "picked_up")
       .map((t) => t.id);
 
     if (pickedUpIds.length === 0) return;
 
     socketService.emit("course:demarrer_global", { reservationIds: pickedUpIds });
+    setTripStep("in_progress");
+    setStatus("busy");
+  };
+
+  const startTripImmediately = (tripId) => {
+    if (!tripId) return;
+    // Mark as picked up locally
+    setAcceptedTrips((prev) =>
+      prev.map((t) => (t.id === tripId ? { ...t, pickupStatus: "picked_up" } : t))
+    );
+    // Emit start immediately
+    socketService.emit("course:demarrer_global", { reservationIds: [tripId] });
     setTripStep("in_progress");
     setStatus("busy");
   };
@@ -404,10 +489,13 @@ export const DriverProvider = ({ children }) => {
       confirmPassengerPickup,
       startCourse,
       startGlobalTrip,
+      startTripImmediately,
       reportDispute,
 
       calculateDistance,
       maxDistanceKm: MAX_DISTANCE_KM,
+      isSimulating,
+      setIsSimulating,
     }),
     [
       isOnline,
@@ -420,6 +508,7 @@ export const DriverProvider = ({ children }) => {
       tripStep,
       stats,
       calculateDistance,
+      isSimulating,
     ]
   );
 

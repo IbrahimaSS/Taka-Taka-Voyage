@@ -121,6 +121,11 @@ module.exports = (io) => {
           return socket.emit("reservation:join:refused", { reservationId, message: "Non autorisé" });
         }
 
+        // ✅ FIX Tracking: Restaurer le lock mémoire si c'est le bon chauffeur
+        if (isDriverOwner) {
+          courseChauffeur.set(String(reservationId), socket.id);
+        }
+
         socket.join(`RESERVATION_${reservationId}`);
         socket.emit("reservation:join:ok", { reservationId });
       } catch (e) {
@@ -181,17 +186,15 @@ module.exports = (io) => {
             prenom: chauffeurDoc?.prenom || socket.user.prenom,
             telephone: chauffeurDoc?.telephone || "",
             email: chauffeurDoc?.email || "",
+            photo: chauffeurDoc?.photo || "",
             vehicle: chauffeurDoc?.vehicle || null
           },
         };
 
-        console.log(`📡 Émission course:acceptee vers PASSAGER_${pid} et RESERVATION_${rid}`);
+        console.log(`📡 Émission course:acceptee vers PASSAGER_${pid}`);
 
-        // ✅ Notifier passager (room stable)
+        // ✅ Notifier passager (room stable — ne PAS émettre aussi à RESERVATION_ pour éviter doublon)
         io.to(`PASSAGER_${pid}`).emit("course:acceptee", payload);
-
-        // ✅ BONUS ROBUSTE: notifier aussi la room reservation
-        io.to(`RESERVATION_${rid}`).emit("course:acceptee", payload);
 
         socket.emit("course:acceptee_confirmation", {
           reservationId: rid,
@@ -279,7 +282,11 @@ module.exports = (io) => {
       if (!reservationId || lat == null || lng == null) return;
 
       const rid = String(reservationId);
-      if (courseChauffeur.get(rid) !== socket.id) return;
+
+      // ✅ FIX: Lock soft - si pas dans map, on laisse passer si c'est le bon socket (via reservation:join qui a repeuplé)
+      if (courseChauffeur.has(rid) && courseChauffeur.get(rid) !== socket.id) {
+        return;
+      }
 
       io.to(`RESERVATION_${rid}`).emit("position:chauffeur", {
         reservationId: rid,
@@ -304,15 +311,20 @@ module.exports = (io) => {
         const reservation = await Reservation.findOne({
           _id: reservationId,
           chauffeur: socket.user.id,
-          statut: "ACCEPTEE",
+          statut: { $in: ["ACCEPTEE", "ASSIGNEE"] }
         }).populate("passager");
 
         if (!reservation) {
           return socket.emit("course:erreur", { message: "Action non autorisée" });
         }
 
-        reservation.statut = "ASSIGNEE";
-        await reservation.save();
+        if (reservation.statut !== "ASSIGNEE") {
+          reservation.statut = "ASSIGNEE";
+          await reservation.save();
+        }
+
+        // ✅ FIX Map population
+        courseChauffeur.set(String(reservationId), socket.id);
 
         // ✅ FIX: s'assurer que le chauffeur rejoint la room de la réservation pour les updates (dont annulation)
         socket.join(`RESERVATION_${reservationId}`);
@@ -340,18 +352,27 @@ module.exports = (io) => {
         const reservation = await Reservation.findOne({
           _id: reservationId,
           chauffeur: socket.user.id,
-          statut: "ASSIGNEE",
+          statut: { $in: ["ASSIGNEE", "ARRIVEE"] }
         }).populate("passager");
 
         if (!reservation) return;
 
-        reservation.statut = "ARRIVEE";
-        await reservation.save();
+        if (reservation.statut !== "ARRIVEE") {
+          reservation.statut = "ARRIVEE";
+          await reservation.save();
+        }
 
-        io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:chauffeur_arrive", {
+        // ✅ FIX Map
+        courseChauffeur.set(String(reservationId), socket.id);
+
+        // ✅ Notifier passager (room stable — ne PAS émettre aussi à RESERVATION_ pour éviter doublon)
+        const payloadArrive = {
           reservationId,
           message: "Votre chauffeur est arrivé, prêt pour le voyage !",
-        });
+        };
+        io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:chauffeur_arrive", payloadArrive);
+
+        console.log(`📡 [SOCKET] Chauffeur arrivé RID=${reservationId} (Emitted to PASSAGER)`);
 
         socket.emit("course:arrivee_signalee", { reservationId });
       } catch (err) {

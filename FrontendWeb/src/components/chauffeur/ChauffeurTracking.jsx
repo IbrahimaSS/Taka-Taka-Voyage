@@ -24,8 +24,8 @@ import { socketService } from '../../services/socketService';
 const TrackingMap = ({
     driverLocation,
     acceptedTrips,
-    activePickupCoords,
-    activeTrip
+    activeTrip,
+    targetCoords
 }) => {
     const [mapReady, setMapReady] = useState(false);
     const isValidLocation = driverLocation && !isNaN(driverLocation.lat) && !isNaN(driverLocation.lng);
@@ -98,9 +98,9 @@ const TrackingMap = ({
                 })}
 
                 {/* Ligne de trajectoire */}
-                {activePickupCoords && !isNaN(activePickupCoords[0]) && !isNaN(activePickupCoords[1]) && (
+                {targetCoords && !isNaN(targetCoords[0]) && !isNaN(targetCoords[1]) && (
                     <Polyline
-                        positions={[[driverLocation.lat, driverLocation.lng], activePickupCoords]}
+                        positions={[[driverLocation.lat, driverLocation.lng], targetCoords]}
                         pathOptions={{
                             color: '#10b981',
                             weight: 4,
@@ -219,7 +219,14 @@ const StatsPanel = ({
     onCallPassenger,
     signalArrival,
     confirmPassengerPickup,
-    startGlobalTrip
+    startGlobalTrip,
+    startTripImmediately,
+    navigate,
+    progress,
+    distanceDisplay,
+    etaMinutes,
+    isSimulating,
+    setIsSimulating
 }) => {
     const totalRevenue = acceptedTrips.reduce((acc, t) => acc + (t.estimatedFare || 0), 0);
     const pickedUpCount = acceptedTrips.filter(t => t.pickupStatus === 'picked_up').length;
@@ -270,6 +277,20 @@ const StatsPanel = ({
                         </div>
 
                         <div className="flex items-center gap-4">
+                            {/* Bouton Simulation Debug */}
+                            {tripStep === 'in_progress' && (
+                                <button
+                                    onClick={() => setIsSimulating(!isSimulating)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all font-bold ${isSimulating
+                                        ? 'bg-amber-500 border-amber-600 text-white animate-pulse'
+                                        : 'bg-white dark:bg-gray-800 border-emerald-500 text-emerald-600'
+                                        }`}
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isSimulating ? 'animate-spin' : ''}`} />
+                                    {isSimulating ? 'SIMULATION ACTIVE' : 'DÉBOGAGE: BOUGER LA VOITURE'}
+                                </button>
+                            )}
+
                             <div className="text-center bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 min-w-[120px]">
                                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wider">
                                     Revenu
@@ -288,6 +309,30 @@ const StatsPanel = ({
                             </div>
                         </div>
                     </div>
+
+                    {(tripStep === 'in_progress' || tripStep === 'to_pickup') && (
+                        <div className="mt-6 border-t pt-4 border-gray-100 dark:border-gray-700">
+                            <div className="flex justify-between items-end mb-2">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-500">
+                                        {tripStep === 'to_pickup' ? 'Vers le client' : 'Vers la destination'}
+                                    </p>
+                                    <p className="text-lg font-bold text-gray-800 dark:text-white">
+                                        {distanceDisplay} • {etaMinutes} min
+                                    </p>
+                                </div>
+                                <span className="text-2xl font-bold text-emerald-600">{progress}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                                <motion.div
+                                    className="bg-emerald-500 h-full rounded-full"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${progress}%` }}
+                                    transition={{ duration: 0.5 }}
+                                />
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -306,29 +351,23 @@ const StatsPanel = ({
                     </Button>
                 )}
 
-                {tripStep === 'at_pickup' && activeTrip && (
-                    <Button
-                        variant="secondary"
-                        size="large"
-                        icon={User}
-                        onClick={() => handleConfirm(() => confirmPassengerPickup(activeTrip.id))}
-                        fullWidth
-                        className="h-12"
-                    >
-                        Passager à bord
-                    </Button>
-                )}
-
-                {pickedUpCount > 0 && tripStep !== 'in_progress' && (
+                {/* Bouton Démarrer la course : Apparaît dès qu'on est arrivé (at_pickup) ou si le passager est déjà marqué comme pris en charge */}
+                {(tripStep === 'at_pickup' || (pickedUpCount > 0 && tripStep !== 'in_progress')) && activeTrip && (
                     <Button
                         variant="success"
                         size="large"
                         icon={FlagIcon}
-                        onClick={() => handleConfirm(startGlobalTrip)}
+                        onClick={() => {
+                            if (activeTrip?.id) {
+                                // Appel direct sans confirmation intermédiaire pour fluidité maximale
+                                startTripImmediately(activeTrip.id);
+                                navigate('/chauffeur/live-tracking');
+                            }
+                        }}
                         fullWidth
                         className="h-12 shadow-lg shadow-emerald-500/30"
                     >
-                        Démarrer le Trajet ({pickedUpCount})
+                        Démarrer la course
                     </Button>
                 )}
 
@@ -375,12 +414,16 @@ const ChauffeurTracking = () => {
         signalArrival,
         confirmPassengerPickup,
         startGlobalTrip,
+        startTripImmediately,
         reportDispute,
-        calculateDistance
+        calculateDistance,
+        isSimulating,
+        setIsSimulating
     } = useDriverContext();
 
     const navigate = useNavigate();
     const mapRef = useRef();
+    const driverStartPositionRef = useRef(null);
     const [currentTime, setCurrentTime] = useState('--:--');
     const [speed, setSpeed] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
@@ -417,12 +460,57 @@ const ChauffeurTracking = () => {
         }
     }, [tripStep]);
 
-    const activeTrip = acceptedTrips.find(t => t.id === currentPickupTripId);
-    const activePickupCoords = activeTrip?.pickupCoords || null;
+    const activeTrip = (currentPickupTripId
+        ? acceptedTrips.find(t => t.id === currentPickupTripId)
+        : null) || acceptedTrips.find(t => t.pickupStatus === 'picked_up');
 
-    const distanceToTarget = (activePickupCoords && driverLocation)
-        ? calculateDistance(driverLocation.lat, driverLocation.lng, activePickupCoords[0], activePickupCoords[1])
+    // ✅ Logic de cible dynamique (Pickup ou Destination)
+    const targetCoords = (tripStep === 'in_progress' && activeTrip?.destinationCoords)
+        ? activeTrip.destinationCoords
+        : (activeTrip?.pickupCoords || null);
+
+    const distanceToTarget = (targetCoords && driverLocation)
+        ? calculateDistance(driverLocation.lat, driverLocation.lng, targetCoords[0], targetCoords[1])
         : 0;
+
+    const [progress, setProgress] = useState(0);
+    useEffect(() => {
+        if (tripStep === 'in_progress' && activeTrip && driverLocation) {
+            const driverLat = driverLocation.lat;
+            const driverLng = driverLocation.lng;
+            const destLat = activeTrip.destinationCoords[0];
+            const destLng = activeTrip.destinationCoords[1];
+
+            // Capture position de départ au début de la phase in_progress
+            if (!driverStartPositionRef.current) {
+                driverStartPositionRef.current = { lat: driverLat, lng: driverLng };
+                setProgress(0);
+                return;
+            }
+
+            const startLat = driverStartPositionRef.current.lat;
+            const startLng = driverStartPositionRef.current.lng;
+
+            // 1. Distance totale du trajet = début réel → destination
+            const total = calculateDistance(startLat, startLng, destLat, destLng) || 1;
+
+            // 2. Distance restante = position actuelle → destination
+            const remaining = calculateDistance(driverLat, driverLng, destLat, destLng);
+
+            // 3. Distance parcourue
+            const traveled = Math.max(0, total - remaining);
+
+            // 4. Pourcentage
+            const pct = Math.min(100, Math.max(0, (traveled / total) * 100));
+            setProgress(Math.round(pct));
+        } else {
+            // Reset position de départ si on repasse hors in_progress
+            if (tripStep !== 'in_progress') {
+                driverStartPositionRef.current = null;
+            }
+            setProgress(0);
+        }
+    }, [tripStep, activeTrip, driverLocation, distanceToTarget]);
 
     const distanceDisplay = distanceToTarget < 1
         ? `${Math.round(distanceToTarget * 1000)} m`
@@ -487,6 +575,13 @@ const ChauffeurTracking = () => {
                 signalArrival={signalArrival}
                 confirmPassengerPickup={confirmPassengerPickup}
                 startGlobalTrip={startGlobalTrip}
+                startTripImmediately={startTripImmediately}
+                navigate={navigate}
+                progress={progress}
+                distanceDisplay={distanceDisplay}
+                etaMinutes={etaMinutes}
+                isSimulating={isSimulating}
+                setIsSimulating={setIsSimulating}
             />
 
             {/* Contenu principal */}
@@ -497,7 +592,7 @@ const ChauffeurTracking = () => {
                         <TrackingMap
                             driverLocation={driverLocation}
                             acceptedTrips={acceptedTrips}
-                            activePickupCoords={activePickupCoords}
+                            targetCoords={targetCoords}
                             activeTrip={activeTrip}
                         />
                     </div>
