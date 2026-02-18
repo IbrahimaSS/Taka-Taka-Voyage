@@ -17,6 +17,15 @@ const reservationSchema = new mongoose.Schema(
         depart: { type: String, required: true },
         destination: { type: String, required: true },
 
+        departCoords: {
+            type: { type: String, enum: ["Point"], default: "Point" },
+            coordinates: { type: [Number], default: [0, 0] },
+        },
+        destinationCoords: {
+            type: { type: String, enum: ["Point"], default: "Point" },
+            coordinates: { type: [Number], default: [0, 0] },
+        },
+
         distanceKm: { type: Number, required: true },
         dureeMin: { type: Number, required: true },
 
@@ -51,6 +60,10 @@ const reservationSchema = new mongoose.Schema(
         datePlanifiee: {
             type: Date,
             default: null,
+        },
+        notificationJ1Envoyee: {
+            type: Boolean,
+            default: false,
         },
 
         // suivi réel du trajet

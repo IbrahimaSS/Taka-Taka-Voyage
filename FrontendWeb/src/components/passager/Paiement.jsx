@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, CreditCard, Smartphone, Gift, RefreshCw,
@@ -8,7 +8,8 @@ import {
   FileText, CheckCircle, Clock, AlertCircle,
   Plus, MoreVertical, QrCode, Shield,
   BarChart3, PieChart, Receipt, Coins,
-  Bell, MessageCircle, Link, Copy, Grid
+  Bell, MessageCircle, Link, Copy, Grid,
+  Loader
 } from 'lucide-react';
 
 // Composants UI réutilisables
@@ -22,6 +23,7 @@ import Pagination from '../admin/ui/Pagination';
 
 // Context et services
 import { usePassenger } from '../../context/PassengerContext';
+import { tripService } from '../../services/tripService'; // ✅ Import service
 import { toast } from 'react-hot-toast';
 
 // --- Composants Internes ---
@@ -195,15 +197,49 @@ const TransactionDetailsModal = ({ transaction, isOpen, onClose, onShare }) => (
 // --- Composant Principal ---
 
 const Transactions = () => {
-  const { transactions: initialTransactions } = usePassenger();
+  // ❌ Remove context mock data
+  // const { transactions: initialTransactions } = usePassenger();
 
-  const [transactions] = useState(initialTransactions);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  // ✅ Fetch Real Payments
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        setLoading(true);
+        // We can pass filters to backend here if needed, but keeping client-side filtering 
+        // consistent with current UI for now (fetching all or large limit)
+        const { data } = await tripService.getPayments({ limit: 100 });
+
+        if (data.succes) {
+          const formattedTransactions = data.paiements.map(p => ({
+            id: p._id,
+            date: new Date(p.createdAt).toLocaleDateString('fr-FR'),
+            type: p.type === 'PAIEMENT_TRAJET' ? 'Paiement trajet' : 'Autre', // Map backend types
+            amount: -(p.montantTotal || p.montant || 0), // Payments are expenses (negative)
+            method: p.methode,
+            status: p.statut === 'PAYE' ? 'completed' : p.statut === 'ECHEC' ? 'failed' : 'pending',
+            reference: p.reference || `REF-${p._id.substring(0, 8)}`
+          }));
+          setTransactions(formattedTransactions);
+        }
+      } catch (err) {
+        console.error("Error fetching payments:", err);
+        // toast.error("Impossible de charger les transactions"); // Optional: don't annoy if just empty
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, []);
 
   const filters = [
     { id: 'all', label: 'Toutes', icon: BarChart3 },
@@ -291,8 +327,16 @@ const Transactions = () => {
     toast.success('Référence copiée');
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center p-12">
+        <Loader className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen text-gray-900 dark:text-gray-100 pb-8 transition-colors duration-300">
+    <div className="min-h-screen pb-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* En-tête */}
         <CardHeader align="start" className="mb-8">
@@ -351,11 +395,11 @@ const Transactions = () => {
 
           />
           <StatCard
-            label="Solde net"
-            value={`${stats.netBalance.toLocaleString()} GNF`}
+            label="Dépenses totales"
+            // Changed label from "Solde net" to "Dépenses totales" as it makes more sense for passenger
+            value={`${stats.totalExpenses.toLocaleString()} GNF`}
             icon={Wallet}
             colorClass="bg-gradient-to-r from-primary-500 to-secondary-600"
-
           />
         </div>
 
@@ -400,123 +444,124 @@ const Transactions = () => {
               <Card hoverable>
                 <CardContent padding="p-0">
                   <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                      <thead>
+                        <tr>
+                          <TableHeader>
+                            <div className="flex items-center">
+                              <Calendar className="w-4 h-4 mr-2" />
+                              DATE
+                            </div>
+                          </TableHeader>
+                          <TableHeader>
+                            <div className="flex items-center">
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              TYPE
+                            </div>
+                          </TableHeader>
+                          <TableHeader>
+                            <div className="flex items-center">
+                              <Coins className="w-4 h-4 mr-2" />
+                              MONTANT
+                            </div>
+                          </TableHeader>
+                          <TableHeader>
+                            <div className="flex items-center">
+                              <Smartphone className="w-4 h-4 mr-2" />
+                              MÉTHODE
+                            </div>
+                          </TableHeader>
+                          <TableHeader>
+                            <div className="flex items-center">
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              STATUT
+                            </div>
+                          </TableHeader>
+                          <TableHeader>
+                            <div className="flex items-center">
+                              <FileText className="w-4 h-4 mr-2" />
+                              RÉFÉRENCE
+                            </div>
+                          </TableHeader>
+                          <TableHeader>
+                            <div className="flex items-center">
+                              <MoreVertical className="w-4 h-4 mr-2" />
+                              ACTIONS
+                            </div>
+                          </TableHeader>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentTransactions.map((transaction) => {
+                          const isPositive = transaction.amount > 0;
 
-                    <thead>
-                      <tr>
-                        <TableHeader>
-                          <div className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-2" />
-                            DATE
-                          </div>
-                        </TableHeader>
-                        <TableHeader>
-                          <div className="flex items-center">
-                            <CreditCard className="w-4 h-4 mr-2" />
-                            TYPE
-                          </div>
-                        </TableHeader>
-                        <TableHeader>
-                          <div className="flex items-center">
-                            <Coins className="w-4 h-4 mr-2" />
-                            MONTANT
-                          </div>
-                        </TableHeader>
-                        <TableHeader>
-                          <div className="flex items-center">
-                            <Smartphone className="w-4 h-4 mr-2" />
-                            MÉTHODE
-                          </div>
-                        </TableHeader>
-                        <TableHeader>
-                          <div className="flex items-center">
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            STATUT
-                          </div>
-                        </TableHeader>
-                        <TableHeader>
-                          <div className="flex items-center">
-                            <FileText className="w-4 h-4 mr-2" />
-                            RÉFÉRENCE
-                          </div>
-                        </TableHeader>
-                        <TableHeader>
-                          <div className="flex items-center">
-                            <MoreVertical className="w-4 h-4 mr-2" />
-                            ACTIONS
-                          </div>
-                        </TableHeader>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentTransactions.map((transaction) => {
-                        const isPositive = transaction.amount > 0;
-
-                        return (
-                          <TableRow key={transaction.id} hoverable>
-                            <TableCell>
-                              <div onClick={() => handleViewDetails(transaction)} className="cursor-pointer group">
-                                <p className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors">{transaction.date}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">14:35</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <TransactionTypeBadge type={transaction.type} amount={transaction.amount} />
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center">
-                                {isPositive ? (
-                                  <ArrowUpRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mr-2" />
-                                ) : (
-                                  <ArrowDownRight className="w-4 h-4 text-rose-600 dark:text-rose-400 mr-2" />
-                                )}
-                                <span className={`font-black text-lg ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                  {isPositive ? '+' : '-'} {Math.abs(transaction.amount).toLocaleString()} GNF
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{transaction.method}</span>
-                            </TableCell>
-                            <TableCell>
-                              <TransactionStatusBadge status={transaction.status} />
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center">
-                                <code className="text-xs bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded font-mono text-gray-800 dark:text-gray-200">
-                                  {transaction.reference}
-                                </code>
-                                <Button
-                                  variant="ghost"
-                                  size="small"
-                                  icon={Copy}
-                                  onClick={() => handleCopyReference(transaction.reference)}
-                                  className="ml-2"
-                                  tooltip="Copier la référence"
-                                />
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="ghost"
-                                  size="small"
-                                  icon={Eye}
-                                  onClick={() => handleViewDetails(transaction)}
-                                  tooltip="Voir les détails"
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="small"
-                                  icon={Share2}
-                                  onClick={() => handleShareReceipt(transaction)}
-                                  tooltip="Partager le reçu"
-                                />
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </tbody>
+                          return (
+                            <TableRow key={transaction.id} hoverable>
+                              <TableCell>
+                                <div onClick={() => handleViewDetails(transaction)} className="cursor-pointer group">
+                                  <p className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors">{transaction.date}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">14:35</p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <TransactionTypeBadge type={transaction.type} amount={transaction.amount} />
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center">
+                                  {isPositive ? (
+                                    <ArrowUpRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mr-2" />
+                                  ) : (
+                                    <ArrowDownRight className="w-4 h-4 text-rose-600 dark:text-rose-400 mr-2" />
+                                  )}
+                                  <span className={`font-black text-lg ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                    {isPositive ? '+' : '-'} {Math.abs(transaction.amount).toLocaleString()} GNF
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{transaction.method}</span>
+                              </TableCell>
+                              <TableCell>
+                                <TransactionStatusBadge status={transaction.status} />
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center">
+                                  <code className="text-xs bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded font-mono text-gray-800 dark:text-gray-200">
+                                    {transaction.reference}
+                                  </code>
+                                  <Button
+                                    variant="ghost"
+                                    size="small"
+                                    icon={Copy}
+                                    onClick={() => handleCopyReference(transaction.reference)}
+                                    className="ml-2"
+                                    tooltip="Copier la référence"
+                                  />
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="small"
+                                    icon={Eye}
+                                    onClick={() => handleViewDetails(transaction)}
+                                    tooltip="Voir les détails"
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="small"
+                                    icon={Share2}
+                                    onClick={() => handleShareReceipt(transaction)}
+                                    tooltip="Partager le reçu"
+                                  />
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
 

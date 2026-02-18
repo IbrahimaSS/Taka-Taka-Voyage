@@ -84,6 +84,7 @@ export const PassengerProvider = ({ children }) => {
 
         setCurrentTrip({
           reservationId: r._id,
+          id: r._id, // ✅ FIX: Doublon pour compatibilité TrajetEnTempReel
           pickup: r.depart || r.pickupAddress,
           destination: r.destination || r.destinationAddress,
           pickupCoords: [r.departLat, r.departLng],
@@ -93,6 +94,8 @@ export const PassengerProvider = ({ children }) => {
           price: r.prix,
           vehicleType: r.typeVehicule,
           paymentMethod: r.paiement?.methode || "CASH",
+          payment: r.paiement, // ✅ FIX: Ajouter l'objet complet pour le statut
+          momentPaiement: r.momentPaiement, // ✅ FIX: Pour détecter le paiement à l'avance
           createdAt: r.createdAt
         });
 
@@ -105,9 +108,15 @@ export const PassengerProvider = ({ children }) => {
             prenom: r.chauffeur.prenom,
             name: `${r.chauffeur.prenom} ${r.chauffeur.nom}`,
             phone: r.chauffeur.telephone,
-            vehicle: r.chauffeur.vehicle || r.chauffeur.vehicule,
-            rating: r.chauffeur.rating || 4.8,
-            totalTrips: r.chauffeur.coursesEffectuees || 0
+            vehicle: r.chauffeur.vehicule || r.chauffeur.vehicle ? {
+              brand: (r.chauffeur.vehicule || r.chauffeur.vehicle).marque || "N/A",
+              model: (r.chauffeur.vehicule || r.chauffeur.vehicle).modele || "N/A",
+              plate: (r.chauffeur.vehicule || r.chauffeur.vehicle).immatriculation || "N/A",
+              color: (r.chauffeur.vehicule || r.chauffeur.vehicle).couleur || "N/A",
+              type: (r.chauffeur.vehicule || r.chauffeur.vehicle).type || "taxi"
+            } : { brand: "N/A", model: "N/A", plate: "N/A" },
+            rating: r.chauffeur.noteMoyenne || 4.8,
+            totalTrips: r.chauffeur.nombreTrajets || 0
           });
         }
 
@@ -206,7 +215,13 @@ export const PassengerProvider = ({ children }) => {
         nom: chauffeur?.nom,
         prenom: chauffeur?.prenom,
         name: `${chauffeur?.prenom || ""} ${chauffeur?.nom || ""}`.trim(),
-        vehicle: chauffeur?.vehicle || chauffeur?.vehicule || { plate: "N/A", model: "N/A" },
+        vehicle: (chauffeur?.vehicule || chauffeur?.vehicle) ? {
+          brand: (chauffeur.vehicule || chauffeur.vehicle).marque || "N/A",
+          model: (chauffeur.vehicule || chauffeur.vehicle).modele || "N/A",
+          plate: (chauffeur.vehicule || chauffeur.vehicle).immatriculation || "N/A",
+          color: (chauffeur.vehicule || chauffeur.vehicle).couleur || "N/A",
+          type: (chauffeur.vehicule || chauffeur.vehicle).type || "taxi"
+        } : (chauffeur?.vehicle || chauffeur?.vehicule || { brand: "N/A", model: "N/A", plate: "N/A" }),
         phone: chauffeur?.telephone || chauffeur?.phone || chauffeur?.contact,
         email: chauffeur?.email,
         photo: chauffeur?.photo,
@@ -223,6 +238,7 @@ export const PassengerProvider = ({ children }) => {
         return {
           ...base,
           reservationId: base.reservationId || reservationId,
+          id: base.id || reservationId, // ✅ FIX: Doublon
           status: "driver_found",
           driver: chauffeur || null,
         };
@@ -243,7 +259,7 @@ export const PassengerProvider = ({ children }) => {
       console.log(`📩 [CONTEXT] course:chauffeur_en_route reçu for RID=${reservationId}`);
       setTripStatus("approaching");
       setCurrentTrip((prev) => (prev ? { ...prev, status: "approaching" } : prev));
-      toast.success(message || "🚗 Votre chauffeur est en route !", { id: "driver-en-route" });
+      toast.success(message || "🚗 Votre chauffeur est en route pour vous récupérer..", { id: "driver-en-route" });
     };
 
     const onArrived = ({ reservationId } = {}) => {
@@ -273,7 +289,7 @@ export const PassengerProvider = ({ children }) => {
       });
 
       // Feedback utilisateur immédiat
-      toast.success("📍 VOTRE CHAUFFEUR EST ARRIVÉ !", {
+      toast.success("📍 Votre chauffeur est arrivé..", {
         id: "driver-arrived-urgent",
         duration: 8000,
         icon: '👋',
@@ -352,28 +368,40 @@ export const PassengerProvider = ({ children }) => {
       setTimeout(() => setTripStatus(null), 2500);
     };
 
+    // ✅ Nouveauté : Réservation planifiée non acceptée après 15 min
+    const onPlannedNotAccepted = ({ reservationId, message } = {}) => {
+      console.log(`📩 [CONTEXT] reservation:planifiee_non_acceptee reçu for RID=${reservationId}`);
+      toast.error(message || "⚠️ Aucun chauffeur n'a encore accepté votre réservation planifiée.", {
+        id: `planned-not-accepted-${reservationId}`,
+        duration: 10000,
+        icon: '⏳'
+      });
+    };
+
     socketService.on("course:acceptee", onAccepted);
     socketService.on("course:chauffeur_en_route", onEnRoute);
     socketService.on("course:chauffeur_arrive", onArrived);
     socketService.on("course:arrivee", onArrived);
-    socketService.on("course:signaler_arrivee", onArrived); // AJOUT: Ceinture et bretelles
+    socketService.on("course:signaler_arrivee", onArrived);
     socketService.on("course:demarre", onStarted);
     socketService.on("course:demarre_global", onGlobalStarted);
     socketService.on("position:chauffeur", onPosition);
     socketService.on("course:terminee", onCompleted);
     socketService.on("course:annulee", onCancelled);
+    socketService.on("reservation:planifiee_non_acceptee", onPlannedNotAccepted);
 
     return () => {
       socketService.off("course:acceptee", onAccepted);
       socketService.off("course:chauffeur_en_route", onEnRoute);
       socketService.off("course:chauffeur_arrive", onArrived);
-      socketService.off("course:arrivee", onArrived); // N'oubliez pas de clean celui-là aussi
+      socketService.off("course:arrivee", onArrived);
       socketService.off("course:signaler_arrivee", onArrived);
       socketService.off("course:demarre", onStarted);
       socketService.off("course:demarre_global", onGlobalStarted);
       socketService.off("position:chauffeur", onPosition);
       socketService.off("course:terminee", onCompleted);
       socketService.off("course:annulee", onCancelled);
+      socketService.off("reservation:planifiee_non_acceptee", onPlannedNotAccepted);
     };
   }, [passenger?._id, passenger?.id]);
 
@@ -445,12 +473,15 @@ export const PassengerProvider = ({ children }) => {
 
       setCurrentTrip({
         reservationId,
+        id: reservationId, // ✅ FIX: Doublon
         pickup: confirmedData.pickup,
         destination: confirmedData.destination,
         estimatedPrice: confirmedData.price,
         vehicleType: confirmedData.vehicleType,
         paymentTime: confirmedData.paymentTime,
         paymentMethod: confirmedData.paymentMethod,
+        momentPaiement: confirmedData.paymentTime === 'advance' ? 'MAINTENANT' : 'APRES', // ✅ FIX
+        payment: reservation?.paiement, // ✅ FIX: Statut initial (ex: PAYE si avance)
         status: "searching",
         createdAt: new Date().toISOString(),
       });

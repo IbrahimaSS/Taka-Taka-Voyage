@@ -39,27 +39,7 @@ function MapEvents({ onPickupSelect, onDestinationSelect, selectionMode }) {
   return null;
 }
 
-// Données de test (historique)
-const recentTrips = [
-  {
-    id: 1,
-    date: "Aujourd'hui",
-    time: "14:30",
-    departure: "Mamou",
-    destination: "Conakry",
-    price: "15 000 GNF",
-    status: "completed",
-  },
-  {
-    id: 2,
-    date: "Hier",
-    time: "08:15",
-    departure: "Kindia",
-    destination: "Aéroport",
-    price: "25 000 GNF",
-    status: "cancelled",
-  },
-];
+import { tripService } from '../../services/tripService';
 
 const BookingSection = ({
   onBookTrip,
@@ -94,6 +74,36 @@ const BookingSection = ({
   const [showTripHistory, setShowTripHistory] = useState(false);
   const mapRef = useRef();
   const searchTimeoutRef = useRef();
+
+  // État pour les trajets récents (Données réelles)
+  const [recentTrips, setRecentTrips] = useState([]);
+
+  useEffect(() => {
+    const fetchRecentTrips = async () => {
+      try {
+        const response = await tripService.getPassengerHistory({ page: 1, limit: 3 });
+        if (response.data.succes) {
+          const formattedTrips = response.data.trajets.map(trip => {
+            const dateObj = new Date(trip.dateFin || trip.createdAt);
+            return {
+              id: trip._id,
+              date: dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+              time: dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+              departure: trip.depart,
+              destination: trip.destination,
+              price: `${trip.prix.toLocaleString()} GNF`,
+              status: trip.statut === 'TERMINEE' ? 'completed' : 'cancelled'
+            };
+          });
+          setRecentTrips(formattedTrips);
+        }
+      } catch (error) {
+        console.error("Erreur chargement trajets récents", error);
+      }
+    };
+
+    fetchRecentTrips();
+  }, []);
 
   // Initialiser les icônes Leaflet
   useEffect(() => {
@@ -828,46 +838,54 @@ const BookingSection = ({
               striped
               hoverable
             >
-              {recentTrips.map((trip) => (
-                <TableRow key={trip.id} hoverable>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-emerald-600" />
+              {recentTrips.length > 0 ? (
+                recentTrips.map((trip) => (
+                  <TableRow key={trip.id} hoverable>
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                          <Calendar className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{trip.date}</p>
+                          <p className="text-sm text-gray-500">{trip.time}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">{trip.date}</p>
-                        <p className="text-sm text-gray-500">{trip.time}</p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full mr-3"></div>
+                        <span>{trip.departure}</span>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full mr-3"></div>
-                      <span>{trip.departure}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <div className="w-2 h-2 bg-rose-500 rounded-full mr-3"></div>
-                      <span>{trip.destination}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-bold text-emerald-700">{trip.price}</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={trip.status === 'completed' ? 'success' : 'danger'} size="sm">
-                      {trip.status === 'completed' ? 'Terminé' : 'Annulé'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="small" icon={Eye}>
-                      Détails
-                    </Button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 bg-rose-500 rounded-full mr-3"></div>
+                        <span>{trip.destination}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-bold text-emerald-700">{trip.price}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={trip.status === 'completed' ? 'success' : 'danger'} size="sm">
+                        {trip.status === 'completed' ? 'Terminé' : 'Annulé'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="small" icon={Eye}>
+                        Détails
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <div className="text-center py-4 text-gray-500">Aucun trajet récent</div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </Table>
           </CardContent>
         </Card>

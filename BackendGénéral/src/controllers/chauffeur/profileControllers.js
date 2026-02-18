@@ -1,6 +1,8 @@
 const ChauffeurProfile = require("../../models/ChauffeurProfile");
 const Document = require("../../models/Documents");
 const Utilisateurs = require("../../models/Utilisateurs");
+const Trajet = require("../../models/Trajets");
+const Paiement = require("../../models/Paiements");
 const { deleteFile } = require("../../utils/fileUtils");
 
 const mapTypeVehicule = (type) => {
@@ -26,11 +28,35 @@ const ensureProfile = async (userId, typeVehicule) => {
 
 /* ===================== PROFIL ===================== */
 
-// Afficher mon profil chauffeur
+// Afficher mon profil chauffeur (avec statistiques réelles)
 exports.getProfil = async (req, res) => {
   try {
     const utilisateur = req.utilisateur;
-    const chauffeurProfile = await ChauffeurProfile.findOne({ utilisateur: utilisateur._id });
+    const chauffeurId = utilisateur._id;
+
+    // 1. Infos de base du profil spécialisé
+    const chauffeurProfile = await ChauffeurProfile.findOne({ utilisateur: chauffeurId });
+
+    // 2. Calcul des statistiques réelles
+    // Nombre de trajets terminés
+    const trajetsCompletes = await Trajet.countDocuments({
+      chauffeur: chauffeurId,
+      statut: "TERMINEE"
+    });
+
+    // Revenus totaux (somme des montants nets chauffeur pour les paiements confirmés)
+    const paiements = await Paiement.aggregate([
+      { $match: { chauffeur: chauffeurId, statut: "PAYE" } },
+      { $group: { _id: null, total: { $sum: "$montantChauffeur" } } }
+    ]);
+    const revenusTotaux = paiements[0]?.total || 0;
+
+    // Calcul du temps en ligne réel (Cumulé + Session en cours)
+    let tempsTotalMs = chauffeurProfile?.tempsEnLigneCumule || 0;
+    if (chauffeurProfile?.disponibilite === "EN_LIGNE" && chauffeurProfile?.disponibiliteDepuis) {
+      tempsTotalMs += (new Date() - new Date(chauffeurProfile.disponibiliteDepuis));
+    }
+    const heuresEnLigne = Math.floor(tempsTotalMs / (1000 * 60 * 60));
 
     return res.status(200).json({
       succes: true,
@@ -42,8 +68,18 @@ exports.getProfil = async (req, res) => {
         genre: utilisateur.genre,
         photoUrl: utilisateur.photoUrl || null,
         localisation: utilisateur.localisation || "",
+        joinDate: utilisateur.createdAt,
+        badges: utilisateur.badges || [],
 
-        // Infos véhicule (depuis le profil lié)
+        // Indicateurs clés réels
+        stats: {
+          trajetsCompletes,
+          revenusTotaux,
+          noteMoyenne: utilisateur.noteMoyenne || 5,
+          heuresEnLigne: heuresEnLigne,
+        },
+
+        // Infos véhicule
         vehicule: {
           type: utilisateur.vehicule?.type || chauffeurProfile?.typeVehicule || "TAXI",
           marque: chauffeurProfile?.marqueVehicule || "",
@@ -53,7 +89,6 @@ exports.getProfil = async (req, res) => {
           capacite: chauffeurProfile?.capaciteVehicule || 1,
         },
 
-        // Notifications
         notifications: utilisateur.notifications || {
           trajet: true,
           promotionnelles: true,

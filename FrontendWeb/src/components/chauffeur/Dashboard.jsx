@@ -10,6 +10,7 @@ import {
 import UserLocationMap from '../maps/UserLocationMap';
 import { useDriverContext } from '../../context/DriverContext';
 import { GeolocationService } from '../../services/geolocation';
+import { tripService } from '../../services/tripService';
 
 export default function Dashboard() {
   // Contexte chauffeur pour le temps réel
@@ -17,13 +18,39 @@ export default function Dashboard() {
 
   // État pour les statistiques
   const [stats, setStats] = useState({
-    onlineSince: "2h 15min",
-    requestsReceived: 12,
-    tripsCompleted: 4,
-    dailyRevenue: 51000
+    onlineSince: "0min",
+    requestsReceived: 0,
+    tripsCompleted: 0,
+    dailyRevenue: 0
   });
 
-  // Simuler la mise à jour du temps en ligne
+  // Fetch Dashboard Stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await tripService.getDriverDashboardStats();
+        if (response.data.succes) {
+          const data = response.data.data;
+          setStats({
+            onlineSince: data.dureeEnLigne || "0min",
+            requestsReceived: data.stats.demandesRecuesAujourdHui || 0,
+            tripsCompleted: data.stats.coursesEffectueesAujourdHui || 0,
+            dailyRevenue: data.stats.revenusJournaliers || 0
+          });
+        }
+      } catch (error) {
+        console.error("Erreur chargement dashboard:", error);
+      }
+    };
+
+    fetchStats();
+
+    // Refresh stats every minute
+    const intervalData = setInterval(fetchStats, 60000);
+    return () => clearInterval(intervalData);
+  }, []);
+
+  // Simuler la mise à jour du temps en ligne (visuel)
   useEffect(() => {
     const interval = setInterval(() => {
       setStats(prev => ({
@@ -37,17 +64,26 @@ export default function Dashboard() {
 
   // Fonction pour incrémenter le temps
   const incrementTime = (currentTime) => {
-    const match = currentTime.match(/(\d+)h\s+(\d+)min/);
-    if (match) {
-      let hours = parseInt(match[1]);
-      let minutes = parseInt(match[2]) + 1;
+    if (!currentTime) return "0min";
+    const match = currentTime.match(/(\d+)h\s+(\d+)min/) || currentTime.match(/(\d+)min/);
 
-      if (minutes >= 60) {
-        hours += 1;
-        minutes = 0;
+    if (match) {
+      if (match.length === 3) {
+        let hours = parseInt(match[1]);
+        let minutes = parseInt(match[2]) + 1;
+        if (minutes >= 60) {
+          hours += 1;
+          minutes = 0;
+        }
+        return `${hours}h ${minutes}min`;
+      } else if (match.length === 2) {
+        let minutes = parseInt(match[1]) + 1;
+        if (minutes >= 60) {
+          return `1h 0min`;
+        }
+        return `${minutes}min`;
       }
 
-      return `${hours}h ${minutes}min`;
     }
     return currentTime;
   };
@@ -70,11 +106,11 @@ export default function Dashboard() {
             </div>
             <div className="text-xs bg-blue-500/10 dark:bg-blue-500/20 text-blue-500 dark:text-blue-400 rounded-full px-2 py-1">
               <Activity className="w-3 h-3 inline-block mr-1" />
-              En ligne
+              {isOnline ? 'En ligne' : 'Hors ligne'}
             </div>
           </div>
           <h3 className="text-2xl font-bold text-gray-800 mb-1 dark:text-white">{stats.onlineSince}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">En ligne depuis</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Temps de connexion</p>
         </div>
 
         {/* Carte 2: Demandes reçues */}

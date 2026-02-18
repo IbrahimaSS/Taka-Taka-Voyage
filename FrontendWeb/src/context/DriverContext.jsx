@@ -60,6 +60,10 @@ export const DriverProvider = ({ children }) => {
     maximumAge: 2000,
   }), []);
 
+  // Mode simulation pour les tests
+  const [isSimulating, setIsSimulating] = useState(false);
+  const simulationIntervalRef = useRef(null);
+
   const { location: realLocation } = useGeolocation(geolocationOptions);
 
   const [driverLocation, setDriverLocation] = useState({
@@ -68,10 +72,10 @@ export const DriverProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    if (realLocation?.lat != null && realLocation?.lng != null) {
+    if (!isSimulating && realLocation?.lat != null && realLocation?.lng != null) {
       setDriverLocation(realLocation);
     }
-  }, [realLocation]);
+  }, [realLocation, isSimulating]);
 
   // Demandes reçues (affichées par TripNotificationToast)
   const [tripRequests, setTripRequests] = useState([]);
@@ -91,9 +95,6 @@ export const DriverProvider = ({ children }) => {
     rejectedToday: 0,
   });
 
-  // Mode simulation pour les tests
-  const [isSimulating, setIsSimulating] = useState(false);
-  const simulationIntervalRef = useRef(null);
 
   // Anti doublon
   const processedRequestIds = useRef(new Set());
@@ -137,6 +138,10 @@ export const DriverProvider = ({ children }) => {
     driverLocationRef.current = driverLocation;
   }, [driverLocation]);
 
+  // ✅ Refs pour la robustesse du broadcast (Production Ready)
+  const lastBroadcastRef = useRef(null);
+  const lastBroadcastTimeRef = useRef(0);
+
   // Paramètres zone
   const MAX_DISTANCE_KM = 5;
   const KEEP_FAR_REQUESTS = true; // ✅ IMPORTANT: ne pas drop
@@ -152,8 +157,8 @@ export const DriverProvider = ({ children }) => {
       // si déjà en course, ignorer
       if (tripStepRef.current === "in_progress") return;
 
-      // anti doublon
-      if (processedRequestIds.current.has(reservationId)) return;
+      // anti doublon (on laisse passer si c'est un rappel J-1)
+      if (processedRequestIds.current.has(reservationId) && !tripData.isRappel) return;
 
       const pickup = normalizeCoords(tripData.pickupCoords);
       const dest = normalizeCoords(tripData.destinationCoords);
@@ -315,15 +320,47 @@ export const DriverProvider = ({ children }) => {
     const ids = getTargetIds();
     if (ids.length === 0) return;
 
-    // ✅ Broadcast position toutes les 4s (ou plus vite si simulation)
+    // ✅ Broadcast position intelligent (Production Ready)
     const interval = setInterval(() => {
       const currentIds = getTargetIds();
-      for (const rid of currentIds) {
-        socketService.emit("position:update", {
-          reservationId: rid,
-          lat: driverLocationRef.current?.lat ?? driverLocation.lat,
-          lng: driverLocationRef.current?.lng ?? driverLocation.lng,
-        });
+      if (currentIds.length === 0) return;
+
+      const currentLoc = driverLocationRef.current || driverLocation;
+      const now = Date.now();
+
+      // Logique de filtrage
+      let shouldBroadcast = false;
+
+      if (isSimulating) {
+        // En simulation, on envoie à chaque tick pour la fluidité du test
+        shouldBroadcast = true;
+      } else {
+        const lastLoc = lastBroadcastRef.current;
+        const lastTime = lastBroadcastTimeRef.current;
+
+        if (!lastLoc) {
+          shouldBroadcast = true;
+        } else {
+          const dist = calculateDistance(currentLoc.lat, currentLoc.lng, lastLoc.lat, lastLoc.lng);
+          const timeSinceLast = now - lastTime;
+
+          // SEUILS: 10 mètres (0.01 km) OU 30 secondes (Heartbeat)
+          if (dist > 0.01 || timeSinceLast > 30000) {
+            shouldBroadcast = true;
+          }
+        }
+      }
+
+      if (shouldBroadcast) {
+        for (const rid of currentIds) {
+          socketService.emit("position:update", {
+            reservationId: rid,
+            lat: currentLoc.lat,
+            lng: currentLoc.lng,
+          });
+        }
+        lastBroadcastRef.current = currentLoc;
+        lastBroadcastTimeRef.current = now;
       }
     }, isSimulating ? 2000 : 4000);
 
@@ -402,6 +439,11 @@ export const DriverProvider = ({ children }) => {
   const rejectTripRequest = (reservationId) => {
     if (!reservationId) return;
     socketService.emit("course:refuser", { reservationId });
+  };
+
+  const dismissTripRequest = (reservationId) => {
+    if (!reservationId) return;
+    setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
   };
 
   const selectPickupTrip = (reservationId) => {
@@ -484,6 +526,7 @@ export const DriverProvider = ({ children }) => {
       toggleOnline,
       acceptTripRequest,
       rejectTripRequest,
+      dismissTripRequest,
       selectPickupTrip,
       signalArrival,
       confirmPassengerPickup,

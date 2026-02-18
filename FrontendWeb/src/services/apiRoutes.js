@@ -39,6 +39,12 @@ export const API_ROUTES = {
     },
     motDePasse: "/passager/mot-de-passe",
     notifications: "/passager/notifications",
+    evaluations: {
+      base: "/evaluations",
+      passager: "/evaluations/passager",
+      stats: "/evaluations/passager/stats",
+      detail: (id) => `/evaluations/passager/${id}`,
+    }
   },
 
   // ===================== ADMIN =====================
@@ -133,7 +139,15 @@ export const API_ROUTES = {
       update: "/chauffeur/profile",
       motDePasse: "/chauffeur/mot-de-passe",
     },
+    mesCourses: {
+      disponibles: "/chauffeur/disponibles",
+      ramassage: "/chauffeur/mes-courses/ramassage",
+      accepter: (id) => `/chauffeur/mes-courses/${id}/accepter`,
+      refuser: (id) => `/chauffeur/mes-courses/${id}/refuser`,
+      plannings: "/chauffeur/plannings",
+    }
   },
+
 
   // ===================== UPLOADS =====================
   uploads: {

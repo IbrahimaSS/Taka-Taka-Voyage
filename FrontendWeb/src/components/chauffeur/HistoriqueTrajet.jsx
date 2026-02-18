@@ -1,20 +1,64 @@
-import { useTripStore } from '../../data/tripStore';
+import React, { useState, useEffect } from 'react';
+import { tripService } from '../../services/tripService'; // ✅ Import service
 import {
   CheckCircle,
   XCircle,
   MapPin,
   User,
-  DollarSign
+  DollarSign,
+  Loader
 } from 'lucide-react';
 
 function HistoriqueTrajet() {
-  const trips = useTripStore((state) => state.trips);
+  const [historyTrips, setHistoryTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const historyTrips = trips.filter((trip) =>
-    ['completed', 'cancelled'].includes(trip.status)
-  );
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+  const getImageUrl = (avatar) => {
+    if (!avatar) return null;
+    if (avatar.startsWith("data:") || avatar.startsWith("http")) return avatar;
+    const baseUrl = API_URL.replace(/\/api$/, '');
+    const cleanPath = avatar.startsWith('/') ? avatar : `/${avatar}`;
+    return `${baseUrl}${cleanPath}`;
+  };
+
+  // ✅ Fetch Real History
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        setLoading(true);
+        const { data } = await tripService.getDriverHistory();
+
+        if (data.succes) {
+          const formattedTrips = data.data.map(t => ({
+            id: t.id,
+            status: t.status,
+            requestedTime: t.requestedTime,
+            passengerName: t.passengerName,
+            passengerRating: t.passengerRating,
+            passengerPhoto: getImageUrl(t.passengerPhoto), // Ajout de la photo
+            pickupAddress: t.depart,
+            destinationAddress: t.destination,
+            distance: `${t.distanceKm} km`,
+            estimatedTime: `${t.dureeMin} min`,
+            estimatedFare: t.estimatedFare
+          }));
+          setHistoryTrips(formattedTrips);
+        }
+      } catch (err) {
+        console.error("Error fetching driver history:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, []);
+
 
   const formatDateTime = (date) => {
+    if (!date) return "";
     return new Date(date).toLocaleString('fr-FR', {
       weekday: 'short',
       day: '2-digit',
@@ -24,6 +68,14 @@ function HistoriqueTrajet() {
       minute: '2-digit',
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-12">
+        <Loader className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -50,11 +102,10 @@ function HistoriqueTrajet() {
                   ) : (
                     <XCircle className="w-5 h-5 text-red-500" />
                   )}
-                  <span className={`text-sm font-semibold ${
-                    trip.status === 'completed'
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
+                  <span className={`text-sm font-semibold ${trip.status === 'completed'
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-red-600 dark:text-red-400'
+                    }`}>
                     {trip.status === 'completed' ? 'Trajet terminé' : 'Trajet annulé'}
                   </span>
                 </div>
@@ -66,9 +117,14 @@ function HistoriqueTrajet() {
 
               {/* PASSAGER */}
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500/20 to-green-500/20 flex items-center justify-center">
-                  <User className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500/20 to-green-500/20 flex items-center justify-center overflow-hidden">
+                  {trip.passengerPhoto ? (
+                    <img src={trip.passengerPhoto} alt={trip.passengerName} className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                  )}
                 </div>
+
                 <div>
                   <p className="font-semibold text-gray-800 dark:text-white">
                     {trip.passengerName}

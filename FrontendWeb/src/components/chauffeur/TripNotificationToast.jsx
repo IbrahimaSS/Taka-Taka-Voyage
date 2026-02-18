@@ -28,6 +28,7 @@ import {
   Timer,
   Maximize2,
   Minimize2,
+  Calendar,
 } from "lucide-react";
 import { useDriverContext } from "../../context/DriverContext";
 import { useNotifications } from "../../hooks/useNotificationsAudio";
@@ -131,7 +132,7 @@ const TimerCircle = ({
 };
 
 const TripNotificationToast = () => {
-  const { tripRequests, acceptTripRequest, rejectTripRequest } =
+  const { tripRequests, acceptTripRequest, rejectTripRequest, dismissTripRequest } =
     useDriverContext();
   const { notifyNewTrip, stopNotificationSound } = useNotifications();
   const navigate = useNavigate();
@@ -143,6 +144,7 @@ const TripNotificationToast = () => {
   const [isScrollable, setIsScrollable] = useState(false);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
   const [isExpandedFull, setIsExpandedFull] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
 
   const contentRef = useRef(null);
   const previousRequestsCount = useRef(0);
@@ -229,8 +231,8 @@ const TripNotificationToast = () => {
     const isAtBottom =
       Math.abs(
         contentRef.current.scrollHeight -
-          contentRef.current.scrollTop -
-          contentRef.current.clientHeight
+        contentRef.current.scrollTop -
+        contentRef.current.clientHeight
       ) < 1;
 
     setShowScrollIndicator(scrollable && !isAtBottom);
@@ -271,6 +273,7 @@ const TripNotificationToast = () => {
 
   const handleAccept = (reservationId) => {
     if (!reservationId) return;
+    setIsAccepting(true);
     stopNotificationSound();
     acceptTripRequest(reservationId);
     navigate("/chauffeur/tracking");
@@ -279,6 +282,11 @@ const TripNotificationToast = () => {
   const handleReject = (reservationId) => {
     if (!reservationId) return;
     rejectTripRequest(reservationId);
+  };
+
+  const handleDismiss = (reservationId) => {
+    if (!reservationId) return;
+    dismissTripRequest(reservationId);
   };
 
   const handleAcceptWithConfirm = (request) => {
@@ -328,11 +336,9 @@ const TripNotificationToast = () => {
               damping: 25,
               x: { duration: 0.3, times: [0, 0.2, 0.4, 0.6, 1] },
             }}
-            className={`fixed ${
-              isExpandedFull ? "inset-2" : "top-4 left-1/2"
-            } z-[9999] w-[95%] max-w-xl ${
-              isExpandedFull ? "h-[95vh]" : ""
-            } transform ${isExpandedFull ? "" : "-translate-x-1/2"} bg-gray-50 dark:bg-gray-800`}
+            className={`fixed ${isExpandedFull ? "inset-2" : "top-4 left-1/2"
+              } z-[9999] w-[95%] max-w-xl ${isExpandedFull ? "h-[95vh]" : ""
+              } transform ${isExpandedFull ? "" : "-translate-x-1/2"} bg-gray-50 dark:bg-gray-800`}
             style={{ perspective: 1000 }}
           >
             <motion.div
@@ -343,9 +349,8 @@ const TripNotificationToast = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-blue-500/20 to-purple-500/20 blur-3xl rounded-3xl -z-10 opacity-50" />
 
               <div
-                className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden backdrop-blur-sm ${
-                  isExpandedFull ? "h-full flex flex-col" : ""
-                }`}
+                className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden backdrop-blur-sm ${isExpandedFull ? "h-full flex flex-col" : ""
+                  }`}
               >
                 {/* header */}
                 <div className="relative bg-gradient-to-r from-emerald-500 via-blue-500 to-indigo-500 px-6 py-4">
@@ -366,7 +371,7 @@ const TripNotificationToast = () => {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="text-white font-bold text-lg">
-                            Nouvelle Course Disponible !
+                            {currentRequest.isRappel ? "Rappel trajet planifié" : "Nouvelle Course Disponible !"}
                           </h3>
                           <Sparkles className="w-4 h-4 text-yellow-300" />
                         </div>
@@ -421,13 +426,31 @@ const TripNotificationToast = () => {
                 <div
                   ref={contentRef}
                   onScroll={handleScroll}
-                  className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent ${
-                    isExpandedFull
-                      ? "max-h-[calc(100vh-180px)]"
-                      : "max-h-[60vh]"
-                  }`}
+                  className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent ${isExpandedFull
+                    ? "max-h-[calc(100vh-180px)]"
+                    : "max-h-[60vh]"
+                    }`}
                 >
                   <div className="p-6 space-y-6">
+                    {/* Indicateur Course Planifiée */}
+                    {currentRequest.typeCourse === "PLANIFIEE" && (
+                      <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-5 h-5 text-blue-500" />
+                          <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                            COURSE PLANIFIÉE
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-gray-900 dark:text-white">
+                            {new Date(currentRequest.datePlanifiee).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                          </p>
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                            à {new Date(currentRequest.datePlanifiee).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     {/* passager */}
                     <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 rounded-2xl">
                       <div className="flex items-center gap-4">
@@ -616,35 +639,47 @@ const TripNotificationToast = () => {
 
                 {/* footer actions */}
                 <div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-                  <div className="flex gap-4">
-                    <Button
-                      variant="danger"
-                      size="large"
-                      icon={X}
-                      onClick={() => {
-                        setSelectedRequest(currentRequest);
-                        setShowConfirm(true); // confirm avant refus aussi (cohérent)
-                      }}
-                      fullWidth
-                      className="h-12"
-                    >
-                      Refuser
-                    </Button>
-
+                  {currentRequest.isRappel ? (
                     <Button
                       variant="primary"
                       size="large"
-                      icon={Check}
-                      onClick={() => handleAcceptWithConfirm(currentRequest)}
-                      fullWidth
-                      className="h-12 shadow-lg shadow-emerald-500/30"
+                      className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-blue-500/20"
+                      onClick={() => handleDismiss(currentRequest.id)}
                     >
-                      <span className="flex items-center gap-2">
-                        Accepter
-                        <Zap className="w-4 h-4 animate-pulse" />
-                      </span>
+                      C'est noté !
                     </Button>
-                  </div>
+                  ) : (
+                    <div className="flex gap-4">
+                      <Button
+                        variant="danger"
+                        size="large"
+                        icon={X}
+                        onClick={() => handleReject(currentRequest.id)}
+                        className="flex-1 h-16 text-lg font-bold rounded-2xl shadow-xl shadow-red-500/20 hover:shadow-red-500/40 transition-all duration-300"
+                        disabled={isAccepting}
+                      >
+                        Ignorer
+                      </Button>
+
+                      <Button
+                        variant="primary"
+                        size="large"
+                        icon={Check}
+                        onClick={() => handleAccept(currentRequest.id)}
+                        className="flex-[2] h-16 text-lg font-bold rounded-2xl shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all duration-300 relative overflow-hidden group"
+                        disabled={isAccepting}
+                      >
+                        {isAccepting ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>Acceptation...</span>
+                          </div>
+                        ) : (
+                          "Accepter"
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

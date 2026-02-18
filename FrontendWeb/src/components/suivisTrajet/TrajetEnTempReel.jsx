@@ -58,6 +58,17 @@ const RealTimeTracking = ({
 }) => {
   // États
   const driverCtx = role === 'driver' ? useDriverContext() : null;
+  const isValidCoords = (pos) => {
+    if (!pos) return false;
+    if (Array.isArray(pos)) {
+      return pos.length === 2 && pos[0] !== null && pos[1] !== null && !isNaN(pos[0]) && !isNaN(pos[1]);
+    }
+    if (typeof pos === 'object') {
+      return pos.lat !== null && pos.lng !== null && !isNaN(pos.lat) && !isNaN(pos.lng);
+    }
+    return false;
+  };
+
   const isSimulating = driverCtx?.isSimulating || false;
   const setIsSimulating = driverCtx?.setIsSimulating || (() => { });
 
@@ -88,13 +99,13 @@ const RealTimeTracking = ({
   const tripData = {
     departure: {
       coords: trip?.pickupCoords || [9.6412, -13.5784],
-      name: trip?.pickup || 'Point de départ',
-      address: trip?.pickup || ''
+      name: trip?.pickup || trip?.depart || trip?.pickupAddress || 'Point de départ',
+      address: trip?.pickup || trip?.depart || trip?.pickupAddress || ''
     },
     destination: {
       coords: trip?.destinationCoords || [9.6412, -13.5784],
-      name: trip?.destination || 'Destination',
-      address: trip?.destination || ''
+      name: trip?.destination || trip?.destinationAddress || 'Destination',
+      address: trip?.destination || trip?.destinationAddress || ''
     },
     driver: driver || {
       id: 1,
@@ -115,38 +126,38 @@ const RealTimeTracking = ({
     },
     trip: {
       totalDistance: (() => {
-        const val = trip?.estimatedDistance;
+        const val = trip?.estimatedDistance || trip?.distanceKm || trip?.distance;
         if (typeof val === 'number') return val;
         return parseFloat(String(val || '').replace(' km', '')) || 8.0;
       })(),
       traveledDistance: 0,
       totalDuration: (() => {
-        const val = trip?.estimatedDuration;
+        const val = trip?.estimatedDuration || trip?.dureeMin || trip?.estimatedTime;
         if (typeof val === 'number') return val;
         return parseInt(String(val || '').replace(' min', '')) || 20;
       })(),
       elapsedMinutes: 0,
       remainingMinutes: (() => {
-        const val = trip?.estimatedDuration;
+        const val = trip?.estimatedDuration || trip?.dureeMin || trip?.estimatedTime;
         if (typeof val === 'number') return val;
         return parseInt(String(val || '').replace(' min', '')) || 20;
       })(),
       price: {
         // Safe price formatting
         estimated: (() => {
-          const priceRaw = trip?.estimatedPrice || trip?.price || '0';
+          const priceRaw = trip?.estimatedPrice || trip?.estimatedFare || trip?.prix || trip?.price || '0';
           const price = String(priceRaw).replace(/[^0-9]/g, '');
           return parseInt(price || 0);
         })() || 15000,
         serviceFee: 1000,
         trafficSurcharge: 0,
         total: (() => {
-          const priceRaw = trip?.estimatedPrice || trip?.price || '0';
+          const priceRaw = trip?.estimatedPrice || trip?.estimatedFare || trip?.prix || trip?.price || '0';
           const price = String(priceRaw).replace(/[^0-9]/g, '');
           return (parseInt(price || 0) || 15000) + 1000;
         })()
       },
-      paymentMethod: trip?.paymentMethod || 'Orange Money'
+      paymentMethod: (trip?.paymentMethod && trip.paymentMethod !== 'Non spécifié') ? trip.paymentMethod : null
     }
   };
 
@@ -261,11 +272,18 @@ const RealTimeTracking = ({
       });
     }, 30000);
 
+    // Initialisation de la room socket
+    const rid = trip?.reservationId || trip?.id;
+    if (rid) {
+      console.log(`📡 [SOCKET] Tentative de connexion à la room RESERVATION_${rid}`);
+      socketService.emit('reservation:join', { reservationId: rid });
+    }
+
     return () => {
       clearInterval(timeInterval.current);
       clearInterval(batteryInterval);
     };
-  }, [updateTime]);
+  }, [updateTime, trip?.reservationId, trip?.id]);
 
   // ✅ FIX: Mettre à jour la position locale quand le prop driver change (socket)
   useEffect(() => {
@@ -331,31 +349,22 @@ const RealTimeTracking = ({
       const depLat = getLat(tripData.departure.coords);
       const depLng = getLng(tripData.departure.coords);
 
-      // ✅ FIX: Sauvegarder la position initiale du chauffeur au premier rendu VALIDE
-      // C'est cette position qui sert de "point 0%" pour le calcul de progression.
       // On ignore le point de départ théorique s'il est utilisé comme simple placeholder au début.
       const isPlaceholder = depLat === driverLat && depLng === driverLng;
 
-      if (!driverStartPositionRef.current && driverPosition && !isPlaceholder) {
-        console.log("📍 [TRACKING] Capturing start position:", { driverLat, driverLng });
-        driverStartPositionRef.current = { lat: driverLat, lng: driverLng };
-        // Au tout début, on force 0%
-        setRealTimeMetrics({
-          distanceTraveled: 0,
-          distanceRemaining: tripData.trip.totalDistance,
-          progress: 0,
-          durationRemaining: tripData.trip.totalDuration,
-          formattedDuration: tripData.trip.totalDuration >= 60
-            ? `${Math.floor(tripData.trip.totalDuration / 60)}h ${tripData.trip.totalDuration % 60} min`
-            : `${tripData.trip.totalDuration} min`
-        });
-        setProgress(0);
-        return;
+      // ✅ FIX: Initialiser la position de départ (référence 0%) dès que possible
+      if (!driverStartPositionRef.current) {
+        // Idéalement on utilise la position réelle du chauffeur au moment du START,
+        // sinon on fallback sur le point de départ théorique du trajet.
+        if (driverPosition && !isPlaceholder) {
+          driverStartPositionRef.current = { lat: driverLat, lng: driverLng };
+        } else {
+          driverStartPositionRef.current = { lat: depLat, lng: depLng };
+        }
       }
 
-      // Si on n'a pas encore de position de départ capturée, on utilise le point de départ théorique du trajet
-      const startLat = driverStartPositionRef.current?.lat || depLat;
-      const startLng = driverStartPositionRef.current?.lng || depLng;
+      const startLat = driverStartPositionRef.current.lat;
+      const startLng = driverStartPositionRef.current.lng;
 
       // 1. Distance totale du trajet = position initiale du chauffeur → destination
       const distTotal = GeolocationService.calculateDistance(startLat, startLng, destLat, destLng) || Math.max(0.1, tripData.trip.totalDistance);
@@ -368,6 +377,13 @@ const RealTimeTracking = ({
 
       // 4. Pourcentage — borné entre 0% et 100%
       let pct = (distTraveled / distTotal) * 100;
+
+      // ✅ [FIX] Si on est à moins de 200m de la destination, on considère que c'est 100%
+      // pour éviter les sauts GPS qui bloquent à 99%
+      if (distRemaining < 0.2) {
+        pct = 100;
+      }
+
       pct = Math.min(100, Math.max(0, pct));
 
       // 5. Temps restant — Règle de 3 sur la durée initiale estimée
@@ -394,6 +410,42 @@ const RealTimeTracking = ({
       setEstimatedArrival(newEta);   // Sync avec l'état existant pour l'ETA
     }
   }, [driverPosition, tripData.destination.coords, tripData.departure.coords, tripData.trip.totalDistance, tripData.trip.totalDuration]);
+
+  // ✅ AUTO-TERMINER : Si progress === 100%, on finit automatiquement
+  useEffect(() => {
+    if (progress >= 100 && !isTripEnded) {
+      console.log("🏁 Destination atteinte à 100%. Fin de trajet automatique...");
+
+      // On émet l'événement socket pour le backend
+      socketService.emit('course:terminer_auto', { reservationId: trip?.id });
+
+      setIsTripEnded(true);
+      showToast('🏁 Destination atteinte ! Trajet terminé.', 'success');
+
+      // Appel du callback si présent
+      if (onEndTrip) onEndTrip();
+    }
+  }, [progress, isTripEnded, role, trip?.id, onEndTrip]);
+
+  // ✅ ÉCOUTER LA FIN DE TRAJET (Pour le passager ou side-effect)
+  useEffect(() => {
+    const handleTripFinished = (data) => {
+      const rid = trip?.reservationId || trip?.id;
+      if (String(data.reservationId) === String(rid)) {
+        setIsTripEnded(true);
+        showToast('🏁 Le trajet est terminé !', 'success');
+        if (onEndTrip) onEndTrip();
+      }
+    };
+
+    socketService.on('course:finit_avec_paiement', handleTripFinished);
+    socketService.on('course:arrive_destination', handleTripFinished);
+
+    return () => {
+      socketService.off('course:finit_avec_paiement', handleTripFinished);
+      socketService.off('course:arrive_destination', handleTripFinished);
+    };
+  }, [trip?.reservationId, trip?.id, onEndTrip]);
 
   // Styles de notification
   const notificationStyles = {
@@ -639,7 +691,7 @@ const RealTimeTracking = ({
 
               <div className="h-[400px] rounded-xl overflow-hidden shadow-lg border border-gray-100">
                 <MapContainer
-                  center={driverPosition}
+                  center={isValidCoords(driverPosition) ? driverPosition : (isValidCoords(passengerPosition) ? passengerPosition : [0, 0])}
                   zoom={15}
                   style={{ height: '100%', width: '100%' }}
                   ref={mapRef}
@@ -650,60 +702,74 @@ const RealTimeTracking = ({
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
 
-                  {/* MapController removed to avoid conflict with flyToBounds */}
-                  {/* <MapController center={driverPosition} zoom={15} /> */}
-
                   {/* Marqueurs avec Halo pour visibilité "GROS" */}
-                  <Circle
-                    center={tripData.departure.coords}
-                    radius={30}
-                    pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.4, weight: 2 }}
-                  />
-                  <Marker position={tripData.departure.coords} icon={leafletIcons.start}>
-                    <Popup>
-                      <div className="p-2">
-                        <p className="font-bold text-green-600">📍 Départ</p>
-                        <p className="text-sm">{tripData.departure.name}</p>
-                      </div>
-                    </Popup>
-                  </Marker>
+                  {isValidCoords(tripData.departure.coords) && (
+                    <>
+                      <Circle
+                        center={tripData.departure.coords}
+                        radius={30}
+                        pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.4, weight: 2 }}
+                      />
+                      <Marker position={tripData.departure.coords} icon={leafletIcons.start}>
+                        <Popup>
+                          <div className="p-2">
+                            <p className="font-bold text-green-600">📍 Départ</p>
+                            <p className="text-sm">{tripData.departure.name}</p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    </>
+                  )}
 
-                  <Circle
-                    center={tripData.destination.coords}
-                    radius={30}
-                    pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.4, weight: 2 }}
-                  />
-                  <Marker position={tripData.destination.coords} icon={leafletIcons.end}>
-                    <Popup>
-                      <div className="p-2">
-                        <p className="font-bold text-red-600">🏁 Destination</p>
-                        <p className="text-sm">{tripData.destination.name}</p>
-                      </div>
-                    </Popup>
-                  </Marker>
+                  {isValidCoords(tripData.destination.coords) && (
+                    <>
+                      <Circle
+                        center={tripData.destination.coords}
+                        radius={30}
+                        pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.4, weight: 2 }}
+                      />
+                      <Marker position={tripData.destination.coords} icon={leafletIcons.end}>
+                        <Popup>
+                          <div className="p-2">
+                            <p className="font-bold text-red-600">🏁 Destination</p>
+                            <p className="text-sm">{tripData.destination.name}</p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                      <Circle
+                        center={tripData.destination.coords}
+                        radius={200}
+                        pathOptions={{ color: '#dc2626', fillColor: '#fecaca', fillOpacity: 0.2 }}
+                      />
+                    </>
+                  )}
 
-                  <Marker position={driverPosition} icon={leafletIcons.driver}>
-                    <Popup>
-                      <div className="p-2">
-                        <p className="font-bold">{tripData.driver.name}</p>
-                        <p className="text-sm">{tripData.driver.vehicle.brand} {tripData.driver.vehicle.model}</p>
-                        <p className="text-sm">⭐ {tripData.driver.rating} ({tripData.driver.totalTrips} trajets)</p>
-                        <p className="text-xs text-gray-500">{tripData.driver.vehicle.plate} • {tripData.driver.vehicle.color}</p>
-                      </div>
-                    </Popup>
-                  </Marker>
+                  {isValidCoords(driverPosition) && (
+                    <Marker position={driverPosition} icon={leafletIcons.driver}>
+                      <Popup>
+                        <div className="p-2">
+                          <p className="font-bold">{tripData.driver.name}</p>
+                          <p className="text-sm">{tripData.driver.vehicle.brand} {tripData.driver.vehicle.model}</p>
+                          <p className="text-sm">⭐ {tripData.driver.rating} ({tripData.driver.totalTrips} trajets)</p>
+                          <p className="text-xs text-gray-500">{tripData.driver.vehicle.plate} • {tripData.driver.vehicle.color}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
 
-                  <Marker position={passengerPosition} icon={leafletIcons.user}>
-                    <Popup>
-                      <div className="p-2">
-                        <p className="font-bold text-blue-600">👤 {role === 'driver' ? `Passager: ${trip?.passengerName}` : 'Votre position'}</p>
-                        <p className="text-sm">En attente du chauffeur</p>
-                      </div>
-                    </Popup>
-                  </Marker>
+                  {isValidCoords(passengerPosition) && (
+                    <Marker position={passengerPosition} icon={leafletIcons.user}>
+                      <Popup>
+                        <div className="p-2">
+                          <p className="font-bold text-blue-600">👤 {role === 'driver' ? `Passager: ${trip?.passengerName}` : 'Votre position'}</p>
+                          <p className="text-sm">En attente du chauffeur</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )}
 
-                  {/* Trajet Driver -> Passenger (Approche) - Uniquement si positions différentes */}
-                  {driverPosition && tripData.departure.coords && (
+                  {/* Trajet Driver -> Passenger (Approche) */}
+                  {isValidCoords(driverPosition) && isValidCoords(tripData.departure.coords) && (
                     <Polyline
                       positions={[driverPosition, tripData.departure.coords]}
                       pathOptions={{ color: '#22c55e', weight: 6, opacity: 0.9, dashArray: '15, 15', lineCap: 'round', lineJoin: 'round' }}
@@ -711,19 +777,12 @@ const RealTimeTracking = ({
                   )}
 
                   {/* Trajet Passenger -> Destination (Future Course) */}
-                  {tripData.departure.coords && tripData.destination.coords && (
+                  {isValidCoords(tripData.departure.coords) && isValidCoords(tripData.destination.coords) && (
                     <Polyline
                       positions={[tripData.departure.coords, tripData.destination.coords]}
                       pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.4 }}
                     />
                   )}
-
-                  {/* Zone d'arrivée */}
-                  <Circle
-                    center={tripData.destination.coords}
-                    radius={200}
-                    pathOptions={{ color: '#dc2626', fillColor: '#fecaca', fillOpacity: 0.2 }}
-                  />
                 </MapContainer>
               </div>
 
@@ -841,10 +900,12 @@ const RealTimeTracking = ({
                   </div>
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-center">
-                <Smartphone className="w-5 h-5 text-orange-500 mr-2" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">{tripData.trip.paymentMethod}</span>
-              </div>
+              {tripData.trip.paymentMethod && (
+                <div className="mt-4 flex items-center justify-center">
+                  <Smartphone className="w-5 h-5 text-orange-500 mr-2" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{tripData.trip.paymentMethod}</span>
+                </div>
+              )}
             </motion.div>
           </div>
         </div>

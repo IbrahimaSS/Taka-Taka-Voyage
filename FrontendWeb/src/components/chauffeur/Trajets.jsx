@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Clock,
   CheckCircle,
@@ -11,60 +11,205 @@ import {
   Navigation,
   AlertCircle,
   MoreVertical,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useDriverContext } from '../../context/DriverContext';
 import Badge from '../../ui/Badge';
-import { useTripStore } from '../../data/tripStore';
+import { tripService } from '../../services/tripService';
+import { socketService } from '../../services/socketService';
+import { toast } from 'react-hot-toast';
+
+const SERVER_URL = "http://localhost:5000";
 
 function Trajets() {
-  const trips = useTripStore((state) => state.trips);
-  const completeTrip = useTripStore((state) => state.completeTrip);
-  const cancelTrip = useTripStore((state) => state.cancelTrip);
-  const { acceptTripRequest, activeTrip } = useDriverContext();
+  const { isOnline, activeTrip, setActiveTrip } = useDriverContext();
   const navigate = useNavigate();
+
+  // États pour les données
+  const [backendTrips, setBackendTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
 
   // États pour les filtres
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedPriority, setSelectedPriority] = useState('all');
+
+  const fetchTrips = useCallback(async (isRefreshing = false) => {
+    try {
+      if (isRefreshing) setRefreshing(true);
+      else setLoading(true);
+
+      const [availableRes, pickupRes] = await Promise.all([
+        tripService.getAvailableTrips(),
+        tripService.getPickupTrips()
+      ]);
+
+      let allTrips = [];
+
+      const formatPhotoUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url;
+        return `${SERVER_URL}${url}`;
+      };
+
+      // 1. Traiter les réservations "EN_ATTENTE" (disponibles)
+      if (availableRes.data && availableRes.data.succes) {
+        const available = availableRes.data.courses.map(c => ({
+          id: c._id,
+          passengerName: c.passager ? `${c.passager.prenom} ${c.passager.nom}` : "Anonyme",
+          passengerRating: c.passager?.noteMoyenne || 5,
+          passengerPhoto: formatPhotoUrl(c.passager?.photoUrl),
+          pickupAddress: c.depart,
+          destinationAddress: c.destination,
+          distance: `${c.distanceKm} km`,
+          estimatedTime: `${c.dureeMin} min`,
+          estimatedFare: c.prix,
+          status: 'pending', // On mappe vers le format interne
+          requestedTime: new Date(c.createdAt),
+          typeVehicule: c.typeVehicule,
+          priority: c.typeCourse === 'IMMEDIATE' ? 'high' : 'medium'
+        }));
+        allTrips = [...allTrips, ...available];
+      }
+
+      // 2. Traiter les réservations acceptées / en cours (ramassage)
+      if (pickupRes.data && pickupRes.data.succes) {
+        const pickup = pickupRes.data.courses.map(c => ({
+          id: c._id,
+          passengerName: c.passager ? `${c.passager.prenom} ${c.passager.nom}` : "Anonyme",
+          passengerRating: c.passager?.noteMoyenne || 5,
+          passengerPhoto: formatPhotoUrl(c.passager?.photoUrl),
+          pickupAddress: c.depart,
+          destinationAddress: c.destination,
+          distance: `${c.distanceKm} km`,
+          estimatedTime: `${c.dureeMin} min`,
+          estimatedFare: c.prix,
+          status: mapBackendStatus(c.statut),
+          requestedTime: new Date(c.createdAt),
+          typeVehicule: c.typeVehicule,
+          priority: c.typeCourse === 'IMMEDIATE' ? 'high' : 'medium'
+        }));
+        allTrips = [...allTrips, ...pickup];
+      }
+
+      setBackendTrips(allTrips);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des trajets", error);
+      toast.error("Impossible de charger les trajets");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTrips();
+
+    // ÉCOUTEURS TEMPS RÉEL (Socket.io)
+    // Dès qu'une action importante a lieu sur le serveur, on rafraîchit la liste
+    const handleSocketUpdate = () => {
+      console.log("🔄 Mise à jour temps réel reçue via Socket");
+      fetchTrips(true);
+    };
+
+    socketService.on("course:demande", handleSocketUpdate);
+    socketService.on("course:acceptee_confirmation", handleSocketUpdate);
+    socketService.on("course:deja_prise", handleSocketUpdate);
+    socketService.on("course:annulee", handleSocketUpdate);
+    socketService.on("course:terminee", handleSocketUpdate);
+    socketService.on("reservation:planifiee_creee", handleSocketUpdate);
+    socketService.on("reservation:planifiee_acceptee", handleSocketUpdate);
+    socketService.on("reservation:planifiee_prise", handleSocketUpdate);
+
+    // Rafraîchir toutes les 60 secondes en fallback de sécurité
+    const interval = setInterval(() => fetchTrips(true), 60000);
+
+    return () => {
+      clearInterval(interval);
+      socketService.off("course:demande", handleSocketUpdate);
+      socketService.off("course:acceptee_confirmation", handleSocketUpdate);
+      socketService.off("course:deja_prise", handleSocketUpdate);
+      socketService.off("course:annulee", handleSocketUpdate);
+      socketService.off("course:terminee", handleSocketUpdate);
+      socketService.off("reservation:planifiee_creee", handleSocketUpdate);
+      socketService.off("reservation:planifiee_acceptee", handleSocketUpdate);
+      socketService.off("reservation:planifiee_prise", handleSocketUpdate);
+    };
+  }, [fetchTrips]);
+
+  const mapBackendStatus = (statut) => {
+    switch (statut) {
+      case 'ACCEPTEE': return 'accepted';
+      case 'ASSIGNEE': return 'in_progress';
+      case 'ARRIVEE': return 'in_progress';
+      case 'EN_COURS': return 'in_progress';
+      case 'TERMINEE': return 'completed';
+      case 'ANNULEE': return 'cancelled';
+      default: return 'pending';
+    }
+  };
+
+  const handleAccept = async (id) => {
+    try {
+      const res = await tripService.acceptTrip(id);
+      if (res.data && res.data.succes) {
+        toast.success("Course acceptée ! Redirection...");
+        // On met à jour l'activeTrip dans le contexte pour le tracking
+        // setActiveTrip({ id, ... }); 
+        navigate('/chauffeur/tracking');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Erreur lors de l'acceptation");
+      fetchTrips(true);
+    }
+  };
+
+  const handleRefuse = async (id) => {
+    try {
+      await tripService.refuseTrip(id);
+      toast.success("Demande refusée");
+      fetchTrips(true);
+    } catch (error) {
+      toast.error("Erreur lors de l'action");
+    }
+  };
 
   // Statistiques
   const stats = {
-    total: trips.length,
-    pending: trips.filter(t => t.status === 'pending').length,
-    inProgress: trips.filter(t => t.status === 'in_progress').length,
-    completed: trips.filter(t => t.status === 'completed').length,
-    totalEarnings: trips
+    total: backendTrips.length,
+    pending: backendTrips.filter(t => t.status === 'pending').length,
+    active: backendTrips.filter(t => t.status === 'accepted' || t.status === 'in_progress').length,
+    completedToday: backendTrips.filter(t => t.status === 'completed' && isToday(t.requestedTime)).length,
+    totalEarnings: backendTrips
       .filter(t => t.status === 'completed')
       .reduce((sum, trip) => sum + trip.estimatedFare, 0)
   };
 
+  function isToday(date) {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+  }
+
   // Filtrer les trajets
-  const activeTrips = trips.filter(trip => {
+  const filteredTrips = backendTrips.filter(trip => {
     if (selectedStatus !== 'all' && trip.status !== selectedStatus) return false;
-    if (selectedPriority !== 'all' && trip.priority !== selectedPriority) return false;
     return true;
   });
-
-  const handleCompleteTrip = (id) => {
-    completeTrip(id);
-  };
-
-  const handleCancelTrip = (id) => {
-    cancelTrip(id);
-  };
 
   // Configuration des statuts
   const statusConfig = {
     pending: {
-      label: 'En attente',
+      label: 'Demandes',
       color: 'bg-amber-100 text-amber-800 border-amber-200',
       icon: <Clock className="w-4 h-4" />,
       badge: 'warning'
     },
     accepted: {
-      label: 'Accepté',
+      label: 'Acceptés',
       color: 'bg-blue-100 text-blue-800 border-blue-200',
       icon: <CheckCircle className="w-4 h-4" />,
       badge: 'info'
@@ -74,37 +219,6 @@ function Trajets() {
       color: 'bg-purple-100 text-purple-800 border-purple-200',
       icon: <Navigation className="w-4 h-4" />,
       badge: 'primary'
-    },
-    completed: {
-      label: 'Terminé',
-      color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      icon: <CheckCircle className="w-4 h-4" />,
-      badge: 'success'
-    },
-    cancelled: {
-      label: 'Annulé',
-      color: 'bg-red-100 text-red-800 border-red-200',
-      icon: <XCircle className="w-4 h-4" />,
-      badge: 'error'
-    }
-  };
-
-  // Configuration des priorités
-  const priorityConfig = {
-    low: {
-      label: 'Basse',
-      color: 'bg-gray-100 text-gray-800',
-      badge: 'default'
-    },
-    medium: {
-      label: 'Moyenne',
-      color: 'bg-amber-100 text-amber-800',
-      badge: 'warning'
-    },
-    high: {
-      label: 'Haute',
-      color: 'bg-red-100 text-red-800',
-      badge: 'error'
     }
   };
 
@@ -113,320 +227,265 @@ function Trajets() {
       {/* En-tête */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">Mes Trajets</h1>
-          <p className="text-gray-600 dark:text-gray-200">Gérez vos courses du jour</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            Mes Trajets
+            {refreshing && <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />}
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">Gérez vos demandes et courses actives</p>
         </div>
+        <button
+          onClick={() => fetchTrips(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 transition-colors text-sm font-bold"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Rafraîchir
+        </button>
       </div>
 
-      {/* Statistiques rapides */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-200">En attente</p>
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats.pending}</p>
-            </div>
-            <div className="p-2 bg-amber-50 rounded-lg">
-              <Clock className="w-6 h-6 text-amber-500" />
-            </div>
-          </div>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <RefreshCw className="w-10 h-10 animate-spin text-blue-500" />
+          <p className="text-gray-500 font-medium font-bold">Récupération des courses...</p>
         </div>
+      ) : (
+        <>
+          {/* Statistiques rapides */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Demandes</p>
+                  <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{stats.pending}</p>
+                </div>
+                <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-amber-500" />
+                </div>
+              </div>
+            </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-200">En cours</p>
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats.inProgress}</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actifs</p>
+                  <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{stats.active}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center">
+                  <Car className="w-6 h-6 text-blue-500" />
+                </div>
+              </div>
             </div>
-            <div className="p-2 bg-purple-50 rounded-lg">
-              <Navigation className="w-6 h-6 text-purple-500" />
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gain Auj.</p>
+                  <p className="text-2xl font-black text-green-600 mt-1">{stats.totalEarnings.toLocaleString()} FG</p>
+                </div>
+                <div className="w-12 h-12 bg-green-500/10 rounded-2xl flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-green-500" />
+                </div>
+              </div>
             </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Statut</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className={`w-3 h-3 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'} rounded-full`} />
+                    <span className={`text-sm font-bold ${isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+                      {isOnline ? 'En ligne' : 'Hors ligne'}
+                    </span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-green-500/10 rounded-2xl flex items-center justify-center">
+                  <RefreshCw className={`w-6 h-6 ${isOnline ? 'text-green-500' : 'text-gray-400'}`} />
+                </div>
+              </div>
+            </div>
+
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-200">Terminés</p>
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats.completed}</p>
-            </div>
-            <div className="p-2 bg-emerald-50 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-emerald-500" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-200">Revenus du jour</p>
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">
-                {stats.totalEarnings.toLocaleString('fr-FR')} FG
-              </p>
-            </div>
-            <div className="p-2 bg-green-50 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-500" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtres */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700 p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Statut</label>
-            <div className="flex flex-wrap gap-2">
+          {/* Filtres */}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setSelectedStatus('all')}
+              className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${selectedStatus === 'all'
+                ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700 hover:bg-gray-50'
+                }`}
+            >
+              Tous ({stats.total})
+            </button>
+            {Object.entries(statusConfig).map(([status, config]) => (
               <button
-                onClick={() => setSelectedStatus('all')}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${selectedStatus === 'all'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200'
+                key={status}
+                onClick={() => setSelectedStatus(status)}
+                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all flex items-center gap-2 ${selectedStatus === status
+                  ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700 hover:bg-gray-50'
                   }`}
               >
-                Tous ({stats.total})
+                {config.icon}
+                {config.label}
+                <span className={`px-1.5 py-0.5 rounded-lg text-[10px] ${selectedStatus === status ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                  {backendTrips.filter(t => t.status === status).length}
+                </span>
               </button>
-              {Object.entries(statusConfig).map(([status, config]) => (
-                <button
-                  key={status}
-                  onClick={() => setSelectedStatus(status)}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2 ${selectedStatus === status
-                    ? config.color
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200'
-                    }`}
+            ))}
+          </div>
+
+          {/* Liste des trajets */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredTrips.map((trip) => {
+              const config = statusConfig[trip.status] || { color: 'bg-gray-100', icon: <Car className="w-4 h-4" /> };
+
+              return (
+                <div
+                  key={trip.id}
+                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all duration-300"
                 >
-                  {config.icon}
-                  <span>{config.label}</span>
-                  <span className="text-xs opacity-75">
-                    ({trips.filter(t => t.status === status).length})
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Priorité</label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedPriority('all')}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${selectedPriority === 'all'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200'
-                  }`}
-              >
-                Toutes
-              </button>
-              {Object.entries(priorityConfig).map(([priority, config]) => (
-                <button
-                  key={priority}
-                  onClick={() => setSelectedPriority(priority)}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${selectedPriority === priority
-                    ? config.color
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200'
-                    }`}
-                >
-                  {config.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Liste des trajets */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Trajets {selectedStatus !== 'all' && `(${statusConfig[selectedStatus]?.label})`}
-            <span className="text-gray-600 dark:text-gray-300 text-sm font-normal ml-2">
-              {activeTrips.length} résultat{activeTrips.length > 1 ? 's' : ''}
-            </span>
-          </h2>
-          <div className="text-sm text-gray-500 dark:text-gray-300">
-            <Calendar className="w-4 h-4 inline mr-1" />
-            {new Date().toLocaleDateString('fr-FR', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })}
-          </div>
-        </div>
-
-        {/* Cartes des trajets */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {activeTrips.map((trip) => {
-            const status = statusConfig[trip.status];
-            const priority = priorityConfig[trip.priority];
-
-            return (
-              <div
-                key={trip.id}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl transition-shadow duration-300"
-              >
-                {/* En-tête de la carte */}
-                <div className="p-5 border-b border-gray-100 dark:border-gray-700">
-                  <div className="flex items-start justify-between">
+                  {/* Top: Status & Fare */}
+                  <div className="px-6 py-4 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-700">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${status?.color}`}>
-                        {status?.icon}
+                      <div className={`p-2 rounded-xl ${config.color}`}>
+                        {config.icon}
                       </div>
-                      <div>
-                        <h3 className="font-bold text-gray-800 dark:text-white">{trip.id}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          {trip.distanceToDriver && (
-                            <span className="text-blue-500 font-bold mr-2">
-                              À {trip.distanceToDriver} km
-                            </span>
+                      <span className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        COURSE EN COURS
+                      </span>
+                    </div>
+                    <div className="text-lg font-black text-blue-600">
+                      {trip.estimatedFare.toLocaleString()} FG
+                    </div>
+                  </div>
+
+                  <div className="p-6 space-y-5">
+                    {/* Passenger & Routing Info */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center overflow-hidden border-2 border-white dark:border-gray-700">
+                          {trip.passengerPhoto ? (
+                            <img
+                              src={trip.passengerPhoto}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "https://ui-avatars.com/api/?name=" + trip.passengerName;
+                              }}
+                            />
+                          ) : (
+                            <User className="w-6 h-6 text-blue-500" />
                           )}
-                          Demande à {trip.requestedTime?.toLocaleTimeString('fr-FR', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 dark:text-white leading-tight">{trip.passengerName}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-amber-500 text-xs">★</span>
+                            <span className="text-xs font-bold text-gray-500">{trip.passengerRating}/5</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Heure demande</p>
+                        <p className="text-sm font-black text-gray-700 dark:text-gray-300">
+                          {trip.requestedTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {priority && (
-                        <Badge variant={priority.badge} size="sm">
-                          {priority.label}
-                        </Badge>
-                      )}
-                      <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                        <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-300" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Détails du trajet */}
-                <div className="p-5">
-                  {/* Passager */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500/20 to-green-500/20 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-green-500" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-800 dark:text-white">{trip.passengerName}</p>
-                      {trip.passengerRating && (
-                        <div className="flex items-center gap-1 text-sm">
-                          <span className="text-amber-500">★</span>
-                          <span className="text-gray-600 dark:text-gray-300">{trip.passengerRating}/5</span>
-                          {trip.notes && (
-                            <span className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded-full ml-2">
-                              {trip.notes}
-                            </span>
-                          )}
+                    {/* Path */}
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-4">
+                        <div className="mt-1 flex flex-col items-center gap-1">
+                          <div className="w-2.5 h-2.5 bg-green-500 rounded-full ring-4 ring-green-500/20" />
+                          <div className="w-0.5 h-10 border-l-2 border-dashed border-gray-300 dark:border-gray-600" />
+                          <MapPin className="w-4 h-4 text-red-500" />
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Itinéraire */}
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-start gap-3">
-                      <div className="pt-0.5">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <div className="w-0.5 h-8 bg-gradient-to-b from-green-500 to-blue-500 mx-auto"></div>
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      </div>
-                      <div className="space-y-4 flex-1">
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Point de départ</p>
-                          <p className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-2">
-                            <MapPin className="w-3 h-3 text-green-500" />
-                            {trip.pickupAddress}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Destination</p>
-                          <p className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-2">
-                            <MapPin className="w-3 h-3 text-blue-500" />
-                            {trip.destinationAddress}
-                          </p>
+                        <div className="flex-1 space-y-5">
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ramassage</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1">{trip.pickupAddress}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Destination</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1">{trip.destinationAddress}</p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Informations */}
-                  <div className="grid grid-cols-3 gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg mb-4">
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Distance</p>
-                      <p className="font-semibold text-gray-800 dark:text-white">{trip.distance}</p>
+                    {/* Stats bar */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-gray-50 dark:bg-gray-900/40 p-3 rounded-2xl flex items-center gap-3">
+                        <Navigation className="w-4 h-4 text-purple-500" />
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase">Distance</p>
+                          <p className="text-xs font-black text-gray-900 dark:text-white">{trip.distance}</p>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-900/40 p-3 rounded-2xl flex items-center gap-3">
+                        <Clock className="w-4 h-4 text-emerald-500" />
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase">Durée</p>
+                          <p className="text-xs font-black text-gray-900 dark:text-white">{trip.estimatedTime}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Durée estimée</p>
-                      <p className="font-semibold text-gray-800 dark:text-white">{trip.estimatedTime}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Prix estimé</p>
-                      <p className="font-semibold text-gray-800 dark:text-white">
-                        {trip.estimatedFare?.toLocaleString('fr-FR')} FG
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* Actions selon le statut */}
-                  <div className="flex flex-wrap gap-2">
-                    {trip.status === 'pending' && (
-                      <>
+                    {/* Bottom: Actions */}
+                    <div className="flex gap-3 pt-2">
+                      {trip.status === 'pending' ? (
+                        <>
+                          <button
+                            onClick={() => handleAccept(trip.id)}
+                            className="flex-1 py-3.5 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-500/30 hover:opacity-90 transition-all active:scale-95"
+                          >
+                            ACCEPTER LA COURSE
+                          </button>
+                          <button
+                            onClick={() => handleRefuse(trip.id)}
+                            className="px-6 py-3.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
+                          >
+                            REFUSER
+                          </button>
+                        </>
+                      ) : (
                         <button
-                          onClick={() => {
-                            acceptTripRequest(trip.id);
-                            navigate('/chauffeur/tracking');
-                          }}
-                          className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
+                          onClick={() => navigate('/chauffeur/tracking')}
+                          className="flex-1 py-3.5 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-2xl font-black text-sm shadow-xl hover:opacity-90 transition-all flex items-center justify-center gap-3"
                         >
-                          Accepter
+                          <Navigation className="w-5 h-5" />
+                          CONTINUER LE TRAJET
                         </button>
-                        <button
-                          onClick={() => handleCancelTrip(trip.id)}
-                          className="px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors text-sm font-medium"
-                        >
-                          Refuser
-                        </button>
-                      </>
-                    )}
-
-                    {trip.id === activeTrip?.id && (
-                      <button
-                        onClick={() => navigate('/chauffeur/tracking')}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                      >
-                        <Navigation className="w-4 h-4" />
-                        Suivre sur la carte
-                      </button>
-                    )}
-
-                    <button className="px-4 py-2 border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
-                      Détails
-                    </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {activeTrips.length === 0 && (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-100 dark:border-gray-700">
-            <Car className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">Aucun trajet trouvé</h3>
-            <p className="text-gray-600 dark:text-gray-300">Aucun trajet ne correspond à vos filtres</p>
-            <button
-              onClick={() => {
-                setSelectedStatus('all');
-                setSelectedPriority('all');
-              }}
-              className="mt-4 px-4 py-2 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg hover:opacity-90 transition-opacity"
-            >
-              Réinitialiser les filtres
-            </button>
+              );
+            })}
           </div>
-        )}
-      </div>
+
+          {filteredTrips.length === 0 && (
+            <div className="text-center py-24 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+              <div className="w-20 h-20 bg-gray-100 dark:bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Car className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Aucun trajet pour le moment</h3>
+              <p className="text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
+                Dès qu'un passager lance une demande, elle apparaîtra ici en temps réel.
+              </p>
+              <button
+                onClick={() => fetchTrips(true)}
+                className="mt-8 px-8 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-500/30 hover:opacity-90 transition-all"
+              >
+                RAFFRAICHIR LA RECHERCHE
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

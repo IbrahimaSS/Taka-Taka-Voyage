@@ -6,7 +6,7 @@ const {
     detailEvaluationPassager,
     statsEvaluationsPassager,
     creerEvaluation,
-} = require("../controllers/passager/evaluationsControllers");
+} = require("../../controllers/passager/evaluationsControllers");
 
 const verifierToken = require("../../middlewares/authMiddlewares").verifierToken;
 const verifierStatutActif = require("../../middlewares/statutMiddlewares").verifierStatutActif;
@@ -15,11 +15,11 @@ const verifierStatutActif = require("../../middlewares/statutMiddlewares").verif
 // Liste des évaluations données par le passager
 router.get("/passager", verifierToken, verifierStatutActif, listerEvaluationsPassager);
 
-// Détail d’une évaluation
-router.get("/passager/:evaluationId", verifierToken, verifierStatutActif, detailEvaluationPassager);
-
 // Stats (cards)
 router.get("/passager/stats", verifierToken, verifierStatutActif, statsEvaluationsPassager);
+
+// Détail d’une évaluation
+router.get("/passager/:evaluationId", verifierToken, verifierStatutActif, detailEvaluationPassager);
 
 // Soumettre une évaluation
 router.post("/", verifierToken, verifierStatutActif, creerEvaluation);

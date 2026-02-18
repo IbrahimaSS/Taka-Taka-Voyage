@@ -4,48 +4,139 @@ const Reservation = require("../../models/Reservations");
 exports.creerReservationPlanifiee = async (req, res) => {
     try {
         const {
-        depart,
-        destination,
-        distanceKm,
-        dureeMin,
-        typeVehicule,
-        prix,
-        date,
-        heure,
-        momentPaiement
+            depart,
+            destination,
+            departLat,
+            departLng,
+            destinationLat,
+            destinationLng,
+            distanceKm,
+            dureeMin,
+            typeVehicule,
+            prix,
+            date,
+            heure,
+            momentPaiement
         } = req.body;
+
+        const typeVehiculeNorm = String(typeVehicule || "TAXI").trim().toUpperCase();
 
         const datePlanifiee = new Date(`${date}T${heure}`);
         if (isNaN(datePlanifiee) || datePlanifiee <= new Date()) {
-        return res.status(400).json({
-            succes: false,
-            message: "Date planifiée invalide"
-        });
+            return res.status(400).json({
+                succes: false,
+                message: "Date planifiée invalide"
+            });
         }
 
         const reservation = await Reservation.create({
-        passager: req.utilisateur._id,
-        depart,
-        destination,
-        distanceKm,
-        dureeMin,
-        typeVehicule,
-        prix,
+            passager: req.utilisateur._id,
+            depart,
+            destination,
+            departCoords: {
+                type: "Point",
+                coordinates: [Number(departLng), Number(departLat)],
+            },
+            destinationCoords: {
+                type: "Point",
+                coordinates: [Number(destinationLng), Number(destinationLat)],
+            },
+            distanceKm: Number(distanceKm || 0),
+            dureeMin: Number(dureeMin || 0),
+            typeVehicule: typeVehiculeNorm,
+            prix: Number(prix || 0),
 
-        typeCourse: "PLANIFIEE",
-        statut: "EN_ATTENTE", // ✅ IMPORTANT
-        datePlanifiee,
+            typeCourse: "PLANIFIEE",
+            statut: "EN_ATTENTE", // ✅ IMPORTANT
+            datePlanifiee,
 
-        paiement:
-            momentPaiement === "AVANT"
-            ? { statut: "EN_ATTENTE" }
-            : null,
+            paiement:
+                momentPaiement === "AVANT"
+                    ? { statut: "EN_ATTENTE" }
+                    : null,
         });
 
+        // Notification temps réel aux chauffeurs
+        const io = req.app.get("io");
+        if (io) {
+            // Recharcher les chauffeurs en ligne (pour notification ciblée)
+            const chauffeursEnLigne = await Reservation.db.model("Utilisateurs").find({
+                role: "CHAUFFEUR",
+                estEnLigne: true,
+                statut: "ACTIF",
+            }).select("socketId");
+
+            // ✅ Payload complet pour TripNotificationToast
+            const payload = {
+                id: reservation._id.toString(),
+                reservationId: reservation._id.toString(),
+
+                passengerName: `${req.utilisateur.nom || ""} ${req.utilisateur.prenom || ""}`.trim() || "Passager",
+                passengerRating: req.utilisateur.noteMoyenne ?? 5,
+                passengerPhone: req.utilisateur.telephone || null,
+
+                pickupAddress: depart,
+                destinationAddress: destination,
+                pickupCoords: [Number(departLat), Number(departLng)],
+                destinationCoords: [Number(destinationLat), Number(destinationLng)],
+
+                distance: Number(distanceKm || 0),
+                estimatedTime: `${dureeMin} min`,
+                estimatedFare: Number(prix || 0),
+                typeVehicule: typeVehiculeNorm,
+
+                typeCourse: "PLANIFIEE",
+                datePlanifiee: reservation.datePlanifiee,
+                expiresIn: 300, // ✅ 5 minutes comme demandé
+                createdAt: new Date().toISOString(),
+            };
+
+            // ✅ On envoie systématiquement le MODAL et l'ALERTE SONORE (course:demande)
+            // 1. Émettre aux chauffeurs individuels (plus robuste si rooms privées)
+            chauffeursEnLigne.forEach(c => {
+                io.to(`CHAUFFEUR_${c._id}`).emit("course:demande", payload);
+            });
+
+            // 2. Émettre au broadcast global (pool)
+            io.to("CHAUFFEURS").emit("course:demande", payload);
+
+            // On garde l'ancien pour la mise à jour silencieuse de la liste
+            const demain = new Date();
+            demain.setDate(demain.getDate() + 1);
+            demain.setHours(23, 59, 59, 999);
+            const estBientot = reservation.datePlanifiee <= demain;
+
+            io.to("CHAUFFEURS").emit("reservation:planifiee_creee", {
+                reservationId: reservation._id,
+                depart: reservation.depart,
+                destination: reservation.destination,
+                datePlanifiee: reservation.datePlanifiee,
+                estBientot
+            });
+
+            // ✅ MÉCANISME DE SURVEILLANCE (15 minutes)
+            // Si après 15 min aucun chauffeur n'a accepté (toujours EN_ATTENTE), on notifie le passager
+            setTimeout(async () => {
+                try {
+                    const checkRes = await Reservation.findById(reservation._id);
+                    if (checkRes && checkRes.statut === "EN_ATTENTE") {
+                        const pid = String(checkRes.passager);
+                        io.to(`PASSAGER_${pid}`).emit("reservation:planifiee_non_acceptee", {
+                            reservationId: checkRes._id,
+                            message: "⚠️ Aucun chauffeur n'a encore accepté votre réservation planifiée. Elle reste disponible dans le pool pour les chauffeurs à proximité."
+                        });
+                        console.log(`📢 [NOTIF] Passager ${pid} prévenu : réservation ${checkRes._id} toujours en attente après 15 min.`);
+                    }
+                } catch (e) {
+                    console.error("❌ Erreur lors de la vérification du timeout de réservation:", e.message);
+                }
+            }, 15 * 60 * 1000); // 15 minutes
+        }
+
         res.status(201).json({
-        succes: true,
-        message: "Réservation planifiée créée avec succès",
-        reservation,
+            succes: true,
+            message: "Réservation planifiée créée avec succès",
+            reservation,
         });
     } catch (e) {
         res.status(500).json({ succes: false, message: e.message });
@@ -57,65 +148,65 @@ exports.listerPlanningPassager = async (req, res) => {
     try {
         const passagerId = req.utilisateur?._id;
         if (!passagerId) {
-        return res.status(401).json({ succes: false, message: "Non authentifié" });
+            return res.status(401).json({ succes: false, message: "Non authentifié" });
         }
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 8, 1), 50);
         const skip = (page - 1) * limit;
         const filtre = {
-        passager: passagerId,
-        typeCourse: "PLANIFIEE",
-        datePlanifiee: { $ne: null },
+            passager: passagerId,
+            typeCourse: "PLANIFIEE",
+            datePlanifiee: { $ne: null },
         };
         if (req.query.statut) filtre.statut = req.query.statut;
         if (req.query.typeVehicule) filtre.typeVehicule = req.query.typeVehicule;
         // Recherche simple depart/destination
         if (req.query.q) {
-        const q = String(req.query.q).trim();
-        filtre.$or = [
-            { depart: { $regex: q, $options: "i" } },
-            { destination: { $regex: q, $options: "i" } },
-        ];
+            const q = String(req.query.q).trim();
+            filtre.$or = [
+                { depart: { $regex: q, $options: "i" } },
+                { destination: { $regex: q, $options: "i" } },
+            ];
         }
         // Filtre par dates (sur datePlanifiee)
         if (req.query.dateFrom || req.query.dateTo) {
-        const from = req.query.dateFrom ? new Date(`${req.query.dateFrom}T00:00:00.000Z`) : null;
-        const to = req.query.dateTo ? new Date(`${req.query.dateTo}T23:59:59.999Z`) : null;
+            const from = req.query.dateFrom ? new Date(`${req.query.dateFrom}T00:00:00.000Z`) : null;
+            const to = req.query.dateTo ? new Date(`${req.query.dateTo}T23:59:59.999Z`) : null;
 
-        filtre.datePlanifiee = { $ne: null };
-        if (from) filtre.datePlanifiee.$gte = from;
-        if (to) filtre.datePlanifiee.$lte = to;
+            filtre.datePlanifiee = { $ne: null };
+            if (from) filtre.datePlanifiee.$gte = from;
+            if (to) filtre.datePlanifiee.$lte = to;
         }
 
         const total = await Reservation.countDocuments(filtre);
         const items = await Reservation.find(filtre)
-        .populate("chauffeur", "nom prenom telephone vehicule")
-        .sort({ datePlanifiee: 1 }) // planning = du + proche au + loin
-        .skip(skip)
-        .limit(limit)
-        .lean();
+            .populate("chauffeur", "nom prenom telephone vehicule")
+            .sort({ datePlanifiee: 1 }) // planning = du + proche au + loin
+            .skip(skip)
+            .limit(limit)
+            .lean();
 
         // Stats (pour tes 3 cards)
         const [totalPlanifies, confirms, enAttente] = await Promise.all([
-        Reservation.countDocuments({ passager: passagerId, typeCourse: "PLANIFIEE", datePlanifiee: { $ne: null } }),
-        Reservation.countDocuments({ passager: passagerId, typeCourse: "PLANIFIEE", datePlanifiee: { $ne: null }, statut: "ACCEPTEE" }),
-        Reservation.countDocuments({ passager: passagerId, typeCourse: "PLANIFIEE", datePlanifiee: { $ne: null }, statut: "EN_ATTENTE" }),
+            Reservation.countDocuments({ passager: passagerId, typeCourse: "PLANIFIEE", datePlanifiee: { $ne: null } }),
+            Reservation.countDocuments({ passager: passagerId, typeCourse: "PLANIFIEE", datePlanifiee: { $ne: null }, statut: "ACCEPTEE" }),
+            Reservation.countDocuments({ passager: passagerId, typeCourse: "PLANIFIEE", datePlanifiee: { $ne: null }, statut: "EN_ATTENTE" }),
         ]);
 
         return res.status(200).json({
-        succes: true,
-        stats: {
-            totalTrajets: totalPlanifies,
-            confirmes: confirms,
-            enAttente: enAttente,
-        },
-        pagination: {
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-        },
-        plannings: items,
+            succes: true,
+            stats: {
+                totalTrajets: totalPlanifies,
+                confirmes: confirms,
+                enAttente: enAttente,
+            },
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+            plannings: items,
         });
     } catch (error) {
         return res.status(500).json({ succes: false, message: error.message });
@@ -130,45 +221,45 @@ exports.detailPlanningPassager = async (req, res) => {
         const { reservationId } = req.params;
 
         if (!passagerId) {
-        return res.status(401).json({ succes: false, message: "Non authentifié" });
+            return res.status(401).json({ succes: false, message: "Non authentifié" });
         }
         const reservation = await Reservation.findOne({
-        _id: reservationId,
-        passager: passagerId,
-        typeCourse: "PLANIFIEE",
+            _id: reservationId,
+            passager: passagerId,
+            typeCourse: "PLANIFIEE",
         })
-        .populate("chauffeur", "nom prenom telephone")
-        .lean();
+            .populate("chauffeur", "nom prenom telephone")
+            .lean();
 
         if (!reservation) {
-        return res.status(404).json({
-            succes: false,
-            message: "Programmation introuvable",
-        });
+            return res.status(404).json({
+                succes: false,
+                message: "Programmation introuvable",
+            });
         }
 
         return res.status(200).json({
-        succes: true,
-        planning: {
-            id: reservation._id,
-            typeVehicule: reservation.typeVehicule,
-            prixEstime: reservation.prix,
-            depart: reservation.depart,
-            destination: reservation.destination,
-            date: reservation.datePlanifiee,
-            heure: reservation.datePlanifiee
-            ? new Date(reservation.datePlanifiee).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-            : null,
-            distanceKm: reservation.distanceKm,
-            statut: reservation.statut,
-            chauffeur: reservation.chauffeur
-            ? {
-                nom: reservation.chauffeur.nom,
-                prenom: reservation.chauffeur.prenom,
-                telephone: reservation.chauffeur.telephone,
-                }
-            : null,
-        },
+            succes: true,
+            planning: {
+                id: reservation._id,
+                typeVehicule: reservation.typeVehicule,
+                prixEstime: reservation.prix,
+                depart: reservation.depart,
+                destination: reservation.destination,
+                date: reservation.datePlanifiee,
+                heure: reservation.datePlanifiee
+                    ? new Date(reservation.datePlanifiee).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+                    : null,
+                distanceKm: reservation.distanceKm,
+                statut: reservation.statut,
+                chauffeur: reservation.chauffeur
+                    ? {
+                        nom: reservation.chauffeur.nom,
+                        prenom: reservation.chauffeur.prenom,
+                        telephone: reservation.chauffeur.telephone,
+                    }
+                    : null,
+            },
         });
     } catch (error) {
         return res.status(500).json({ succes: false, message: error.message });
@@ -181,17 +272,17 @@ exports.annulerReservationPlanifiee = async (req, res) => {
         const userId = req.utilisateur._id;
         const { reservationId } = req.params;
         const reservation = await Reservation.findOne({
-        _id: reservationId,
-        passager: userId,
-        typeCourse: "PLANIFIEE",
-        statut: { $in: ["EN_ATTENTE", "ASSIGNEE"] },
+            _id: reservationId,
+            passager: userId,
+            typeCourse: "PLANIFIEE",
+            statut: { $in: ["EN_ATTENTE", "ASSIGNEE"] },
         });
 
         if (!reservation) {
-        return res.status(400).json({
-            succes: false,
-            message: "Réservation non annulable",
-        });
+            return res.status(400).json({
+                succes: false,
+                message: "Réservation non annulable",
+            });
         }
 
         reservation.statut = "ANNULEE";
@@ -202,8 +293,8 @@ exports.annulerReservationPlanifiee = async (req, res) => {
         await reservation.save();
 
         res.json({
-        succes: true,
-        message: "Réservation planifiée annulée",
+            succes: true,
+            message: "Réservation planifiée annulée",
         });
     } catch (error) {
         res.status(500).json({ succes: false, message: error.message });
@@ -216,49 +307,49 @@ exports.modifierReservationPlanifiee = async (req, res) => {
         const userId = req.utilisateur._id;
         const { reservationId } = req.params;
         const reservation = await Reservation.findOne({
-        _id: reservationId,
-        passager: userId,
-        typeCourse: "PLANIFIEE",
-        statut: "EN_ATTENTE",
+            _id: reservationId,
+            passager: userId,
+            typeCourse: "PLANIFIEE",
+            statut: "EN_ATTENTE",
         });
 
         if (!reservation) {
-        return res.status(400).json({
-            succes: false,
-            message: "Modification impossible",
-        });
+            return res.status(400).json({
+                succes: false,
+                message: "Modification impossible",
+            });
         }
 
         // ⏱️ blocage si trop proche
         const diffMinutes =
-        (reservation.datePlanifiee - new Date()) / 60000;
+            (reservation.datePlanifiee - new Date()) / 60000;
 
         if (diffMinutes < 30) {
-        return res.status(400).json({
-            succes: false,
-            message: "Modification impossible à moins de 30 minutes",
-        });
+            return res.status(400).json({
+                succes: false,
+                message: "Modification impossible à moins de 30 minutes",
+            });
         }
 
         const champsAutorises = [
-        "depart",
-        "destination",
-        "datePlanifiee",
-        "typeVehicule",
+            "depart",
+            "destination",
+            "datePlanifiee",
+            "typeVehicule",
         ];
 
         champsAutorises.forEach((champ) => {
-        if (req.body[champ] !== undefined) {
-            reservation[champ] = req.body[champ];
-        }
+            if (req.body[champ] !== undefined) {
+                reservation[champ] = req.body[champ];
+            }
         });
 
         await reservation.save();
 
         res.json({
-        succes: true,
-        message: "Réservation modifiée",
-        reservation,
+            succes: true,
+            message: "Réservation modifiée",
+            reservation,
         });
     } catch (error) {
         res.status(500).json({ succes: false, message: error.message });

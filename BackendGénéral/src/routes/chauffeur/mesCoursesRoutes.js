@@ -9,11 +9,33 @@ const mesCoursesCtrl = require("../../controllers/chauffeur/courses/mesCoursesCo
 const { autoriserRoles } = require("../../middlewares/roleMiddlewares.js");
 
 router.get(
+    "/disponibles",
+    verifierToken,
+    autoriserRoles("CHAUFFEUR"),
+    mesCoursesCtrl.listeDisponible
+);
+
+router.post(
+    "/mes-courses/:reservationId/accepter",
+    verifierToken,
+    autoriserRoles("CHAUFFEUR"),
+    mesCoursesCtrl.accepterReservation
+);
+
+router.post(
+    "/mes-courses/:reservationId/refuser",
+    verifierToken,
+    autoriserRoles("CHAUFFEUR"),
+    mesCoursesCtrl.refuserReservation
+);
+
+router.get(
     "/mes-courses/ramassage",
     verifierToken,
     autoriserRoles("CHAUFFEUR"),
     mesCoursesCtrl.listeRamassage
 );
+
 
 router.post(
     "/mes-courses/:reservationId/rejoindre",
@@ -34,6 +56,20 @@ router.post(
     verifierToken,
     autoriserRoles("CHAUFFEUR"),
     mesCoursesCtrl.demarrerTrajet
+);
+
+router.post(
+    "/mes-courses/:reservationId/terminer",
+    verifierToken,
+    autoriserRoles("CHAUFFEUR"),
+    mesCoursesCtrl.terminerTrajet
+);
+
+router.get(
+    "/plannings",
+    verifierToken,
+    autoriserRoles("CHAUFFEUR"),
+    mesCoursesCtrl.listePlannings
 );
 
 module.exports = router;

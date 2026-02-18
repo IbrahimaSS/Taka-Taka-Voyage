@@ -1,6 +1,7 @@
 const Notification = require("./models/Notifications");
 const Reservation = require("./models/Reservations");
 const Utilisateurs = require("./models/Utilisateurs");
+const ChauffeurProfile = require("./models/ChauffeurProfile");
 const Trajet = require("./models/Trajets");
 const Paiement = require("./models/Paiements");
 
@@ -32,7 +33,65 @@ function releaseReservationLock(reservationId) {
   if (sId) untrackReservationForSocket(sId, rid);
 }
 
+// ✅ [SYNC] Rappel J-1 automatique
+async function checkPlannedReminders(io) {
+  try {
+    const demain = new Date();
+    demain.setDate(demain.getDate() + 1);
+
+    const checkTime = new Date();
+
+    // On cherche les réservations :
+    // - Planifiées et Acceptées
+    // - Date prévue <= Demain
+    // - Pas encore de rappel envoyé
+    const upcoming = await Reservation.find({
+      typeCourse: "PLANIFIEE",
+      statut: "ACCEPTEE",
+      datePlanifiee: { $lte: demain, $gt: checkTime },
+      notificationJ1Envoyee: false
+    });
+
+    if (upcoming.length > 0) {
+      console.log(`⏰ [RAPPEL J-1] Envoi de ${upcoming.length} rappels...`);
+    }
+
+    for (const res of upcoming) {
+      const cid = String(res.chauffeur);
+      const driverRoom = `CHAUFFEUR_${cid}`;
+
+      // 1. Notification visuelle/sonore via course:demande (réutilisée pour le modal)
+      // On personnalise un peu le message si besoin
+      io.to(driverRoom).emit("course:demande", {
+        id: res._id.toString(),
+        reservationId: res._id.toString(),
+        isRappel: true,
+        message: "🔔 Rappel : Votre course planifiée approche (J-1)",
+        pickupAddress: res.depart,
+        destinationAddress: res.destination,
+        datePlanifiee: res.datePlanifiee,
+        typeCourse: "PLANIFIEE"
+      });
+
+      // 2. Notif spécifique pour l'alerte sonore si besoin d'un autre canal
+      io.to(driverRoom).emit("reservation:rappel_j1", {
+        reservationId: res._id,
+        message: "Votre trajet planifié est maintenant dans votre liste de ramassage."
+      });
+
+      // 3. Marquer comme envoyé
+      res.notificationJ1Envoyee = true;
+      await res.save();
+    }
+  } catch (err) {
+    console.error("❌ checkPlannedReminders:", err.message);
+  }
+}
+
 module.exports = (io) => {
+  // Lancer le timer de rappel toutes les 5 minutes
+  setInterval(() => checkPlannedReminders(io), 5 * 60 * 1000);
+
   io.on("connection", (socket) => {
     console.log(`🟢 Socket connecté : ${socket.id}`);
     console.log("   → Auth:", socket.handshake.auth);
@@ -80,6 +139,18 @@ module.exports = (io) => {
           { estEnLigne: true, socketId: socket.id, derniereConnexion: new Date() },
           { new: true }
         );
+
+        // Si c'est un chauffeur, on initialise son temps de session dans ChauffeurProfile
+        if (ROLE === "CHAUFFEUR") {
+          await ChauffeurProfile.findOneAndUpdate(
+            { utilisateur: userId },
+            {
+              disponibilite: "EN_LIGNE",
+              disponibiliteDepuis: new Date()
+            },
+            { upsert: true }
+          );
+        }
 
         console.log("✅ client online DB:", {
           userId,
@@ -187,7 +258,7 @@ module.exports = (io) => {
             telephone: chauffeurDoc?.telephone || "",
             email: chauffeurDoc?.email || "",
             photo: chauffeurDoc?.photo || "",
-            vehicle: chauffeurDoc?.vehicle || null
+            vehicle: chauffeurDoc?.vehicule || null // ✅ Utilise le champ réel du modèle
           },
         };
 
@@ -239,11 +310,21 @@ module.exports = (io) => {
           });
         }
 
-        // ✅ 1. Marquer cette offre comme REFUSEE en DB
-        await Reservation.updateOne(
-          { _id: reservationId, "offresEnvoyees.chauffeur": socket.user.id },
-          { $set: { "offresEnvoyees.$.statut": "REFUSEE", "offresEnvoyees.$.tempsReponseMs": Date.now() - new Date(reservation.createdAt).getTime() } }
-        );
+        // ✅ 1. Marquer cette offre comme REFUSEE en DB (pour filtrage futur du chauffeur)
+        const hasOffer = reservation.offresEnvoyees.some(o => String(o.chauffeur) === String(socket.user.id));
+        const tempsReponseMs = Date.now() - new Date(reservation.createdAt).getTime();
+
+        if (hasOffer) {
+          await Reservation.updateOne(
+            { _id: reservationId, "offresEnvoyees.chauffeur": socket.user.id },
+            { $set: { "offresEnvoyees.$.statut": "REFUSEE", "offresEnvoyees.$.tempsReponseMs": tempsReponseMs } }
+          );
+        } else {
+          await Reservation.updateOne(
+            { _id: reservationId },
+            { $push: { offresEnvoyees: { chauffeur: socket.user.id, statut: "REFUSEE", tempsReponseMs } } }
+          );
+        }
 
         socket.emit("course:refusee_confirmation", {
           reservationId,
@@ -505,71 +586,190 @@ module.exports = (io) => {
     // ────────────────────────────────────────────────
     // Terminer / Annuler
     // ────────────────────────────────────────────────
-    socket.on("course:terminer", async ({ reservationId } = {}) => {
-      try {
-        if (!socket.user?.id || socket.user.role !== "CHAUFFEUR") return;
-        if (!reservationId) return;
+    const handleTerminerCourse = async (reservationId, chauffeurId) => {
+      const reservation = await Reservation.findOne({
+        _id: reservationId,
+        chauffeur: chauffeurId,
+        statut: "EN_COURS",
+      }).populate("passager");
 
-        const reservation = await Reservation.findOne({
-          _id: reservationId,
-          chauffeur: socket.user.id,
-          statut: "EN_COURS",
-        }).populate("passager");
+      if (!reservation) return;
 
-        if (!reservation) return;
+      const estDejaPaye = reservation.paiement?.statut === "PAYE";
 
+      if (estDejaPaye) {
         reservation.statut = "TERMINEE";
         reservation.dateFin = new Date();
         await reservation.save();
 
-        // ✅ FINALISATION DU TRAJET ET CRÉATION PAIEMENT
-        try {
-          // 1. Update Trajet
-          const trajet = await Trajet.findOneAndUpdate(
-            { reservation: reservationId },
-            { statut: "TERMINEE", dateFin: reservation.dateFin },
-            { new: true }
-          );
+        await Trajet.findOneAndUpdate(
+          { reservation: reservationId },
+          { statut: "TERMINEE", dateFin: reservation.dateFin },
+          { new: true }
+        );
 
-          // 2. Création Paiement (Simulation commission 20%)
-          const commissionRate = 0.20;
-          const montantTotal = reservation.prix;
-          const commissionPlateforme = Math.round(montantTotal * commissionRate);
-          const montantChauffeur = montantTotal - commissionPlateforme;
+        // ✅ PERSISTANCE PAIEMENT 
+        try {
+          const commissionRate = 0.20; // 20% par défaut
+          const commissionPlateforme = Math.round(reservation.prix * commissionRate);
+          const montantChauffeur = reservation.prix - commissionPlateforme;
 
           await Paiement.findOneAndUpdate(
             { reservation: reservationId },
             {
-              reservation: reservationId,
               passager: reservation.passager._id,
-              chauffeur: socket.user.id,
-              montantTotal,
+              chauffeur: reservation.chauffeur,
+              statut: "PAYE",
+              montantTotal: reservation.prix,
               commissionPlateforme,
               montantChauffeur,
-              statut: "PAYE", // On suppose payé à la fin (ou selon moyen de paiement)
-              methode: reservation.paiement?.methode || "CASH"
+              methode: reservation.paiement?.methode || "CASH",
+              verse: false
             },
-            { upsert: true, new: true }
+            { upsert: true, new: true, setDefaultsOnInsert: true }
           );
-
-          console.log(`✅ Trajet & Paiement finalisés pour RID=${reservationId}`);
         } catch (pErr) {
-          console.error("❌ Erreur finalisation Trajet/Paiement:", pErr.message);
+          console.error("❌ Erreur persistance Paiement (Terminer course):", pErr.message);
         }
 
-        // Release driver availability
-        await Utilisateurs.findByIdAndUpdate(socket.user.id, { trajetEnCours: false });
+        await Utilisateurs.findByIdAndUpdate(chauffeurId, { trajetEnCours: false });
 
-        io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:terminee", {
+        io.to(`RESERVATION_${reservationId}`).emit("course:finit_avec_paiement", {
           reservationId,
-          message: "Course terminée",
+          message: "Course terminée et déjà payée.",
+          paymentStatus: "PAYE"
         });
-
-        socket.emit("course:terminee_confirmation", { reservationId });
         releaseReservationLock(reservationId);
+      } else {
+        // Signaler l'arrivée au passager et au chauffeur (pour redirection)
+        io.to(`RESERVATION_${reservationId}`).emit("course:arrive_destination", {
+          reservationId,
+          message: "Le trajet est arrivé à destination. En attente du paiement."
+        });
+      }
+    };
+
+    socket.on("course:terminer", async ({ reservationId } = {}) => {
+      try {
+        if (!socket.user?.id || socket.user.role !== "CHAUFFEUR") return;
+        if (!reservationId) return;
+        await handleTerminerCourse(reservationId, socket.user.id);
       } catch (e) {
         console.error("❌ course:terminer:", e);
         socket.emit("course:erreur", { message: "Erreur serveur" });
+      }
+    });
+
+    // ✅ NOUVEAU: Terminer Auto (Triggeré par progression 100%)
+    socket.on("course:terminer_auto", async ({ reservationId } = {}) => {
+      try {
+        if (!socket.user?.id || socket.user.role !== "CHAUFFEUR") return;
+        if (!reservationId) return;
+        console.log(`📡 [SOCKET] Terminaison auto pour RID=${reservationId}`);
+        await handleTerminerCourse(reservationId, socket.user.id);
+      } catch (e) {
+        console.error("❌ course:terminer_auto:", e);
+      }
+    });
+
+    // ✅ NOUVEAU: Confirmer Paiement (Passager -> Chauffeur)
+    socket.on("paiement:confirmer_envoi", async ({ reservationId } = {}) => {
+      try {
+        if (!socket.user?.id || socket.user.role !== "PASSAGER") return;
+
+        if (!reservationId || !require("mongoose").Types.ObjectId.isValid(reservationId)) {
+          return console.error("❌ paiement:confirmer_envoi: ID invalide", reservationId);
+        }
+
+        const reservation = await Reservation.findById(reservationId);
+        if (!reservation || String(reservation.passager) !== String(socket.user.id)) return;
+
+        console.log(`💰 [PAYMENT] Passager ${socket.user.id} confirme envoi espèce pour RID=${reservationId}`);
+
+        // On notifie le chauffeur via sa room privée ET la room de réservation
+        io.to(`CHAUFFEUR_${String(reservation.chauffeur)}`).emit("paiement:reception_a_confirmer", {
+          reservationId,
+          montant: reservation.prix,
+          message: "Le passager a déclaré avoir payé en espèces. Veuillez confirmer la réception."
+        });
+
+        // Redondance sur la room de réservation (le client filtrera par rôle)
+        io.to(`RESERVATION_${reservationId}`).emit("paiement:reception_a_confirmer", {
+          reservationId,
+          montant: reservation.prix,
+          message: "Le passager a déclaré avoir payé en espèces. Veuillez confirmer la réception."
+        });
+
+      } catch (e) {
+        console.error("❌ paiement:confirmer_envoi:", e.message);
+      }
+    });
+
+    // ✅ NOUVEAU: Confirmer Réception (Chauffeur -> Serveur)
+    socket.on("paiement:confirmer_reception", async ({ reservationId } = {}) => {
+      try {
+        if (!socket.user?.id || socket.user.role !== "CHAUFFEUR") return;
+
+        if (!reservationId || !require("mongoose").Types.ObjectId.isValid(reservationId)) {
+          return console.error("❌ paiement:confirmer_reception: ID invalide", reservationId);
+        }
+
+        const reservation = await Reservation.findOne({
+          _id: reservationId,
+          chauffeur: socket.user.id
+        }).populate("passager");
+
+        if (!reservation) return;
+
+        console.log(`✅ [PAYMENT] Chauffeur ${socket.user.id} confirme réception espèce pour RID=${reservationId}`);
+
+        // Mise à jour DB
+        if (!reservation.paiement) {
+          reservation.paiement = {};
+        }
+        reservation.paiement.statut = "PAYE";
+        reservation.statut = "TERMINEE";
+        reservation.dateFin = new Date();
+        await reservation.save();
+
+        // Finalisation Trajet & Paiement Model
+        await Trajet.findOneAndUpdate(
+          { reservation: reservationId },
+          { statut: "TERMINEE", dateFin: reservation.dateFin }
+        );
+
+        const commissionRate = 0.20;
+        const commissionPlateforme = Math.round(reservation.prix * commissionRate);
+        const montantChauffeur = reservation.prix - commissionPlateforme;
+
+        await Paiement.findOneAndUpdate(
+          { reservation: reservationId },
+          {
+            passager: reservation.passager._id,
+            chauffeur: reservation.chauffeur,
+            statut: "PAYE",
+            montantTotal: reservation.prix,
+            commissionPlateforme,
+            montantChauffeur,
+            methode: reservation.paiement?.methode || "CASH",
+            verse: false
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        await Utilisateurs.findByIdAndUpdate(socket.user.id, { trajetEnCours: false });
+
+        // Notification globale de fin de flux
+        io.to(`RESERVATION_${reservationId}`).emit("course:finit_avec_paiement", {
+          reservationId,
+          message: "Paiement confirmé, trajet terminé !",
+          paymentStatus: "PAYE"
+        });
+
+        releaseReservationLock(reservationId);
+
+      } catch (e) {
+        console.error("❌ paiement:confirmer_reception:", e.message);
       }
     });
 
@@ -698,8 +898,35 @@ module.exports = (io) => {
 
       try {
         if (socket.user?.id) {
+          const userId = socket.user.id;
+          const ROLE = socket.user.role;
+
+          // Si c'est un chauffeur, on clôture sa session de temps en ligne
+          if (ROLE === "CHAUFFEUR") {
+            try {
+              const profile = await ChauffeurProfile.findOne({ utilisateur: userId });
+              if (profile && profile.disponibiliteDepuis) {
+                const sessionDuration = new Date() - profile.disponibiliteDepuis;
+
+                await ChauffeurProfile.updateOne(
+                  { _id: profile._id },
+                  {
+                    $inc: { tempsEnLigneCumule: sessionDuration },
+                    $set: {
+                      disponibilite: "HORS_LIGNE",
+                      disponibiliteDepuis: null
+                    }
+                  }
+                );
+                console.log(`⏱️ Session chauffeur ${userId} terminée : +${Math.round(sessionDuration / 1000)}s`);
+              }
+            } catch (err) {
+              console.error("❌ Erreur update temps en ligne chauffeur:", err.message);
+            }
+          }
+
           await Utilisateurs.updateOne(
-            { _id: socket.user.id, socketId: socket.id },
+            { _id: userId, socketId: socket.id },
             { $set: { estEnLigne: false }, $unset: { socketId: "" } }
           );
         } else {

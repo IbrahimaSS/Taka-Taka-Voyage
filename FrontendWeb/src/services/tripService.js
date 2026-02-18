@@ -3,22 +3,45 @@
 // - Rien ne casse côté design
 
 import { apiClient } from './apiClient';
+import { API_ROUTES } from './apiRoutes';
 
 export const tripService = {
   list: (params) => apiClient.get('/reservations', { params }),
   details: (id) => apiClient.get(`/reservations/${id}`),
 
   // immediate
-  create: (payload) => apiClient.post('/reservations-immediate/confirmer-immediate', payload),
+  create: (payload) => apiClient.post(API_ROUTES.passager.reservationImmediate, payload),
 
   // planned
-  createPlanned: (payload) => apiClient.post('/reservations-planifiee/creer', payload),
+  createPlanned: (payload) => apiClient.post(API_ROUTES.passager.reservationsPlanifiees.planifier, payload),
 
   accept: (id) => apiClient.post(`/reservations/${id}/accept`),
   reject: (id, payload) => apiClient.post(`/reservations/${id}/reject`, payload),
-  arrive: (id) => apiClient.post(`/reservations/${id}/arrive`),
-  start: (id) => apiClient.post(`/reservations/${id}/start`),
-  complete: (id) => apiClient.post(`/reservations/${id}/complete`),
-  cancel: (id, payload) => apiClient.post(`/reservations/${id}/cancel`, payload),
-  rate: (id, payload) => apiClient.post(`/reservations/${id}/rate`, payload),
+  arrive: (id) => apiClient.post(API_ROUTES.chauffeur.profile.get + `/mes-courses/${id}/signaler-arrivee`), // Note: status modal uses specific paths, but let's keep it safe.
+  start: (id) => apiClient.post(API_ROUTES.chauffeur.profile.get + `/mes-courses/${id}/demarrer`),
+  complete: (id) => apiClient.post(API_ROUTES.chauffeur.profile.get + `/mes-courses/${id}/terminer`),
+  cancel: (id, payload) => apiClient.post(API_ROUTES.passager.reservationsPlanifiees.annuler(id), payload),
+  rate: (id, payload) => apiClient.post(API_ROUTES.passager.trajets.details(id) + '/rate', payload),
+
+  // Historique
+  getPassengerHistory: (params) => apiClient.get('/passager/trajets', { params }),
+  getDriverHistory: () => apiClient.get('/chauffeur/trajets/historique'),
+
+  // Paiements
+  getPayments: (params) => apiClient.get('/passager/paiements/paiements', { params }),
+  getPaymentStats: () => apiClient.get('/passager/paiements/stats'),
+
+  // Revenus Chauffeur
+  getDriverRevenueStats: () => apiClient.get('/chauffeur/revenus'),
+  getDriverRevenueList: () => apiClient.get('/chauffeur/revenus/liste'),
+
+  // Dashboard Chauffeur
+  getDriverDashboardStats: () => apiClient.get('/chauffeur/dashboard'),
+
+  // Gestion des courses (Chauffeur)
+  getAvailableTrips: () => apiClient.get(API_ROUTES.chauffeur.mesCourses.disponibles),
+  getPickupTrips: () => apiClient.get(API_ROUTES.chauffeur.mesCourses.ramassage),
+  acceptTrip: (id) => apiClient.post(API_ROUTES.chauffeur.mesCourses.accepter(id)),
+  refuseTrip: (id) => apiClient.post(API_ROUTES.chauffeur.mesCourses.refuser(id)),
+  getDriverPlannings: () => apiClient.get(API_ROUTES.chauffeur.mesCourses.plannings),
 };

@@ -82,11 +82,60 @@ const ChauffeurProfile = () => {
         { id: 6, name: 'Formateur', icon: Users, color: 'text-pink-600', bgColor: 'bg-pink-100 dark:bg-pink-900/30', earned: false },
     ];
 
+    const [realStats, setRealStats] = useState({
+        trajetsCompletes: 0,
+        revenusTotaux: 0,
+        noteMoyenne: 5,
+        heuresEnLigne: 0
+    });
+    const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+    // Charger les statistiques réelles au montage
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const response = await profileService.chauffeur.getProfile();
+                if (response.data?.succes && response.data.profil?.stats) {
+                    setRealStats(response.data.profil.stats);
+                }
+            } catch (error) {
+                console.error("Erreur lors de la récupération des statistiques:", error);
+            } finally {
+                setIsLoadingStats(false);
+            }
+        };
+        fetchStats();
+    }, []);
+
     const stats = [
-        { label: 'Trajets complétés', value: '1,248', icon: Radar, color: 'green', progress: 95 },
-        { label: 'Revenus totaux', value: '4,850,000 GNF', icon: TrendingUp, color: 'blue', progress: 85 },
-        { label: 'Note Chauffeur', value: '4.9', icon: Star, color: 'yellow', progress: 98 },
-        { label: 'Heures en ligne', value: '2,450h', icon: Clock, color: 'purple', progress: 70 },
+        {
+            label: 'Trajets complétés',
+            value: realStats.trajetsCompletes.toLocaleString(),
+            icon: Radar,
+            color: 'green',
+            progress: Math.min(100, (realStats.trajetsCompletes / 500) * 100) // Progress relative à 500 trajets
+        },
+        {
+            label: 'Revenus totaux',
+            value: `${realStats.revenusTotaux.toLocaleString()} GNF`,
+            icon: TrendingUp,
+            color: 'blue',
+            progress: Math.min(100, (realStats.revenusTotaux / 5000000) * 100) // Progress relative à 5M GNF
+        },
+        {
+            label: 'Note Chauffeur',
+            value: realStats.noteMoyenne.toFixed(1),
+            icon: Star,
+            color: 'yellow',
+            progress: (realStats.noteMoyenne / 5) * 100
+        },
+        {
+            label: 'Heures en ligne',
+            value: `${realStats.heuresEnLigne.toLocaleString()}h`,
+            icon: Clock,
+            color: 'purple',
+            progress: Math.min(100, (realStats.heuresEnLigne / 1000) * 100)
+        },
     ];
 
     const [avatarFile, setAvatarFile] = useState(null);
