@@ -115,6 +115,10 @@ app.use("/api/passager", motDePasseRoutesP);
 const notificationsRoutesP = require("./routes/passager/notificationsRoutes");
 app.use("/api/passager", notificationsRoutesP);
 
+//Évaluations
+const evaluationsRoutesP = require("./routes/passager/evaluationsRoutes");
+app.use("/api/evaluations", evaluationsRoutesP);
+
 // ===================== ROUTES CHAUFFEUR ET BRANCHEMENT =====================
 const chauffeurProfileRoutes = require("./routes/chauffeur/profileRoutes");
 app.use("/api/chauffeur", chauffeurProfileRoutes);

@@ -23,6 +23,7 @@ import ExportDropdown from '../admin/ui/ExportDropdown';
 
 // Context et services
 import { usePassenger } from '../../context/PassengerContext';
+import { tripService } from '../../services/tripService'; // ✅ Import service
 import { toast } from 'react-hot-toast';
 import PaymentModal from './PaymentModal';
 
@@ -207,12 +208,11 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay }) 
   </Modal>
 );
 
-// --- Composant Principal ---
-
 const TripsHistory = () => {
-  const { trips: initialTrips } = usePassenger();
+  const { passenger } = usePassenger(); // ✅ Keep user context if needed, remove trips
 
-  const [trips, setTrips] = useState(initialTrips);
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(8);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -223,6 +223,51 @@ const TripsHistory = () => {
   const [selectedVehicleType, setSelectedVehicleType] = useState('all');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [tripToPay, setTripToPay] = useState(null);
+
+  // ✅ Fetch Real History
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        setLoading(true);
+        const { data } = await tripService.getPassengerHistory({
+          page: currentPage,
+          limit: 50 // Fetch enough for client-side filtering or handle server-side later
+        });
+
+        if (data.succes) {
+          const formattedTrips = data.trajets.map(t => ({
+            id: t._id,
+            date: new Date(t.createdAt).toLocaleString('fr-FR', {
+              day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+            }),
+            status: t.statut === 'TERMINEE' ? 'completed' : 'cancelled',
+            departure: t.depart,
+            destination: t.destination,
+            price: `${t.prix} GNF`,
+            distance: `${t.distanceKm} km`,
+            rating: t.note || 0,
+            driver: t.chauffeur ? {
+              name: `${t.chauffeur.prenom} ${t.chauffeur.nom}`,
+              vehicle: `${t.chauffeur.marque} ${t.chauffeur.modele}`,
+              rating: t.chauffeur.noteMoyenne || 5, // ✅ Real rating
+              phone: t.chauffeur.telephone,
+              photo: t.chauffeur.photoUrl
+            } : { name: "Chauffeur inconnu", vehicle: "N/A" },
+            payment: 'Espèces', // Default or from backend if available
+            rawDate: t.createdAt
+          }));
+          setTrips(formattedTrips);
+        }
+      } catch (err) {
+        console.error("Error fetching history:", err);
+        toast.error("Impossible de charger l'historique");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [currentPage]); // Reload when page changes if server pagination used, here we fetch 50 and filter locally for now
 
   const vehicleFilters = [
     { id: 'all', label: 'Tous véhicules', icon: Grid },
@@ -425,7 +470,7 @@ const TripsHistory = () => {
           <CardContent padding="p-6">
             <div className="flex flex-col lg:flex-row gap-6">
               <div className="flex-1 relative">
-                <Search className="absolute left-4 top-0 bottom-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   placeholder="Rechercher par chauffeur, lieu ou destination..."
                   value={searchTerm}
@@ -476,108 +521,109 @@ const TripsHistory = () => {
             >
               <Card hoverable>
                 <CardContent padding="p-0">
-                  <div className="overflow-x-auto mx-auto">
-
-                    <thead>
-                      <tr>
-                        <TableHeader>
-                          <button onClick={() => requestSort('date')} className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-2" />
-                            DATE
-                            {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          </button>
-                        </TableHeader>
-                        <TableHeader>CHAUFFEUR</TableHeader>
-                        <TableHeader>DÉPART</TableHeader>
-                        <TableHeader>DESTINATION</TableHeader>
-                        <TableHeader>
-                          <button onClick={() => requestSort('price')} className="flex items-center">
-                            <Tag className="w-4 h-4 mr-2" />
-                            PRIX
-                            {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          </button>
-                        </TableHeader>
-                        <TableHeader>STATUT</TableHeader>
-                        <TableHeader>ACTIONS</TableHeader>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentTrips.map((trip) => (
-                        <TableRow key={trip.id} hoverable>
-                          <TableCell>
-                            <div onClick={() => handleViewDetails(trip)} className="cursor-pointer group">
-                              <p className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors">{trip.date?.split(',')[0]}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">{trip.date?.split(',')[1]}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-3">
-                              <div className="relative">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-200 to-blue-200 dark:from-emerald-900/30 dark:to-blue-900/30 flex items-center justify-center">
-                                  <User className="w-5 h-5 text-blue-700 dark:text-blue-300" />
+                  <div className="overflow-x-auto mx-auto font-medium">
+                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                      <thead>
+                        <tr>
+                          <TableHeader>
+                            <button onClick={() => requestSort('date')} className="flex items-center">
+                              <Calendar className="w-4 h-4 mr-2" />
+                              DATE
+                              {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            </button>
+                          </TableHeader>
+                          <TableHeader>CHAUFFEUR</TableHeader>
+                          <TableHeader>DÉPART</TableHeader>
+                          <TableHeader>DESTINATION</TableHeader>
+                          <TableHeader>
+                            <button onClick={() => requestSort('price')} className="flex items-center">
+                              <Tag className="w-4 h-4 mr-2" />
+                              PRIX
+                              {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            </button>
+                          </TableHeader>
+                          <TableHeader>STATUT</TableHeader>
+                          <TableHeader>ACTIONS</TableHeader>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentTrips.map((trip) => (
+                          <TableRow key={trip.id} hoverable>
+                            <TableCell>
+                              <div onClick={() => handleViewDetails(trip)} className="cursor-pointer group">
+                                <p className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors">{trip.date?.split(',')[0]}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{trip.date?.split(',')[1]}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-3">
+                                <div className="relative">
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-200 to-blue-200 dark:from-emerald-900/30 dark:to-blue-900/30 flex items-center justify-center">
+                                    <User className="w-5 h-5 text-blue-700 dark:text-blue-300" />
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="font-bold text-sm text-gray-900 dark:text-gray-100">{trip.driver?.name}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                                    <Car className="w-3 h-3 mr-1 opacity-70" />
+                                    {trip.driver?.vehicle}
+                                  </p>
                                 </div>
                               </div>
-                              <div>
-                                <p className="font-bold text-sm text-gray-900 dark:text-gray-100">{trip.driver?.name}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
-                                  <Car className="w-3 h-3 mr-1 opacity-70" />
-                                  {trip.driver?.vehicle}
-                                </p>
+                            </TableCell>
+                            <TableCell>
+                              <div onClick={() => handleViewDetails(trip)} className="cursor-pointer">
+                                <div className="flex items-center">
+                                  <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-3 shadow-lg shadow-emerald-500/20"></div>
+                                  <span className="text-gray-700 dark:text-gray-300 text-sm font-medium line-clamp-1">{trip.departure}</span>
+                                </div>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div onClick={() => handleViewDetails(trip)} className="cursor-pointer">
-                              <div className="flex items-center">
-                                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-3 shadow-lg shadow-emerald-500/20"></div>
-                                <span className="text-gray-700 dark:text-gray-300 text-sm font-medium line-clamp-1">{trip.departure}</span>
+                            </TableCell>
+                            <TableCell>
+                              <div onClick={() => handleViewDetails(trip)} className="cursor-pointer">
+                                <div className="flex items-center">
+                                  <div className="w-2.5 h-2.5 bg-rose-500 rounded-full mr-3 shadow-lg shadow-rose-500/20"></div>
+                                  <span className="text-gray-700 dark:text-gray-300 text-sm font-medium line-clamp-1">{trip.destination}</span>
+                                </div>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div onClick={() => handleViewDetails(trip)} className="cursor-pointer">
-                              <div className="flex items-center">
-                                <div className="w-2.5 h-2.5 bg-rose-500 rounded-full mr-3 shadow-lg shadow-rose-500/20"></div>
-                                <span className="text-gray-700 dark:text-gray-300 text-sm font-medium line-clamp-1">{trip.destination}</span>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-black text-emerald-700 dark:text-emerald-400 text-lg">{trip.price}</span>
-                          </TableCell>
-                          <TableCell>
-                            <TripStatusBadge status={trip.status} />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              {trip.status === 'completed' && trip.payment === 'Espèces' && (
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-black text-emerald-700 dark:text-emerald-400 text-lg">{trip.price}</span>
+                            </TableCell>
+                            <TableCell>
+                              <TripStatusBadge status={trip.status} />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                {trip.status === 'completed' && trip.payment === 'Espèces' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="small"
+                                    icon={CreditCard}
+                                    onClick={() => handleOpenPayment(trip)}
+                                    tooltip="Payer maintenant"
+                                  />
+                                )}
                                 <Button
                                   variant="ghost"
                                   size="small"
-                                  icon={CreditCard}
-                                  onClick={() => handleOpenPayment(trip)}
-                                  tooltip="Payer maintenant"
+                                  icon={Eye}
+                                  onClick={() => handleViewDetails(trip)}
+                                  tooltip="Voir les détails"
                                 />
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="small"
-                                icon={Eye}
-                                onClick={() => handleViewDetails(trip)}
-                                tooltip="Voir les détails"
-                              />
-                              <Button
-                                variant="ghost"
-                                size="small"
-                                icon={Share2}
-                                onClick={() => handleShareTrip(trip)}
-                                tooltip="Partager"
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </tbody>
+                                <Button
+                                  variant="ghost"
+                                  size="small"
+                                  icon={Share2}
+                                  onClick={() => handleShareTrip(trip)}
+                                  tooltip="Partager"
+                                />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
 

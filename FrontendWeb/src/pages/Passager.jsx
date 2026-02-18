@@ -87,6 +87,14 @@ const Passenger = () => {
     setArrivalSecondsRemaining(null);
   };
 
+  // ✅ [FIX] Redirection automatique si le statut passe à 'completed' (via socket)
+  useEffect(() => {
+    if (tripStatus === 'completed' && !showTripComplete && !showTripRating) {
+      console.log("🏁 Redirection automatique: Trajet marqué 'completed'");
+      handleCompleteTrip();
+    }
+  }, [tripStatus, showTripComplete, showTripRating]);
+
   const tabs = [
     { id: 'home', label: 'Accueil', icon: Home },
     { id: 'history', label: 'Historique', icon: History },
@@ -134,6 +142,8 @@ const Passenger = () => {
       prix: String(confirmedTripData.price ?? currentTrip.estimatedPrice ?? '').replace(/[^0-9]/g, ''),
       momentPaiement,
       typeCourse,
+      date: confirmedTripData.scheduleDate, // Requis pour les réservations planifiées
+      heure: confirmedTripData.scheduleTime, // Requis pour les réservations planifiées
       paymentResult: paiementRequis ? paymentResult : null,
     };
 
@@ -154,7 +164,7 @@ const Passenger = () => {
         ...confirmedTripData,
         ...payload,
         reservationId,
-        id: `TRIP-${Date.now()}`,
+        id: reservationId || `TRIP-${Date.now()}`,
         typeCourse,
         // ✅ Garder le statut si déjà "driver_found" (via socket)
         status:
@@ -226,7 +236,19 @@ const Passenger = () => {
     setCurrentDriver(driver);
     setTripStatus('driver_found');
     setCurrentTrip((prev) => ({ ...prev, driver, status: 'driver_found' }));
+    setShowTripStatusModal(true);
   };
+
+  // ✅ [FIX] Faire disparaître le modal chauffeur après 10s (Demande utilisateur)
+  useEffect(() => {
+    let timer;
+    if (tripStatus === 'driver_found' && showTripStatusModal) {
+      timer = setTimeout(() => {
+        setShowTripStatusModal(false);
+      }, 10000);
+    }
+    return () => clearTimeout(timer);
+  }, [tripStatus, showTripStatusModal]);
 
   const handleShowOnMap = () => {
     // Si la course a démarré, on va sur la vue tracking
@@ -349,13 +371,9 @@ const Passenger = () => {
 
     setCurrentTrip(completedTrip);
 
-    if (currentTrip?.paymentTime === 'advance') {
-      setShowTripRating(true);
-      setShowTripStatusModal(false);
-    } else {
-      setShowTripComplete(true);
-      setShowTripStatusModal(false);
-    }
+    // ✅ [REFINE] Toujours afficher le résumé du trajet d'abord
+    setShowTripComplete(true);
+    setShowTripStatusModal(false);
 
     toast.success('Trajet terminé avec succès !');
   };

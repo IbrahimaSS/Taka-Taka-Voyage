@@ -15,13 +15,14 @@ import Dashboard from "../components/chauffeur/Dashboard";
 import Trajets from "../components/chauffeur/Trajets";
 import HistoriqueTrajet from "../components/chauffeur/HistoriqueTrajet";
 import Planning from "../components/chauffeur/Planning";
-import Revenues from "../components/chauffeur/Revenues";
+import Revenues from "../components/chauffeur/Revenues.jsx";
 import ChauffeurProfile from "../components/chauffeur/shared/ChauffeurProfile";
 import ChauffeurSettings from "../components/chauffeur/shared/ChauffeurSettings";
 import ChauffeurSupport from "../components/chauffeur/shared/ChauffeurSupport";
 import ChauffeurEvaluations from "../components/chauffeur/shared/ChauffeurEvaluations";
 import ChauffeurTracking from "../components/chauffeur/ChauffeurTracking";
 import TrajetEnTempReel from "../components/suivisTrajet/TrajetEnTempReel";
+import TrajetComplete from "../components/suivisTrajet/TrajetComplete";
 import TripNotificationToast from "../components/chauffeur/TripNotificationToast";
 
 import { DriverProvider, useDriverContext } from '../context/DriverContext';
@@ -31,9 +32,26 @@ import { ROLES } from '../config/navConfig';
 const LiveTrackingWrapper = () => {
   const { acceptedTrips, driverLocation } = useDriverContext();
   const navigate = useNavigate();
+  const [showComplete, setShowComplete] = useState(false);
 
   const mainTrip = acceptedTrips?.length > 0 ? acceptedTrips[0] : null;
+
   if (!mainTrip) return <Navigate to="/chauffeur/tracking" replace />;
+
+  if (showComplete) {
+    return (
+      <TrajetComplete
+        role="driver"
+        trip={mainTrip}
+        driver={{ name: "Vous", location: driverLocation }}
+        onBack={() => setShowComplete(false)}
+        onPaymentSuccess={() => {
+          // Une fois payé, le chauffeur peut retourner au dashboard
+          navigate("/chauffeur");
+        }}
+      />
+    );
+  }
 
   return (
     <TrajetEnTempReel
@@ -48,7 +66,7 @@ const LiveTrackingWrapper = () => {
       }}
       onBack={() => navigate("/chauffeur/tracking")}
       onEndTrip={() => {
-        navigate("/chauffeur");
+        setShowComplete(true);
       }}
     />
   );

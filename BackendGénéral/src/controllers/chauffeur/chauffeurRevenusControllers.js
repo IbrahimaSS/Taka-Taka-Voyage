@@ -1,4 +1,4 @@
-const Trajet = require("../../models/Trajets");
+const Paiement = require("../../models/Paiements");
 
 // * GET /chauffeur/revenus
 exports.chauffeurRevenus = async (req, res) => {
@@ -21,65 +21,64 @@ exports.chauffeurRevenus = async (req, res) => {
 
         // Début mois
         const debutMois = new Date(
-        maintenant.getFullYear(),
-        maintenant.getMonth(),
-        1
+            maintenant.getFullYear(),
+            maintenant.getMonth(),
+            1
         );
 
-        // Pipeline commun
+        // Pipeline commun - On utilise le modèle Paiement maintenant
         const matchBase = {
-        chauffeur: userId,
-        statut: "TERMINEE",
-        "paiement.statut": "PAYE",
+            chauffeur: userId,
+            statut: "PAYE",
         };
 
         // Revenus du jour
-        const revenusJourAgg = await Trajet.aggregate([
-        {
-            $match: {
-            ...matchBase,
-            dateFin: { $gte: debutJour },
+        const revenusJourAgg = await Paiement.aggregate([
+            {
+                $match: {
+                    ...matchBase,
+                    createdAt: { $gte: debutJour },
+                },
             },
-        },
-        {
-            $group: {
-            _id: null,
-            total: { $sum: "$prix" },
-            courses: { $sum: 1 },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: "$montantTotal" },
+                    courses: { $sum: 1 },
+                },
             },
-        },
         ]);
 
         // Revenus semaine
-        const revenusSemaineAgg = await Trajet.aggregate([
-        {
-            $match: {
-            ...matchBase,
-            dateFin: { $gte: debutSemaine },
+        const revenusSemaineAgg = await Paiement.aggregate([
+            {
+                $match: {
+                    ...matchBase,
+                    createdAt: { $gte: debutSemaine },
+                },
             },
-        },
-        {
-            $group: {
-            _id: null,
-            total: { $sum: "$prix" },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: "$montantTotal" },
+                },
             },
-        },
         ]);
 
         // Revenus mois
-        const revenusMoisAgg = await Trajet.aggregate([
-        {
-            $match: {
-            ...matchBase,
-            dateFin: { $gte: debutMois },
+        const revenusMoisAgg = await Paiement.aggregate([
+            {
+                $match: {
+                    ...matchBase,
+                    createdAt: { $gte: debutMois },
+                },
             },
-        },
-        {
-            $group: {
-            _id: null,
-            total: { $sum: "$prix" },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: "$montantTotal" },
+                },
             },
-        },
         ]);
 
         // Résultats
@@ -90,18 +89,18 @@ exports.chauffeurRevenus = async (req, res) => {
         const revenusMois = revenusMoisAgg[0]?.total || 0;
 
         return res.status(200).json({
-        succes: true,
-        data: {
-            revenusJour,
-            revenusSemaine,
-            revenusMois,
-            coursesPayees,
-        },
+            succes: true,
+            data: {
+                revenusJour,
+                revenusSemaine,
+                revenusMois,
+                coursesPayees,
+            },
         });
     } catch (error) {
         return res.status(500).json({
-        succes: false,
-        message: error.message,
+            succes: false,
+            message: error.message,
         });
     }
 };
@@ -113,42 +112,51 @@ exports.chauffeurRevenusListe = async (req, res) => {
     try {
         const userId = req.utilisateur._id;
 
-        const COMMISSION_TAUX = 0.1; // 10 %
-
-        const trajets = await Trajet.find({
-        chauffeur: userId,
-        statut: "TERMINEE",
-        "paiement.statut": "PAYE",
+        const paiements = await Paiement.find({
+            chauffeur: userId,
+            statut: "PAYE",
         })
-        .sort({ dateFin: -1 })
-        .select(
-            "depart destination prix paiement dateFin createdAt"
-        );
+            .sort({ createdAt: -1 })
+            .populate({
+                path: 'reservation',
+                select: 'depart destination distanceKm dureeMin prix'
+            })
+            .populate({
+                path: 'passager',
+                select: 'nom prenom photoUrl'
+            });
 
-        const data = trajets.map((trajet) => {
-        const montantBrut = trajet.prix;
-        const commission = Math.round(montantBrut * COMMISSION_TAUX);
-        const gainNet = montantBrut - commission;
-
-        return {
-            date: trajet.dateFin || trajet.createdAt,
-            trajet: `${trajet.depart} - ${trajet.destination}`,
-            modePaiement: trajet.paiement?.methode || "N/A",
-            montantBrut,
-            commission,
-            gainNet,
-        };
-        });
+        const data = paiements.map((p) => ({
+            id: p._id,
+            date: p.createdAt,
+            trajet: p.reservation ? `${p.reservation.depart} - ${p.reservation.destination}` : "Trajet inconnu",
+            depart: p.reservation?.depart || "N/A",
+            destination: p.reservation?.destination || "N/A",
+            distanceKm: p.reservation?.distanceKm || 0,
+            dureeMin: p.reservation?.dureeMin || 0,
+            passager: p.passager ? {
+                nom: `${p.passager.prenom} ${p.passager.nom}`,
+                photo: p.passager.photoUrl
+            } : null,
+            modePaiement: p.methode || "N/A",
+            montantBrut: p.montantTotal,
+            commission: p.commissionPlateforme,
+            gainNet: p.montantChauffeur,
+            statutPaiement: p.statut
+        }));
 
         return res.status(200).json({
-        succes: true,
-        total: data.length,
-        data,
+            succes: true,
+            total: data.length,
+            data,
         });
+
     } catch (error) {
         return res.status(500).json({
-        succes: false,
-        message: error.message,
+            succes: false,
+            message: error.message,
         });
     }
 };
+
+

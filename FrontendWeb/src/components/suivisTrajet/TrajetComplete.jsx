@@ -27,60 +27,79 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { socketService } from '../../services/socketService';
+import toast from 'react-hot-toast';
 
-const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
+const TripComplete = ({
+  trip,
+  driver,
+  onPaymentSuccess,
+  onBack,
+  role = 'passenger' // 'passenger' or 'driver'
+}) => {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState('--:--');
-  const [selectedPayment, setSelectedPayment] = useState('orange');
+  const [selectedPayment, setSelectedPayment] = useState(trip?.paymentMethod?.toLowerCase().includes('orange') ? 'orange' : 'cash');
   const [otpValues, setOtpValues] = useState(Array(6).fill(''));
   const [otpTimer, setOtpTimer] = useState(120);
   const [isProcessing, setIsProcessing] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);
   const [tripData, setTripData] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState(() => {
+    // Si c'est un paiement à l'avance, on le considère comme payé
+    const isPrepaid = trip?.momentPaiement === 'MAINTENANT' || trip?.paymentTime === 'MAINTENANT' || trip?.payment?.statut === 'PAYE';
+    if (isPrepaid) {
+      return 'PAYE';
+    }
+    return trip?.payment?.statut || 'EN_ATTENTE';
+  });
+  const [waitingForDriverConfirmation, setWaitingForDriverConfirmation] = useState(false);
 
   const confettiContainerRef = useRef();
   const otpRefs = useRef([]);
 
-  // Données de démo ou des props
-  const demoData = {
-    departure: trip?.pickup || 'Mamou, Tambassa',
-    destination: trip?.destination || 'Conakry, Matam',
-    driver: driver?.name || 'Fela Balde',
-    driverRating: driver?.rating || 4.2,
-    distance: trip?.estimatedDistance || '8.0 km',
-    duration: trip?.estimatedDuration || '22 min',
-    startTime: '15:20',
-    endTime: '',
+  // Données normalisées à partir des props
+  const normalizedData = {
+    departure: trip?.pickup || trip?.depart || trip?.pickupAddress || 'Point de départ',
+    destination: trip?.destination || trip?.destinationAddress || 'Destination',
+    driver: driver?.name || trip?.driverName || 'Chauffeur',
+    driverRating: driver?.rating || trip?.driverRating || 4.5,
+    distance: trip?.estimatedDistance || trip?.distanceKm || trip?.distance || '8.0 km',
+    duration: trip?.estimatedDuration || trip?.dureeMin || trip?.estimatedTime || '20 min',
+    startTime: trip?.startTime || '15:20',
+    endTime: trip?.endTime || '',
     pricing: {
-      base: trip?.estimatedPrice || '1 500 GNF',
-      serviceFee: '100 GNF',
-      trafficSurcharge: '0 GNF',
-      total: trip?.estimatedPrice ? `${parseInt(trip.estimatedPrice) + 100} GNF` : '1 600 GNF'
+      base: (() => {
+        const val = trip?.estimatedPrice || trip?.estimatedFare || trip?.prix || trip?.price || 15000;
+        return parseInt(val);
+      })(),
+      serviceFee: 1000,
+      trafficSurcharge: 0,
     }
   };
 
-  // Mise à jour de l'heure
+  const totalAmount = normalizedData.pricing.base + normalizedData.pricing.serviceFee;
+
+  // ✅ [STABILISATION] Mise à jour des données réelles
   useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const timeString = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      setCurrentTime(timeString);
-
-      // Calculer l'heure de départ
-      const startTime = new Date(now);
-      startTime.setMinutes(startTime.getMinutes() - 22);
-      const startTimeString = startTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-
-      setTripData({
-        ...demoData,
-        startTime: startTimeString,
-        endTime: timeString
-      });
+    const formatTime = (dateStr) => {
+      if (!dateStr) return '--:--';
+      try {
+        const d = new Date(dateStr);
+        return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return '--:--';
+      }
     };
 
-    updateTime();
-    const interval = setInterval(updateTime, 60000);
-    return () => clearInterval(interval);
+    const now = new Date();
+    setCurrentTime(now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+
+    setTripData({
+      ...normalizedData,
+      startTime: formatTime(trip?.dateDebut || trip?.createdAt),
+      endTime: formatTime(trip?.dateFin || now)
+    });
   }, [trip, driver]);
 
   // Timer OTP
@@ -153,25 +172,104 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
     }
   };
 
+  // ✅ ECOUTER LES EVENEMENTS SOCKET
+  useEffect(() => {
+    console.log(`🔌 [TrajetComplete] Listening for payment events. Role=${role}, TripID=${trip?.id}`);
+
+    // Si le passager envoie la confirmation cash
+    const handleReceptionAConfirmer = (data) => {
+      const targetId = String(trip?.reservationId || trip?.id || '').trim();
+      const receivedId = String(data.reservationId || '').trim();
+
+      console.log(`📩 [TrajetComplete] Paiement reçu: ${receivedId} vs Target: ${targetId}`);
+
+      if (receivedId === targetId && role === 'driver') {
+        console.log("   ✅ MATCH! Setting waitingForDriverConfirmation = true");
+        toast.dismiss(); // Clear previous toasts
+        toast.custom((t) => (
+          <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <span className="text-xl">💰</span>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    Paiement reçu !
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Le passager confirme l'envoi de {data.montant} GNF.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex border-l border-gray-200">
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  setWaitingForDriverConfirmation(true);
+                }}
+                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                Vérifier
+              </button>
+            </div>
+          </div>
+        ), { duration: 10000 });
+
+        setWaitingForDriverConfirmation(true);
+      } else if (role === 'driver') {
+        console.warn(`   ❌ Mismatch: Received ${receivedId} !== Target ${targetId}`);
+      }
+    };
+
+    // Si le chauffeur valide la réception (ou validation auto OM)
+    const handleFinitAvecPaiement = (data) => {
+      console.log("📩 [TrajetComplete] course:finit_avec_paiement RECEIVED", data);
+      const targetId = trip?.reservationId || trip?.id;
+      if (String(data.reservationId) === String(targetId)) {
+        setPaymentStatus('PAYE');
+        setIsProcessing(false);
+        setWaitingForDriverConfirmation(false);
+        toast.success("✅ Paiement confirmé !");
+
+        // Redirection vers évaluation pour le passager
+        if (role === 'passenger' && onPaymentSuccess) {
+          onPaymentSuccess(data);
+        }
+      }
+    };
+
+    socketService.on('paiement:reception_a_confirmer', handleReceptionAConfirmer);
+    socketService.on('course:finit_avec_paiement', handleFinitAvecPaiement);
+
+    return () => {
+      socketService.off('paiement:reception_a_confirmer', handleReceptionAConfirmer);
+      socketService.off('course:finit_avec_paiement', handleFinitAvecPaiement);
+    };
+  }, [trip?.id, trip?.reservationId, role, onPaymentSuccess]);
+
   const handlePaymentComplete = () => {
+    if (selectedPayment === 'cash' && role === 'passenger') {
+      setIsProcessing(true);
+      socketService.emit('paiement:confirmer_envoi', { reservationId: trip?.reservationId || trip?.id });
+      toast.loading("Attente de confirmation du chauffeur...");
+      return;
+    }
+
+    if (selectedPayment === 'cash' && role === 'driver') {
+      setIsProcessing(true);
+      socketService.emit('paiement:confirmer_reception', { reservationId: trip?.reservationId || trip?.id });
+      return;
+    }
+
+    // Simulation OM/MM (pour le moment)
     setIsProcessing(true);
     setTimeout(() => {
-      setIsProcessing(false);
-
-      // Préparer les données de paiement
-      const paymentData = {
-        method: selectedPayment,
-        amount: demoData.pricing.total,
-        transactionId: `TXN-${Date.now()}`,
-        tripId: trip?.id || 'TRIP-' + Date.now(),
-        driverId: driver?.id,
-        timestamp: new Date().toISOString()
-      };
-
-      // Appeler la fonction de succès
-      if (onPaymentSuccess) {
-        onPaymentSuccess(paymentData);
-      }
+      // En prod, ceci serait déclenché par un webhook backend -> socket
+      socketService.emit('paiement:confirmer_reception', { reservationId: trip?.reservationId || trip?.id });
     }, 2000);
   };
 
@@ -222,46 +320,46 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
       <nav className="glass-header shadow-sm sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800">
         <div className="flex justify-between items-center w-full mx-auto px-10 py-4">
 
-            
-            <div ref={confettiContainerRef} className="fixed inset-0 top-5 pointer-events-none z-100" />
 
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-                <Car className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                  Taka<span className="gradient-text">Taka</span>
-                </span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Paiement du trajet</p>
-              </div>
+          <div ref={confettiContainerRef} className="fixed inset-0 top-5 pointer-events-none z-100" />
+
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
+              <Car className="w-6 h-6 text-white" />
             </div>
-
-
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-300">
-                <Clock className="w-5 h-5 text-green-600 dark:text-green-400" />
-                <span className="font-medium">{currentTime}</span>
-              </div>
-              <motion.button
-                whileHover={{ x: -5 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleGoBack}
-                className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span className="font-medium">Retour</span>
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleGoHome}
-                className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-              >
-                <Home className="w-5 h-5" />
-              </motion.button>
+            <div>
+              <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                Taka<span className="gradient-text">Taka</span>
+              </span>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Paiement du trajet</p>
             </div>
-         
+          </div>
+
+
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-300">
+              <Clock className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <span className="font-medium">{currentTime}</span>
+            </div>
+            <motion.button
+              whileHover={{ x: -5 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleGoBack}
+              className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="font-medium">Retour</span>
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleGoHome}
+              className="text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+            >
+              <Home className="w-5 h-5" />
+            </motion.button>
+          </div>
+
         </div>
       </nav>
 
@@ -272,9 +370,9 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
           <div className="flex items-center justify-center gap-8 mb-4">
             <StepIndicator number={1} label="Trajet" completed={true} />
             <div className="h-1 w-16 bg-green-500" />
-            <StepIndicator number={2} label="Paiement" active={true} />
-            <div className="h-1 w-16 bg-gray-200 dark:bg-gray-800" />
-            <StepIndicator number={3} label="Évaluation" />
+            <StepIndicator number={2} label="Paiement" active={paymentStatus !== 'PAYE'} completed={paymentStatus === 'PAYE'} />
+            <div className={`h-1 w-16 ${paymentStatus === 'PAYE' ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-800'}`} />
+            <StepIndicator number={3} label="Évaluation" active={paymentStatus === 'PAYE'} />
           </div>
         </div>
 
@@ -325,7 +423,7 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Départ</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-200">{demoData.departure}</p>
+                  <p className="font-bold text-gray-800 dark:text-gray-200">{tripData?.departure}</p>
                 </div>
               </div>
 
@@ -335,7 +433,7 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Destination</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-200">{demoData.destination}</p>
+                  <p className="font-bold text-gray-800 dark:text-gray-200">{tripData?.destination}</p>
                 </div>
               </div>
 
@@ -345,17 +443,17 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Chauffeur</p>
-                  <p className="font-bold text-gray-800 dark:text-gray-200">{demoData.driver}</p>
+                  <p className="font-bold text-gray-800 dark:text-gray-200">{tripData?.driver}</p>
                   <div className="flex items-center space-x-2 mt-1">
                     <div className="flex">
                       {[...Array(5)].map((_, i) => (
                         <Star
                           key={i}
-                          className={`w-3 h-3 ${i < Math.floor(demoData.driverRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
+                          className={`w-3 h-3 ${i < Math.floor(tripData?.driverRating || 0) ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
                         />
                       ))}
                     </div>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{demoData.driverRating}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{tripData?.driverRating}</span>
                   </div>
                 </div>
               </div>
@@ -366,16 +464,16 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Distance</p>
-                  <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">{demoData.distance}</p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">{tripData?.distance}</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Durée</p>
-                  <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">{demoData.duration}</p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">{tripData?.duration}</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Heure de départ</p>
                   <p className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                    {tripData?.startTime || demoData.startTime}
+                    {tripData?.startTime || '--:--'}
                   </p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl">
@@ -395,19 +493,21 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-3 border-b border-gray-200 dark:border-gray-700">
                   <span className="text-gray-600 dark:text-gray-400">Prix de base</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-200">{demoData.pricing.base}</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-200">{tripData?.pricing.base.toLocaleString()} GNF</span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-200 dark:border-gray-700">
                   <span className="text-gray-600 dark:text-gray-400">Frais de service</span>
-                  <span className="font-medium text-gray-800 dark:text-gray-200">{demoData.pricing.serviceFee}</span>
+                  <span className="font-medium text-gray-800 dark:text-gray-200">{tripData?.pricing.serviceFee.toLocaleString()} GNF</span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-200 dark:border-gray-700">
                   <span className="text-gray-600 dark:text-gray-400">Supplément trafic</span>
-                  <span className="font-medium text-green-600 dark:text-green-400">{demoData.pricing.trafficSurcharge}</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">{tripData?.pricing.trafficSurcharge.toLocaleString()} GNF</span>
                 </div>
                 <div className="flex justify-between items-center pt-3">
                   <span className="text-gray-800 dark:text-gray-100 font-bold">Total</span>
-                  <span className="text-xl font-bold text-green-700 dark:text-green-500">{demoData.pricing.total}</span>
+                  <span className="text-xl font-bold text-green-700 dark:text-green-500">
+                    {(tripData?.pricing.base + tripData?.pricing.serviceFee).toLocaleString()} GNF
+                  </span>
                 </div>
               </div>
             </div>
@@ -421,169 +521,222 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
           transition={{ delay: 0.2 }}
           className="passenger-glass dark:bg-gray-900/90 rounded-2xl p-8 mb-8 border border-white/20 dark:border-white/5"
         >
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Choisissez votre mode de paiement</h2>
+          {role === 'passenger' && paymentStatus !== 'PAYE' && trip?.momentPaiement !== 'MAINTENANT' && trip?.paymentTime !== 'MAINTENANT' && (
+            <>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Choisissez votre mode de paiement</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            {/* Espèces */}
-            <button
-              onClick={() => handlePaymentMethodSelect('cash')}
-              className={`payment-option p-6 rounded-xl border-2 transition-all ${selectedPayment === 'cash' ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : 'border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700'}`}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mb-4">
-                  <CreditCard className="w-8 h-8 text-green-600 dark:text-green-400" />
-                </div>
-                <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Espèces</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Paiement direct au chauffeur</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                {/* Espèces */}
+                <button
+                  onClick={() => handlePaymentMethodSelect('cash')}
+                  className={`payment-option p-6 rounded-xl border-2 transition-all ${selectedPayment === 'cash' ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : 'border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700'}`}
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mb-4">
+                      <CreditCard className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Espèces</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Paiement direct au chauffeur</p>
+                  </div>
+                </button>
+
+                {/* Orange Money */}
+                <button
+                  onClick={() => handlePaymentMethodSelect('orange')}
+                  className={`payment-option p-6 rounded-xl border-2 transition-all ${selectedPayment === 'orange' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30' : 'border-gray-200 dark:border-gray-800 hover:border-orange-300 dark:hover:border-orange-700'}`}
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center mb-4">
+                      <Smartphone className="w-8 h-8 text-orange-500 dark:text-orange-400" />
+                    </div>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Orange Money</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Paiement mobile sécurisé</p>
+                  </div>
+                </button>
+
+                {/* MTN Mobile Money */}
+                <button
+                  onClick={() => handlePaymentMethodSelect('mtn')}
+                  className={`payment-option p-6 rounded-xl border-2 transition-all ${selectedPayment === 'mtn' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30' : 'border-gray-200 dark:border-gray-800 hover:border-yellow-300 dark:hover:border-yellow-700'}`}
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/40 rounded-full flex items-center justify-center mb-4">
+                      <Wallet className="w-8 h-8 text-yellow-500 dark:text-yellow-400" />
+                    </div>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">MTN Mobile Money</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Paiement via Flooz</p>
+                  </div>
+                </button>
               </div>
-            </button>
 
-            {/* Orange Money */}
-            <button
-              onClick={() => handlePaymentMethodSelect('orange')}
-              className={`payment-option p-6 rounded-xl border-2 transition-all ${selectedPayment === 'orange' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30' : 'border-gray-200 dark:border-gray-800 hover:border-orange-300 dark:hover:border-orange-700'}`}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center mb-4">
-                  <Smartphone className="w-8 h-8 text-orange-500 dark:text-orange-400" />
-                </div>
-                <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Orange Money</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Paiement mobile sécurisé</p>
+              {/* Formulaire Orange Money */}
+              {selectedPayment === 'orange' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/10 dark:to-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-xl p-6 mb-6"
+                >
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center">
+                      <Smartphone className="w-6 h-6 text-orange-500 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 dark:text-gray-100">Paiement Orange Money</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Confirmez le paiement depuis votre téléphone</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Numéro Orange Money
+                      </label>
+                      <div className="flex">
+                        <span className="inline-flex items-center px-4 border border-r-0 border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-l-lg">
+                          +224
+                        </span>
+                        <input
+                          type="tel"
+                          className="flex-1 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-r-lg px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                          placeholder="07 XX XX XX XX"
+                          defaultValue="621 23 14 23"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Montant à payer
+                      </label>
+                      <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700">
+                        <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                          {(tripData?.pricing.base + tripData?.pricing.serviceFee).toLocaleString()} GNF
+                        </span>
+                        <button
+                          type="button"
+                          className="text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium flex items-center transition-colors"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Actualiser
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center p-4 bg-white dark:bg-gray-800/50 rounded-lg border border-orange-200 dark:border-orange-900/30">
+                      <AlertTriangle className="w-5 h-5 text-orange-500 dark:text-orange-400 mr-3" />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Un code de confirmation vous sera envoyé par SMS. Entrez-le ci-dessous.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Code de confirmation
+                      </label>
+                      <div className="flex gap-2">
+                        {otpValues.map((value, index) => (
+                          <input
+                            key={index}
+                            ref={(el) => (otpRefs.current[index] = el)}
+                            type="text"
+                            maxLength="1"
+                            value={value}
+                            onChange={(e) => handleOtpChange(index, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                            className="w-12 h-12 text-center text-xl font-bold border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                          />
+                        ))}
+                      </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        Code valide pendant{' '}
+                        <span className={`font-bold ${otpTimer < 30 ? 'text-red-600' : 'text-orange-600 dark:text-orange-400'}`}>
+                          {otpTimer}
+                        </span>{' '}
+                        secondes
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Formulaire Espèces */}
+              {selectedPayment === 'cash' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/10 dark:to-green-900/20 border border-green-200 dark:border-green-800/50 rounded-xl p-6 mb-6"
+                >
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center">
+                      <CreditCard className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 dark:text-gray-100">Paiement en espèces</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Remettez le montant au chauffeur</p>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-white dark:bg-gray-800 rounded-xl border border-green-200 dark:border-green-900/30">
+                    <div className="text-center">
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">Montant à payer au chauffeur</p>
+                      <div className="text-4xl font-bold text-green-700 dark:text-green-500 mb-6">
+                        {(tripData?.pricing.base + tripData?.pricing.serviceFee).toLocaleString()} GNF
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
+                        <User className="w-4 h-4" />
+                        <span>
+                          Chauffeur: <strong className="text-gray-900 dark:text-gray-100">{tripData?.driver}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </>
+          )}
+
+          {/* Message si déjà payé à l'avance */}
+          {paymentStatus === 'PAYE' && (
+            <div className="text-center py-6">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ShieldCheck className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
-            </button>
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Paiement déjà effectué</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Ce trajet a été réglé à l'avance. Merci pour votre confiance !
+              </p>
+            </div>
+          )}
 
-            {/* MTN Mobile Money */}
-            <button
-              onClick={() => handlePaymentMethodSelect('mtn')}
-              className={`payment-option p-6 rounded-xl border-2 transition-all ${selectedPayment === 'mtn' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30' : 'border-gray-200 dark:border-gray-800 hover:border-yellow-300 dark:hover:border-yellow-700'}`}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/40 rounded-full flex items-center justify-center mb-4">
-                  <Wallet className="w-8 h-8 text-yellow-500 dark:text-yellow-400" />
-                </div>
-                <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">MTN Mobile Money</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Paiement via Flooz</p>
-              </div>
-            </button>
-          </div>
-
-          {/* Formulaire Orange Money */}
-          {selectedPayment === 'orange' && (
+          {/* Vue spécifique Chauffeur (En attente confirmation) */}
+          {role === 'driver' && paymentStatus !== 'PAYE' && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/10 dark:to-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-xl p-6 mb-6"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-8 mb-8 text-center"
             >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center">
-                  <Smartphone className="w-6 h-6 text-orange-500 dark:text-orange-400" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-800 dark:text-gray-100">Paiement Orange Money</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Confirmez le paiement depuis votre téléphone</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Numéro Orange Money
-                  </label>
-                  <div className="flex">
-                    <span className="inline-flex items-center px-4 border border-r-0 border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-l-lg">
-                      +224
-                    </span>
-                    <input
-                      type="tel"
-                      className="flex-1 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-r-lg px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                      placeholder="07 XX XX XX XX"
-                      defaultValue="621 23 14 23"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Montant à payer
-                  </label>
-                  <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700">
-                    <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">{demoData.pricing.total}</span>
-                    <button
-                      type="button"
-                      className="text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium flex items-center transition-colors"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Actualiser
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center p-4 bg-white dark:bg-gray-800/50 rounded-lg border border-orange-200 dark:border-orange-900/30">
-                  <AlertTriangle className="w-5 h-5 text-orange-500 dark:text-orange-400 mr-3" />
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Un code de confirmation vous sera envoyé par SMS. Entrez-le ci-dessous.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Code de confirmation
-                  </label>
-                  <div className="flex gap-2">
-                    {otpValues.map((value, index) => (
-                      <input
-                        key={index}
-                        ref={(el) => (otpRefs.current[index] = el)}
-                        type="text"
-                        maxLength="1"
-                        value={value}
-                        onChange={(e) => handleOtpChange(index, e.target.value)}
-                        onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                        className="w-12 h-12 text-center text-xl font-bold border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                      />
-                    ))}
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    Code valide pendant{' '}
-                    <span className={`font-bold ${otpTimer < 30 ? 'text-red-600' : 'text-orange-600 dark:text-orange-400'}`}>
-                      {otpTimer}
-                    </span>{' '}
-                    secondes
-                  </p>
-                </div>
-              </div>
+              <Clock className="w-12 h-12 text-blue-600 mx-auto mb-4 animate-pulse" />
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">En attente du paiement</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                {waitingForDriverConfirmation
+                  ? "Le passager a confirmé l'envoi. Veuillez vérifier et confirmer la réception du montant."
+                  : "Le passager est en train de procéder au paiement. Vous recevrez une notification d'ici peu."}
+              </p>
             </motion.div>
           )}
 
-          {/* Formulaire Espèces */}
-          {selectedPayment === 'cash' && (
+          {/* Message Succès Chauffeur */}
+          {role === 'driver' && paymentStatus === 'PAYE' && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/10 dark:to-green-900/20 border border-green-200 dark:border-green-800/50 rounded-xl p-6 mb-6"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-8 mb-8 text-center"
             >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center">
-                  <CreditCard className="w-6 h-6 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-800 dark:text-gray-100">Paiement en espèces</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Remettez le montant au chauffeur</p>
-                </div>
-              </div>
-
-              <div className="p-6 bg-white dark:bg-gray-800 rounded-xl border border-green-200 dark:border-green-900/30">
-                <div className="text-center">
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Montant à payer au chauffeur</p>
-                  <div className="text-4xl font-bold text-green-700 dark:text-green-500 mb-6">{demoData.pricing.total}</div>
-                  <div className="flex items-center justify-center gap-2 text-green-600 dark:text-green-400">
-                    <User className="w-4 h-4" />
-                    <span>
-                      Chauffeur: <strong className="text-gray-900 dark:text-gray-100">{demoData.driver}</strong>
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Paiement reçu !</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Le paiement a été validé avec succès. Vous pouvez maintenant accepter de nouvelles courses.
+              </p>
             </motion.div>
           )}
 
@@ -597,99 +750,125 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
               <span>Signaler un problème</span>
             </button>
 
-            <button
-              onClick={handlePaymentComplete}
-              disabled={isProcessing}
-              className={`flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-4 rounded-xl font-bold hover:opacity-90 transition flex items-center justify-center gap-3 ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
-            >
-              {isProcessing ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-                  <span>En cours...</span>
-                </>
-              ) : (
-                <>
-                  <Lock className="w-5 h-5" />
-                  <span>Procéder au paiement</span>
-                </>
-              )}
-            </button>
+            {role === 'driver' ? (
+              <button
+                onClick={paymentStatus === 'PAYE' ? onPaymentSuccess : handlePaymentComplete}
+                disabled={isProcessing || (paymentStatus !== 'PAYE' && selectedPayment === 'cash' && !waitingForDriverConfirmation)}
+                className={`flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 rounded-xl font-bold hover:opacity-90 transition flex items-center justify-center gap-3 ${(isProcessing || (paymentStatus !== 'PAYE' && selectedPayment === 'cash' && !waitingForDriverConfirmation)) ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                    <span>En cours...</span>
+                  </>
+                ) : paymentStatus === 'PAYE' ? (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    <span>Terminer la course</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    <span>Confirmer la réception</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={paymentStatus === 'PAYE' ? onPaymentSuccess : handlePaymentComplete}
+                disabled={isProcessing}
+                className={`flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-4 rounded-xl font-bold hover:opacity-90 transition flex items-center justify-center gap-3 ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                    <span>Attente chauffeur...</span>
+                  </>
+                ) : (
+                  <>
+                    {paymentStatus === 'PAYE' ? <Star className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                    <span>{paymentStatus === 'PAYE' ? 'Noter le chauffeur' : 'Confirmer mon paiement'}</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </motion.div>
 
-        {/* Informations supplémentaires */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="passenger-glass dark:bg-gray-900/90 rounded-2xl p-8 border border-white/20 dark:border-white/5"
-        >
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">À faire ensuite</h2>
+        {/* Informations supplémentaires (PASSAGER UNIQUEMENT) */}
+        {role === 'passenger' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="passenger-glass dark:bg-gray-900/90 rounded-2xl p-8 border border-white/20 dark:border-white/5"
+          >
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">À faire ensuite</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Évaluation */}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/10 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-xl p-6">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center">
-                  <Star className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Évaluation */}
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/10 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-xl p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center">
+                    <Star className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h4 className="font-bold text-gray-800 dark:text-gray-100">Évaluez le trajet</h4>
                 </div>
-                <h4 className="font-bold text-gray-800 dark:text-gray-100">Évaluez le trajet</h4>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                  Partagez votre expérience pour aider à améliorer notre service
+                </p>
+                <div className="flex">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-5 h-5 ${i < 4 ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
+                    />
+                  ))}
+                </div>
               </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                Partagez votre expérience pour aider à améliorer notre service
-              </p>
-              <div className="flex">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-5 h-5 ${i < 4 ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
-                  />
-                ))}
+
+              {/* Historique */}
+              <div
+                onClick={handleViewHistory}
+                className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/10 dark:to-green-900/20 border border-green-200 dark:border-green-800/50 rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center">
+                    <History className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h4 className="font-bold text-gray-800 dark:text-gray-100">Consultez l'historique</h4>
+                </div>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                  Retrouvez tous vos trajets et reçus dans votre espace personnel
+                </p>
+                <div className="text-green-700 dark:text-green-400 font-medium hover:underline flex items-center">
+                  Voir mes trajets
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </div>
+              </div>
+
+              {/* Nouvelle réservation */}
+              <div
+                onClick={handleNewBooking}
+                className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/10 dark:to-purple-900/20 border border-purple-200 dark:border-purple-800/50 rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center">
+                    <Car className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h4 className="font-bold text-gray-800 dark:text-gray-100">Réservez à nouveau</h4>
+                </div>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                  Planifiez votre prochain déplacement en quelques secondes
+                </p>
+                <div className="text-purple-700 dark:text-purple-400 font-medium hover:underline flex items-center">
+                  Nouvelle réservation
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </div>
               </div>
             </div>
-
-            {/* Historique */}
-            <div
-              onClick={handleViewHistory}
-              className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/10 dark:to-green-900/20 border border-green-200 dark:border-green-800/50 rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center">
-                  <History className="w-6 h-6 text-green-600 dark:text-green-400" />
-                </div>
-                <h4 className="font-bold text-gray-800 dark:text-gray-100">Consultez l'historique</h4>
-              </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                Retrouvez tous vos trajets et reçus dans votre espace personnel
-              </p>
-              <div className="text-green-700 dark:text-green-400 font-medium hover:underline flex items-center">
-                Voir mes trajets
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </div>
-            </div>
-
-            {/* Nouvelle réservation */}
-            <div
-              onClick={handleNewBooking}
-              className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/10 dark:to-purple-900/20 border border-purple-200 dark:border-purple-800/50 rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center">
-                  <Car className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                </div>
-                <h4 className="font-bold text-gray-800 dark:text-gray-100">Réservez à nouveau</h4>
-              </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                Planifiez votre prochain déplacement en quelques secondes
-              </p>
-              <div className="text-purple-700 dark:text-purple-400 font-medium hover:underline flex items-center">
-                Nouvelle réservation
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </div>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
       </div>
 
       {/* Footer */}
@@ -714,7 +893,7 @@ const TripComplete = ({ trip, driver, onPaymentSuccess, onBack }) => {
           </div>
         </div>
       </footer>
-    </div>
+    </div >
   );
 };
 
