@@ -12,6 +12,7 @@ const Button = ({
   disabled = false,
   icon: Icon,
   iconPosition = 'left',
+  iconSize,
   onClick,
   className = '',
   fullWidth = false,

@@ -66,7 +66,36 @@ function AdminApp() {
       console.log("🔌 [ADMIN] Connecting to socket system...");
       socketService.connect(userId, 'ADMIN', user.nom, user.prenom);
 
+      const playNotificationSound = () => {
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const now = audioCtx.currentTime;
+
+          // Double bip audible (2 tonalités successives)
+          const playTone = (freq, startTime, duration) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0.3, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+          };
+
+          // Bip 1 : 880 Hz pendant 0.15s
+          playTone(880, now, 0.15);
+          // Bip 2 : 1100 Hz après 0.2s pendant 0.2s
+          playTone(1100, now + 0.2, 0.2);
+        } catch (e) {
+          console.error("Audio error", e);
+        }
+      };
+
       const onSystemAlert = (data) => {
+        playNotificationSound();
         addNotification({
           title: data.title || 'Système 🚨',
           message: data.message,
@@ -79,6 +108,7 @@ function AdminApp() {
       socketService.on('system:alert', onSystemAlert);
 
       const onNewDispute = (data) => {
+        playNotificationSound();
         addNotification({
           title: 'Nouveau litige ⚠️',
           message: `${data.reference}: ${data.type}`,
@@ -91,9 +121,27 @@ function AdminApp() {
 
       socketService.on('dispute:new', onNewDispute);
 
+      // Listener pour les nouvelles inscriptions de chauffeurs
+      const onNewChauffeur = (data) => {
+        playNotificationSound();
+        addNotification({
+          title: 'Nouvelle Inscription 🚗',
+          message: `Un nouveau chauffeur s'est inscrit : ${data.nom || 'Nouveau chauffeur'}`,
+          type: NOTIFICATION_TYPES.INFO,
+          category: NOTIFICATION_CATEGORIES.SYSTEM,
+          link: '/admin/validations',
+          priority: 'high'
+        });
+      };
+
+      socketService.on('chauffeur:inscription', onNewChauffeur);
+      socketService.on('chauffeur:new', onNewChauffeur);
+
       return () => {
         socketService.off('system:alert', onSystemAlert);
         socketService.off('dispute:new', onNewDispute);
+        socketService.off('chauffeur:inscription', onNewChauffeur);
+        socketService.off('chauffeur:new', onNewChauffeur);
       };
 
     }

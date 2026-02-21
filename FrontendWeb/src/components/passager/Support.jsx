@@ -10,8 +10,14 @@ import Modal from '../admin/ui/Modal';
 import Tabs from '../admin/ui/Tabs';
 import Progress from '../admin/ui/Progress';
 
+// Context et services
+import { litigeService } from '../../services/litigeService';
+import { tripService } from '../../services/tripService';
+import { toast } from 'react-hot-toast';
+
 const Support = () => {
   const [expandedFaq, setExpandedFaq] = useState(null);
+  const [lastTrip, setLastTrip] = useState(null);
   const [formData, setFormData] = useState({
     subject: '',
     description: '',
@@ -78,7 +84,7 @@ const Support = () => {
       icon: MessageCircle,
       color: 'text-purple-600 dark:text-purple-400',
       bgColor: 'bg-purple-100 dark:bg-purple-900/30',
-      action: () => window.open('/chat', '_blank')
+      action: () => toast.info('Le chat en direct est en cours de maintenance. Veuillez utiliser le formulaire ou l\'email.')
     },
   ];
 
@@ -148,20 +154,51 @@ const Support = () => {
     e.preventDefault();
 
     if (!formData.subject || !formData.description) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
     setIsSubmitting(true);
 
-    // Simuler l'envoi du formulaire
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setShowSuccessModal(true);
-      setFormData({ subject: '', description: '', attachDetails: false });
-      setUploadedFiles([]);
+      let finalData = {
+        type: formData.subject,
+        description: formData.description,
+        piecesJointes: uploadedFiles.map(f => f.name), // Simplifié pour la démo, normalement upload via FormData
+      };
+
+      // Si l'utilisateur veut joindre les détails du dernier trajet
+      if (formData.attachDetails) {
+        try {
+          const { data } = await tripService.getPassengerHistory({ limit: 1 });
+          if (data.succes && data.trajets.length > 0) {
+            finalData.trajetId = data.trajets[0]._id;
+            finalData.metadata = {
+              lastTrip: {
+                date: data.trajets[0].createdAt,
+                driver: data.trajets[0].chauffeur?.nom,
+                route: `${data.trajets[0].depart} → ${data.trajets[0].destination}`
+              }
+            };
+          }
+        } catch (tripErr) {
+          console.error("Erreur lors de la récupération du dernier trajet:", tripErr);
+        }
+      }
+
+      const response = await litigeService.creerLitige(finalData);
+
+      if (response.data.succes) {
+        setShowSuccessModal(true);
+        setFormData({ subject: '', description: '', attachDetails: false });
+        setUploadedFiles([]);
+        toast.success('Votre demande a été envoyée');
+      } else {
+        throw new Error(response.data.message || "Erreur lors de l'envoi");
+      }
     } catch (error) {
-      alert('Une erreur est survenue. Veuillez réessayer.');
+      console.error("Erreur support:", error);
+      toast.error(error.message || 'Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setIsSubmitting(false);
     }

@@ -463,7 +463,7 @@ const Passenger = () => {
       case 'settings':
         return <Settings />;
       case 'planning':
-        return <Planning />;
+        return <Planning onBookNewTrip={() => setActiveTab('home')} />;
       case 'support':
         return <Support />;
       default:

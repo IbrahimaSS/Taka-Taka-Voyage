@@ -17,6 +17,12 @@ export const apiClient = axios.create({
 // OPTIONNEL: joindre un token CSRF depuis le cookie si votre backend l'utilise
 // TODO: ajuster le nom du cookie / header selon votre backend (ex: XSRF-TOKEN)
 apiClient.interceptors.request.use((config) => {
+  // Si le body est un FormData, supprimer le Content-Type pour laisser le navigateur
+  // ajouter automatiquement multipart/form-data avec le boundary correct
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+
   const csrfCookieName = 'XSRF-TOKEN';
   const match = document.cookie.match(new RegExp(`(?:^|; )${csrfCookieName}=([^;]*)`));
   if (match && match[1]) {

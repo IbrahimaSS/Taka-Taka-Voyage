@@ -41,7 +41,7 @@ const PassengerNavbar = ({
   };
 
   // Integrated real notifications
-  const { notifications, unreadCount, markAsRead } = useNotificationCenter();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationCenter();
 
   const handleNotificationClick = (notification) => {
     markAsRead(notification.id);
@@ -165,22 +165,32 @@ const PassengerNavbar = ({
                     exit={{ opacity: 0, y: 10 }}
                     className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden"
                   >
-                    <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-                      <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
+                      <h3 className="font-bold text-gray-900 dark:text-white text-sm uppercase tracking-wider">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}
+                          className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                        >
+                          Tout lire
+                        </button>
+                      )}
                     </div>
                     <div className="max-h-80 overflow-y-auto custom-scrollbar-v5">
-                      {notifications.length > 0 ? (
-                        notifications.map((notification) => (
+                      {notifications.filter(n => !n.isRead).length > 0 ? (
+                        notifications.filter(n => !n.isRead).map((notification) => (
                           <div
                             key={notification.id}
                             onClick={() => handleNotificationClick(notification)}
                             className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors"
                           >
                             <div className="flex items-start space-x-3">
-                              <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
-                                <span className="text-green-600 dark:text-green-400">
-                                  <Bell className="w-5 h-5" />
-                                </span>
+                              <div className="relative">
+                                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+                                  <span className="text-green-600 dark:text-green-400">
+                                    <Bell className="w-5 h-5" />
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm text-gray-900 dark:text-white line-clamp-1">

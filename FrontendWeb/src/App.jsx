@@ -20,6 +20,8 @@ import NotFound from './pages/NotFound';
 import { AuthProvider } from './context/AuthContext';
 import AuthGuard from './components/auth/AuthGuard';
 import PlatformMonitor from './components/notifications/PlatformMonitor';
+import AssistantIA from './components/assistant/AssistantIA';
+
 
 
 // Composants chargés paresseusement
@@ -44,6 +46,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <PlatformMonitor />
+        <AssistantIA />
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             {/* PUBLIC */}

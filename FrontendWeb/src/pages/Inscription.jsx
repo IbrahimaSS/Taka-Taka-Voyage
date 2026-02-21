@@ -35,6 +35,7 @@ import Modal from '../components/admin/ui/Modal';
 import ConfirmModal from '../components/admin/ui/ConfirmModal';
 import Toast from '../components/admin/ui/Toast';
 import { authService } from '../services/authService';
+import { chauffeurService } from '../services/chauffeurService';
 import { useSettings } from '../context/SettingsContext';
 
 // Composant pour l'étape documents chauffeur
@@ -673,6 +674,8 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
 };
 
 const Inscription = () => {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
   const [currentStep, setCurrentStep] = useState(1);  // pour  
   const [userType, setUserType] = useState('');
   const [formData, setFormData] = useState({
@@ -995,17 +998,24 @@ const Inscription = () => {
     try {
       const otpValue = formData.otp.join('');
       if (!otpVerified) {
-        await authService.verifyOtp({ telephone: formData.phone.replace(/\\s/g, ''), code: otpValue });
+        await authService.verifyOtp({ telephone: formData.phone.replace(/\s/g, ''), code: otpValue });
         setOtpVerified(true);
       }
 
       await authService.finaliserInscription(buildInscriptionPayload());
 
       if (userType === 'driver') {
-        await authService.login({
-          identifiant: formData.phone.replace(/\\s/g, ''),
+        const loginRes = await authService.login({
+          identifiant: formData.phone.replace(/\s/g, ''),
           motDePasse: formData.password,
         });
+
+        // Persister temporairement pour la page d'attente
+        if (loginRes.data?.utilisateur) {
+          localStorage.setItem('pendingDriver', JSON.stringify(loginRes.data.utilisateur));
+          localStorage.setItem('utilisateur', JSON.stringify(loginRes.data.utilisateur));
+        }
+
         setCurrentStep(4);
         showToast('Informations sauvegard�es', 'Passez maintenant aux documents du chauffeur', 'success');
       } else {
@@ -1028,36 +1038,57 @@ const Inscription = () => {
     setIsSubmitting(true);
 
     try {
-      await chauffeurService.updateVehicule({
-        typeVehicule: driverData.vehicle.type,
-        marque: driverData.vehicle.brand,
-        modele: driverData.vehicle.model,
-        plaque: driverData.vehicle.plate,
-        couleur: driverData.vehicle.color,
-        capacite: driverData.vehicle.capacity,
-        annee: driverData.vehicle.year,
-      });
+      try {
+        await chauffeurService.updateVehicule({
+          typeVehicule: driverData.vehicle.type,
+          marque: driverData.vehicle.brand,
+          modele: driverData.vehicle.model,
+          plaque: driverData.vehicle.plate,
+          couleur: driverData.vehicle.color,
+          capacite: driverData.vehicle.capacity,
+          annee: driverData.vehicle.year,
+        });
+      } catch (vehiculeError) {
+        console.error("DEBUG: Erreur updateVehicule:", vehiculeError);
+        throw new Error(vehiculeError?.response?.data?.message || "Erreur lors de la sauvegarde du véhicule");
+      }
 
       const formDataDocs = new FormData();
-      if (driverData.photo) formDataDocs.append('photo', driverData.photo);
-      if (driverData.license) formDataDocs.append('license', driverData.license);
-      if (driverData.idCard) formDataDocs.append('idCard', driverData.idCard);
-      if (driverData.carRegistration) formDataDocs.append('carRegistration', driverData.carRegistration);
-      if (driverData.insurance) formDataDocs.append('insurance', driverData.insurance);
+      // Noms de champs alignés avec multer backend: photo, license, idCard, carRegistration, insurance
+      if (driverData.photo) {
+        formDataDocs.append('photo', driverData.photo);
+      }
+      if (driverData.license) {
+        formDataDocs.append('license', driverData.license);
+      }
+      if (driverData.idCard) {
+        formDataDocs.append('idCard', driverData.idCard);
+      }
+      if (driverData.carRegistration) {
+        formDataDocs.append('carRegistration', driverData.carRegistration);
+      }
+      if (driverData.insurance) {
+        formDataDocs.append('insurance', driverData.insurance);
+      }
 
-      await chauffeurService.uploadDocuments(formDataDocs);
+      try {
+        await chauffeurService.uploadDocuments(formDataDocs);
+      } catch (docError) {
+        console.error("DEBUG: Erreur uploadDocuments:", docError);
+        throw new Error(docError?.response?.data?.message || "Erreur lors de l'envoi des documents");
+      }
 
-      showToast('Inscription compl�te', 'Votre demande est en cours de validation', 'success');
+      showToast('Inscription complète', 'Votre demande est en cours de validation', 'success');
       setTimeout(() => {
         navigate('/validation-en-attente');
       }, 1500);
     } catch (error) {
+      console.error("DEBUG: Erreur de finalisation chauffeur:", error);
       showToast(
-        'Erreur documents',
-        error?.response?.data?.message || 'Impossible d\'envoyer les documents',
+        'Erreur finalisation',
+        error.message || 'Impossible de finaliser l\'inscription',
         'error'
       );
-      console.log(error?.response?.data?.message)
     } finally {
       setIsSubmitting(false);
     }

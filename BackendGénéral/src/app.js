@@ -150,5 +150,9 @@ app.use("/api/litiges", commonLitigeRoutes);
 const servicesRoutes = require("./routes/common/servicesRoutes");
 app.use("/api/services-actifs", servicesRoutes);
 
+// Assistant IA
+const aiRoutes = require("./routes/aiRoutes");
+app.use("/api/ai", aiRoutes);
+
 module.exports = app;
 
