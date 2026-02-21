@@ -12,6 +12,9 @@ import { socketService } from "../services/socketService";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { GeolocationService } from "../services/geolocation";
 import { useAuth } from "./AuthContext";
+import { toast } from "react-hot-toast";
+import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from "./NotificationContext";
+
 
 const DriverContext = createContext();
 export const useDriverContext = () => useContext(DriverContext);
@@ -54,6 +57,8 @@ export const DriverProvider = ({ children }) => {
   const [isOnline, setIsOnline] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [status, setStatus] = useState("offline"); // offline | available | busy
+  const { addNotification } = useNotificationCenter();
+
 
   const geolocationOptions = useMemo(() => ({
     enableHighAccuracy: true,
@@ -284,6 +289,22 @@ export const DriverProvider = ({ children }) => {
     socketService.on("trip_cancelled", onTripCancelled);
     socketService.on("course:annulee", onTripCancelled);
 
+    // ✅ NOUVEAU: Notification versement admin
+    socketService.on("paiement:verse", (data) => {
+      console.log("💰 [DRIVER] Versement admin reçu:", data);
+      const montant = (data.montant || 0).toLocaleString('fr-FR');
+
+      // Add to Notification Center (History + Bell Icon + Toast)
+      addNotification({
+        type: NOTIFICATION_TYPES.SUCCESS,
+        category: NOTIFICATION_CATEGORIES.FINANCIAL,
+        title: 'Versement reçu 💰',
+        message: `L'administration a versé ${montant} GNF sur votre compte.`,
+        priority: 'high'
+      });
+    });
+
+
     setIsConnecting(false);
 
     return () => {
@@ -293,6 +314,7 @@ export const DriverProvider = ({ children }) => {
       socketService.off("course:refusee_confirmation", onRefusedOk);
       socketService.off("trip_cancelled", onTripCancelled);
       socketService.off("course:annulee", onTripCancelled);
+      socketService.off("paiement:verse");
     };
   }, [isOnline, DRIVER, handleNewTripRequest]);
 

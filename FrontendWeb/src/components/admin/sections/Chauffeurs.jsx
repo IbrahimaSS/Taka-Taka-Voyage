@@ -11,6 +11,7 @@ import ConfirmModal from '../ui/ConfirmModal';
 import ExportDropdown from '../ui/ExportDropdown';
 import useDriverActions from '../../../hooks/useDriver';
 import { adminService } from '../../../services/adminService';
+import HistoriqueTrajet from '../../chauffeur/HistoriqueTrajet'; // Import du composant partagé
 
 const Drivers = ({ showToast }) => {
   // Hook d'actions chauffeur (Activer / Désactiver / Suspendre)
@@ -495,6 +496,14 @@ const Drivers = ({ showToast }) => {
                   GNF {(selectedDriver.earnings || selectedDriver.revenus?.totalGagne || 0).toLocaleString()}
                 </p>
                 <p className="text-green-600 mt-1">Total gagné sur la plateforme</p>
+              </div>
+            </div>
+
+            {/* Historique des trajets */}
+            <div className="pt-6 border-t border-gray-200 dark:border-gray-900 overflow-hidden">
+              <p className="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-widest mb-4">Historique des trajets</p>
+              <div className="max-h-[500px] overflow-y-auto px-1 -mx-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800">
+                <HistoriqueTrajet chauffeurId={selectedDriver.id} />
               </div>
             </div>
 

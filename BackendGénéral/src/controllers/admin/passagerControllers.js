@@ -58,7 +58,7 @@ exports.listeUtilisateurs = async (req, res) => {
 
         const total = await Utilisateurs.countDocuments(filtre);
         const utilisateurs = await Utilisateurs.find(filtre)
-            .select("nom prenom email role statut createdAt")
+            .select("nom prenom email role statut createdAt photoUrl localisation telephone")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -81,6 +81,9 @@ exports.listeUtilisateurs = async (req, res) => {
                     nom: user.nom,
                     prenom: user.prenom,
                     email: user.email,
+                    photoUrl: user.photoUrl,
+                    localisation: user.localisation,
+                    telephone: user.telephone,
                     role: user.role,
                     statut: user.statut,
                     createdAt: user.createdAt,

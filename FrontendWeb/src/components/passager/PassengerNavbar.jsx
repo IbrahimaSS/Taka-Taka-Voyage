@@ -139,15 +139,12 @@ const PassengerNavbar = ({
                 title="Notifications"
               >
                 <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                {unreadCount > 0 ? (
+                {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center animate-pulse">
                     {unreadCount}
                   </span>
-                ) : (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center animate-pulse">
-                    0
-                  </span>
                 )}
+
               </button>
 
               <AnimatePresence>

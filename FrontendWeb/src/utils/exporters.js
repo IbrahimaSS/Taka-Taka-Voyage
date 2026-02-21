@@ -18,13 +18,13 @@ const getByPath = (obj, path) => {
 const buildTable = (data = [], columns = [], chunkSize = 10000) => {
   const list = Array.isArray(data) ? data : [];
   const cols = Array.isArray(columns) ? columns : [];
-  
+
   const head = cols.map((c) => c.header);
-  
+
   // Pour les très grandes données, on peut utiliser une approche par chunks
   if (list.length > chunkSize) {
     console.warn(`Large dataset detected (${list.length} rows). Processing in chunks...`);
-    
+
     // Créer un générateur pour traiter les données par chunks
     function* generateRows() {
       for (let i = 0; i < list.length; i++) {
@@ -36,7 +36,7 @@ const buildTable = (data = [], columns = [], chunkSize = 10000) => {
         });
       }
     }
-    
+
     return {
       head,
       body: generateRows(),
@@ -44,7 +44,7 @@ const buildTable = (data = [], columns = [], chunkSize = 10000) => {
       totalRows: list.length
     };
   }
-  
+
   // Pour les datasets normaux
   const body = list.map((row) =>
     cols.map((c) => {
@@ -66,7 +66,7 @@ const downloadBlob = (blob, filename) => {
     a.style.display = "none";
     document.body.appendChild(a);
     a.click();
-    
+
     // Nettoyer
     setTimeout(() => {
       document.body.removeChild(a);
@@ -79,43 +79,43 @@ const downloadBlob = (blob, filename) => {
 };
 
 // Export CSV optimisé pour grandes données
-export const exportToCSV = ({ 
-  data, 
-  columns, 
-  fileName = "export", 
+export const exportToCSV = ({
+  data,
+  columns,
+  fileName = "export",
   onToast,
-  chunkSize = 10000 
+  chunkSize = 10000
 }) => {
   try {
     const { head, body, largeDataset, totalRows } = buildTable(data, columns, chunkSize);
-    
+
     // Pour les très grandes données, construire le CSV progressivement
     if (largeDataset) {
       onToast?.("Export CSV", `Génération de ${totalRows} lignes...`, "info");
-      
+
       // Créer le début du CSV
       const headerRow = head.map((h) => `"${String(h ?? "").replace(/"/g, '""')}"`).join(",");
       let csvContent = "\ufeff" + headerRow + "\n";
-      
+
       // Ajouter les données par chunks
       let rowCount = 0;
       for (const row of body) {
         const rowData = row.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",");
         csvContent += rowData + "\n";
         rowCount++;
-        
+
         // Mettre à jour la progression périodiquement
         if (rowCount % 5000 === 0) {
           onToast?.("Export CSV", `Traitement: ${rowCount}/${totalRows} lignes...`, "info");
         }
       }
-      
+
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       downloadBlob(blob, `${fileName}_${new Date().toISOString().split("T")[0]}.csv`);
-      
+
       onToast?.(
-        "Export CSV réussi", 
-        `${totalRows} lignes exportées (${(blob.size / 1024 / 1024).toFixed(2)} MB)`, 
+        "Export CSV réussi",
+        `${totalRows} lignes exportées (${(blob.size / 1024 / 1024).toFixed(2)} MB)`,
         "success"
       );
     } else {
@@ -127,10 +127,10 @@ export const exportToCSV = ({
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       downloadBlob(blob, `${fileName}_${new Date().toISOString().split("T")[0]}.csv`);
-      
+
       onToast?.(
-        "Export CSV réussi", 
-        `${data.length} lignes exportées (${(blob.size / 1024).toFixed(2)} KB)`, 
+        "Export CSV réussi",
+        `${data.length} lignes exportées (${(blob.size / 1024).toFixed(2)} KB)`,
         "success"
       );
     }
@@ -141,43 +141,43 @@ export const exportToCSV = ({
 };
 
 // Export Word optimisé
-export const exportToWord = ({ 
-  data, 
-  columns, 
-  fileName = "export", 
-  title = "Export", 
+export const exportToWord = ({
+  data,
+  columns,
+  fileName = "export",
+  title = "Export",
   onToast,
-  maxRows = 50000 
+  maxRows = 50000
 }) => {
   try {
     const { head, body, totalRows } = buildTable(data, columns);
-    
+
     // Limiter le nombre de lignes pour Word (garde-fou)
     const safeBody = Array.isArray(body) ? body.slice(0, maxRows) : [];
     const actualRows = safeBody.length;
-    
+
     if (totalRows > maxRows) {
       onToast?.("Avertissement Word", `Limité à ${maxRows} lignes sur ${totalRows}`, "warning");
     }
-    
+
     const headerHtml = `
       <tr>
         ${head
-          .map((h) => `<th style="background-color:#f2f2f2;padding:6px;border:1px solid #ddd;font-weight:bold;">${escapeHtml(h)}</th>`)
-          .join("")}
+        .map((h) => `<th style="background-color:#f2f2f2;padding:6px;border:1px solid #ddd;font-weight:bold;">${escapeHtml(h)}</th>`)
+        .join("")}
       </tr>`;
-    
+
     const rowsHtml = safeBody
       .map(
         (row) => `
       <tr>
         ${row
-          .map((cell) => `<td style="padding:6px;border:1px solid #ddd;vertical-align:top;">${escapeHtml(cell)}</td>`)
-          .join("")}
+            .map((cell) => `<td style="padding:6px;border:1px solid #ddd;vertical-align:top;">${escapeHtml(cell)}</td>`)
+            .join("")}
       </tr>`
       )
       .join("");
-    
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -200,15 +200,15 @@ export const exportToWord = ({
           <table>${headerHtml}${rowsHtml}</table>
         </body>
       </html>`;
-    
-    const blob = new Blob(["\ufeff", html], { 
-      type: "application/msword" 
+
+    const blob = new Blob(["\ufeff", html], {
+      type: "application/msword"
     });
     downloadBlob(blob, `${fileName}_${new Date().toISOString().split("T")[0]}.doc`);
-    
+
     onToast?.(
-      "Export Word réussi", 
-      `${actualRows} lignes exportées (${(blob.size / 1024 / 1024).toFixed(2)} MB)`, 
+      "Export Word réussi",
+      `${actualRows} lignes exportées (${(blob.size / 1024 / 1024).toFixed(2)} MB)`,
       "success"
     );
   } catch (error) {
@@ -229,101 +229,87 @@ export const exportToPDF = async ({
 }) => {
   try {
     onToast?.("Export PDF", "Génération du PDF en cours...", "info");
-    
+
     const { head, body, totalRows } = buildTable(data, columns);
-    
+
     // Limiter les lignes pour PDF (performance)
     const safeBody = Array.isArray(body) ? body.slice(0, maxRows) : [];
     const actualRows = safeBody.length;
-    
+
     if (totalRows > maxRows) {
       onToast?.("Avertissement PDF", `Limité à ${maxRows} lignes sur ${totalRows}`, "warning");
     }
-    
+
     // Import dynamique pour réduire le bundle initial
     const [{ jsPDF }, { default: autoTable }] = await Promise.all([
       import("jspdf"),
       import("jspdf-autotable"),
     ]);
-    
+
     const doc = new jsPDF({
       orientation,
       unit: "mm",
       format: orientation === "landscape" ? "a4" : "a4",
       compress: true // Compression activée
     });
-    
+
     // En-tête
     doc.setFontSize(16);
     doc.setTextColor(40, 40, 40);
     doc.text(title, 14, 15);
-    
+
     // Informations
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     const dateStr = new Date().toLocaleDateString('fr-FR');
     doc.text(`Généré le ${dateStr}`, 14, 22);
     doc.text(`Total: ${actualRows} ligne${actualRows > 1 ? 's' : ''}`, 14, 27);
-    
+
     // Tableau
     autoTable(doc, {
-      startY: 30,
+      startY: 35,
       head: [head],
       body: safeBody,
-      theme: 'grid',
+      theme: 'striped',
       headStyles: {
-        fillColor: [52, 152, 219],
+        fillColor: [16, 185, 129], // Emerald 500 (Taka Taka color)
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 9
+        fontSize: 10,
+        halign: 'left'
       },
       bodyStyles: {
-        fontSize: 8,
-        cellPadding: 2,
-        overflow: 'linebreak',
-        cellWidth: 'auto'
+        fontSize: 9,
+        cellPadding: 3,
+        textColor: [50, 50, 50]
       },
-      styles: {
-        cellPadding: 2,
-        fontSize: 8,
-        valign: 'middle'
+      alternateRowStyles: {
+        fillColor: [248, 250, 252] // Slate 50
       },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 25 }
-      },
-      margin: { top: 30 },
-      pageBreak: 'auto',
-      rowPageBreak: 'auto',
-      tableWidth: 'auto',
-      showHead: 'everyPage',
+      margin: { top: 35, left: 14, right: 14 },
       didDrawPage: (data) => {
         // Pied de page
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
         const pageCount = doc.internal.getNumberOfPages();
-        doc.text(`Page ${data.pageNumber} / ${pageCount}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
+        doc.text(`Taka Taka - Rapport Confidentiel - Page ${data.pageNumber} / ${pageCount}`, 14, doc.internal.pageSize.height - 10);
       }
     });
-    
+
     doc.save(`${fileName}_${new Date().toISOString().split("T")[0]}.pdf`);
-    
+
     onToast?.(
-      "Export PDF réussi", 
-      `${actualRows} lignes exportées (PDF compressé)`, 
+      "Export PDF réussi",
+      `${actualRows} lignes exportées (PDF compressé)`,
       "success"
     );
   } catch (error) {
     console.error("PDF export error:", error);
-    
+
     if (error.message.includes("jspdf")) {
       onToast?.(
-        "Export PDF", 
-        'Pour générer des PDF, installez: npm install jspdf jspdf-autotable', 
+        "Export PDF",
+        'Pour générer des PDF, installez: npm install jspdf jspdf-autotable',
         "warning"
       );
     } else {
@@ -355,12 +341,12 @@ export const generateMockData = (rows = 10000, columns = 8) => {
     'Kouamé Adou', 'Aïcha Diarra', 'Mohamed Sylla', 'Fatoumata Bâ',
     'Samuel Mensah', 'Jean Dupont', 'Marie Curie', 'Paul Martin'
   ];
-  
+
   for (let i = 0; i < rows; i++) {
     const driverIndex = i % drivers.length;
     const docTypeIndex = i % documentTypes.length;
     const statusIndex = i % statuses.length;
-    
+
     mockData.push({
       id: i + 1,
       type: documentTypes[docTypeIndex],
@@ -378,7 +364,7 @@ export const generateMockData = (rows = 10000, columns = 8) => {
       reviewedBy: i % 4 === 0 ? 'Admin System' : null
     });
   }
-  
+
   return mockData;
 };
 
@@ -389,22 +375,22 @@ export const compressDataForExport = (data, options = {}) => {
     maxStringLength = 500,
     compressNumbers = true
   } = options;
-  
+
   return data.map(item => {
     const compressed = { ...item };
-    
+
     // Éliminer les colonnes spécifiées
     excludeColumns.forEach(col => {
       delete compressed[col];
     });
-    
+
     // Tronquer les longues chaînes
     Object.keys(compressed).forEach(key => {
       if (typeof compressed[key] === 'string' && compressed[key].length > maxStringLength) {
         compressed[key] = compressed[key].substring(0, maxStringLength) + '...';
       }
     });
-    
+
     // Compresser les nombres (optionnel)
     if (compressNumbers) {
       Object.keys(compressed).forEach(key => {
@@ -414,7 +400,7 @@ export const compressDataForExport = (data, options = {}) => {
         }
       });
     }
-    
+
     return compressed;
   });
 };
@@ -422,10 +408,10 @@ export const compressDataForExport = (data, options = {}) => {
 // Formateur de date pour les exports
 export const dateFormatter = (value, format = 'short') => {
   if (!value) return 'N/A';
-  
+
   const date = new Date(value);
   if (isNaN(date.getTime())) return String(value);
-  
+
   switch (format) {
     case 'short':
       return date.toLocaleDateString('fr-FR');
@@ -445,12 +431,12 @@ export const dateFormatter = (value, format = 'short') => {
 // Formateur de fichier taille
 export const fileSizeFormatter = (value) => {
   if (!value) return 'N/A';
-  
+
   const match = value.match(/(\d+(?:\.\d+)?)\s*(MB|KB|GB)/i);
   if (match) {
     const [, size, unit] = match;
     return `${parseFloat(size).toFixed(1)} ${unit.toUpperCase()}`;
   }
-  
+
   return value;
 };

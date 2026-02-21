@@ -10,42 +10,42 @@ const validationController = require("../../controllers/admin/validationControll
 
 //Démande de Validations
 router.get(
-    "/chauffeurs/validation/demande",
+    "/demande",
     verifierToken,
     autoriserRoles("ADMIN"),
     validationController.listeDemandesValidation
 );
 //Cards des Validations
 router.get(
-    "/chauffeurs/validation/stats",
+    "/stats",
     verifierToken,
     autoriserRoles("ADMIN"),
     validationController.statsValidationChauffeurs
 );
 //Historiques des Validations
 router.get(
-    "/chauffeurs/validations/historique",
+    "/historique",
     verifierToken,
     autoriserRoles("ADMIN"),
     validationController.historiqueValidations
 );
 //Valider un chauffeur
 router.patch(
-    "/chauffeurs/validation/:id/valider",
+    "/:id/valider",
     verifierToken,
     autoriserRoles("ADMIN"),
     validationController.validerChauffeur
 );
 //Rejeter un chauffeur
 router.patch(
-    "/chauffeurs/validation/:id/rejeter",
+    "/:id/rejeter",
     verifierToken,
     autoriserRoles("ADMIN"),
     validationController.rejeterChauffeur
 );
 //Détails de la validation d'un chauffeur
 router.get(
-    "/chauffeurs/validation/:id",
+    "/:id",
     verifierToken,
     autoriserRoles("ADMIN"),
     validationController.detailsChauffeurValidation

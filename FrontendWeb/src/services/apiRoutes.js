@@ -75,6 +75,7 @@ export const API_ROUTES = {
     documents: {
       stats: "/admin/documents/stats",
       list: "/admin/documents",
+      listChauffeurs: "/admin/documents/chauffeurs",
       statut: (id) => `/admin/documents/${id}/statut`,
       chauffeurDocuments: (id) => `/admin/chauffeurs/${id}/documents/`,
     },
@@ -125,6 +126,14 @@ export const API_ROUTES = {
       activites: "/admin/profile/activites",
       stats: "/admin/profile/stats",
     },
+    personnels: {
+      list: "/admin/personnels",
+      create: "/admin/personnels",
+      details: (id) => `/admin/personnels/${id}`,
+      update: (id) => `/admin/personnels/${id}`,
+      delete: (id) => `/admin/personnels/${id}`,
+      toggleStatus: (id) => `/admin/personnels/${id}/status`,
+    },
     security: {
       password: "/admin/security/password",
     },
@@ -149,9 +158,15 @@ export const API_ROUTES = {
   },
 
 
+  // ===================== COMMUN =====================
+  litiges: {
+    creer: "/litiges",
+  },
+
   // ===================== UPLOADS =====================
   uploads: {
     base: "/uploads",
   },
 };
+
 

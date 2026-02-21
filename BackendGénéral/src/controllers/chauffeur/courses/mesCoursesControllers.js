@@ -220,7 +220,7 @@ exports.signalerArrivee = async (req, res) => {
     await reservation.save();
 
     const pid = String(reservation.passager);
-    req.app.get("io").to(`PASSAGER_${pid}`).emit("course:chauffeur_arrive", { reservationId });
+    // req.app.get("io").to(`PASSAGER_${pid}`).emit("course:chauffeur_arrive", { reservationId });
 
     res.json({ succes: true, message: "Arrivée signalée au passager" });
 };

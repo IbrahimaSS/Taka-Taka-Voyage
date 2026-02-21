@@ -1,6 +1,8 @@
 // src/components/sections/Disputes.jsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import clsx from 'clsx';
+
 import {
   Search, Eye, Check, X, AlertTriangle,
   Clock, CheckCircle, Hourglass, XCircle,
@@ -21,52 +23,16 @@ import Pagination from '../ui/Pagination';
 import Toast from '../ui/Toast';
 import Modal from '../ui/Modal';
 import ExportDropdown from '../ui/ExportDropdown';
-import { chartConfigs } from '../../../hooks/useCharts';
+import { apiClient } from '../../../services/apiClient';
+import { API_ROUTES } from '../../../services/apiRoutes';
+import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../../../context/NotificationContext';
+
 
 // Données de démonstration
 // TODO API (admin/litiges):
 // Remplacer les donnees de demonstration et les actions locales par des appels backend
 // Exemple: GET /admin/litiges, PATCH /admin/litiges/:id (statut)
-const generateDisputes = (count = 50) => {
-  const statuses = ['open', 'in_progress', 'resolved', 'rejected', 'pending'];
-  const priorities = ['low', 'medium', 'high', 'critical'];
-  const types = ['payment', 'driving', 'delay', 'vehicle', 'behavior'];
-  const passengers = ['Jean Dupont', 'Marie Koné', 'Paul Martin', 'Sophie Bernard', 'Thomas Leroy'];
-  const drivers = ['Kouamé Adou', 'Aïcha Diarra', 'Moussa Camara', 'Fatou Sow', 'Ibrahim Keita'];
 
-  return Array.from({ length: count }, (_, i) => ({
-    id: `DIS-${String(i + 1000).padStart(6, '0')}`,
-    date: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }),
-    title: ['Paiement non reçu', 'Conduite dangereuse', 'Retard important', 'Véhicule sale', 'Comportement inapproprié'][i % 5],
-    description: `Litige concernant ${['un paiement', 'une conduite', 'un retard', 'un véhicule', 'un comportement'][i % 5]}`,
-    type: types[i % types.length],
-    amount: Math.floor(Math.random() * 5000) + 1000,
-    users: {
-      passenger: passengers[i % passengers.length],
-      driver: drivers[i % drivers.length],
-      passengerId: `PASS-${String(i + 1000).padStart(6, '0')}`,
-      driverId: `DRIV-${String(i + 2000).padStart(6, '0')}`
-    },
-    priority: priorities[Math.floor(Math.random() * priorities.length)],
-    status: statuses[Math.floor(Math.random() * statuses.length)],
-    createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-    resolvedAt: Math.random() > 0.5 ? new Date(Date.now() - Math.random() * 15 * 24 * 60 * 60 * 1000) : null,
-    agent: Math.random() > 0.7 ? 'Admin' : null,
-    tripId: `TRIP-${String(i + 3000).padStart(6, '0')}`,
-    location: 'Abidjan, Plateau',
-    evidence: Math.random() > 0.5 ? ['photo.jpg', 'message.txt'] : [],
-    comments: [
-      { id: 1, user: 'Support', message: 'Litige en cours de traitement', date: '2024-01-15 10:30' },
-      { id: 2, user: 'Admin', message: 'En attente de validation', date: '2024-01-15 14:45' }
-    ]
-  }));
-};
 
 // Composant pour les actions rapides dans le tableau
 const TableActions = ({ dispute, onView, onResolve, onReject, onDelete }) => {
@@ -146,7 +112,13 @@ const TableActions = ({ dispute, onView, onResolve, onReject, onDelete }) => {
 
 const Disputes = () => {
   // États
-  const [disputes, setDisputes] = useState(() => generateDisputes(50));
+  const [disputes, setDisputes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState({ ouverts: 0, enCours: 0, resolus: 0, total: 0 });
+  const [repartitionData, setRepartitionData] = useState({ labels: [], datasets: [{ data: [], backgroundColor: [] }] });
+  const [period, setPeriod] = useState('mensuel');
+
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -155,8 +127,11 @@ const Disputes = () => {
   const [selectedDisputes, setSelectedDisputes] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
   const [toast, setToast] = useState({ show: false, title: '', message: '', type: 'success' });
   const [isMobile, setIsMobile] = useState(false);
+  const { addNotification } = useNotificationCenter();
+
 
   // États pour les modales
   const [modalState, setModalState] = useState({
@@ -170,91 +145,125 @@ const Disputes = () => {
 
   // Détecter la taille de l'écran
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Stats calculées
+  // Fetch initial data (Stats + List)
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [statsRes, listRes, repartitionRes] = await Promise.all([
+        apiClient.get(API_ROUTES.admin.litiges.stats),
+        apiClient.get(API_ROUTES.admin.litiges.list, {
+          params: { page: currentPage, limit: pageSize, search, status: statusFilter, type: typeFilter }
+        }),
+        apiClient.get(API_ROUTES.admin.litiges.repartitionTypes, { params: { period } })
+      ]);
+
+
+      if (statsRes.data.succes) setStatsData(statsRes.data.cards);
+
+      if (repartitionRes.data.succes) {
+        const colors = ['#10B981', '#1E40AF', '#8B5CF6', '#F59E0B', '#EF4444', '#6366F1'];
+        const labels = repartitionRes.data.data.map(d => d.label || "Autre");
+        const totals = repartitionRes.data.data.map(d => d.total);
+        setRepartitionData({
+          labels: labels,
+          datasets: [{
+            data: totals,
+            backgroundColor: colors.slice(0, labels.length),
+            borderWidth: 0,
+            hoverOffset: 15
+          }]
+        });
+      }
+
+      if (listRes.data.succes) {
+        // Normalisation pour le composant (mapper les champs backend aux champs frontend)
+        const normalized = listRes.data.litiges.map(l => ({
+          id: l.identifiant,
+          reference: l.reference,
+          date: new Date(l.date).toLocaleString('fr-FR'),
+          title: l.type === "PAIEMENT" ? "Paiement non reçu" : "Litige signalé",
+          description: l.description || "Aucune description",
+          type: l.type.toLowerCase(),
+          amount: 0, // Le backend listeLitiges ne renvoie pas encore amount
+          users: {
+            passenger: l.utilisateurs.passager || "Inconnu",
+            driver: l.utilisateurs.chauffeur || "Non assigné",
+            passengerId: "N/A",
+            driverId: "N/A"
+          },
+          priority: 'medium', // Backend ne renvoie pas encore priority
+          status: l.statut.toLowerCase() === 'resolu' ? 'resolved' :
+            l.statut.toLowerCase() === 'en_cours' ? 'in_progress' :
+              l.statut.toLowerCase() === 'rejeter' ? 'rejected' : 'open'
+        }));
+        setDisputes(normalized);
+        setTotalItems(listRes.data.pagination.total);
+      }
+    } catch (error) {
+      console.error("Erreur chargement litiges:", error);
+      showToast('Erreur', 'Impossible de charger les données des litiges', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [currentPage, pageSize, search, statusFilter, typeFilter, activeTab, period]);
+
+
+
+  // Stats transformées pour StatCard
   const stats = useMemo(() => {
-    const open = disputes.filter(d => d.status === 'open').length;
-    const inProgress = disputes.filter(d => d.status === 'in_progress').length;
-    const resolved = disputes.filter(d => d.status === 'resolved').length;
-    const rejected = disputes.filter(d => d.status === 'rejected').length;
-    const total = disputes.length;
-
-    const resolvedDisputes = disputes.filter(d => d.status === 'resolved' && d.resolvedAt && d.createdAt);
-    const avgTime = resolvedDisputes.length > 0
-      ? resolvedDisputes.reduce((acc, d) => {
-        const timeDiff = new Date(d.resolvedAt) - new Date(d.createdAt);
-        return acc + (timeDiff / (1000 * 60 * 60));
-      }, 0) / resolvedDisputes.length
-      : 0;
-
     return [
       {
-        title: 'Rejeter',
-        value: open.toString(),
+        title: 'Litiges Ouverts',
+        value: statsData.ouverts.toString(),
         icon: AlertTriangle,
         color: 'red',
-        trend: open > 5 ? 'up' : 'down',
-        percentage: Math.round((open / total) * 100),
-        progress: (open / total) * 100
+        percentage: statsData.total > 0 ? Math.round((statsData.ouverts / statsData.total) * 100) : 0,
+        progress: statsData.total > 0 ? (statsData.ouverts / statsData.total) * 100 : 0
       },
       {
         title: 'En cours',
-        value: inProgress.toString(),
+        value: statsData.enCours.toString(),
         icon: Hourglass,
         color: 'yellow',
-        trend: inProgress > 3 ? 'up' : 'stable',
-        percentage: Math.round((inProgress / total) * 100),
-        progress: (inProgress / total) * 100
+        percentage: statsData.total > 0 ? Math.round((statsData.enCours / statsData.total) * 100) : 0,
+        progress: statsData.total > 0 ? (statsData.enCours / statsData.total) * 100 : 0
       },
       {
         title: 'Résolus',
-        value: resolved.toString(),
+        value: statsData.resolus.toString(),
         icon: CheckCircle,
         color: 'green',
-        trend: resolved > 20 ? 'up' : 'stable',
-        percentage: Math.round((resolved / total) * 100),
-        progress: (resolved / total) * 100
+        percentage: statsData.total > 0 ? Math.round((statsData.resolus / statsData.total) * 100) : 0,
+        progress: statsData.total > 0 ? (statsData.resolus / statsData.total) * 100 : 0
       },
     ];
-  }, [disputes]);
+  }, [statsData]);
 
-  // Filtrage des litiges
-  const filteredDisputes = useMemo(() => {
-    return disputes.filter(dispute => {
-      const matchesSearch =
-        search === '' ||
-        dispute.id.toLowerCase().includes(search.toLowerCase()) ||
-        dispute.title.toLowerCase().includes(search.toLowerCase()) ||
-        dispute.description.toLowerCase().includes(search.toLowerCase()) ||
-        dispute.users.passenger.toLowerCase().includes(search.toLowerCase()) ||
-        dispute.users.driver.toLowerCase().includes(search.toLowerCase());
+  // Configuration du graphique mémoïsée pour éviter les re-rendus inutiles
+  const repartitionChartConfig = useMemo(() => ({
+    type: 'doughnut',
+    data: repartitionData,
+    options: {
+      cutout: '70%',
+      plugins: {
+        legend: { position: 'right' }
+      }
+    }
+  }), [repartitionData]);
 
-      const matchesStatus = statusFilter === 'all' || dispute.status === statusFilter;
-      const matchesType = typeFilter === 'all' || dispute.type === typeFilter;
-      const matchesPriority = priorityFilter === 'all' || dispute.priority === priorityFilter;
-      const matchesTab = activeTab === 'all' || dispute.type === activeTab;
+  const totalPages = Math.ceil(totalItems / pageSize);
 
-      return matchesSearch && matchesStatus && matchesType && matchesPriority && matchesTab;
-    });
-  }, [disputes, search, statusFilter, typeFilter, priorityFilter, activeTab]);
 
-  // Pagination
-  const paginatedDisputes = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    return filteredDisputes.slice(startIndex, endIndex);
-  }, [filteredDisputes, currentPage, pageSize]);
-
-  const totalPages = Math.ceil(filteredDisputes.length / pageSize);
 
   // Configuration des colonnes pour l'exportation
   const exportColumns = useMemo(() => [
@@ -308,35 +317,49 @@ const Disputes = () => {
   ], []);
 
   // Handlers
-  const handleResolve = (disputeId, comment = '') => {
+  const handleResolve = async (disputeId, comment = '') => {
     setModalState(prev => ({ ...prev, loading: true }));
-
-    setTimeout(() => {
-      setDisputes(prev => prev.map(dispute =>
-        dispute.id === disputeId
-          ? { ...dispute, status: 'resolved', resolvedAt: new Date(), agent: 'Admin' }
-          : dispute
-      ));
-
+    try {
+      const res = await apiClient.patch(API_ROUTES.admin.litiges.resoudre(disputeId), { comment });
+      if (res.data.succes) {
+        showToast('Litige résolu', `Le litige a été marqué comme résolu`, 'success');
+        addNotification({
+          type: NOTIFICATION_TYPES.SUCCESS,
+          category: NOTIFICATION_CATEGORIES.SYSTEM,
+          title: 'Litige résolu',
+          message: `Le litige ${disputeId} a été clôturé positivement.`,
+        });
+        fetchData(); // Rafraîchir
+      }
+    } catch (error) {
+      showToast('Erreur', error.response?.data?.message || 'Erreur lors de la résolution', 'error');
+    } finally {
       setModalState(prev => ({ ...prev, loading: false, showResolve: false }));
-      showToast('Litige résolu', `Le litige ${disputeId} a été marqué comme résolu`, 'success');
-    }, 1000);
+    }
   };
 
-  const handleReject = (disputeId, comment = '') => {
+
+  const handleReject = async (disputeId, comment = '') => {
     setModalState(prev => ({ ...prev, loading: true }));
-
-    setTimeout(() => {
-      setDisputes(prev => prev.map(dispute =>
-        dispute.id === disputeId
-          ? { ...dispute, status: 'rejected', resolvedAt: new Date(), agent: 'Admin' }
-          : dispute
-      ));
-
+    try {
+      const res = await apiClient.patch(API_ROUTES.admin.litiges.rejeter(disputeId), { comment });
+      if (res.data.succes) {
+        showToast('Litige rejeté', `Le litige a été rejeté`, 'error');
+        addNotification({
+          type: NOTIFICATION_TYPES.WARNING,
+          category: NOTIFICATION_CATEGORIES.SYSTEM,
+          title: 'Litige rejeté',
+          message: `Le litige ${disputeId} a été classé sans suite.`,
+        });
+        fetchData(); // Rafraîchir
+      }
+    } catch (error) {
+      showToast('Erreur', error.response?.data?.message || 'Erreur lors du rejet', 'error');
+    } finally {
       setModalState(prev => ({ ...prev, loading: false, showReject: false }));
-      showToast('Litige rejeté', `Le litige ${disputeId} a été rejeté`, 'error');
-    }, 1000);
+    }
   };
+
 
   const handleDelete = (disputeId) => {
     setModalState(prev => ({ ...prev, loading: true }));
@@ -379,11 +402,12 @@ const Disputes = () => {
 
   const handleSelectAll = (checked) => {
     if (checked) {
-      setSelectedDisputes(paginatedDisputes.map(d => d.id));
+      setSelectedDisputes(disputes.map(d => d.id));
     } else {
       setSelectedDisputes([]);
     }
   };
+
 
   const showToast = (title, message, type = 'success') => {
     setToast({ show: true, title, message, type });
@@ -392,13 +416,55 @@ const Disputes = () => {
     }, 5000);
   };
 
-  const handleViewDetails = (dispute) => {
-    setModalState(prev => ({
-      ...prev,
-      showDetails: true,
-      selectedDispute: dispute
-    }));
+  const handleViewDetails = async (dispute) => {
+    setModalState(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await apiClient.get(API_ROUTES.admin.litiges.details(dispute.id));
+      if (res.data.succes) {
+        const d = res.data.litige;
+        setModalState(prev => ({
+          ...prev,
+          showDetails: true,
+          selectedDispute: {
+            id: dispute.id,
+            reference: d.reference,
+            title: d.informationsGenerales.titre,
+            description: d.informationsGenerales.description,
+            date: new Date(d.informationsGenerales.dateCreation).toLocaleString('fr-FR'),
+            type: d.type.toLowerCase(),
+            status: d.statut.toLowerCase() === 'resolu' ? 'resolved' :
+              d.statut.toLowerCase() === 'en_cours' ? 'in_progress' :
+                d.statut.toLowerCase() === 'rejeter' ? 'rejected' : 'open',
+            users: {
+              passenger: d.partiesConcernees.passager || "Inconnu",
+              driver: d.partiesConcernees.chauffeur || "Non assigné",
+              passengerId: "ID: " + (d.passager?._id || "N/A"),
+              driverId: "ID: " + (d.reservation?.chauffeur?._id || "N/A")
+            },
+            tripId: d.reservation?._id || "N/A",
+            tripInfo: {
+              depart: d.informationsGenerales?.Depart || "N/A",
+              destination: d.informationsGenerales?.Destination || "N/A"
+            },
+            comments: (d.historique || []).map((h, i) => ({
+              id: i,
+              user: h.auteur,
+              message: h.message,
+              date: new Date(h.date).toLocaleString('fr-FR')
+            })),
+            priority: d.priority || 'medium'
+          }
+        }));
+      }
+    } catch (error) {
+      console.error("DEBUG LITIGE DETAILS ERROR:", error);
+      showToast('Erreur', error.response?.data?.message || 'Impossible de charger les détails', 'error');
+    } finally {
+      setModalState(prev => ({ ...prev, loading: false }));
+    }
   };
+
+
 
   const handleQuickResolve = (dispute) => {
     setModalState(prev => ({
@@ -436,21 +502,22 @@ const Disputes = () => {
   // Helper pour afficher le statut
   const renderStatus = (status) => {
     const config = {
-      open: { label: 'Ouvert', variant: 'success', icon: AlertTriangle },
-      in_progress: { label: 'En cours', variant: 'secondary', icon: Hourglass },
-      resolved: { label: 'Résolu', variant: 'success', icon: CheckCircle },
-      rejected: { label: 'Rejeté', variant: 'danger', icon: XCircle },
-      pending: { label: 'En attente', variant: 'secondary', icon: Clock }
+      open: { label: 'Ouvert', bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-700 dark:text-green-400', icon: AlertTriangle },
+      in_progress: { label: 'En cours', bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', icon: Hourglass },
+      resolved: { label: 'Résolu', bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', icon: CheckCircle },
+      rejected: { label: 'Rejeté', bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: XCircle },
+      pending: { label: 'En attente', bg: 'bg-slate-200 dark:bg-slate-700', text: 'text-slate-700 dark:text-slate-300', icon: Clock }
     };
 
-    const { label, icon: Icon, color } = config[status] || config.pending;
+    const { label, icon: Icon, bg, text } = config[status] || config.pending;
     return (
-      <Badge className={`text-${color}-800 bg-${color}-100`}>
-        <Icon className="w-3 h-3 mr-1" />
+      <Badge className={clsx(bg, text, "border-none shadow-none font-semibold")}>
+        <Icon className="w-3.5 h-3.5 mr-1.5" />
         {label}
       </Badge>
     );
   };
+
 
   // Helper pour afficher la priorité
   const renderPriority = (priority) => {
@@ -489,7 +556,8 @@ const Disputes = () => {
     if (isMobile) {
       return (
         <div className="space-y-4">
-          {paginatedDisputes.map((dispute) => (
+          {disputes.map((dispute) => (
+
             <motion.div
               key={dispute.id}
               initial={{ opacity: 0, y: 20 }}
@@ -569,36 +637,20 @@ const Disputes = () => {
     return (
       <Table
         headers={[
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              className="rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-400"
-              checked={selectedDisputes.length === paginatedDisputes.length && paginatedDisputes.length > 0}
-              onChange={(e) => handleSelectAll(e.target.checked)}
-            />
-          </div>,
-          'ID Litige',
+          'N° / Date',
           'Utilisateurs',
           'Type',
           'Statut',
           'Actions'
         ]}
       >
-        {paginatedDisputes.map((dispute) => (
+        {disputes.map((dispute, index) => (
           <TableRow key={dispute.id}>
             <TableCell>
-              <input
-                type="checkbox"
-                className="rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-400"
-                checked={selectedDisputes.includes(dispute.id)}
-                onChange={(e) => handleSelectDispute(dispute.id, e.target.checked)}
-              />
-            </TableCell>
-            <TableCell>
-              <div className="font-medium text-gray-800 dark:text-gray-100">{dispute.id}</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center">
-                <Calendar className="w-3 h-3 mr-1" />
-                {dispute.date}
+              <div className="font-bold text-gray-800 dark:text-gray-200">{(currentPage - 1) * pageSize + index + 1}</div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 flex items-center whitespace-nowrap">
+                <Calendar className="w-2.5 h-2.5 mr-1" />
+                {dispute.date.split(' ')[0]}
               </div>
             </TableCell>
 
@@ -739,7 +791,7 @@ const Disputes = () => {
             <div>
               <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Preuves jointes</h3>
               <div className="flex flex-wrap gap-2 dark:bg-gray-900/40">
-                {dispute.evidence.map((file, index) => (
+                {dispute.evidence?.map((file, index) => (
                   <div key={index} className="flex items-center bg-gray-100 dark:bg-gray-900/40 rounded-lg px-3 py-2">
                     <File className="w-4 h-4 text-gray-500 dark:text-gray-400 mr-2" />
                     <span className="text-sm">{file}</span>
@@ -749,11 +801,12 @@ const Disputes = () => {
             </div>
           )}
 
+
           {/* Commentaires */}
           <div>
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Historique des commentaires</h3>
             <div className="space-y-3 dark:bg-gray-900/40">
-              {dispute.comments.map((comment) => (
+              {dispute.comments?.map((comment) => (
                 <div key={comment.id} className="bg-gray-50 dark:bg-gray-900/40 rounded-lg p-3">
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-medium text-sm">{comment.user}</span>
@@ -764,6 +817,7 @@ const Disputes = () => {
               ))}
             </div>
           </div>
+
 
           {/* Actions */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-800">
@@ -887,7 +941,8 @@ const Disputes = () => {
 
           {/* Utilisation du composant ExportDropdown */}
           <ExportDropdown
-            data={filteredDisputes}
+            data={disputes}
+
             columns={exportColumns}
             fileName="litiges"
             title="Export des litiges"
@@ -995,11 +1050,12 @@ const Disputes = () => {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center ">
             <div>
-              <CardTitle>Litiges ({filteredDisputes.length})</CardTitle>
+              <CardTitle>Litiges ({totalItems})</CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
                 {selectedDisputes.length > 0 && `${selectedDisputes.length} sélectionné(s) • `}
-                {paginatedDisputes.length} affiché(s) sur {filteredDisputes.length}
+                {disputes.length} affiché(s) sur {totalItems}
               </p>
+
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto">
@@ -1025,20 +1081,22 @@ const Disputes = () => {
           {renderResponsiveTable()}
 
           {/* Pagination */}
-          {filteredDisputes.length > 0 && (
+          {totalItems > 0 && (
             <div className="mt-6">
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
                 pageSize={pageSize}
-                totalItems={filteredDisputes.length}
+                totalItems={totalItems}
                 showInfo={true}
               />
             </div>
           )}
 
-          {paginatedDisputes.length === 0 && (
+
+          {disputes.length === 0 && !loading && (
+
             <div className="text-center py-12">
               <AlertTriangle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
               <p className="text-gray-500 dark:text-gray-400">Aucun litige trouvé</p>
@@ -1055,10 +1113,15 @@ const Disputes = () => {
         <ChartCard
           title="Types de litiges"
           subtitle="Répartition par catégorie"
-          chartConfig={chartConfigs.revenueDistribution}
-          height="300px"
+          chartConfig={repartitionChartConfig}
+          currentPeriod={period}
+          onPeriodChange={setPeriod}
+          height="350px"
         />
+
+
       </div>
+
     </div>
   );
 };

@@ -208,7 +208,7 @@ exports.rechercherChauffeur = async (req, res) => {
       console.warn("⚠️ io introuvable dans req.app (app.set('io', io) manquant ?)");
     } else {
       // ⚠️ ton front n'écoute pas "chauffeur:nouvelle_course"
-      io.emit("chauffeur:nouvelle_course", {
+      io.to("CHAUFFEURS").emit("chauffeur:nouvelle_course", {
         reservationId: reservation._id.toString(),
         depart: reservation.depart,
         destination: reservation.destination,

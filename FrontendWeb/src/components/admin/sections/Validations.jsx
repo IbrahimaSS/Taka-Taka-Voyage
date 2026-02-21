@@ -8,6 +8,8 @@ import {
   Check, X, ChevronLeft, ChevronRight, RefreshCw
 } from 'lucide-react';
 import StatCard from '../layout/StatCard';
+import { adminService } from '../../../services/adminService';
+import toast from 'react-hot-toast';
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
 import Table, { TableRow, TableCell } from '../ui/Table';
 import Button from '../ui/Bttn';
@@ -15,6 +17,9 @@ import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import Pagination from '../ui/Pagination';
 import Progress from '../ui/Progress';
+import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // Composant réutilisable pour les actions d'export
 const ExportMenu = ({ onExport }) => {
@@ -259,249 +264,242 @@ const TableActions = ({ driver, onView, onValidate, onReject }) => {
 // TODO API (admin/validations):
 // Remplacer les donnees simulees et les actions locales par des appels backend
 // Exemple: GET API_ROUTES.admin.validations, POST API_ROUTES.admin.validateDriver(id)
-const Validations = ({ showToast }) => {
+
+const Validations = () => {
   // États pour la gestion des données
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({
     vehicleType: 'Tous',
-    status: 'Tous',
+    status: 'EN_ATTENTE',
     dateRange: 'Tous',
   });
+  const [pendingDrivers, setPendingDrivers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [validationHistory, setValidationHistory] = useState([]);
+  const [statsData, setStatsData] = useState({ enAttente: 0, validesCeMois: 0, rejetesCeMois: 0 });
+
   const [selectedDriver, setSelectedDriver] = useState(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     type: null,
     driver: null,
   });
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
 
-  // États pour la pagination
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize] = useState(5);
   const [totalItems, setTotalItems] = useState(0);
 
-  // Données simulées - à remplacer par une API
-  const [pendingDrivers, setPendingDrivers] = useState([
-    {
-      id: 1,
-      name: 'Kouamé Adou',
-      type: 'Moto-taxi',
-      phone: '06 XX XX XX',
-      email: 'kouame@example.com',
-      joinDate: '15/06/2024',
-      documents: [
-        { name: 'Permis de conduire', status: 'valid', uploaded: '12/06/2024' },
-        { name: 'Carte d\'identité', status: 'valid', uploaded: '12/06/2024' },
-        { name: 'Assurance', status: 'pending', uploaded: '13/06/2024' },
-        { name: 'Photo véhicule', status: 'valid', uploaded: '14/06/2024' }
-      ],
-      progress: 75,
-      status: 'new',
-      color: 'green'
-    },
-    {
-      id: 2,
-      name: 'Aïcha Diarra',
-      type: 'Taxi partagé',
-      phone: '07 XX XX XX',
-      email: 'aicha@example.com',
-      joinDate: '14/06/2024',
-      documents: [
-        { name: 'Permis de conduire', status: 'valid', uploaded: '10/06/2024' },
-        { name: 'Carte d\'identité', status: 'expired', uploaded: '11/06/2024' },
-        { name: 'Carte grise', status: 'valid', uploaded: '12/06/2024' }
-      ],
-      progress: 60,
-      status: 'pending',
-      color: 'blue'
-    },
-    {
-      id: 3,
-      name: 'Mohamed Sylla',
-      type: 'Voiture privée',
-      phone: '05 XX XX XX',
-      email: 'mohamed@example.com',
-      joinDate: '13/06/2024',
-      documents: [
-        { name: 'Permis de conduire', status: 'valid', uploaded: '09/06/2024' },
-        { name: 'Carte d\'identité', status: 'valid', uploaded: '09/06/2024' },
-        { name: 'Carte grise', status: 'valid', uploaded: '10/06/2024' },
-        { name: 'Assurance', status: 'valid', uploaded: '11/06/2024' },
-        { name: 'Contrôle technique', status: 'valid', uploaded: '12/06/2024' }
-      ],
-      progress: 100,
-      status: 'review',
-      color: 'purple'
-    },
-  ]);
+  // Charger les données initiales
+  useEffect(() => {
+    fetchPendingRequests();
+    fetchStats();
+    fetchHistory();
+  }, [filters, currentPage]);
 
-  const [validationHistory, setValidationHistory] = useState([
-    {
-      id: 1,
-      date: '28/06/2024',
-      time: '10:15',
-      name: 'Jean Koffi',
-      type: 'Moto-taxi',
-      phone: '06 XX XX XX',
-      action: 'validated',
-      validator: 'Admin',
-      comment: 'Documents complets et conformes',
-      validatedAt: '28/06/2024 10:15'
-    },
-    {
-      id: 2,
-      date: '27/06/2024',
-      time: '16:30',
-      name: 'Fatou Bamba',
-      type: 'Taxi partagé',
-      phone: '07 XX XX XX',
-      action: 'rejected',
-      validator: 'Admin',
-      comment: 'Permis expiré',
-      validatedAt: '27/06/2024 16:30'
-    },
-  ]);
+  const fetchPendingRequests = async () => {
+    setIsLoading(true);
+    try {
+      const response = await adminService.validations({
+        statut: filters.status !== 'Tous' ? filters.status : 'EN_ATTENTE',
+        page: currentPage,
+        limit: 10 // On peut ajuster
+      });
+      if (response.data?.succes) {
+        // Normalisation pour l'UI
+        const formatted = response.data.chauffeurs.map(c => ({
+          id: c._id,
+          name: `${c.utilisateur?.prenom || ''} ${c.utilisateur?.nom || ''}`,
+          type: c.typeVehicule,
+          phone: c.utilisateur?.telephone || 'N/A',
+          email: c.utilisateur?.email || '',
+          joinDate: new Date(c.createdAt).toLocaleDateString('fr-FR'),
+          status: c.statut === 'EN_ATTENTE' ? 'new' : 'pending',
+          documents: [], // On les chargera au cas par cas pour les détails
+          progress: 0,
+        }));
+        setPendingDrivers(formatted);
+      }
+    } catch (error) {
+      console.error("Erreur fetch pending:", error);
+      toast.error("Erreur lors du chargement des demandes");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // Statistiques calculées dynamiquement
+  const fetchStats = async () => {
+    try {
+      const response = await adminService.getValidationStats();
+      if (response.data?.succes) {
+        setStatsData(response.data.stats);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchHistory = async () => {
+    try {
+      const response = await adminService.getValidationHistory({ page: 1, limit: 10 });
+      if (response.data?.succes) {
+        setValidationHistory(response.data.historique);
+        setTotalItems(response.data.pagination.total);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  // Statistiques UI
   const stats = useMemo(() => [
     {
       title: 'En attente',
-      value: pendingDrivers.length.toString(),
+      value: statsData.enAttente.toString(),
       icon: Clock,
       color: 'yellow',
-      trend: 'up',
-      percentage: 20,
-      progress: Math.min(100, (pendingDrivers.length / 20) * 100)
+      progress: Math.min(100, (statsData.enAttente / 20) * 100)
     },
     {
       title: 'Validés ce mois',
-      value: validationHistory.filter(v => v.action === 'validated').length.toString(),
+      value: statsData.validesCeMois.toString(),
       icon: UserCheck,
       color: 'green',
-      trend: 'up',
-      percentage: 20,
-      progress: 80
+      progress: 100
     },
     {
       title: 'Rejetés ce mois',
-      value: validationHistory.filter(v => v.action === 'rejected').length.toString(),
+      value: statsData.rejetesCeMois.toString(),
       icon: UserX,
       color: 'red',
-      trend: 'down',
-      percentage: -25,
-      progress: 15
+      progress: 100
     },
-  ], [pendingDrivers, validationHistory]);
+  ], [statsData]);
 
-  // Filtrer les données en fonction de la recherche et des filtres
+  // Filtrer localement pour la recherche (en plus du filtre API)
   const filteredDrivers = useMemo(() => {
     return pendingDrivers.filter(driver => {
       const matchesSearch = search === '' ||
         driver.name.toLowerCase().includes(search.toLowerCase()) ||
         driver.phone.includes(search) ||
         driver.type.toLowerCase().includes(search.toLowerCase());
-
-      const matchesVehicleType = filters.vehicleType === 'Tous' ||
-        driver.type === filters.vehicleType;
-
-      const matchesStatus = filters.status === 'Tous' ||
-        (filters.status === 'Nouveau' && driver.status === 'new') ||
-        (filters.status === 'En attente' && driver.status === 'pending') ||
-        (filters.status === 'En révision' && driver.status === 'review');
-
-      return matchesSearch && matchesVehicleType && matchesStatus;
+      return matchesSearch;
     });
-  }, [pendingDrivers, search, filters]);
+  }, [pendingDrivers, search]);
 
-  // Calculer la pagination pour l'historique
-  const paginatedHistory = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    return validationHistory.slice(startIndex, endIndex);
-  }, [validationHistory, currentPage, pageSize]);
-
-  // Gestionnaires d'événements
+  // Actions
   const handleValidate = (driver) => {
-    setConfirmationModal({
-      isOpen: true,
-      type: 'validate',
-      driver: driver,
-    });
+    setConfirmationModal({ isOpen: true, type: 'validate', driver });
   };
 
   const handleReject = (driver) => {
-    setConfirmationModal({
-      isOpen: true,
-      type: 'reject',
-      driver: driver,
-    });
+    setConfirmationModal({ isOpen: true, type: 'reject', driver });
   };
 
-  const confirmAction = (comment) => {
+  const confirmAction = async (comment) => {
     const { type, driver } = confirmationModal;
-
-    if (type === 'validate') {
-      // Mettre à jour l'historique
-      setValidationHistory(prev => [{
-        id: Date.now(),
-        date: new Date().toLocaleDateString('fr-FR'),
-        time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-        name: driver.name,
-        type: driver.type,
-        phone: driver.phone,
-        action: 'validated',
-        validator: 'Admin',
-        comment: comment || 'Documents valides',
-        validatedAt: new Date().toLocaleString('fr-FR')
-      }, ...prev]);
-
-      // Retirer de la liste d'attente
-      setPendingDrivers(prev => prev.filter(d => d.id !== driver.id));
-
-      showToast('Chauffeur validé', `Le chauffeur ${driver.name} a été validé avec succès`, 'success');
-    } else {
-      // Mettre à jour l'historique
-      setValidationHistory(prev => [{
-        id: Date.now(),
-        date: new Date().toLocaleDateString('fr-FR'),
-        time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-        name: driver.name,
-        type: driver.type,
-        phone: driver.phone,
-        action: 'rejected',
-        validator: 'Admin',
-        comment: comment || 'Documents non conformes',
-        validatedAt: new Date().toLocaleString('fr-FR')
-      }, ...prev]);
-
-      // Retirer de la liste d'attente
-      setPendingDrivers(prev => prev.filter(d => d.id !== driver.id));
-
-      showToast('Chauffeur rejeté', `La candidature de ${driver.name} a été rejetée`, 'error');
+    try {
+      if (type === 'validate') {
+        const res = await adminService.validateDriver(driver.id, { commentaire: comment });
+        if (res.data?.succes) {
+          toast.success(`Chauffeur ${driver.name} validé !`);
+        }
+      } else {
+        const res = await adminService.rejectDriver(driver.id, { motif: comment });
+        if (res.data?.succes) {
+          toast.error(`Candidature de ${driver.name} rejetée.`);
+        }
+      }
+      fetchPendingRequests();
+      fetchStats();
+      fetchHistory();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Une erreur est survenue");
     }
   };
 
-  const handleViewDetails = (driver) => {
-    setSelectedDriver(driver);
+  const handleViewDetails = async (driver) => {
+    setIsLoadingDetails(true);
     setViewModalOpen(true);
+    try {
+      const response = await adminService.getValidationDetails(driver.id);
+      if (response.data?.succes) {
+        setSelectedDriver(response.data.chauffeur);
+      }
+    } catch (error) {
+      toast.error("Impossible de charger les détails");
+      setViewModalOpen(false);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  const updateDocStatus = async (docId, newStatus) => {
+    try {
+      const response = await adminService.updateDocumentStatus(docId, newStatus);
+      if (response.data?.succes) {
+        toast.success("Statut du document mis à jour");
+        // Rafraîchir les détails du chauffeur pour voir la progression
+        if (selectedDriver) {
+          handleViewDetails(selectedDriver);
+        }
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour du document");
+    }
+  };
+
+  const getFullFileUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
   };
 
   const handleExport = (format) => {
-    showToast('Export réussi', `Les données ont été exportées en ${format.toUpperCase()}`, 'success');
-    // Ici, vous ajouteriez la logique d'export réelle
+    const columns = [
+      { header: 'Date', accessor: (item) => new Date(item.date || item.joinDate).toLocaleDateString() },
+      { header: 'Chauffeur', accessor: (item) => item.name || item.chauffeur?.nom },
+      { header: 'Type', accessor: (item) => item.type || item.typeVehicule },
+      { header: 'Action/Statut', accessor: (item) => item.action || item.status },
+      { header: 'Validateur', accessor: (item) => item.validateur || 'N/A' },
+    ];
+
+    const payload = {
+      data: validationHistory.length > 0 ? validationHistory : pendingDrivers,
+      columns,
+      fileName: `validations_${new Date().toISOString().split('T')[0]}`,
+      title: 'Historique des Validations Chauffeurs',
+      orientation: 'landscape',
+      onToast: (title, msg, type) => toast[type](msg)
+    };
+
+    switch (format) {
+      case 'csv':
+      case 'excel':
+        exportToCSV(payload);
+        break;
+      case 'pdf':
+        exportToPDF(payload);
+        break;
+      case 'word':
+      case 'doc':
+        exportToWord(payload);
+        break;
+      default:
+        toast.error("Format non supporté");
+    }
   };
 
   const handleValidateAll = () => {
-    showToast('Validation en masse', `${pendingDrivers.length} chauffeurs seront validés`, 'info');
-    // Implémentation de la validation en masse
+    if (pendingDrivers.length === 0) {
+      toast.error("Aucun chauffeur en attente");
+      return;
+    }
+    toast.error("La validation groupée n'est pas recommandée sans vérification individuelle des documents.");
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
   };
 
   const handlePageChange = (page) => {
@@ -584,7 +582,9 @@ const Validations = ({ showToast }) => {
         </CardHeader>
 
         <CardContent>
-          {filteredDrivers.length === 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center py-12"><RefreshCw className="w-8 h-8 animate-spin text-green-500" /></div>
+          ) : filteredDrivers.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-8 h-8 text-gray-400 dark:text-gray-500" />
@@ -603,8 +603,12 @@ const Validations = ({ showToast }) => {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start">
-                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-secondary-600 flex items-center justify-center mr-4`}>
-                        <UserCheck className="text-white" />
+                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-secondary-600 flex items-center justify-center mr-4 overflow-hidden`}>
+                        {driver.photoUrl ? (
+                          <img src={getFullFileUrl(driver.photoUrl)} className="w-full h-full object-cover" />
+                        ) : (
+                          <UserCheck className="text-white" />
+                        )}
                       </div>
                       <div>
                         <h4 className="font-bold text-gray-800 dark:text-gray-100">{driver.name}</h4>
@@ -620,59 +624,27 @@ const Validations = ({ showToast }) => {
                       </div>
                     </div>
                     <Badge
-                      className={driver.status === 'new' ? 'text-yellow-500' : 'text-gray-500 dark:text-gray-400'}
+                      className={driver.status === 'EN_ATTENTE' ? 'text-yellow-500' : 'text-gray-500 dark:text-gray-400'}
                       size="sm"
                     >
-                      {driver.status === 'new' ? 'Nouveau' :
-                        driver.status === 'pending' ? 'En attente' : 'En révision'}
+                      {driver.status}
                     </Badge>
                   </div>
 
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Documents soumis:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {driver.documents.map((doc, idx) => (
-                        <Badge
-                          key={idx}
-                          className={doc.status === 'valid' ? 'text-green-600' : 'text-red-600'}
-                          size="xs"
-                        >
-                          <div className="flex items-center">
-                            {doc.status === 'valid' ?
-                              <Check className="w-3 h-3 mr-1" /> :
-                              <Clock className="w-3 h-3 mr-1" />
-                            }
-                            {doc.name}
-                          </div>
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center mt-6">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       <Calendar className="inline w-4 h-4 mr-1" />
                       Inscrit le {driver.joinDate}
                     </div>
                     <div className="flex space-x-2">
                       <Button
-                        variant="primary"
-                        size="small"
-                        icon={CheckCircle}
-                        onClick={() => handleValidate(driver)}
-                      />
-                      <Button
-                        variant="danger"
-                        size="small"
-                        icon={XCircle}
-                        onClick={() => handleReject(driver)}
-                      />
-                      <Button
                         variant="secondary"
                         size="small"
                         icon={Eye}
                         onClick={() => handleViewDetails(driver)}
-                      />
+                      >
+                        Vérifier docs
+                      </Button>
                     </div>
                   </div>
                 </motion.div>
@@ -689,11 +661,8 @@ const Validations = ({ showToast }) => {
             <div>
               <CardTitle>Historique des validations</CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {validationHistory.length} action{validationHistory.length !== 1 ? 's' : ''} de validation
+                {totalItems} action{totalItems !== 1 ? 's' : ''} de validation
               </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <ExportMenu onExport={handleExport} />
             </div>
           </div>
         </CardHeader>
@@ -702,11 +671,15 @@ const Validations = ({ showToast }) => {
           <Table
             headers={['Date', 'Chauffeur', 'Type', 'Action', 'Validateur', 'Actions']}
           >
-            {paginatedHistory.map((item) => (
+            {validationHistory.map((item) => (
               <TableRow key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 transition">
                 <TableCell>
-                  <div className="font-medium text-gray-800 dark:text-gray-100">{item.date}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{item.time}</div>
+                  <div className="font-medium text-gray-800 dark:text-gray-100">
+                    {new Date(item.date).toLocaleDateString()}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center">
@@ -714,19 +687,19 @@ const Validations = ({ showToast }) => {
                       <UserCheck className="text-white text-sm" />
                     </div>
                     <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{item.phone}</div>
+                      <div className="font-medium">{item.chauffeur?.nom}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{item.chauffeur?.telephone}</div>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
                   <Badge size="sm">
-                    {item.type}
+                    {item.typeVehicule || 'N/A'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {item.action === 'validated' ? (
-                    <Badge className="text-yellow-500">
+                  {item.action === 'VALIDE' ? (
+                    <Badge className="text-green-500">
                       <CheckCircle className="w-3 h-3 mr-1" />
                       Validé
                     </Badge>
@@ -738,15 +711,15 @@ const Validations = ({ showToast }) => {
                   )}
                 </TableCell>
                 <TableCell>
-                  <div className="font-medium">{item.validator}</div>
+                  <div className="font-medium text-xs">{item.validateur}</div>
                 </TableCell>
 
                 <TableCell>
-                  <TableActions
-                    driver={item}
-                    onView={handleViewDetails}
-                    onValidate={() => handleValidate(item)}
-                    onReject={() => handleReject(item)}
+                  <Button
+                    variant="secondary"
+                    size="small"
+                    icon={Eye}
+                    onClick={() => handleViewDetails(item)}
                   />
                 </TableCell>
               </TableRow>
@@ -758,7 +731,7 @@ const Validations = ({ showToast }) => {
             <div className="mt-6">
               <Pagination
                 currentPage={currentPage}
-                totalPages={Math.ceil(validationHistory.length / pageSize)}
+                totalPages={Math.ceil(totalItems / pageSize)}
                 onPageChange={handlePageChange}
                 pageSize={pageSize}
                 totalItems={totalItems}
@@ -792,76 +765,127 @@ const Validations = ({ showToast }) => {
         title="Détails du chauffeur"
         size="lg"
       >
-        {selectedDriver && (
-          <div className="space-y-6 scroll-m-t-2 overflow-auto h-full">
+        {isLoadingDetails ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <RefreshCw className="w-12 h-12 text-green-500 animate-spin mb-4" />
+            <p className="text-gray-500">Chargement des documents...</p>
+          </div>
+        ) : selectedDriver && (
+          <div className="space-y-6 scroll-m-t-2 overflow-auto h-full px-2">
             <div className="flex items-center space-x-4">
-              <div className="w-20 h-20 rounded-full bg-slate-200/30 dark:bg-gray-800 flex items-center justify-center">
-                <UserCheck className="text-3xl text-green-500" />
+              <div className="w-20 h-20 rounded-full bg-slate-200/30 dark:bg-gray-800 flex items-center justify-center overflow-hidden border-2 border-green-100">
+                {selectedDriver.utilisateur?.photoUrl ? (
+                  <img src={getFullFileUrl(selectedDriver.utilisateur.photoUrl)} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <UserCheck className="text-3xl text-green-500" />
+                )}
               </div>
               <div>
-                <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{selectedDriver.name}</h3>
-                <p className="text-gray-600 dark:text-gray-300">{selectedDriver.type}</p>
+                <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                  {selectedDriver.utilisateur?.prenom} {selectedDriver.utilisateur?.nom}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300">{selectedDriver.typeVehicule || 'Véhicule non défini'}</p>
                 <div className="flex items-center mt-2 space-x-4">
                   <div className="flex items-center text-gray-500 dark:text-gray-400">
                     <Phone className="w-4 h-4 mr-2" />
-                    {selectedDriver.phone}
+                    {selectedDriver.utilisateur?.telephone}
                   </div>
                   <div className="flex items-center text-gray-500 dark:text-gray-400">
                     <Calendar className="w-4 h-4 mr-2" />
-                    Inscrit le {selectedDriver.joinDate}
+                    Inscrit le {new Date(selectedDriver.inscritLe).toLocaleDateString('fr-FR')}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* <div>
-              <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-3">Progression des documents</h4>
-              <Progress value={selectedDriver.progress} color="green" />
-            </div> */}
-
             <div>
-              <h4 className="font-medium text-gray-700 dark:text-gray-200 mb-3">Documents</h4>
-              <div className="space-y-3">
+              <div className="flex justify-between items-end mb-2">
+                <h4 className="font-medium text-gray-700 dark:text-gray-200">Progression de la validation</h4>
+                <span className="text-sm font-bold text-green-600">{selectedDriver.progression?.pourcentage}%</span>
+              </div>
+              <Progress value={selectedDriver.progression?.pourcentage} color="green" />
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="font-medium text-gray-700 dark:text-gray-200">Documents à vérifier</h4>
+              <div className="grid grid-cols-1 gap-3">
                 {selectedDriver.documents && selectedDriver.documents.map((doc, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-950 rounded-lg">
-                    <div className="flex items-center">
-                      {doc.status === 'valid' ?
-                        <CheckCircle className="w-5 h-5 text-green-500 mr-3" /> :
-                        <Clock className="w-5 h-5 text-yellow-500 mr-3" />
-                      }
+                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-900">
+                    <div className="flex items-center mb-3 sm:mb-0">
+                      <div className={`p-2 rounded-lg mr-4 ${doc.statut === 'VALIDE' ? 'bg-green-100/50 text-green-600' :
+                        doc.statut === 'REFUSE' ? 'bg-red-100/50 text-red-600' :
+                          'bg-yellow-100/50 text-yellow-600'
+                        }`}>
+                        <FileText className="w-5 h-5" />
+                      </div>
                       <div>
-                        <div className="font-medium">{doc.name}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Téléversé le: {doc.uploaded}</div>
+                        <div className="font-bold text-gray-800 dark:text-gray-100 text-sm">{doc.nom}</div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={doc.statut === 'VALIDE' ? 'success' : doc.statut === 'REFUSE' ? 'danger' : 'warning'} size="xs">
+                            {doc.statut}
+                          </Badge>
+                          {doc.url && (
+                            <a href={getFullFileUrl(doc.url)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline flex items-center">
+                              <Eye className="w-3 h-3 mr-1" /> Voir le fichier
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <Badge variant={doc.status === 'valid' ? 'success' : 'warning'}>
-                      {doc.status === 'valid' ? 'Validé' : 'En attente'}
-                    </Badge>
+
+                    <div className="flex items-center gap-2 ml-auto sm:ml-0">
+                      <button
+                        onClick={() => updateDocStatus(doc.id, 'VALIDE')}
+                        disabled={doc.statut === 'VALIDE'}
+                        className={`p-2 rounded-lg transition-colors ${doc.statut === 'VALIDE' ? 'bg-green-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:text-green-500 border border-gray-200 dark:border-gray-700'}`}
+                        title="Valider ce document"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => updateDocStatus(doc.id, 'REFUSE')}
+                        disabled={doc.statut === 'REFUSE'}
+                        className={`p-2 rounded-lg transition-colors ${doc.statut === 'REFUSE' ? 'bg-red-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-400 hover:text-red-500 border border-gray-200 dark:border-gray-700'}`}
+                        title="Refuser ce document"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-6 border-t">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t dark:border-gray-800">
               <Button
-                variant="primary"
-                icon={CheckCircle}
-                onClick={() => {
-                  handleValidate(selectedDriver);
-                  setViewModalOpen(false);
-                }}
+                variant="secondary"
+                className="order-2 sm:order-1"
+                onClick={() => setViewModalOpen(false)}
               >
-                Valider
+                Fermer
               </Button>
               <Button
                 variant="danger"
                 icon={XCircle}
+                className="order-3 sm:order-2"
                 onClick={() => {
                   handleReject(selectedDriver);
                   setViewModalOpen(false);
                 }}
               >
-                Rejeter
+                Rejeter le profil
+              </Button>
+              <Button
+                variant="primary"
+                icon={CheckCircle}
+                className="order-1 sm:order-3"
+                disabled={!selectedDriver.actions?.peutValider}
+                onClick={() => {
+                  handleValidate({ id: selectedDriver.id, name: `${selectedDriver.utilisateur?.prenom} ${selectedDriver.utilisateur?.nom}` });
+                  setViewModalOpen(false);
+                }}
+              >
+                {selectedDriver.progression?.pourcentage < 100 ? 'Docs incomplets' : 'Valider le Chauffeur'}
               </Button>
             </div>
           </div>

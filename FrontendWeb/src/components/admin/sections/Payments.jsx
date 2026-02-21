@@ -36,103 +36,111 @@ import {
   ChevronRight, ChevronLeft, ArrowRight,
   Hand
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { color } from 'chart.js/helpers';
-import { col } from 'framer-motion/client';
+import { adminService } from '../../../services/adminService';
 
-// Données de démonstration enrichies
-const generatePayments = (count = 50) => {
-  const statuses = ['paid', 'pending', 'failed', 'refunded'];
-  const methods = ['cash', 'orange', 'mtn', 'wave', 'card', 'bank'];
-  const passengers = ['Jean Dupont', 'Marie Koné', 'Pierre Gbédé', 'Alice Traoré', 'David Koffi', 'Fatou Diarra', 'Mohamed Sylla', 'Aïcha Diop'];
-  const drivers = ['Kouamé Adou', 'Yves Traoré', 'Mohamed Sylla', 'Aïcha Diarra', 'Fatou Diop', 'Yves Koffi'];
-  const routes = ['Plateau → Marcory', 'Cocody → Yopougon', 'Treichville → Koumassi', 'Abobo → Cocody', 'Marcory → Plateau'];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  return Array.from({ length: count }, (_, i) => {
-    const status = statuses[i % statuses.length];
-    const method = methods[i % methods.length];
-    const amount = Math.floor(Math.random() * 5000) + 1000;
-    const commission = Math.floor(amount * 0.15);
-    const date = new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000);
-    const isArchived = i % 10 === 0;
+// Helper de mappage pour adapter les données backend au format frontend
+const mapBackendPaymentToFrontend = (p) => {
+  const r = p.reservation || {};
+  const passager = r.passager || {};
+  const chauffeur = r.chauffeur || {};
 
-    const getMethodLabel = () => {
-      const labels = {
-        'cash': 'Espèces',
-        'orange': 'Orange Money',
-        'mtn': 'MTN Mobile Money',
-        'wave': 'Wave',
-        'card': 'Carte Bancaire',
-        'bank': 'Virement Bancaire'
-      };
-      return labels[method] || labels.cash;
-    };
+  // Formatage montant
+  const formatMoney = (amount) => `${(amount || 0).toLocaleString('fr-FR')} GNF`;
 
-    return {
-      id: `PAY-${String(i + 1000).padStart(6, '0')}`,
-      transactionId: `TXN-${String(i + 789000).padStart(6, '0')}`,
-      passenger: {
-        name: passengers[i % passengers.length],
-        phone: `+225 0${Math.floor(Math.random() * 9)}${Math.floor(Math.random() * 90) + 10} ${Math.floor(Math.random() * 90) + 10} ${Math.floor(Math.random() * 90) + 10} ${Math.floor(Math.random() * 90) + 10}`,
-        email: `${passengers[i % passengers.length].toLowerCase().replace(' ', '.')}@example.com`,
-        rating: (Math.random() * 1.5 + 3.5).toFixed(1)
-      },
-      driver: {
-        name: drivers[i % drivers.length],
-        phone: `+225 0${Math.floor(Math.random() * 9)}${Math.floor(Math.random() * 90) + 10} ${Math.floor(Math.random() * 90) + 10} ${Math.floor(Math.random() * 90) + 10} ${Math.floor(Math.random() * 90) + 10}`,
-        rating: (Math.random() * 1.5 + 3.5).toFixed(1),
-        account: method === 'cash' ? 'N/A' :
-          method === 'orange' ? `ORANGE-${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}` :
-            method === 'mtn' ? `MTN-${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}` :
-              method === 'wave' ? `WAVE-${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}` :
-                method === 'card' ? `CARD-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}` :
-                  `BANK-${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}`
-      },
-      trip: {
-        id: `TR-${String(i + 1000).padStart(6, '0')}`,
-        route: routes[i % routes.length],
-        distance: `${(Math.random() * 20 + 5).toFixed(1)} km`,
-        duration: `${Math.floor(Math.random() * 45) + 15} min`,
-        date: date.toISOString().split('T')[0]
-      },
-      amount: `${amount.toLocaleString('fr-FR')} GNF`,
-      commission: `${commission.toLocaleString('fr-FR')} GNF`,
-      commissionRate: '15%',
-      netAmount: `${(amount - commission).toLocaleString('fr-FR')} GNF`,
-      method,
-      methodLabel: getMethodLabel(),
-      status,
-      time: `${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')} ${Math.random() > 0.5 ? 'AM' : 'PM'}`,
-      date: date.toLocaleDateString('fr-FR'),
-      processedAt: status === 'paid' ? new Date(date.getTime() + Math.random() * 10 * 60000).toLocaleString('fr-FR') : null,
-      reference: status === 'failed' ? `ERR-${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}` :
-        status === 'pending' ? `PND-${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}` :
-          `REF-${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}`,
-      fees: {
-        platform: `${Math.floor(amount * 0.05).toLocaleString('fr-FR')} GNF`,
-        processing: method === 'card' ? `${Math.floor(amount * 0.02).toLocaleString('fr-FR')} GNF` : '0 GNF',
-        total: method === 'card' ? `${Math.floor(amount * 0.07).toLocaleString('fr-FR')} GNF` : `${Math.floor(amount * 0.05).toLocaleString('fr-FR')} GNF`
-      },
-      archived: isArchived,
-      starred: i % 7 === 0,
-      refundable: status === 'paid' && Math.random() > 0.7,
-      notes: Math.random() > 0.8 ? ['URGENT', 'REMBOURSEMENT'] : [],
-      invoiceGenerated: Math.random() > 0.3,
-      invoiceNumber: `INV-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}-${String(i + 1000).padStart(4, '0')}`,
-      paymentGateway: method === 'card' ? 'Stripe' :
-        method === 'orange' ? 'Orange Money API' :
-          method === 'mtn' ? 'MTN API' :
-            method === 'wave' ? 'Wave API' : 'Direct',
-      riskScore: Math.floor(Math.random() * 100),
-      country: 'Côte d\'Ivoire',
-      currency: 'GNF',
-      exchangeRate: 1,
-      metadata: {
-        device: ['Mobile', 'Web', 'App'][Math.floor(Math.random() * 3)],
-        ip: `196.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)'
-      }
-    };
-  });
+  // Mapping statut
+  const getStatus = (s) => {
+    switch (s) {
+      case 'PAYE': return 'paid';
+      case 'EN_ATTENTE': return 'pending';
+      case 'ECHOUE': return 'failed';
+      case 'REMBOURSE': return 'refunded';
+      case 'ANNULE': return 'failed';
+      default: return 'pending';
+    }
+  };
+
+  // Mapping methode
+  const getMethod = (m) => {
+    if (!m) return 'cash';
+    const lower = m.toLowerCase();
+    if (lower.includes('orange')) return 'orange';
+    if (lower.includes('mtn')) return 'mtn';
+    if (lower.includes('wave')) return 'wave';
+    if (lower.includes('carte') || lower.includes('card')) return 'card';
+    if (lower === 'cash' || lower === 'especes' || lower === 'espèces') return 'cash';
+    return 'cash';
+  };
+
+  const method = getMethod(p.methode);
+  const status = getStatus(p.statut);
+  const dateObj = new Date(p.createdAt);
+
+  // Montants numériques bruts pour calculs
+  const montantTotal = p.montantTotal || 0;
+  const commissionPlateforme = p.commissionPlateforme || 0;
+  const montantChauffeur = p.montantChauffeur || 0;
+  const commissionRate = montantTotal > 0 ? Math.round((commissionPlateforme / montantTotal) * 100) : 20;
+
+  return {
+    id: `PAY-${p._id.slice(-6).toUpperCase()}`,
+    _id: p._id,
+    transactionId: p.transactionId || `TXN-${p._id.slice(-8).toUpperCase()}`,
+    passenger: {
+      name: passager.nom ? `${passager.prenom || ''} ${passager.nom}`.trim() : 'Utilisateur Client',
+      phone: passager.telephone || '-',
+      email: passager.email || '-',
+      rating: passager.noteMoyenne ? passager.noteMoyenne.toFixed(1) : '-',
+      photo: passager.photoUrl || null
+    },
+    driver: {
+      name: chauffeur.nom ? `${chauffeur.prenom || ''} ${chauffeur.nom}`.trim() : 'Chauffeur',
+      phone: chauffeur.telephone || '-',
+      email: chauffeur.email || '-',
+      rating: chauffeur.noteMoyenne ? chauffeur.noteMoyenne.toFixed(1) : '-',
+      vehicle: chauffeur.vehicule ? `${chauffeur.vehicule.marque || ''} ${chauffeur.vehicule.modele || ''}`.trim() : '-',
+      account: chauffeur.email || chauffeur.telephone || '-',
+      photo: chauffeur.photoUrl || null
+    },
+    trip: {
+      id: r._id ? `TR-${r._id.slice(-6).toUpperCase()}` : 'TR-UNKNOWN',
+      route: r.depart && r.destination ? `${r.depart.split(',')[0]} → ${r.destination.split(',')[0]}` : 'Trajet inconnu',
+      distance: r.distanceKm ? `${r.distanceKm} km` : '-',
+      duration: r.dureeMin ? `${r.dureeMin} min` : '-',
+      date: dateObj.toLocaleDateString('fr-FR'),
+      vehicleType: r.typeVehicule || '-'
+    },
+    amount: formatMoney(montantTotal),
+    rawAmount: montantTotal,
+    commission: formatMoney(commissionPlateforme),
+    rawCommission: commissionPlateforme,
+    netAmount: formatMoney(montantChauffeur),
+    rawNetAmount: montantChauffeur,
+    commissionRate: `${commissionRate}%`,
+    fees: {
+      platform: formatMoney(commissionPlateforme),
+      processing: formatMoney(0)
+    },
+    method,
+    methodRaw: p.methode || 'CASH',
+    status,
+    statusRaw: p.statut,
+    rawDate: dateObj,
+    date: dateObj.toLocaleDateString('fr-FR'),
+    time: dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+    processedAt: p.updatedAt ? new Date(p.updatedAt).toLocaleString('fr-FR') : null,
+    reference: (r.paiement && r.paiement.reference) || p.reference || '-',
+    invoiceGenerated: status === 'paid',
+    invoiceNumber: `INV-${dateObj.getFullYear()}-${p._id.slice(-6).toUpperCase()}`,
+    refundable: status === 'paid',
+    archived: false,
+    passengerId: passager._id,
+    driverId: chauffeur._id
+  };
 };
 
 // Composant pour les actions de paiement
@@ -349,12 +357,52 @@ const MobilePaymentCard = ({ payment, isSelected, onSelect, onAction }) => {
   );
 };
 
+const Avatar = ({ name, photoUrl, type = 'passenger', size = 'w-8 h-8', className = 'mr-2' }) => {
+  const [imageError, setImageError] = useState(false);
+
+  const getInitials = (n) => {
+    if (!n) return '?';
+    const parts = n.trim().split(' ');
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const initials = getInitials(name);
+  const bgColor = type === 'driver' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600';
+
+  const getFullFileUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
+  if (photoUrl && !imageError) {
+    return (
+      <img
+        src={getFullFileUrl(photoUrl)}
+        alt={name}
+        className={`${size} rounded-full object-cover ${className} border border-gray-200 dark:border-gray-700`}
+        onError={() => setImageError(true)}
+      />
+    );
+  }
+
+  return (
+    <div className={`${size} rounded-full ${bgColor} flex items-center justify-center ${className} text-xs font-bold border border-white dark:border-gray-800 shadow-sm`}>
+      {initials}
+    </div>
+  );
+};
+
 // TODO API (admin/paiements):
 // Remplacer les donnees simulees et les actions locales par des appels backend
 // Exemple: GET API_ROUTES.payments.list, POST API_ROUTES.payments.confirm
 const Payments = () => {
   // États principaux
-  const [payments, setPayments] = useState(() => generatePayments(50));
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [apiStats, setApiStats] = useState(null);
+
   const [timeRange, setTimeRange] = useState('30j');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [methodFilter, setMethodFilter] = useState('all');
@@ -365,6 +413,63 @@ const Payments = () => {
   const [pageSize, setPageSize] = useState(10);
   const [selectedPayments, setSelectedPayments] = useState([]);
   const [isMobile, setIsMobile] = useState(false);
+
+  const [revenueData, setRevenueData] = useState([]);
+  const [repartitionData, setRepartitionData] = useState([]);
+
+  // Charger les données réelles
+  const fetchData = async (periode = 30) => {
+    try {
+      setLoading(true);
+      const mode = periode <= 30 ? 'journalier' : 'mensuel';
+      const [paymentsRes, statsRes, evolutionRes, repartitionRes] = await Promise.all([
+        adminService.getPaymentList({ limit: 200 }),
+        adminService.getPaymentStats(),
+        adminService.getMonthlyRevenue({ periode, mode }),
+        adminService.getPaymentRepartition()
+      ]);
+
+      if (paymentsRes.data.succes) {
+        const mapped = paymentsRes.data.paiements.map(mapBackendPaymentToFrontend);
+        setPayments(mapped);
+      }
+
+      if (statsRes.data.succes) {
+        setApiStats(statsRes.data.cards);
+      }
+
+      if (evolutionRes.data.succes) {
+        setRevenueData(evolutionRes.data.evolution);
+      }
+
+      if (repartitionRes.data.succes) {
+        setRepartitionData(repartitionRes.data.repartition);
+      }
+
+    } catch (error) {
+      console.error("Erreur chargement paiements:", error);
+      // showToast will be available after first render
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData(timeRange === '90j' ? 90 : 30);
+  }, []);
+
+  // Recharger l'évolution quand timeRange change
+  useEffect(() => {
+    const periode = timeRange === '90j' ? 90 : 30;
+    const mode = periode <= 30 ? 'journalier' : 'mensuel';
+    adminService.getMonthlyRevenue({ periode, mode })
+      .then(res => {
+        if (res.data.succes) {
+          setRevenueData(res.data.evolution);
+        }
+      })
+      .catch(err => console.error('Erreur rechargement évolution:', err));
+  }, [timeRange]);
 
   // États pour les modales et notifications
   const [modalState, setModalState] = useState({
@@ -393,145 +498,229 @@ const Payments = () => {
 
   // Statistiques calculées
   const stats = useMemo(() => {
+    // Calcul frontend (fallback)
     const paid = payments.filter(p => p.status === 'paid').length;
     const pending = payments.filter(p => p.status === 'pending').length;
-    const failed = payments.filter(p => p.status === 'failed').length;
-    const refunded = payments.filter(p => p.status === 'refunded').length;
 
-    const totalAmount = payments
+    // Valeurs affichées - priorité aux stats API
+    const totalRevenue = apiStats ? apiStats.revenusTotaux : payments
       .filter(p => p.status === 'paid')
-      .reduce((sum, p) => sum + parseInt(p.amount.replace(/[^0-9]/g, '')), 0);
+      .reduce((sum, p) => sum + (p.rawAmount || 0), 0);
 
-    const totalCommission = payments
+    const totalPayes = apiStats ? apiStats.totalPayes : paid;
+    const totalCount = apiStats ? apiStats.totalPaiements : payments.length;
+    const totalEnAttente = apiStats ? apiStats.enAttente : pending;
+
+    const totalCommission = apiStats ? apiStats.totalCommissions : payments
       .filter(p => p.status === 'paid')
-      .reduce((sum, p) => sum + parseInt(p.commission.replace(/[^0-9]/g, '')), 0);
+      .reduce((sum, p) => sum + (p.rawCommission || 0), 0);
 
-    const cashPayments = payments.filter(p => p.method === 'cash' && p.status === 'paid').length;
-    const mobilePayments = payments.filter(p => ['orange', 'mtn', 'wave'].includes(p.method) && p.status === 'paid').length;
-    const successRate = payments.length > 0 ? Math.round((paid / payments.length) * 100) : 0;
+    const payRate = totalCount > 0 ? Math.round((totalPayes / totalCount) * 100) : 0;
+    const commissionRate = totalRevenue > 0 ? Math.round((totalCommission / totalRevenue) * 100) : 0;
 
     return [
       {
         title: "Revenus totaux",
-        value: `${(totalAmount / 1000).toLocaleString('fr-FR')}K`,
+        value: `${(totalRevenue || 0).toLocaleString('fr-FR')} GNF`,
         icon: DollarSign,
         color: "green",
         trend: "up",
-        percentage: 85,
-        progress: 85,
-        subtitle: `+${Math.round(totalAmount * 0.18 / 1000)}K vs mois dernier`
+        percentage: payRate,
+        progress: payRate,
+        subtitle: `${totalPayes} paiements encaissés`
       },
       {
         title: "Total paiements",
-        value: payments.length.toString(),
+        value: (totalCount || 0).toString(),
         icon: Repeat,
         color: "blue",
         trend: "up",
-        percentage: 75,
-        progress: 75,
-        subtitle: `${paid} réussies, ${pending} en attente`
+        percentage: payRate,
+        progress: payRate,
+        subtitle: `${totalPayes} payés, ${totalEnAttente} en attente`
       },
       {
-        title: "Commission",
-        value: `${(totalCommission / 1000).toLocaleString('fr-FR')}K`,
+        title: "Commission plateforme",
+        value: `${(totalCommission || 0).toLocaleString('fr-FR')} GNF`,
         icon: Percent,
         color: "purple",
         trend: "up",
-        percentage: 65,
-        progress: 65,
-        subtitle: "15% des revenus"
+        percentage: commissionRate,
+        progress: commissionRate,
+        subtitle: `~${commissionRate}% des revenus`
       }
     ];
-  }, [payments]);
+  }, [payments, apiStats]);
 
   // Données pour les graphiques
-  const chartData = useMemo(() => ({
-    revenueChart: {
-      labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
-      datasets: [{
-        label: 'Revenus (K GNF)',
-        data: [120, 190, 150, 220, 180, 250, 200],
-        borderColor: '#10B981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        tension: 0.4,
-        fill: true
-      }, {
-        label: 'Commission (K GNF)',
-        data: [18, 28, 22, 33, 27, 37, 30],
-        borderColor: '#8B5CF6',
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-        tension: 0.4,
-        fill: true
-      }]
-    },
-    methodDistribution: {
-      labels: ['Espèces', 'Orange Money', 'MTN', 'Wave', 'Carte', 'Virement'],
-      datasets: [{
-        data: [45, 30, 15, 5, 3, 2],
-        backgroundColor: [
-          '#10B981',
-          '#F59E0B',
-          '#3B82F6',
-          '#8B5CF6',
-          '#EF4444',
-          '#6B7280'
-        ]
-      }]
-    },
-    statusDistribution: {
-      labels: ['Payés', 'En attente', 'Échoués', 'Remboursés'],
-      datasets: [{
-        data: [75, 15, 8, 2],
-        backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#6B7280']
-      }]
+  const chartData = useMemo(() => {
+    // Si backend data dispo
+    if (revenueData.length > 0) {
+      return {
+        revenueChart: {
+          labels: revenueData.map(d => new Date(d.label).toLocaleDateString('fr-FR')),
+          datasets: [{
+            label: 'Revenus (GNF)',
+            data: revenueData.map(d => d.revenus),
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            tension: 0.4,
+            fill: true
+          }, {
+            label: 'Commission (GNF)',
+            data: revenueData.map(d => d.commissions),
+            borderColor: '#8B5CF6',
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        methodDistribution: {
+          labels: repartitionData.map(d => {
+            const methodeLabels = { 'CASH': 'Espèces', 'ESPECES': 'Espèces', 'ORANGE_MONEY': 'Orange Money', 'MTN_MONEY': 'MTN', 'WAVE': 'Wave', 'CARTE_BANCAIRE': 'Carte' };
+            return methodeLabels[d.methode] || d.methode || 'Autre';
+          }),
+          datasets: [{
+            data: repartitionData.map(d => d.nombre),
+            backgroundColor: [
+              '#10B981', // Espèces
+              '#F59E0B', // Orange
+              '#3B82F6', // MTN
+              '#8B5CF6', // Wave
+              '#EF4444', // Carte
+              '#6B7280'  // Autre
+            ]
+          }]
+        },
+        statusDistribution: {
+          labels: ['Payés', 'En attente', 'Échoués', 'Remboursés'],
+          datasets: [{
+            data: [
+              payments.filter(p => p.status === 'paid').length,
+              payments.filter(p => p.status === 'pending').length,
+              payments.filter(p => p.status === 'failed').length,
+              payments.filter(p => p.status === 'refunded').length,
+            ],
+            backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#6B7280']
+          }]
+        }
+      };
     }
-  }), []);
+
+    // Fallback/Mock
+    return {
+      revenueChart: {
+        labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+        datasets: [{
+          label: 'Revenus (K GNF)',
+          data: [120, 190, 150, 220, 180, 250, 200],
+          borderColor: '#10B981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          tension: 0.4,
+          fill: true
+        }, {
+          label: 'Commission (K GNF)',
+          data: [18, 28, 22, 33, 27, 37, 30],
+          borderColor: '#8B5CF6',
+          backgroundColor: 'rgba(139, 92, 246, 0.1)',
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      methodDistribution: {
+        labels: ['Espèces', 'Orange Money', 'MTN', 'Wave', 'Carte', 'Virement'],
+        datasets: [{
+          data: [45, 30, 15, 5, 3, 2],
+          backgroundColor: [
+            '#10B981',
+            '#F59E0B',
+            '#3B82F6',
+            '#8B5CF6',
+            '#EF4444',
+            '#6B7280'
+          ]
+        }]
+      },
+      statusDistribution: {
+        labels: ['Payés', 'En attente', 'Échoués', 'Remboursés'],
+        datasets: [{
+          data: [75, 15, 8, 2],
+          backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#6B7280']
+        }]
+      }
+    };
+  }, [revenueData, repartitionData, payments]);
 
   // Méthodes de paiement pour le tableau de bord
-  const paymentMethods = useMemo(() => [
-    {
-      type: 'cash',
-      label: 'Espèces',
-      color: 'green',
-      percentage: 45,
-      amount: '1.9M GNF',
-      trend: '+12%',
-      icon: DollarSign,
-      count: payments.filter(p => p.method === 'cash').length
-    },
-    {
-      type: 'orange',
-      label: 'Orange Money',
-      color: 'orange',
-      percentage: 30,
-      amount: '1.3M GNF',
-      trend: '+8%',
-      icon: Smartphone,
-      count: payments.filter(p => p.method === 'orange').length
-    },
-    {
-      type: 'mtn',
-      label: 'MTN',
-      color: 'blue',
-      percentage: 15,
-      amount: '650K GNF',
-      trend: '+15%',
-      icon: CreditCard,
-      count: payments.filter(p => p.method === 'mtn').length
-    },
+  const paymentMethods = useMemo(() => {
+    // Helper pour trouver les valeurs dans repartitionData
+    const findData = (...methodKeys) => {
+      // Le backend peut renvoyer 'CASH' ou 'ESPECES' selon la version
+      const found = repartitionData.find(d => methodKeys.includes(d.methode));
 
-    {
-      type: 'card',
-      label: 'Cartes',
-      color: 'red',
-      percentage: 3,
-      amount: '130K GNF',
-      trend: '+5%',
-      icon: CreditCardIcon,
-      count: payments.filter(p => p.method === 'card').length
-    },
+      // Ou calcule depuis 'payments' si repartitionData vide
+      if (!found && payments.length > 0) {
+        const methodMap = { 'cash': ['CASH', 'ESPECES'], 'orange': ['ORANGE_MONEY'], 'mtn': ['MTN_MONEY', 'MTN'], 'wave': ['WAVE'] };
+        const frontKey = Object.keys(methodMap).find(k => methodMap[k].some(m => methodKeys.includes(m)));
+        const list = frontKey ? payments.filter(p => p.method === frontKey) : [];
+        return {
+          nombre: list.length,
+          montant: list.reduce((sum, p) => sum + (p.rawAmount || 0), 0),
+          pourcentage: 0
+        };
+      }
 
-  ], [payments]);
+      return found || { nombre: 0, montant: 0, pourcentage: 0 };
+    };
+
+    const cash = findData('CASH', 'ESPECES');
+    const orange = findData('ORANGE_MONEY');
+    const mtn = findData('MTN_MONEY', 'MTN');
+    const wave = findData('WAVE');
+
+    return [
+      {
+        type: 'cash',
+        label: 'Espèces',
+        color: 'green',
+        percentage: cash.pourcentage || 0,
+        amount: `${(cash.montant || 0).toLocaleString('fr-FR')} GNF`,
+        trend: `${cash.nombre || 0} trans.`,
+        icon: DollarSign,
+        count: cash.nombre || 0
+      },
+      {
+        type: 'orange',
+        label: 'Orange Money',
+        color: 'orange',
+        percentage: orange.pourcentage || 0,
+        amount: `${(orange.montant || 0).toLocaleString('fr-FR')} GNF`,
+        trend: `${orange.nombre || 0} trans.`,
+        icon: Smartphone,
+        count: orange.nombre || 0
+      },
+      {
+        type: 'mtn',
+        label: 'MTN',
+        color: 'blue',
+        percentage: mtn.pourcentage || 0,
+        amount: `${(mtn.montant || 0).toLocaleString('fr-FR')} GNF`,
+        trend: `${mtn.nombre || 0} trans.`,
+        icon: CreditCard,
+        count: mtn.nombre || 0
+      },
+      {
+        type: 'wave',
+        label: 'Wave',
+        color: 'purple',
+        percentage: wave.pourcentage || 0,
+        amount: `${(wave.montant || 0).toLocaleString('fr-FR')} GNF`,
+        trend: `${wave.nombre || 0} trans.`,
+        icon: Wallet,
+        count: wave.nombre || 0
+      },
+    ];
+  }, [repartitionData, payments]);
 
   // Filtrage des paiements
   const filteredPayments = useMemo(() => {
@@ -577,23 +766,144 @@ const Payments = () => {
   };
 
   const handleDownloadInvoice = (payment) => {
-    showToast('Téléchargement', `Téléchargement de la facture ${payment.invoiceNumber}...`, 'info');
+    showToast('Téléchargement', `Génération de la facture ${payment.invoiceNumber}...`, 'info');
 
-    // Simulation de téléchargement
     setTimeout(() => {
-      const content = `Facture: ${payment.invoiceNumber}\nClient: ${payment.passenger.name}\nMontant: ${payment.amount}\nDate: ${payment.date}`;
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Facture_${payment.invoiceNumber}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      try {
+        const doc = new jsPDF();
 
-      showToast('Facture téléchargée', 'La facture a été téléchargée avec succès', 'success');
-    }, 1000);
+        // --- En-tête ---
+        // Logo (simulé par un carré coloré ou texte stylisé)
+        doc.setFillColor(16, 185, 129); // Vert Taka Taka
+        doc.rect(0, 0, 210, 20, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("Taka Taka Voyage", 14, 13);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text("ADMINISTRATION", 160, 13);
+
+        // --- Info Entreprise (en haut à droite) ---
+        doc.setTextColor(50, 50, 50);
+        doc.setFontSize(10);
+        doc.text("Taka Taka Voyage SARL", 150, 35);
+        doc.text("Conakry, Guinée", 150, 40);
+        doc.text("contact@takataka.com", 150, 45);
+        doc.text("+224 620 00 00 00", 150, 50);
+
+        // --- Titre Facture ---
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("RECU DE PAIEMENT", 14, 45);
+
+        // --- Détails Facture (Gauche) ---
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Numéro de facture :`, 14, 55);
+        doc.text(`Date de transaction :`, 14, 60);
+        doc.text(`ID Transaction :`, 14, 65);
+        doc.text(`Méthode :`, 14, 70);
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(payment.invoiceNumber, 55, 55);
+        doc.text(`${payment.date} à ${payment.time}`, 55, 60);
+        doc.text(payment.transactionId, 55, 65);
+        doc.text(payment.method.toUpperCase(), 55, 70);
+
+        // --- Ligne de séparation ---
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, 78, 196, 78);
+
+        // --- Infos Client et Chauffeur ---
+        const yPosInfo = 88;
+
+        // Passager
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("CLIENT (Passager)", 14, yPosInfo);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Nom :`, 14, yPosInfo + 7);
+        doc.text(`Téléphone :`, 14, yPosInfo + 12);
+        doc.text(`Email :`, 14, yPosInfo + 17);
+
+        doc.setTextColor(0, 0, 0);
+        doc.text(payment.passenger.name, 40, yPosInfo + 7);
+        doc.text(payment.passenger.phone, 40, yPosInfo + 12);
+        doc.text(payment.passenger.email, 40, yPosInfo + 17);
+
+        // Chauffeur
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("PRESTATAIRE (Chauffeur)", 110, yPosInfo);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Nom :`, 110, yPosInfo + 7);
+        doc.text(`Véhicule :`, 110, yPosInfo + 12);
+        // doc.text(`Téléphone :`, 110, yPosInfo + 17);
+
+        doc.setTextColor(0, 0, 0);
+        doc.text(payment.driver.name, 135, yPosInfo + 7);
+        doc.text(payment.driver.vehicle, 135, yPosInfo + 12);
+        // doc.text(payment.driver.phone, 135, yPosInfo + 17);
+
+        // --- Détails du Trajet ---
+        autoTable(doc, {
+          startY: yPosInfo + 25,
+          head: [['Détails du Trajet', 'Données']],
+          body: [
+            ['Départ', payment.trip.route.split('→')[0].trim()],
+            ['Destination', payment.trip.route.split('→')[1]?.trim() || '-'],
+            ['Date du trajet', payment.trip.date],
+            ['Distance', payment.trip.distance],
+            ['Durée estimée', payment.trip.duration],
+          ],
+          theme: 'grid',
+          headStyles: { fillColor: [240, 240, 240], textColor: [50, 50, 50], fontStyle: 'bold' },
+          styles: { fontSize: 9, cellPadding: 3 },
+          columnStyles: { 0: { fontStyle: 'bold', width: 60 } }
+        });
+
+        // --- Détails Financiers ---
+        autoTable(doc, {
+          startY: doc.lastAutoTable.finalY + 10,
+          head: [['Description', 'Montant (GNF)']],
+          body: [
+            ['Prix de la course', payment.amount],
+            ['Frais de service (Plateforme)', payment.fees?.platform || '0 GNF'],
+            ['TVA (18%)', 'Inclus'],
+          ],
+          foot: [['Total Payé', payment.amount]],
+          theme: 'striped',
+          headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+          footStyles: { fillColor: [50, 50, 50], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'right' },
+          columnStyles: { 1: { halign: 'right' } }
+        });
+
+        // --- Pied de page ---
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text("Ce document est une preuve de paiement générée électroniquement par la plateforme Taka Taka Voyage.", 105, pageHeight - 15, { align: 'center' });
+        doc.text("Merci de votre confiance.", 105, pageHeight - 10, { align: 'center' });
+
+        // Sauvegarde
+        doc.save(`Recu_${payment.invoiceNumber}.pdf`);
+        showToast('Facture téléchargée', 'Le fichier PDF a été généré avec succès', 'success');
+
+      } catch (error) {
+        console.error('Erreur PDF:', error);
+        showToast('Erreur PDF', `Erreur: ${error.message || 'Impossible de générer le PDF'}`, 'error');
+      }
+    }, 500);
   };
 
 
@@ -832,9 +1142,13 @@ const Payments = () => {
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 rounded-full  flex items-center justify-center">
-                      <User className="text-green-600" size={24} />
-                    </div>
+                    <Avatar
+                      name={payment.passenger.name}
+                      photoUrl={payment.passenger.photo}
+                      type="passenger"
+                      size="w-12 h-12"
+                      className="mr-0"
+                    />
                     <div>
                       <p className="font-bold text-gray-800 dark:text-gray-100">{payment.passenger.name}</p>
                       <p className="text-sm text-gray-600 dark:text-gray-300">{payment.passenger.phone}</p>
@@ -855,17 +1169,21 @@ const Payments = () => {
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                      <Car className="text-blue-600" size={24} />
-                    </div>
+                    <Avatar
+                      name={payment.driver.name}
+                      photoUrl={payment.driver.photo}
+                      type="driver"
+                      size="w-12 h-12"
+                      className="mr-0"
+                    />
                     <div>
                       <p className="font-bold text-gray-800 dark:text-gray-100">{payment.driver.name}</p>
                       <p className="text-sm text-gray-600 dark:text-gray-300">{payment.driver.phone}</p>
                     </div>
                   </div>
                   <div className="text-sm">
-                    <p className="text-gray-500 dark:text-gray-400">Compte: {payment.driver.account}</p>
-                    <p className="text-gray-500 dark:text-gray-400">Note: {payment.driver.rating}/5</p>
+                    <p className="text-gray-500 dark:text-gray-400">Véhicule: {payment.driver.vehicle}</p>
+                    <p className="text-gray-500 dark:text-gray-400">Note: {payment.driver.rating !== '-' ? `${payment.driver.rating}/5` : 'Non noté'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -884,14 +1202,14 @@ const Payments = () => {
                   <span className="font-medium">{payment.amount}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Commission ({payment.commissionRate}):</span>
+                  <span className="text-gray-600 dark:text-gray-300">Commission ({payment.commissionRate || '20%'}):</span>
                   <span className="font-medium text-red-600">-{payment.commission}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">Frais de plateforme:</span>
-                  <span className="font-medium">-{payment.fees.platform}</span>
+                  <span className="font-medium">-{payment.fees?.platform || '0 GNF'}</span>
                 </div>
-                {payment.fees.processing !== '0 GNF' && (
+                {payment.fees?.processing && payment.fees.processing !== '0 GNF' && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-300">Frais de traitement:</span>
                     <span className="font-medium">-{payment.fees.processing}</span>
@@ -899,7 +1217,7 @@ const Payments = () => {
                 )}
                 <div className="border-t border-gray-200 dark:border-gray-800 pt-3 mt-3">
                   <div className="flex justify-between font-bold">
-                    <span>Montant net:</span>
+                    <span>Montant net chauffeur:</span>
                     <span className="text-green-600">{payment.netAmount}</span>
                   </div>
                 </div>
@@ -1343,9 +1661,7 @@ const Payments = () => {
 
                   <TableCell>
                     <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-700 to-blue-500 flex items-center justify-center mr-2">
-                        <User className="text-white " size={14} />
-                      </div>
+                      <Avatar name={payment.passenger.name} photoUrl={payment.passenger.photo} type="passenger" />
                       <div>
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{payment.passenger.name}</p>
                         {/* <p className="text-xs text-gray-500 dark:text-gray-400">{payment.passenger.phone}</p> */}
@@ -1354,9 +1670,7 @@ const Payments = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                        <Car className="text-blue-500" size={14} />
-                      </div>
+                      <Avatar name={payment.driver.name} photoUrl={payment.driver.photo} type="driver" />
                       <div>
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{payment.driver.name}</p>
                         {/* <p className="text-xs text-gray-500 dark:text-gray-400">{payment.driver.phone}</p> */}

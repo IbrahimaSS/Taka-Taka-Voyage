@@ -12,6 +12,7 @@ const Paiement = require("./models/Paiements");
 const coursesPrises = new Set();   // reservationId acceptée (lock mémoire)
 const courseChauffeur = new Map(); // reservationId -> socket.id chauffeur
 const socketToReservations = new Map(); // socket.id -> Set(reservationId)
+const lastKnownPositions = new Map(); // reservationId -> { lat, lng, heading, speed, timestamp }
 
 function trackReservationForSocket(socketId, reservationId) {
   if (!socketToReservations.has(socketId)) socketToReservations.set(socketId, new Set());
@@ -28,6 +29,7 @@ function untrackReservationForSocket(socketId, reservationId) {
 function releaseReservationLock(reservationId) {
   const rid = String(reservationId);
   coursesPrises.delete(rid);
+  lastKnownPositions.delete(rid);
   const sId = courseChauffeur.get(rid);
   courseChauffeur.delete(rid);
   if (sId) untrackReservationForSocket(sId, rid);
@@ -105,13 +107,22 @@ module.exports = (io) => {
 
         const roomMain = `${ROLE}_${String(userId)}`;
         const roomUser = `USER_${String(userId)}`;
-        const roomPassager = `PASSAGER_${String(userId)}`;
+
         socket.join(roomMain);
         socket.join(roomUser);
-        socket.join(roomPassager);
-        if (ROLE === "CHAUFFEUR") socket.join("CHAUFFEURS");
 
-        console.log(`✅ [SOCKET_CONNECT] Rooms jointes pour ${ROLE} (${userId}): ${roomMain}, ${roomUser}, ${roomPassager}`);
+        // ✅ Join specific functional rooms based on role
+        if (ROLE === "PASSAGER") {
+          socket.join(`PASSAGER_${String(userId)}`);
+        } else if (ROLE === "CHAUFFEUR") {
+          socket.join("CHAUFFEURS");
+          // On joint aussi la room PASSAGER pour les chauffeurs s'ils utilisent des fonctions passager (optionnel, mais plus propre de séparer)
+          // socket.join(`PASSAGER_${String(userId)}`); 
+        } else if (ROLE === "ADMIN") {
+          socket.join("ADMINS");
+        }
+
+        console.log(`✅ [SOCKET_CONNECT] Rooms jointes pour ${ROLE} (${userId}): ${roomMain}, ${roomUser}${ROLE === "CHAUFFEUR" ? ", CHAUFFEURS" : ""}${ROLE === "ADMIN" ? ", ADMINS" : ""}`);
       }
     } catch (e) {
       console.error("❌ join rooms on connect:", e.message);
@@ -188,19 +199,41 @@ module.exports = (io) => {
         const isDriverOwner =
           uid && reservation.chauffeur && String(reservation.chauffeur) === String(uid) && role === "CHAUFFEUR";
 
-        if (!isPassengerOwner && !isDriverOwner) {
+        const isAdmin = role === "ADMIN";
+
+        if (!isPassengerOwner && !isDriverOwner && !isAdmin) {
+          console.log(`🚫 [SOCKET] Join refused for rid=${reservationId} (uid=${uid}, role=${role})`);
           return socket.emit("reservation:join:refused", { reservationId, message: "Non autorisé" });
         }
 
-        // ✅ FIX Tracking: Restaurer le lock mémoire si c'est le bon chauffeur
+        // ✅ FIX Tracking: S'assurer que le chauffeur est tjrs lié à cette course dans la map
         if (isDriverOwner) {
+          console.log(`🔗 [SOCKET] Link chauffeur ${uid} to reservation ${reservationId}`);
           courseChauffeur.set(String(reservationId), socket.id);
         }
 
+        socket.log_prefix = `[SOCKET][${role}][${uid}]`;
         socket.join(`RESERVATION_${reservationId}`);
+        console.log(`${socket.log_prefix} joined room RESERVATION_${reservationId}`);
+
+        // ✅ FIX TRACKING: Envoyer la dernière position connue immédiatement (utile pour l'admin qui se connecte en retard)
+        const lastPos = lastKnownPositions.get(String(reservationId));
+        if (lastPos) {
+          console.log(`${socket.log_prefix} sending last known position for room join`);
+          socket.emit("position:chauffeur", {
+            ...lastPos,
+            reservationId: String(reservationId)
+          });
+        }
+
+        // Check room status
+        const room = io.sockets.adapter.rooms.get(`RESERVATION_${reservationId}`);
+        const count = room ? room.size : 0;
+        console.log(`ℹ️ [SOCKET] Room RESERVATION_${reservationId} size: ${count}`);
+
         socket.emit("reservation:join:ok", { reservationId });
       } catch (e) {
-        console.error("❌ reservation:join:", e.message);
+        console.error("❌ reservation:join error:", e.message);
         socket.emit("reservation:join:refused", { reservationId, message: "Erreur serveur" });
       }
     });
@@ -360,9 +393,16 @@ module.exports = (io) => {
     // 3) Position chauffeur
     // ────────────────────────────────────────────────
     socket.on("position:update", ({ reservationId, lat, lng, heading = 0, speed = 0 } = {}) => {
-      if (!reservationId || lat == null || lng == null) return;
+      // console.log(`📍 [SOCKET] position:update received for RID=${reservationId} from ${socket.id}`);
+      if (!reservationId || lat == null || lng == null) {
+        // console.warn("⚠️ [SOCKET] position:update rejected: missing data", { reservationId, lat, lng });
+        return;
+      }
 
       const rid = String(reservationId);
+
+      // ✅ Cache the position for late joiners (Admins)
+      lastKnownPositions.set(rid, { lat, lng, heading, speed, timestamp: Date.now() });
 
       // ✅ FIX: Lock soft - si pas dans map, on laisse passer si c'est le bon socket (via reservation:join qui a repeuplé)
       if (courseChauffeur.has(rid) && courseChauffeur.get(rid) !== socket.id) {
@@ -377,6 +417,12 @@ module.exports = (io) => {
         speed,
         timestamp: Date.now(),
       });
+
+      // Optional: periodic log for position update to avoid flood
+      if (Math.random() < 0.1) {
+        const room = io.sockets.adapter.rooms.get(`RESERVATION_${rid}`);
+        console.log(`📍 [SOCKET] Position emitted for RID=${rid} to ${room ? room.size : 0} clients`);
+      }
     });
 
     // ────────────────────────────────────────────────
@@ -673,7 +719,7 @@ module.exports = (io) => {
     });
 
     // ✅ NOUVEAU: Confirmer Paiement (Passager -> Chauffeur)
-    socket.on("paiement:confirmer_envoi", async ({ reservationId } = {}) => {
+    socket.on("paiement:confirmer_envoi", async ({ reservationId, method = "CASH" } = {}) => {
       try {
         if (!socket.user?.id || socket.user.role !== "PASSAGER") return;
 
@@ -684,20 +730,25 @@ module.exports = (io) => {
         const reservation = await Reservation.findById(reservationId);
         if (!reservation || String(reservation.passager) !== String(socket.user.id)) return;
 
-        console.log(`💰 [PAYMENT] Passager ${socket.user.id} confirme envoi espèce pour RID=${reservationId}`);
+        const label = method.toUpperCase() === "CASH" ? "en espèces" : `via ${method.toUpperCase()}`;
+        console.log(`💰 [PAYMENT] Passager ${socket.user.id} confirme envoi ${label} pour RID=${reservationId}`);
+
+        const notificationMessage = `Le passager a déclaré avoir payé ${label}. Veuillez confirmer la réception.`;
 
         // On notifie le chauffeur via sa room privée ET la room de réservation
         io.to(`CHAUFFEUR_${String(reservation.chauffeur)}`).emit("paiement:reception_a_confirmer", {
           reservationId,
           montant: reservation.prix,
-          message: "Le passager a déclaré avoir payé en espèces. Veuillez confirmer la réception."
+          method,
+          message: notificationMessage
         });
 
         // Redondance sur la room de réservation (le client filtrera par rôle)
         io.to(`RESERVATION_${reservationId}`).emit("paiement:reception_a_confirmer", {
           reservationId,
           montant: reservation.prix,
-          message: "Le passager a déclaré avoir payé en espèces. Veuillez confirmer la réception."
+          method,
+          message: notificationMessage
         });
 
       } catch (e) {

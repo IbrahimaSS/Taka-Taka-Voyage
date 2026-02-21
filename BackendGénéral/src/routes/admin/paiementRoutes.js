@@ -10,35 +10,35 @@ const paiementController = require("../../controllers/admin/paiementControllers"
 
 //Cards Paiements
 router.get(
-    "/paiements/stats",
+    "/stats",
     verifierToken,
     autoriserRoles("ADMIN"),
     paiementController.statsPaiements
 );
 //Cards Paiements
 router.get(
-    "/paiements/evolution",
+    "/evolution",
     verifierToken,
     autoriserRoles("ADMIN"),
     paiementController.evolutionPaiements
 );
 //Répartition Paiements
 router.get(
-    "/paiements/repartition",
+    "/repartition",
     verifierToken,
     autoriserRoles("ADMIN"),
     paiementController.repartitionPaiements
 );
 //Listes des Paiements
 router.get(
-    "/paiements",
+    "/",
     verifierToken,
     autoriserRoles("ADMIN"),
     paiementController.listePaiements
 );
 //Détails d'un Paiement
 router.get(
-    "/paiements/:id",
+    "/:id",
     verifierToken,
     autoriserRoles("ADMIN"),
     paiementController.detailsPaiement

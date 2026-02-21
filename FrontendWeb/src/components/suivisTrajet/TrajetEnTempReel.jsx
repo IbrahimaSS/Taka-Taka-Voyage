@@ -40,6 +40,7 @@ import {
   Zap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import FloatingDisputeButton from '../shared/FloatingDisputeButton';
 import EmergencyButton from '../passager/EmergencyButton';
 import { useDriverContext } from '../../context/DriverContext';
 
@@ -940,6 +941,12 @@ const RealTimeTracking = ({
       >
         <AlertTriangle className="w-7 h-7 text-white" />
       </motion.button> */}
+
+      <FloatingDisputeButton
+        currentTrip={{ ...tripData.trip, reservationId: trip?.reservationId || trip?.id }}
+        role={role}
+        offset={6}
+      />
 
       <EmergencyButton />
 

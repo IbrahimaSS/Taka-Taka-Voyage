@@ -85,7 +85,12 @@ const Users = ({ showToast }) => {
 
       const response = await adminService.getPassengers(params);
       if (response.data.succes) {
-        setUsers(response.data.utilisateurs);
+        setUsers(response.data.utilisateurs.map(u => ({
+          ...u,
+          // S'assurer que les champs sont bien mappés si le backend change
+          photoUrl: u.photoUrl,
+          status: u.statut
+        })));
         setTotalItems(response.data.pagination.total);
       }
     } catch (error) {
@@ -222,30 +227,18 @@ const Users = ({ showToast }) => {
 
   // Fonctions utilitaires
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'ACTIF':
-        return (
-          <span className="status-badge-success">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
-            Actif
-          </span>
-        );
-      case 'INACTIF':
-      case 'SUSPENDU':
-        return (
-          <span className="status-badge-warning">
-            <span className="w-2 h-2 bg-amber-500 rounded-full mr-2"></span>
-            Inactif
-          </span>
-        );
-      default:
-        return (
-          <span className="status-badge-gray">
-            <span className="w-2 h-2 bg-gray-500 rounded-full mr-2"></span>
-            {status}
-          </span>
-        );
-    }
+    const config = {
+      'ACTIF': { label: 'Actif', bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-700 dark:text-green-300', dot: 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' },
+      'INACTIF': { label: 'Inactif', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-500 dark:text-red-400', dot: 'bg-red-400' },
+      'SUSPENDU': { label: 'Suspendu', bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', dot: 'bg-red-500' }
+    };
+    const { label, bg, text, dot } = config[status] || config.INACTIF;
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${bg} ${text}`}>
+        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${dot}`}></span>
+        {label}
+      </span>
+    );
   };
 
   const getTimeAgo = (dateString) => {
@@ -412,12 +405,26 @@ const Users = ({ showToast }) => {
               <TableRow key={user._id}>
                 <TableCell>
                   <div className="flex items-center">
-                    <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center mr-3 overflow-hidden`}>
-                      {user.photoUrl ? (
-                        <img src={user.photoUrl} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-white font-bold text-sm">{user.prenom?.[0]}{user.nom?.[0]}</span>
-                      )}
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 flex items-center justify-center mr-3 overflow-hidden shadow-sm border border-white dark:border-gray-700">
+                      {user.photoUrl && user.photoUrl !== '' ? (
+                        <img
+                          src={user.photoUrl.startsWith('http') ? user.photoUrl : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.photoUrl.startsWith('/') ? '' : '/'}${user.photoUrl}`}
+                          alt={`${user.prenom} ${user.nom}`}
+                          className="w-full h-full object-cover z-10"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            // On montre le span de secours si l'image échoue
+                            const span = e.target.parentElement.querySelector('.avatar-initials');
+                            if (span) span.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <span
+                        className="avatar-initials text-white font-bold text-xs uppercase"
+                        style={{ display: user.photoUrl && user.photoUrl !== '' ? 'none' : 'flex' }}
+                      >
+                        {user.prenom?.[0]}{user.nom?.[0]}
+                      </span>
                     </div>
                     <div>
                       <p className="font-medium text-gray-800 dark:text-gray-100">{user.prenom} {user.nom}</p>
