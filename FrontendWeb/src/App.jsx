@@ -19,6 +19,7 @@ import NotFound from './pages/NotFound';
 // Auth
 import { AuthProvider } from './context/AuthContext';
 import AuthGuard from './components/auth/AuthGuard';
+import PlatformMonitor from './components/notifications/PlatformMonitor';
 
 
 // Composants chargés paresseusement
@@ -42,6 +43,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <PlatformMonitor />
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             {/* PUBLIC */}

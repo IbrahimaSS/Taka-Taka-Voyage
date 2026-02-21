@@ -1,11 +1,11 @@
-// src/hooks/useSettings.js
 import { Car, Motorbike, Store } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
+import { adminService } from '../services/adminService';
+import { socketService } from '../services/socketService';
 
 export const useSettings = (initialSettings = {}) => {
-   const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
-  const [pendingChanges, setPendingChanges] = useState({});
   const [saveTimeout, setSaveTimeout] = useState(null);
 
   // Structure par défaut complète
@@ -32,7 +32,7 @@ export const useSettings = (initialSettings = {}) => {
       motoTaxi: {
         id: 'motoTaxi',
         name: 'Moto-taxi',
-        icon:  Motorbike,
+        icon: Motorbike,
         color: 'green',
         basePrice: 5000,
         perKm: 1500,
@@ -44,7 +44,7 @@ export const useSettings = (initialSettings = {}) => {
       sharedTaxi: {
         id: 'sharedTaxi',
         name: 'Taxi partagé',
-        icon:  Car,
+        icon: Car,
         color: 'blue',
         basePrice: 10000,
         perKm: 2000,
@@ -81,19 +81,18 @@ export const useSettings = (initialSettings = {}) => {
 
     // Paiements
     payments: {
-      
       methods: {
         cash: { enabled: true, minAmount: 1000 },
-        orangeMoney: { 
-          enabled: true, 
-          commission: 2.5, 
+        orangeMoney: {
+          enabled: true,
+          commission: 2.5,
           apiKey: '',
           username: '',
           sandbox: true
         },
-        mtnMoney: { 
-          enabled: true, 
-          commission: 2.5, 
+        mtnMoney: {
+          enabled: true,
+          commission: 2.5,
           apiKey: '',
           userId: '',
           sandbox: true
@@ -141,10 +140,16 @@ export const useSettings = (initialSettings = {}) => {
           enabled: true,
           firebaseConfig: {}
         }
+      },
+      types: {
+        ride_created: true,
+        ride_accepted: true,
+        ride_completed: true,
+        payment_received: true,
+        promotion: false,
+        system: true
       }
     },
-
-    
 
     // Sécurité
     security: {
@@ -184,9 +189,6 @@ export const useSettings = (initialSettings = {}) => {
       }
     },
 
-   
-
-    
     // Métadonnées
     metadata: {
       createdAt: new Date().toISOString(),
@@ -196,140 +198,176 @@ export const useSettings = (initialSettings = {}) => {
     ...initialSettings
   });
 
+  const [settings, setSettings] = useState(getDefaultSettings());
 
-   const [settings, setSettings] = useState(() => {
-    const savedSettings = localStorage.getItem('takataka_settings');
-    return savedSettings 
-      ? JSON.parse(savedSettings)
-      : getDefaultSettings();
-  });
+  // Helper pour fusion profonde simple
+  const deepMerge = (target, source) => {
+    const output = { ...target };
+    if (source && typeof source === 'object') {
+      Object.keys(source).forEach(key => {
+        if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+          if (!(key in target)) {
+            Object.assign(output, { [key]: source[key] });
+          } else {
+            output[key] = deepMerge(target[key], source[key]);
+          }
+        } else {
+          Object.assign(output, { [key]: source[key] });
+        }
+      });
+    }
+    return output;
+  };
 
-  // Fonctions de mise à jour
+  // Charger les paramètres depuis le backend au montage
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoading(true);
+      try {
+        const response = await adminService.getParametres();
+        if (response.data && response.data.data) {
+          const backendSettings = response.data.data;
+          setSettings(prev => deepMerge(prev, backendSettings));
+          localStorage.setItem('takataka_settings', JSON.stringify(backendSettings));
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des paramètres:', error);
+        const savedSettings = localStorage.getItem('takataka_settings');
+        if (savedSettings) {
+          try {
+            setSettings(prev => deepMerge(prev, JSON.parse(savedSettings)));
+          } catch (e) {
+            console.error('Erreur parsing local settings', e);
+          }
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
+  // ✅ Synchronisation en temps réel via Socket.IO
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      console.log('🔄 [SETTINGS] Mise à jour détectée via Socket, actualisation...');
+
+      // Refetch from backend to get latest values
+      adminService.getParametres()
+        .then(response => {
+          if (response.data && response.data.data) {
+            const backendSettings = response.data.data;
+            setSettings(prev => deepMerge(prev, backendSettings));
+            localStorage.setItem('takataka_settings', JSON.stringify(backendSettings));
+          }
+        })
+        .catch(err => console.error('Erreur sync settings:', err));
+    };
+
+    socketService.on('platform:settings:updated', handleSettingsUpdate);
+
+    return () => {
+      socketService.off('platform:settings:updated', handleSettingsUpdate);
+    };
+  }, []);
+
+  // ✅ Mise à jour du titre du document (onglet navigateur)
+  useEffect(() => {
+    const platformName = settings?.platform?.name || 'Taka Taka';
+    document.title = platformName;
+  }, [settings?.platform?.name]);
+
+  // Fonction de mise à jour profonde immutable
+  const setDeep = (obj, path, value) => {
+    const keys = path.split('.');
+    const output = { ...obj };
+    let current = output;
+
+    for (let i = 0; i < keys.length - 1; i++) {
+      const key = keys[i];
+      if (!current[key] || typeof current[key] !== 'object') {
+        current[key] = {};
+      }
+      current[key] = { ...current[key] };
+      current = current[key];
+    }
+
+    current[keys[keys.length - 1]] = value;
+    return output;
+  };
+
   const updateSetting = useCallback((path, value) => {
     setSettings(prev => {
-      const keys = path.split('.');
-      const newSettings = { ...prev };
-      let current = newSettings;
-      
-      for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) current[keys[i]] = {};
-        current = current[keys[i]];
-      }
-      
-      current[keys[keys.length - 1]] = value;
-      
-      return {
-        ...newSettings,
-        metadata: {
+      const newSettings = setDeep(prev, path, value);
+
+      if (newSettings.metadata) {
+        newSettings.metadata = {
           ...newSettings.metadata,
           updatedAt: new Date().toISOString()
-        }
-      };
-    });
-    
-    // Marquer comme modifié
-    setHasChanges(true);
-    
-    // Annuler le timeout précédent s'il existe
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
-    }
-    
-    // Programmer la sauvegarde automatique après 3 secondes d'inactivité
-    const timeoutId = setTimeout(() => {
-      localStorage.setItem('takataka_settings', JSON.stringify(settings));
-      setHasChanges(false); // SEULEMENT après la sauvegarde automatique
-    }, 5000);
-    
-    setSaveTimeout(timeoutId);
-  }, [settings, saveTimeout]);
-
-  const updateNestedSetting = useCallback((category, key, subKey, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [key]: {
-          ...prev[category][key],
-          [subKey]: value
-        }
-      },
-      metadata: {
-        ...prev.metadata,
-        updatedAt: new Date().toISOString()
+        };
       }
-    }));
-    
-    // Marquer comme modifié
-    setHasChanges(true);
-    
-    // Annuler le timeout précédent
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
-    }
-    
-    // Programmer la sauvegarde automatique
-    const timeoutId = setTimeout(() => {
-      localStorage.setItem('takataka_settings', JSON.stringify(settings));
-      setHasChanges(false);
-    }, 3000);
-    
-    setSaveTimeout(timeoutId);
-  }, [settings, saveTimeout]);
 
-  // Batch update
-  const batchUpdate = useCallback((updates) => {
-    setSettings(prev => {
-      let newSettings = { ...prev };
-      updates.forEach(({ path, value }) => {
-        const keys = path.split('.');
-        let current = newSettings;
-        
-        for (let i = 0; i < keys.length - 1; i++) {
-          if (!current[keys[i]]) current[keys[i]] = {};
-          current = current[keys[i]];
-        }
-        
-        current[keys[keys.length - 1]] = value;
+      return newSettings;
+    });
+
+    setHasChanges(true);
+
+    if (saveTimeout) clearTimeout(saveTimeout);
+
+    const timeoutId = setTimeout(() => {
+      setSettings(current => {
+        localStorage.setItem('takataka_settings', JSON.stringify(current));
+        return current;
       });
-      
-      return {
-        ...newSettings,
-        metadata: {
-          ...newSettings.metadata,
-          updatedAt: new Date().toISOString()
-        }
-      };
-    });
-    
-    setHasChanges(true);
-    
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
-    }
-    
-    const timeoutId = setTimeout(() => {
-      localStorage.setItem('takataka_settings', JSON.stringify(settings));
-      setHasChanges(false);
-    }, 3000);
-    
-    setSaveTimeout(timeoutId);
-  }, [settings, saveTimeout]);
+    }, 2000);
 
-  // Reset complet
-  const resetToDefaults = useCallback(() => {
-    const defaults = getDefaultSettings();
-    localStorage.setItem('takataka_settings', JSON.stringify(defaults));
-    setSettings(defaults);
-    setHasChanges(false);
-    
-    // Annuler tout timeout en cours
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
-    }
+    setSaveTimeout(timeoutId);
   }, [saveTimeout]);
 
-  // Export/Import
+  const updateNestedSetting = useCallback((category, key, subKey, value) => {
+    updateSetting(`${category}.${key}.${subKey}`, value);
+  }, [updateSetting]);
+
+  const batchUpdate = useCallback((updates) => {
+    setSettings(prev => {
+      let current = { ...prev };
+      updates.forEach(({ path, value }) => {
+        current = setDeep(current, path, value);
+      });
+
+      if (current.metadata) {
+        current.metadata = {
+          ...current.metadata,
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      return current;
+    });
+
+    setHasChanges(true);
+    if (saveTimeout) clearTimeout(saveTimeout);
+
+    const timeoutId = setTimeout(() => {
+      setSettings(current => {
+        localStorage.setItem('takataka_settings', JSON.stringify(current));
+        return current;
+      });
+    }, 2000);
+
+    setSaveTimeout(timeoutId);
+  }, [saveTimeout]);
+
+  const resetToDefaults = useCallback(() => {
+    const defaults = getDefaultSettings();
+    setSettings(defaults);
+    setHasChanges(true);
+    localStorage.setItem('takataka_settings', JSON.stringify(defaults));
+
+    if (saveTimeout) clearTimeout(saveTimeout);
+  }, [saveTimeout]);
+
   const exportSettings = useCallback(() => {
     const dataStr = JSON.stringify(settings, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -349,25 +387,9 @@ export const useSettings = (initialSettings = {}) => {
       reader.onload = (e) => {
         try {
           const imported = JSON.parse(e.target.result);
-          if (!imported.platform || !imported.services) {
-            throw new Error('Format de fichier invalide');
-          }
-          
-          setSettings({
-            ...imported,
-            metadata: {
-              ...imported.metadata,
-              updatedAt: new Date().toISOString()
-            }
-          });
-          localStorage.setItem('takataka_settings', JSON.stringify(imported));
-          setHasChanges(false);
-          
-          // Annuler tout timeout en cours
-          if (saveTimeout) {
-            clearTimeout(saveTimeout);
-          }
-          
+          setSettings(prev => deepMerge(prev, imported));
+          setHasChanges(true);
+          if (saveTimeout) clearTimeout(saveTimeout);
           resolve();
         } catch (error) {
           reject(new Error('Fichier JSON invalide'));
@@ -377,34 +399,26 @@ export const useSettings = (initialSettings = {}) => {
     });
   }, [saveTimeout]);
 
-  // Sauvegarde manuelle (bouton "Sauvegarder")
   const saveToBackend = async () => {
     setIsLoading(true);
     try {
-      // Sauvegarder immédiatement dans localStorage
-      localStorage.setItem('takataka_settings', JSON.stringify(settings));
-      
-      // Simuler un appel API (1 seconde)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Marquer comme sauvegardé
-      setHasChanges(false);
-      
-      // Annuler tout timeout en cours
-      if (saveTimeout) {
-        clearTimeout(saveTimeout);
+      const response = await adminService.updateParametres(settings);
+
+      if (response.data.success) {
+        localStorage.setItem('takataka_settings', JSON.stringify(settings));
+        setHasChanges(false);
+        if (saveTimeout) clearTimeout(saveTimeout);
+        return true;
       }
-      
-      return true;
+      return false;
     } catch (error) {
-      console.error('Erreur API:', error);
+      console.error('Erreur API lors de la sauvegarde:', error);
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Nettoyer le timeout lors du démontage
   useEffect(() => {
     return () => {
       if (saveTimeout) {

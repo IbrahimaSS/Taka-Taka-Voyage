@@ -33,6 +33,7 @@ import { leafletIcons } from '../../maps/leafletIcons';
 import { adminService } from '../../../services/adminService';
 import { socketService } from '../../../services/socketService';
 import { GeolocationService } from '../../../services/geolocation';
+import ExportDropdown from '../ui/ExportDropdown';
 
 // TODO API (admin/trajets):
 // Remplacer les donnees simulees et les actions locales par des appels backend
@@ -65,6 +66,19 @@ const Trips = ({ showToast }) => {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [loading, setLoading] = useState(true);
   const [apiStats, setApiStats] = useState(null);
+
+  // Configuration des colonnes pour l'exportation
+  const exportColumns = useMemo(() => [
+    { header: 'ID Trajet', accessor: 'id' },
+    { header: 'Date', accessor: 'date' },
+    { header: 'Passager', accessor: (t) => t.passenger.name },
+    { header: 'Chauffeur', accessor: (t) => t.driver.name },
+    { header: 'Itinéraire', accessor: 'route' },
+    { header: 'Distance', accessor: 'distance' },
+    { header: 'Durée', accessor: 'duration' },
+    { header: 'Montant', accessor: 'amount' },
+    { header: 'Statut', accessor: 'status' },
+  ], []);
 
   const exportMenuRef = useRef(null);
 
@@ -1201,59 +1215,13 @@ const Trips = ({ showToast }) => {
             >
               Filtres
             </Button>
-            <div className="relative" ref={exportMenuRef}>
-              <Button
-                variant="outline"
-                icon={Download}
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                className='text-sm'
-              >
-                Exporter
-
-              </Button>
-
-              <AnimatePresence>
-                {showExportMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                    className="absolute right-0 mt-2 w-56 bg-white  rounded-xl shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-900/40 z-50 overflow-hidden"
-                  >
-                    <div className="p-2">
-                      <button
-                        onClick={() => handleExport('pdf')}
-                        className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 dark:bg-gray-800 transition-colors"
-                      >
-                        <FileText className="w-4 h-4 mr-3 text-red-500" />
-                        Export PDF
-                      </button>
-                      <button
-                        onClick={() => handleExport('excel')}
-                        className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 dark:bg-gray-800 transition-colors"
-                      >
-                        <FileSpreadsheet className="w-4 h-4 mr-3 text-green-500" />
-                        Export Excel
-                      </button>
-                      <button
-                        onClick={() => handleExport('csv')}
-                        className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 dark:bg-gray-800 transition-colors"
-                      >
-                        <Database className="w-4 h-4 mr-3 text-blue-500" />
-                        Export CSV
-                      </button>
-                      <button
-                        onClick={() => handleExport('json')}
-                        className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 dark:bg-gray-800 transition-colors"
-                      >
-                        <FilePieChart className="w-4 h-4 mr-3 text-purple-500" />
-                        Export JSON
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <ExportDropdown
+              data={selectedTrips.length > 0 ? tripsData.filter(t => selectedTrips.includes(t.id)) : filteredTrips}
+              columns={exportColumns}
+              fileName="trajets_taka_taka"
+              title="Historique des Trajets - Taka Taka"
+              showToast={(title, msg, type) => showToast(title, msg, type)}
+            />
           </div>
         </div>
 

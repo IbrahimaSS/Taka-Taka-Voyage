@@ -1,856 +1,932 @@
-# 📋 ÉTUDE COMPLÈTE DU PROJET — TAKA TAKA VOYAGE
+# 📋 ÉTUDE COMPLÈTE DU PROJET — TAKA-TAKA-VOYAGE
 
-> **Date de l'étude** : 21 février 2026  
-> **Version analysée** : 1.0.0  
-> **Rédacteur** : Analyse automatisée
+> **Date de l'étude** : 21 Février 2026  
+> **Version** : 1.0.0  
+> **Auteur** : Antigravity AI  
 
 ---
 
 ## 📑 TABLE DES MATIÈRES
 
-1. [Présentation générale](#1-présentation-générale)
-2. [Architecture technique](#2-architecture-technique)
-3. [Modèle de données (MongoDB)](#3-modèle-de-données-mongodb)
-4. [Backend — API REST & Socket.IO](#4-backend--api-rest--socketio)
-5. [Frontend — Application React (Vite)](#5-frontend--application-react-vite)
-6. [Fonctionnalités par rôle](#6-fonctionnalités-par-rôle)
-7. [Flux métier principaux](#7-flux-métier-principaux)
-8. [Sécurité & Authentification](#8-sécurité--authentification)
-9. [Services externes & Intégrations](#9-services-externes--intégrations)
-10. [Points forts du projet](#10-points-forts-du-projet)
-11. [Axes d'amélioration & Recommandations](#11-axes-damélioration--recommandations)
-12. [Synthèse finale](#12-synthèse-finale)
+1. [Présentation Générale](#1-présentation-générale)
+2. [Architecture Technique](#2-architecture-technique)
+3. [Stack Technologique](#3-stack-technologique)
+4. [Modèles de Données (Backend)](#4-modèles-de-données)
+5. [APIs & Routes Backend](#5-apis--routes-backend)
+6. [Fonctionnalités par Rôle](#6-fonctionnalités-par-rôle)
+7. [Système Temps Réel (Socket.IO)](#7-système-temps-réel)
+8. [Structure Frontend](#8-structure-frontend)
+9. [Sécurité & Authentification](#9-sécurité--authentification)
+10. [Statistiques du Projet](#10-statistiques-du-projet)
+11. [Points Forts](#11-points-forts)
+12. [Points d'Amélioration & Recommandations](#12-points-damélioration--recommandations)
+13. [Feuille de Route Proposée](#13-feuille-de-route-proposée)
 
 ---
 
 ## 1. PRÉSENTATION GÉNÉRALE
 
-### 🎯 Objectif du projet
-**Taka Taka Voyage** est une **plateforme de transport/VTC** destinée au marché guinéen 🇬🇳. Elle connecte des **passagers** cherchant un transport avec des **chauffeurs** disponibles, le tout supervisé par un **panneau d'administration** complet.
+### 🎯 Qu'est-ce que Taka-Taka-Voyage ?
 
-### 🏗️ Type d'application
-- **Application Web Full-Stack** (pas d'application mobile native)
-- **3 interfaces utilisateur** : Passager, Chauffeur, Administrateur
-- **Communication temps réel** via Socket.IO pour le suivi GPS, les notifications, et l'attribution de courses
+**Taka-Taka-Voyage** est une **plateforme de VTC (Véhicule de Transport avec Chauffeur)** conçue pour le marché **guinéen** (Conakry, Guinée). Elle connecte des **passagers** à des **chauffeurs** pour des courses de transport urbain, similaire à Uber/Bolt mais adaptée au contexte local.
 
-### 👥 Acteurs du système
+### 🌍 Marché Cible
+- **Pays** : Guinée (code `GN`)
+- **Devise** : Franc Guinéen (GNF)
+- **Fuseau horaire** : `Africa/Conakry`
+- **Langue** : Français
+
+### 👥 Les 3 Rôles Utilisateurs
 | Rôle | Description |
 |------|-------------|
-| **PASSAGER** | Réserve des courses (immédiates ou planifiées), paie, évalue les chauffeurs |
-| **CHAUFFEUR** | Reçoit et accepte des courses, effectue le transport, gère ses revenus |
-| **ADMIN** | Supervise la plateforme : validation chauffeurs, litiges, paiements, rapports |
+| 🧑‍💼 **Admin** | Supervise la plateforme, valide les chauffeurs, gère les paiements, litiges et rapports |
+| 🚗 **Chauffeur** | Conduit les passagers, gère ses courses, sa disponibilité et ses revenus |
+| 🧑 **Passager** | Réserve des courses, paie, évalue les chauffeurs |
+
+### 🚗 Types de Véhicules
+| Type | Prix de base | Prix/km | Prix/min | Min. |
+|------|-------------|---------|----------|------|
+| 🏍️ Moto-taxi | 5 000 GNF | 1 500 GNF | 300 GNF | 5 000 GNF |
+| 🚕 Taxi partagé | 10 000 GNF | 2 000 GNF | 400 GNF | 10 000 GNF |
+| 🚘 Voiture privée | 15 000 GNF | 2 500 GNF | 500 GNF | 15 000 GNF |
+| 📦 Livraison | 3 000 GNF | 1 000 GNF | 200 GNF | 3 000 GNF *(désactivée)* |
 
 ---
 
 ## 2. ARCHITECTURE TECHNIQUE
 
-### 📐 Architecture globale
+### 🏗️ Architecture Globale
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    FRONTEND (Vite + React 18)                │
-│  Port: 5173  │  TailwindCSS  │  Zustand  │  Socket.IO-Client│
-└──────────────────────┬──────────────────────────────────────┘
-                       │  HTTP REST + WebSocket
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  BACKEND (Express 5 + Node.js)               │
-│  Port: 5000  │  JWT Auth  │  Helmet  │  Morgan  │  CORS     │
-│                       Socket.IO Server                       │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│               BASE DE DONNÉES (MongoDB Atlas)                │
-│              Cluster: TakaTakaCluster                        │
-│              Base: takataka                                   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    FRONTEND WEB                          │
+│              (React + Vite + TailwindCSS)                │
+│   ┌──────────┐  ┌──────────┐  ┌──────────────────┐     │
+│   │ Passager │  │ Chauffeur│  │      Admin       │     │
+│   │   App    │  │   App    │  │      App         │     │
+│   └────┬─────┘  └────┬─────┘  └────────┬─────────┘     │
+│        │              │                 │                │
+│   ┌────┴──────────────┴─────────────────┴──────────┐    │
+│   │        Services (API + Socket.IO Client)        │    │
+│   └────────────────────┬────────────────────────────┘    │
+└────────────────────────┼────────────────────────────────┘
+                         │ HTTP REST + WebSocket
+┌────────────────────────┼────────────────────────────────┐
+│                  BACKEND NODE.JS                         │
+│   ┌────────────────────┴───────────────────────────┐    │
+│   │         Express.js (API REST)                   │    │
+│   │    + Socket.IO Server (Temps Réel)              │    │
+│   └────┬──────────────┬────────────────────────────┘    │
+│        │              │                                  │
+│   ┌────┴─────┐   ┌────┴─────────────────┐              │
+│   │ Routes   │   │ Middlewares          │              │
+│   │ Admin    │   │ - Auth (JWT)         │              │
+│   │ Passager │   │ - Role Check         │              │
+│   │ Chauffeur│   │ - Upload (Multer)    │              │
+│   └────┬─────┘   └──────────────────────┘              │
+│        │                                                │
+│   ┌────┴─────────────────────────────────────┐         │
+│   │           Controllers (Logique Métier)    │         │
+│   └────┬─────────────────────────────────────┘         │
+│        │                                                │
+│   ┌────┴─────────────────────────────────────┐         │
+│   │           Models (Mongoose/MongoDB)       │         │
+│   └────┬─────────────────────────────────────┘         │
+└────────┼────────────────────────────────────────────────┘
+         │
+┌────────┼────────────────────────────────────────────────┐
+│   ┌────┴─────┐                                          │
+│   │ MongoDB  │  Base de Données NoSQL                   │
+│   └──────────┘                                          │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### 🔧 Stack technique détaillée
-
-#### Backend (`BackendGénéral/`)
-| Technologie | Version | Rôle |
-|-------------|---------|------|
-| **Express** | 5.2.1 | Framework HTTP |
-| **Mongoose** | 9.1.0 | ODM MongoDB |
-| **Socket.IO** | 4.8.3 | WebSocket temps réel |
-| **JWT (jsonwebtoken)** | 9.0.3 | Authentification |
-| **Bcrypt/Bcryptjs** | 6.0/3.0 | Hachage mots de passe |
-| **Helmet** | 8.1.0 | Sécurisation headers HTTP |
-| **Multer** | 2.0.2 | Upload de fichiers |
-| **Morgan** | 1.10.1 | Logging HTTP |
-| **Axios** | 1.13.2 | Appels API externes (OSRM, Nominatim) |
-| **express-validator** | 7.3.1 | Validation des données |
-| **Nodemon** | 3.1.11 | Hot reload développement |
-
-#### Frontend (`FrontendWeb/`)
-| Technologie | Version | Rôle |
-|-------------|---------|------|
-| **React** | 18.3.1 | UI library |
-| **Vite** | 5.0.4 | Bundler/Dev server |
-| **TailwindCSS** | 3.4.7 | CSS utilitaire |
-| **React Router** | 6.30.2 | Routing SPA |
-| **Zustand** | 5.0.0 | State management |
-| **Socket.IO Client** | 4.8.3 | Temps réel côté client |
-| **Leaflet / React-Leaflet** | 1.9.4 / 4.2.1 | Cartographie (OpenStreetMap) |
-| **Chart.js + Recharts** | 4.5.1 / 3.5.1 | Graphiques/statistiques |
-| **Framer Motion** | 12.23.26 | Animations |
-| **React Hook Form + Zod** | 7.66 / 4.1 | Formulaires + validation |
-| **jsPDF** | 4.0.0 | Génération factures PDF |
-| **Lucide React** | 0.554.0 | Icônes |
-| **date-fns** | 4.1.0 | Manipulation des dates |
-| **react-hot-toast** | 2.6.0 | Notifications toast |
-
-### 📁 Structure du projet
+### 📁 Structure des Dossiers
 
 ```
 Taka-Taka-Voyage/
-├── BackendGénéral/
-│   ├── .env                          # Variables d'environnement
-│   ├── package.json
-│   ├── uploads/                      # Fichiers uploadés (documents, photos)
-│   └── src/
-│       ├── server.js                 # Point d'entrée (HTTP + Socket.IO)
-│       ├── app.js                    # Configuration Express + montage routes
-│       ├── socket.js                 # Logique Socket.IO (995 lignes) ⭐
-│       ├── config/
-│       │   └── baseDeDonnees.js      # Connexion MongoDB Atlas
-│       ├── models/ (17 modèles)      # Schémas Mongoose
-│       ├── controllers/
-│       │   ├── admin/ (13 fichiers)
-│       │   ├── passager/ (15 fichiers)
-│       │   └── chauffeur/ (6 fichiers)
-│       ├── routes/
-│       │   ├── admin/ (13 fichiers)
-│       │   ├── passager/ (15 fichiers)
-│       │   ├── chauffeur/ (5 fichiers)
-│       │   ├── common/
-│       │   └── compte/
-│       ├── middlewares/ (7 fichiers)
-│       ├── services/ (7 fichiers)
-│       ├── validators/ (3 fichiers)
-│       ├── utils/ (2 fichiers)
-│       └── scripts/ (2 fichiers)
+├── 📂 BackendGénéral/
+│   ├── 📂 src/
+│   │   ├── app.js                    # Configuration Express
+│   │   ├── server.js                 # Point d'entrée serveur
+│   │   ├── socket.js                 # Logique Socket.IO (995 lignes)
+│   │   ├── 📂 config/               # Configuration DB
+│   │   ├── 📂 controllers/          # Logique métier
+│   │   │   ├── 📂 admin/            # 14 controllers admin
+│   │   │   ├── 📂 chauffeur/        # 6 controllers chauffeur
+│   │   │   ├── 📂 passager/         # 15 controllers passager
+│   │   │   └── 📂 compte/           # Gestion des comptes
+│   │   ├── 📂 middlewares/           # 7 middlewares
+│   │   ├── 📂 models/               # 18 modèles MongoDB
+│   │   ├── 📂 routes/               # Routes API
+│   │   ├── 📂 services/             # 7 services utilitaires
+│   │   ├── 📂 utils/                # Utilitaires
+│   │   └── 📂 validators/           # Validation des données
+│   └── 📂 uploads/                  # Documents uploadés
 │
-├── FrontendWeb/
-│   ├── package.json
-│   ├── vite.config.mjs
-│   ├── tailwind.config.js
-│   ├── index.html
-│   └── src/
-│       ├── App.jsx                   # Routeur principal
-│       ├── main.jsx                  # Point d'entrée React
-│       ├── pages/ (7 pages)
-│       │   ├── AdminApp.jsx
-│       │   ├── ChauffeurApp.jsx
-│       │   ├── Passager.jsx
-│       │   ├── Connexion.jsx
-│       │   ├── Inscription.jsx
-│       │   ├── HomePage.jsx
-│       │   └── NotFound.jsx
-│       ├── components/
-│       │   ├── admin/ (50+ composants)
-│       │   ├── passager/ (17 composants)
-│       │   ├── chauffeur/ (12 composants)
-│       │   ├── home/
-│       │   ├── maps/
-│       │   ├── notifications/
-│       │   ├── suivisTrajet/
-│       │   └── shared/
-│       ├── context/ (6 contextes)
-│       ├── services/ (18 services)
-│       ├── hooks/ (10 hooks)
-│       ├── ui/ (8 composants UI)
-│       ├── data/
-│       └── utils/
+├── 📂 FrontendWeb/
+│   ├── 📂 src/
+│   │   ├── App.jsx                   # Routage principal
+│   │   ├── main.jsx                  # Point d'entrée React
+│   │   ├── 📂 components/           # 105+ composants React
+│   │   │   ├── 📂 admin/            # 51 composants admin
+│   │   │   ├── 📂 chauffeur/        # 12 composants chauffeur
+│   │   │   ├── 📂 passager/         # 17 composants passager
+│   │   │   ├── 📂 home/             # 7 composants landing page
+│   │   │   ├── 📂 maps/             # 4 composants cartographie
+│   │   │   ├── 📂 notifications/    # 5 composants notifications
+│   │   │   ├── 📂 suivisTrajet/     # 3 composants suivi temps réel
+│   │   │   └── 📂 shared/           # Composants partagés
+│   │   ├── 📂 context/              # 7 contextes React
+│   │   ├── 📂 hooks/                # 10 custom hooks
+│   │   ├── 📂 pages/                # 7 pages principales
+│   │   ├── 📂 services/             # 18 services API
+│   │   ├── 📂 ui/                   # 8 composants UI réutilisables
+│   │   └── 📂 utils/                # Utilitaires
+│   └── 📄 vite.config.mjs
 │
-└── README.md
+└── 📄 README.md
 ```
 
 ---
 
-## 3. MODÈLE DE DONNÉES (MongoDB)
+## 3. STACK TECHNOLOGIQUE
 
-### 📊 Schéma des collections (17 modèles)
+### 🔧 Backend
 
-#### 👤 `Utilisateurs` — Collection principale
+| Technologie | Usage | Version |
+|-------------|-------|---------|
+| **Node.js** | Runtime JavaScript serveur | — |
+| **Express.js** | Framework HTTP REST | v5.2.1 |
+| **MongoDB** | Base de données NoSQL | — |
+| **Mongoose** | ODM pour MongoDB | v9.1.0 |
+| **Socket.IO** | Communication temps réel (WebSocket) | v4.8.3 |
+| **JWT** | Authentification par tokens | v9.0.3 |
+| **bcrypt / bcryptjs** | Hashage des mots de passe | v6.0.0 / v3.0.3 |
+| **Multer** | Upload de fichiers (photos, docs) | v2.0.2 |
+| **Helmet** | Sécurité HTTP headers | v8.1.0 |
+| **CORS** | Gestion Cross-Origin | v2.8.5 |
+| **Morgan** | Logging HTTP | v1.10.1 |
+| **Express-Validator** | Validation côté serveur | v7.3.1 |
+| **Axios** | Requêtes HTTP sortantes | v1.13.2 |
+| **dotenv** | Variables d'environnement | v17.2.3 |
+
+### 🎨 Frontend
+
+| Technologie | Usage | Version |
+|-------------|-------|---------|
+| **React** | Library UI | v18.3.1 |
+| **Vite** | Build tool & dev server | v5.0.4 |
+| **TailwindCSS** | Framework CSS utility-first | v3.4.7 |
+| **React Router DOM** | Routage SPA | v6.30.2 |
+| **Socket.IO Client** | WebSocket côté client | v4.8.3 |
+| **Zustand** | State management léger | v5.0.0 |
+| **Framer Motion** | Animations React | v12.23.26 |
+| **Leaflet / React-Leaflet** | Cartographie (OpenStreetMap) | v1.9.4 / v4.2.1 |
+| **Chart.js / Recharts** | Graphiques & visualisations | v4.5.1 / v3.5.1 |
+| **React Hook Form + Zod** | Formulaires & validation | v7.66.1 / v4.1.12 |
+| **Lucide React** | Bibliothèque d'icônes | v0.554.0 |
+| **jsPDF** | Génération de factures PDF | v4.0.0 |
+| **date-fns** | Manipulation des dates | v4.1.0 |
+| **react-hot-toast** | Notifications toast | v2.6.0 |
+| **canvas-confetti** | Effets visuels confetti | v1.9.4 |
+| **AOS** | Animations au scroll | v2.3.4 |
+
+---
+
+## 4. MODÈLES DE DONNÉES
+
+### 📊 Diagramme des Modèles (18 collections MongoDB)
+
+```
+┌──────────────────┐       ┌───────────────────┐
+│   Utilisateurs   │◄──────│ ChauffeurProfile  │
+│ (tous les users) │ 1:1   │ (profil étendu    │
+│                  │       │  pour chauffeurs)  │
+└────────┬─────────┘       └───────────────────┘
+         │
+    ┌────┼────────────────────────┐
+    │    │                        │
+    ▼    ▼                        ▼
+┌────────────┐  ┌──────────┐  ┌───────────┐
+│Reservations│  │Paiements │  │Evaluations│
+│(courses)   │  │          │  │(notes)    │
+└─────┬──────┘  └──────────┘  └───────────┘
+      │
+      ├──► Trajets (suivi actif)
+      ├──► Litiges (réclamations)
+      └──► Notifications
+
+Autres modèles :
+├── Documents (pièces conducteur)
+├── InscriptionsTemporaire (OTP/inscriptions en cours)
+├── Otp (codes de vérification)
+├── Faq (questions fréquentes)
+├── Supports (tickets support)
+├── Personnels (admin team)
+├── ParametresPlateforme (config globale)
+├── ParametresUtilisateur (préférences user)
+├── Preferences (préférences passager)
+└── Rapports (rapports générés)
+```
+
+### 📝 Détail des Modèles Principaux
+
+#### 👤 Utilisateurs
 | Champ | Type | Description |
 |-------|------|-------------|
 | `nom`, `prenom` | String | Identité |
-| `telephone` | String (unique) | Numéro de téléphone |
-| `email` | String (unique) | Email |
-| `motDePasse` | String | Mot de passe haché |
-| `role` | Enum | `PASSAGER`, `CHAUFFEUR`, `ADMIN` |
+| `telephone` | String | Unique, requis |
+| `email` | String | Unique, requis |
+| `motDePasse` | String | Hashé (bcrypt) |
+| `role` | Enum | `PASSAGER`, `CHAUFFEUR`, `ADMIN`, `SUPERVISEUR`, `AGENT`, `ANALYSTE` |
 | `genre` | Enum | `MASCULIN`, `FEMININ` |
 | `statut` | Enum | `ACTIF`, `INACTIF`, `SUSPENDU` |
-| `photoUrl` | String | Photo de profil |
-| `badges` | [String] | Badges de gamification |
-| `nombreTrajets` | Number | Compteur de trajets |
-| **Champs chauffeur uniquement** | | |
-| `estEnLigne` | Boolean | En ligne ou non |
-| `socketId` | String | ID socket courant |
-| `position` | {lat, lng} | Position GPS |
-| `vehicule` | Object | type, marque, modèle, immatriculation, couleur, places |
-| `trajetEnCours` | Boolean | Course en cours |
-| `noteMoyenne` | Number | Note moyenne (défaut: 5) |
-| `nombreEvaluations` | Number | Nombre d'évaluations reçues |
+| `photoUrl` | String | URL photo de profil |
+| `badges` | [String] | Badges gagnés |
+| `estEnLigne` | Boolean | Disponibilité chauffeur |
+| `position` | {lat, lng} | Géolocalisation en temps réel |
+| `vehicule` | Object | Type, marque, modèle, immatriculation, couleur, places |
+| `noteMoyenne` | Number | Note moyenne (chauffeur) |
 
-#### 🚗 `ChauffeurProfile` — Profil étendu du chauffeur
+#### 📋 Réservations (cœur du système)
 | Champ | Type | Description |
 |-------|------|-------------|
-| `utilisateur` | ObjectId → Utilisateurs | Lien vers l'utilisateur |
-| `statut` | Enum | `EN_ATTENTE`, `ACTIF`, `INACTIF`, `SUSPENDU` |
-| `disponibilite` | Enum | `EN_LIGNE`, `HORS_LIGNE`, `OCCUPE` |
-| `typeVehicule` | Enum | `MOTO`, `VOITURE`, `TAXI_PARTAGE` |
-| `marqueVehicule`, `modeleVehicule`, `plaque`, etc. | String | Infos véhicule |
-| `permisConduire`, `carteGrise`, `assurance`, etc. | String | Chemins documents |
-| `nombreTrajets`, `totalRevenus`, `noteMoyenne` | Number | Statistiques |
-| `tempsEnLigneCumule` | Number | Temps total en ligne (ms) |
-| `validePar`, `valideLe`, `motifRefus` | Mixed | Validation admin |
-
-#### 📋 `Reservations` — Cœur métier
-| Champ | Type | Description |
-|-------|------|-------------|
-| `passager`, `chauffeur` | ObjectId | Acteurs de la course |
+| `passager` | ObjectId → Utilisateurs | Qui commande |
+| `chauffeur` | ObjectId → Utilisateurs | Qui conduit |
 | `depart`, `destination` | String | Adresses textuelles |
 | `departCoords`, `destinationCoords` | GeoJSON Point | Coordonnées GPS |
-| `distanceKm`, `dureeMin` | Number | Estimation |
+| `distanceKm`, `dureeMin` | Number | Estimations |
 | `typeVehicule` | Enum | `MOTO`, `TAXI`, `VOITURE`, `BUS` |
-| `prix` | Number | Prix de la course |
+| `prix` | Number | Prix en GNF |
 | `statut` | Enum | `EN_ATTENTE` → `ACCEPTEE` → `ASSIGNEE` → `ARRIVEE` → `EN_COURS` → `TERMINEE` / `ANNULEE` |
 | `typeCourse` | Enum | `IMMEDIATE`, `PLANIFIEE` |
-| `datePlanifiee` | Date | Pour les courses planifiées |
-| `dateDebut`, `dateFin` | Date | Horodatage réel |
-| `paiement` | Object | Snapshot du statut de paiement |
-| `offresEnvoyees` | Array | Historique des offres aux chauffeurs |
-| `nbToursAttribution` | Number | Nombre de tours d'attribution |
+| `datePlanifiee` | Date | Pour courses planifiées |
+| `paiement.statut` | Enum | `EN_ATTENTE`, `PAYE`, `ECHEC` |
+| `paiement.methode` | Enum | `CASH`, `ORANGE_MONEY`, `MTN_MONEY` |
+| `offresEnvoyees` | Array | Système d'attribution aux chauffeurs |
 
-#### 🏁 `Trajets` — Trajets effectués
-Enregistrement simplifié d'un trajet terminé, lié à une `Reservation`.
-
-#### 💰 `Paiements` — Gestion financière
+#### 💰 Paiements
 | Champ | Type | Description |
 |-------|------|-------------|
-| `reservation` | ObjectId (unique) | 1 paiement par trajet |
+| `reservation` | ObjectId | Lien 1:1 vers la réservation |
 | `passager`, `chauffeur` | ObjectId | Acteurs |
-| `montantTotal` | Number | Prix total |
-| `commissionPlateforme` | Number | Commission Taka Taka |
+| `montantTotal` | Number | Prix total payé |
+| `commissionPlateforme` | Number | Part Taka-Taka |
 | `montantChauffeur` | Number | Part chauffeur |
 | `statut` | Enum | `EN_ATTENTE`, `PAYE`, `ANNULE` |
 | `methode` | Enum | `CASH`, `MTN_MONEY`, `ORANGE_MONEY` |
-| `verse`, `verseLe`, `versePar` | Mixed | Versement au chauffeur |
+| `verse` | Boolean | Argent versé au chauffeur ? |
+| `verseLe`, `versePar` | Date / ObjectId | Traçabilité du versement |
 
-#### ⭐ `Evaluations` — Notes passager → chauffeur
-Notes détaillées : `noteGlobale` (1-5) + `conduite`, `ponctualite`, `proprete`, `communication` + `ressenti` + `pointsForts` + `commentaire`.
+#### ⭐ Évaluations
+| Champ | Type | Description |
+|-------|------|-------------|
+| `noteGlobale` | Number (1-5) | Note principale |
+| `details` | Object | Conduite, ponctualité, propreté, communication (1-5 chacun) |
+| `ressenti` | Enum | `EXCELLENT`, `TRES_BIEN`, `CORRECT`, `MEDIOCRE` |
+| `pointsForts` | [Enum] | Labels positifs prédéfinis |
+| `commentaire` | String | Commentaire libre |
 
-#### ⚖️ `Litiges` — Réclamations
-Types : `PAIEMENT`, `COMPORTEMENT`, `TRAJET`, `ACCIDENT`, `AGRESSION`, `URGENCE_MEDICALE`, `DANGER`, `AUTRE`.
-
-#### 📄 `Documents` — Documents chauffeur
-Types : `PERMIS`, `ASSURANCE`, `CARTE_GRISE`, `IDENTITE`, `PHOTO_VEHICULE`.
-
-#### 🔔 `Notifications` — Système de notifications
-Messages avec statut lu/non lu.
-
-#### 👥 `Personnels` — Équipe administrative
-Rôles : `ADMIN`, `SUPERVISEUR`, `AGENT`, `ANALYSTE` avec permissions granulaires.
-
-#### 📊 `Rapports` — Rapports générés
-Types : `FINANCIER`, `UTILISATEURS`, `TRAJETS`, `PERFORMANCE`, `SECURITE`.
-
-#### 🎫 `Supports` — Tickets de support
-Canaux : `APP`, `CHAT`, `EMAIL`.
-
-#### ⚙️ `Preferences` & `ParametresUtilisateur` — Paramètres utilisateur
-Notifications, confidentialité, préférences de trajet, langue, méthode de paiement par défaut.
-
-#### 🔑 `Otp` — Codes de vérification
-OTP avec TTL automatique MongoDB, protection anti-brute-force (tentatives).
-
-#### 📝 `InscriptionTemporaire` — Inscriptions en cours
-Document temporaire durant le processus d'inscription (TTL auto-suppression).
-
-#### ❓ `Faq` — Foire aux questions
-Questions/réponses catégorisées et ordonnées.
+#### ⚠️ Litiges
+| Champ | Type | Description |
+|-------|------|-------------|
+| `reference` | String | Identifiant unique |
+| `type` | Enum | `PAIEMENT`, `COMPORTEMENT`, `TRAJET`, `ACCIDENT`, `AGRESSION`, `URGENCE_MEDICALE`, `DANGER`, `AUTRE` |
+| `description` | String | Description du problème |
+| `statut` | Enum | `OUVERT`, `EN_COURS`, `RESOLU`, `REJETER` |
 
 ---
 
-## 4. BACKEND — API REST & Socket.IO
+## 5. APIS & ROUTES BACKEND
 
-### 🛤️ Organisation des routes
+### 🔑 Authentication (`/api/auth`)
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/init-inscription` | Démarrer l'inscription (envoi OTP) |
+| POST | `/verifier-otp` | Vérifier le code OTP |
+| POST | `/finaliser-inscription` | Compléter l'inscription |
+| POST | `/connexion` | Se connecter |
+| GET | `/me` | Obtenir le profil connecté |
+| POST | `/logout` | Se déconnecter |
 
-#### Routes d'authentification (`/api/auth/`)
-| Endpoint | Description |
-|----------|-------------|
-| `POST /init-inscription` | Étape 1 : Envoi OTP par email (Brevo) |
-| `POST /verifier-otp` | Étape 2 : Vérification du code OTP |
-| `POST /finaliser-inscription` | Étape 3 : Création du compte final |
-| `POST /connexion` | Connexion (JWT cookie) |
-| `GET /me` | Vérification session courante |
-| `POST /logout` | Déconnexion |
+### 🧑 Passager (`/api/passager`, `/api/estimations`, `/api/paiements`)
+| Catégorie | Routes | Description |
+|-----------|--------|-------------|
+| **Estimations** | `/estimer-trajet` | Calculer le prix d'un trajet |
+| **Réservations Immédiates** | `/confirmer-immediate` | Commander une course maintenant |
+| **Réservations Planifiées** | `/planifier`, `/planning`, `/:id` | Planifier, lister, modifier, annuler |
+| **Trajets** | `/trajets`, `/trajets/:id` | Historique des trajets |
+| **Paiements** | `/payer`, `/stats`, `/paiements`, `/:id` | Payer, stats, historique |
+| **Profil** | `/profil`, `/preferences` | Gérer le profil |
+| **Mot de passe** | `/mot-de-passe` | Changer le mot de passe |
+| **Notifications** | `/notifications` | Liste des notifications |
+| **Évaluations** | `/passager`, `/passager/stats`, `/:id` | Noter, voir ses notes |
+| **Support** | `/support` | Contacter le support |
 
-#### Routes Admin (`/api/admin/`)
-| Module | Routes principales |
-|--------|-------------------|
-| **Dashboard** | Stats globales (utilisateurs, chauffeurs actifs, trajets, revenus) |
-| **Passagers** | CRUD, stats, changement statut |
-| **Chauffeurs** | Liste, détails, stats, changement statut |
-| **Validation chauffeurs** | Demandes en attente, valider/rejeter, historique |
-| **Documents** | Liste, stats, changement statut documents |
-| **Trajets** | Liste, détails, stats, carte |
-| **Paiements** | Stats, évolution, répartition, liste, détails |
-| **Commissions** | Stats, évolution, repartition, traitement paiements |
-| **Litiges** | Stats, liste, résoudre/rejeter, répartition par type |
-| **Rapports** | Génération, stats activité, répartition |
-| **Profil admin** | Get/update profil, activités, stats |
-| **Personnel** | Gestion équipe |
-| **Sécurité** | Changement mot de passe |
+### 🚗 Chauffeur (`/api/chauffeur`)
+| Catégorie | Routes | Description |
+|-----------|--------|-------------|
+| **Profil** | `/profile` | Gérer le profil chauffeur |
+| **Dashboard** | `/dashboard` | Statistiques du chauffeur |
+| **Historique** | `/historique-trajets` | Historique des courses |
+| **Revenus** | `/revenus` | Suivi des gains |
+| **Mes Courses** | `/disponibles`, `/mes-courses/ramassage`, `/:id/accepter`, `/:id/refuser` | Gérer les courses entrantes |
+| **Plannings** | `/plannings` | Courses planifiées assignées |
 
-#### Routes Passager (`/api/passager/` et associées)
-| Module | Routes principales |
-|--------|-------------------|
-| **Estimations** | Estimer un trajet (distance, durée, prix) |
-| **Réservation immédiate** | Confirmer une course instantanée |
-| **Réservation planifiée** | Planifier, modifier, annuler |
-| **Paiements** | Payer, historique, stats |
-| **Trajets** | Liste des trajets, détails |
-| **Profil** | Get/update profil, préférences |
-| **Évaluations** | Créer, historique, stats |
-| **Notifications** | Consulter notifications |
-| **Support** | Contacter le support |
-| **Mot de passe** | Changer mot de passe |
+### 🧑‍💼 Admin (`/api/admin`)
+| Catégorie | Nb Controllers | Fonctionnalités |
+|-----------|---------------|-----------------|
+| **Dashboard** | 1 | Stats globales (users, trips, revenus) |
+| **Passagers** | 1 | CRUD, stats, activation/suspension |
+| **Chauffeurs** | 1 | CRUD, stats, activation/suspension |
+| **Validation** | 1 | Valider/rejeter les demandes chauffeur |
+| **Documents** | 1 | Gérer les documents des chauffeurs |
+| **Trajets** | 1 | Liste, stats, détails, carte |
+| **Paiements** | 1 | Stats, évolution, répartition, liste |
+| **Commissions** | 1 | Stats, évolution, traiter paiements chauffeurs |
+| **Litiges** | 1 | Liste, résoudre, rejeter, stats |
+| **Rapports** | 1 | Générer des rapports d'activité |
+| **Profil** | 1 | Profil admin, stats, activités |
+| **Personnels** | 1 | CRUD des personnels admin |
+| **Paramètres** | 1 | Configuration de la plateforme |
+| **Sécurité** | 1 | Changement de mot de passe |
 
-#### Routes Chauffeur (`/api/chauffeur/`)
-| Module | Routes principales |
-|--------|-------------------|
-| **Profil** | Get/update profil, documents, véhicule |
-| **Dashboard** | Statistiques chauffeur |
-| **Historique** | Historique des trajets (avec pagination) |
-| **Revenus** | Suivi des revenus et versements |
-| **Mes courses** | Courses disponibles, accepter/refuser, ramassage |
-| **Plannings** | Plannings de courses |
-
-#### Routes communes (`/api/litiges/`)
-| Module | Routes principales |
-|--------|-------------------|
-| **Litiges** | Créer un litige (passager ou chauffeur) |
-
-### ⚡ Socket.IO — Événements temps réel (~995 lignes)
-
-Le fichier `socket.js` est le **cœur temps réel** du projet. Voici les événements principaux :
-
-#### Connexion & Présence
-| Événement | Direction | Description |
-|-----------|-----------|-------------|
-| `client:online` | Client → Serveur | Connexion utilisateur (rôle, userId) |
-| `chauffeur:disponibilite` | Client → Serveur | Mise en ligne/hors ligne du chauffeur |
-| `chauffeur:position` | Client → Serveur | Mise à jour position GPS |
-
-#### Attribution de course
-| Événement | Direction | Description |
-|-----------|-----------|-------------|
-| `nouvelle-reservation` | Serveur → Chauffeur | Nouvelle course proposée |
-| `chauffeur:accepter` | Chauffeur → Serveur | Acceptation d'une course |
-| `reservation-acceptee` | Serveur → Passager | Confirmation au passager |
-| `reservation-annulee` | Serveur → Client | Annulation |
-
-#### Suivi en temps réel
-| Événement | Direction | Description |
-|-----------|-----------|-------------|
-| `chauffeur:arrivee` | Chauffeur → Serveur | Le chauffeur est arrivé au point de départ |
-| `chauffeur-arrive` | Serveur → Passager | Notification d'arrivée |
-| `demarrer-trajet` | Chauffeur → Serveur | Début de la course |
-| `chauffeur:position-trajet` | Chauffeur → Serveur | Position pendant le trajet |
-| `position-update` | Serveur → Passager | MAJ position pour le suivi |
-| `trajet-progress` | Serveur → Client | Progression (%, distance, temps) |
-| `terminer-course` | Chauffeur → Serveur | Fin de la course |
-| `trajet-termine` | Serveur → Client | Course terminée |
-
-#### Paiement & Évaluation
-| Événement | Direction | Description |
-|-----------|-----------|-------------|
-| `paiement-confirme` | Client → Serveur | Confirmation paiement |
-| `paiement-status` | Serveur → Client | Statut de paiement |
-
-#### Mécanismes avancés
-- **Attribution séquentielle** : Les chauffeurs sont contactés un par un (du plus proche au plus éloigné)
-- **Expiration automatique** : Si un chauffeur ne répond pas dans le délai, passage au suivant
-- **Heartbeat GPS** : Envoi position toutes les 30s même si stationnaire
-- **Filtre distance** : Envoi position uniquement si mouvement > 10m
-- **Rappel J-1** : Rappel automatique pour les courses planifiées
-- **Tracking Maps** : `lastKnownPositions`, `courseChauffeur`, `socketToReservations`
-
----
-
-## 5. FRONTEND — APPLICATION REACT (Vite)
-
-### 🧭 Routing principal (`App.jsx`)
-
-```
-/                           → HomePage (publique)
-/connexion                  → Page de connexion
-/inscription                → Page d'inscription (multi-étapes avec OTP)
-/passager/*                 → Interface Passager (AuthGuard: PASSAGER)
-/chauffeur/*                → Interface Chauffeur (AuthGuard: CHAUFFEUR)
-/admin/*                    → Interface Admin (AuthGuard: ADMIN)
-/validation-en-attente      → Page d'attente validation chauffeur
-/validation-reussie         → Page validation approuvée
-*                           → Page 404
-```
-
-### 📱 Interface Passager (17 composants)
-| Composant | Lignes ~ | Description |
-|-----------|----------|-------------|
-| `BookingSection.jsx` | ~1000 | Réservation de course (formulaire complet) |
-| `Profile.jsx` | ~850 | Profil passager |
-| `TripsHistory.jsx` | ~800 | Historique des trajets |
-| `Planning.jsx` | ~700 | Courses planifiées |
-| `Paiement.jsx` | ~680 | Gestion des paiements |
-| `Support.jsx` | ~580 | Contact support |
-| `TripConfirmationModal.jsx` | ~550 | Confirmation de réservation |
-| `TripStatusModal.jsx` | ~520 | Suivi en temps réel |
-| `Settings.jsx` | ~480 | Paramètres |
-| `Evaluation.jsx` | ~390 | Historique évaluations |
-| `PaymentModal.jsx` | ~360 | Modal de paiement |
-| `PassengerNavbar.jsx` | ~350 | Navigation passager |
-| `EmergencyButton.jsx` | ~300 | Bouton d'urgence ⚠️ |
-| `SearchIndicator.jsx` | ~175 | Indicateur de recherche chauffeur |
-| `DriverDetailCard.jsx` | ~130 | Carte détail chauffeur |
-| `DriverEnRouteModal.jsx` | ~75 | Modal chauffeur en route |
-| `QuickStats.jsx` | ~85 | Stats rapides |
-
-### 🚗 Interface Chauffeur (12 composants)
-| Composant | Lignes ~ | Description |
-|-----------|----------|-------------|
-| `ChauffeurTracking.jsx` | ~820 | Suivi GPS du trajet |
-| `Revenues.jsx` | ~840 | Gestion revenus |
-| `TripNotificationToast.jsx` | ~810 | Toast notification de course |
-| `Trajets.jsx` | ~580 | Gestion des trajets |
-| `Planning.jsx` | ~480 | Plannings |
-| `HistoriqueTrajet.jsx` | ~430 | Historique avec pagination |
-| `Dashboard.jsx` | ~270 | Dashboard chauffeur |
-| `AvailabilityToggle.jsx` | ~140 | Bouton en ligne/hors ligne |
-
-### 🏢 Interface Admin (50+ composants, 11 sections)
-| Section | Taille ~ | Description |
-|---------|----------|-------------|
-| `Trajets.jsx` | 83 Ko | Gestion complète des trajets |
-| `Payments.jsx` | 69 Ko | Paiements et versements |
-| `Commissions.jsx` | 53 Ko | Commissions plateforme |
-| `Reports.jsx` | 51 Ko | Rapports et analyses |
-| `Litiges.jsx` | 44 Ko | Gestion litiges |
-| `Documents.jsx` | 37 Ko | Validation documents |
-| `Validations.jsx` | 36 Ko | Validation des chauffeurs |
-| `Chauffeurs.jsx` | 35 Ko | Gestion chauffeurs |
-| `Passagers.jsx` | 26 Ko | Gestion passagers |
-| `Settings.jsx` | 22 Ko | Paramètres admin |
-| `Dashboard.jsx` | 18 Ko | Dashboard avec stats |
-
-### 🎨 Design System
-- **UI Components** : Badge, Buttons, Card, FeatureCard, Input, Modal, StatusToggle, ThemeToggle
-- **Thème** : Mode sombre/clair (ThemeContext)
-- **Animations** : Framer Motion pour transitions fluides
-- **Icônes** : Lucide React
-- **Toasts** : React Hot Toast
-
-### 🔄 State Management
-| Contexte | Description |
-|----------|-------------|
-| `AuthContext` | Authentification, session utilisateur |
-| `PassengerContext` | État global du passager (course en cours, etc.) |
-| `DriverContext` | État global du chauffeur (disponibilité, courses) |
-| `AppContext` | État global de l'application |
-| `NotificationContext` | Gestion des notifications |
-| `ThemeContext` | Thème sombre/clair |
-
-### 🪝 Custom Hooks (10)
-| Hook | Description |
-|------|-------------|
-| `useCharts` | Configuration et données Chart.js |
-| `useDriver` | Logique chauffeur |
-| `usePassager` | Logique passager |
-| `useGeolocation` | GPS du navigateur |
-| `useImageUpload` | Upload d'images |
-| `useNotificationActions` | Actions sur notifications |
-| `useNotificationsAudio` | Sons de notification |
-| `useSettings` | Paramètres utilisateur |
-| `useTrips` | Gestion des trajets |
-| `useDebounce` | Debounce pour recherche |
+### 🔄 Routes Communes (`/api/litiges`)
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/litiges` | Créer un litige (passager/chauffeur) |
 
 ---
 
 ## 6. FONCTIONNALITÉS PAR RÔLE
 
-### 🟢 PASSAGER — Fonctionnalités complètes
+### 🧑 PASSAGER — Fonctionnalités Complètes
 
-#### Réservation de course
-- ✅ **Course immédiate** : Recherche d'adresse → Estimation (distance, durée, prix) → Choix véhicule → Choix paiement → Confirmation
-- ✅ **Course planifiée** : Même processus + sélection date/heure → Rappel J-1 automatique
-- ✅ **Estimation tarifaire** : Calcul via OSRM (Open Source Routing Machine)
-- ✅ **Choix du type de véhicule** : MOTO, TAXI, VOITURE, BUS
+#### 🟢 Implémentées et Fonctionnelles
+1. **📝 Inscription & Connexion**
+   - Inscription en 3 étapes (infos → OTP → finalisation)
+   - Connexion par email + mot de passe
+   - JWT pour maintien de session
 
-#### Suivi en temps réel
-- ✅ **Recherche de chauffeur** : Indicateur animé + compteur
-- ✅ **Chauffeur en route** : Carte Leaflet avec position en temps réel
-- ✅ **Suivi du trajet** : Barre de progression (%, distance restante, temps estimé)
-- ✅ **Notification d'arrivée** : Alert quand le chauffeur arrive au point de départ
+2. **🗺️ Réservation de Course Immédiate**
+   - Saisie du départ et de la destination
+   - Estimation du prix (distance, durée, type véhicule)
+   - Choix du type de véhicule (Moto, Taxi, Voiture)
+   - Choix du mode de paiement (Cash, Orange Money, MTN Money)
+   - Confirmation et envoi aux chauffeurs
 
-#### Paiement
-- ✅ **3 méthodes** : Cash, Orange Money, MTN Money
-- ✅ **Paiement anticipé** : Avant la course
-- ✅ **Paiement post-course** : Après la course (cash ou mobile money)
-- ✅ **Historique des paiements** : Liste + détails + facture PDF
-- ✅ **Génération facture PDF** : Via jsPDF
+3. **📅 Réservation Planifiée**
+   - Planifier une course à l'avance (date + heure)
+   - Modifier / Annuler une réservation planifiée
+   - Vue calendrier des plannings
+   - Rappels J-1 automatiques
+   - Statistiques de planning
 
-#### Évaluation
-- ✅ **Note globale** : 1 à 5 étoiles
-- ✅ **Notes détaillées** : Conduite, ponctualité, propreté, communication
-- ✅ **Ressenti** : Excellent, Très bien, Correct, Médiocre
-- ✅ **Points forts** : Tags prédéfinis (conduite fluide, véhicule propre, etc.)
-- ✅ **Commentaire libre**
+4. **📍 Suivi en Temps Réel**
+   - Carte Leaflet avec position du chauffeur en temps réel
+   - Barre de progression du trajet
+   - Estimations de temps d'arrivée (ETA) dynamiques
+   - Notification quand le chauffeur arrive
+   - Heartbeat pour détecter les déconnexions
 
-#### Profil & Paramètres
-- ✅ **Profil complet** : Nom, email, téléphone, photo, genre
-- ✅ **Préférences** : Véhicule favori, langue, paiement par défaut
-- ✅ **Notifications** : Trajet, promotions, SMS
-- ✅ **Confidentialité** : Profil public, partage position, historique anonyme
-- ✅ **Changement mot de passe**
+5. **💳 Paiement**
+   - Paiement en avance ou après la course
+   - Confirmation du paiement par le chauffeur (cash)
+   - Historique des paiements avec filtres
+   - Statistiques financières personnelles
+   - Téléchargement de factures PDF
 
-#### Support & Signalement
-- ✅ **Support client** : Formulaire avec sujet, message, pièces jointes
-- ✅ **Bouton d'urgence** : Signalement immédiat (accident, agression, danger)
-- ✅ **Litiges** : Création depuis l'historique
+6. **⭐ Évaluations**
+   - Noter le chauffeur (1 à 5 étoiles)
+   - Évaluation détaillée (conduite, ponctualité, propreté, communication)
+   - Ressenti global + Points forts prédéfinis
+   - Commentaire libre
+   - Historique de ses évaluations
 
-### 🔵 CHAUFFEUR — Fonctionnalités complètes
+7. **📜 Historique des Trajets**
+   - Liste paginée avec filtres
+   - Détail complet d'une course
+   - Trajets terminés et annulés
 
-#### Disponibilité & Courses
-- ✅ **Toggle en ligne/hors ligne** : Avec mise à jour Socket.IO
-- ✅ **Réception de courses** : Toast notification avec détails complets
-- ✅ **Acceptation/Refus** : Avec compteur de temps
-- ✅ **Courses proches** : Affichage des courses dans un rayon de 5-8 km
+8. **🔔 Notifications**
+   - Centre de notifications in-app
+   - Notifications push pour les événements clés
+   - Sons audio personnalisés
 
-#### Suivi de course
-- ✅ **Navigation vers le passager** : Carte avec itinéraire
-- ✅ **Signal d'arrivée** : Notification au passager
-- ✅ **Démarrage du trajet** : Activation du suivi GPS
-- ✅ **Suivi GPS temps réel** : Position envoyée avec filtre distance (10m) + heartbeat (30s)
-- ✅ **Fin de course** : Calcul final et notification
+9. **👤 Profil & Paramètres**
+   - Modifier son profil (nom, photo, téléphone)
+   - Gérer ses préférences
+   - Changer son mot de passe
+   - Mode sombre / clair
 
-#### Revenus & Historique
-- ✅ **Dashboard** : Stats (trajets, revenus, note moyenne)
-- ✅ **Historique des trajets** : Avec pagination serveur
-- ✅ **Suivi des revenus** : Détail par course, commissions
-- ✅ **Notification de versement** : Alert en temps réel quand un paiement est traité par l'admin
+10. **🆘 Support & Litiges**
+    - Ouvrir un ticket de support
+    - Signaler un litige (urgence, sécurité, paiement…)
+    - Bouton d'urgence avec types prédéfinis
 
-#### Profil
-- ✅ **Profil complet** : Informations personnelles + véhicule
-- ✅ **Documents** : Upload permis, assurance, carte grise, identité, photo véhicule
-- ✅ **Changement mot de passe**
+11. **❓ FAQ**
+    - Questions fréquentes
 
-### 🔴 ADMINISTRATEUR — Fonctionnalités complètes
+### 🚗 CHAUFFEUR — Fonctionnalités Complètes
 
-#### Dashboard principal
-- ✅ **KPIs** : Total utilisateurs, chauffeurs actifs, trajets totaux, revenus totaux
-- ✅ **5 derniers trajets** : Tableau récapitulatif
+#### 🟢 Implémentées et Fonctionnelles
+1. **📝 Inscription Spéciale Chauffeur**
+   - Inscription de base + étape véhicule + documents
+   - Upload des pièces (permis, carte grise, assurance, photo véhicule, pièce d'identité)
+   - Validation par l'admin requise avant activation
+   - Page d'attente de validation
 
-#### Gestion des utilisateurs
-- ✅ **Passagers** : Liste, détails, suspendre/activer, statistiques
-- ✅ **Chauffeurs** : Liste, détails, profil étendu, historique trajets, statistiques
+2. **🟢 Disponibilité (Toggle Online/Offline)**
+   - Basculer en ligne / hors ligne
+   - Statut : `EN_LIGNE`, `HORS_LIGNE`, `OCCUPE`
+   - Tracking du temps en ligne cumulé
 
-#### Validation chauffeurs
-- ✅ **Demandes en attente** : File d'attente avec documents
-- ✅ **Validation/Rejet** : Avec commentaire et motif
-- ✅ **Historique** : Toutes les décisions passées
+3. **📲 Réception de Courses**
+   - Toast de notification pour nouvelle course
+   - Carte avec trajet du passager
+   - Timer d'acceptation avec compte à rebours
+   - Accepter / Refuser la course
+   - Système d'attribution séquentiel automatique
 
-#### Documents
-- ✅ **Liste par chauffeur** : Tous les documents soumis
-- ✅ **Validation/Rejet** : Avec commentaire
+4. **📍 Tracking en Temps Réel (Côté Chauffeur)**
+   - Envoi de la position GPS en continu
+   - Filtre de distance (envoi > 10m de déplacement)
+   - Heartbeat toutes les 30 secondes
+   - États de la course : En route → Arrivé → Course en cours → Terminé
 
-#### Trajets
-- ✅ **Liste complète** : Filtres, recherche, pagination
-- ✅ **Détails** : Itinéraire, participants, paiement, timing
-- ✅ **Vue carte** : Visualisation géographique
-- ✅ **Stats** : Graphiques d'évolution
+5. **📊 Dashboard Chauffeur**
+   - Statistiques du jour/semaine/mois
+   - Nombre de courses, revenus, note moyenne
+   - Graphiques de performance
 
-#### Paiements
-- ✅ **Stats globales** : Revenus totaux, commissions, montants chauffeurs
-- ✅ **Évolution** : Graphiques temporels
-- ✅ **Répartition** : Par méthode, par type
-- ✅ **Détails** : Par transaction
+6. **💰 Revenus**
+   - Suivi des revenus détaillé
+   - Statut des versements (en attente / versé)
+   - Notification quand un paiement est traité par l'admin
+   - Historique complet des gains
 
-#### Commissions
-- ✅ **Suivi des commissions** : Par chauffeur, par période
-- ✅ **Traitement paiements** : Déclenche le versement au chauffeur
-- ✅ **Modification** : Ajustement des montants
-- ✅ **Notification temps réel** : Le chauffeur est notifié instantanément
+7. **📜 Historique des Trajets**
+   - Pagination côté serveur
+   - Filtres (période, statut)
+   - Détail de chaque course
 
-#### Litiges
-- ✅ **Stats** : Par type, par statut
-- ✅ **Liste et détails** : Chronologie complète
-- ✅ **Résolution/Rejet** : Actions administratives
+8. **📅 Planning**
+   - Voir les courses planifiées qui lui sont assignées
+   - Courses du jour en priorité
 
-#### Rapports
-- ✅ **Génération** : Financier, utilisateurs, trajets, performance, sécurité
-- ✅ **Formats** : PDF, CSV, Excel, Word
-- ✅ **Stats d'activité** : Analyses et répartitions
+9. **👤 Profil**
+   - Modifier son profil et ses informations véhicule
+   - Photo de profil
+   - Changement de mot de passe
 
-#### Équipe
-- ✅ **Gestion du personnel** : CRUD avec rôles et permissions granulaires
+### 🧑‍💼 ADMIN — Fonctionnalités Complètes
 
-#### Profil & Sécurité
-- ✅ **Profil admin** : Modification
-- ✅ **Changement mot de passe** : Sécurisé
+#### 🟢 Implémentées et Fonctionnelles
+1. **📊 Dashboard**
+   - KPIs principaux : utilisateurs, chauffeurs actifs, trajets, revenus
+   - 5 derniers trajets
+   - Graphiques de tendances
+
+2. **👥 Gestion des Passagers**
+   - Liste avec recherche et filtres
+   - Statistiques (total, actifs, inactifs, suspendus)
+   - Détail du profil passager
+   - Activer / Suspendre / Désactiver un passager
+
+3. **🚗 Gestion des Chauffeurs**
+   - Liste avec recherche et filtres
+   - Statistiques détaillées
+   - Détail complet du chauffeur (profil + historique)
+   - Activer / Suspendre / Désactiver
+
+4. **✅ Validation des Chauffeurs**
+   - Liste des demandes en attente
+   - Vérification des documents uploadés
+   - Approuver / Rejeter avec motif
+   - Statistiques de validation
+   - Historique des validations
+
+5. **📄 Gestion des Documents**
+   - Visualiseur de documents (permis, carte grise…)
+   - Approuver / Rejeter chaque document
+   - Statistiques par statut de document
+
+6. **🗺️ Gestion des Trajets**
+   - Liste de tous les trajets avec filtres avancés
+   - Vue carte des trajets
+   - Statistiques (total, en cours, terminés, annulés)
+   - Détail complet d'un trajet
+
+7. **💰 Gestion des Paiements**
+   - Statistiques financières globales (revenus, commissions)
+   - Graphique d'évolution des paiements
+   - Répartition par méthode de paiement
+   - Liste détaillée avec filtres
+   - Détails de chaque transaction
+   - Génération de factures PDF premium
+
+8. **💎 Gestion des Commissions**
+   - Dashboard commissions (à percevoir, perçues, versées)
+   - Graphique d'évolution mensuel
+   - Répartition par type
+   - Liste des chauffeurs avec soldes
+   - Traiter un versement (marquer comme versé)
+   - Modifier un paiement
+   - Notification en temps réel au chauffeur
+
+9. **⚠️ Gestion des Litiges**
+   - Liste des litiges avec filtres (statut, type)
+   - Statistiques de répartition par type
+   - Détail d'un litige
+   - Résoudre / Rejeter un litige
+
+10. **📈 Rapports & Analyses**
+    - Génération de rapports d'activité
+    - Statistiques globales
+    - Analyses de répartition
+    - Export des données
+
+11. **👤 Profil Admin**
+    - Modifier son profil
+    - Journal d'activités
+    - Statistiques personnelles
+
+12. **👥 Gestion du Personnel**
+    - Créer des comptes personnels (Superviseur, Agent, Analyste)
+    - Modifier / Supprimer / Bloquer un personnel
+    - Liste avec recherche
+
+13. **⚙️ Paramètres de la Plateforme**
+    - Paramètres généraux (nom, devise, contact)
+    - Configuration des services (prix par véhicule)
+    - Configuration des paiements (méthodes, API keys)
+    - Paramètres de notifications (WhatsApp, SMS, Email, Push)
+    - Sécurité
+    - Backup
+    - API / SMS / USSD
 
 ---
 
-## 7. FLUX MÉTIER PRINCIPAUX
+## 7. SYSTÈME TEMPS RÉEL (Socket.IO)
 
-### 📲 Flux 1 : Inscription (Multi-étapes avec OTP)
+### ⚡ Architecture Socket.IO
 
-```
-Passager/Chauffeur → Saisie téléphone + infos
-    → POST /auth/init-inscription
-    → Envoi OTP par email (Brevo API)
-    → Saisie OTP → POST /auth/verifier-otp
-    → Complétion profil → POST /auth/finaliser-inscription
-    → (Si chauffeur) → Upload documents → Statut "EN_ATTENTE"
-    → (Si chauffeur) → Redirection vers /validation-en-attente
-    → (Si passager) → Connexion directe
-```
-
-### 🚖 Flux 2 : Course immédiate (Flux principal)
+Le fichier `socket.js` (995 lignes) gère toute la logique temps réel :
 
 ```
-1. ESTIMATION
-   Passager saisit départ/destination
-   → POST /estimations/estimer-trajet
-   → Géocodage Nominatim + Calcul route OSRM
-   → Retour : distance, durée, prix estimé
+Événements Socket.IO Principaux :
+─────────────────────────────────
 
-2. RÉSERVATION
-   Passager confirme la course
-   → POST /reservations-immediate/confirmer-immediate
-   → Création Reservation (statut: EN_ATTENTE)
+CHAUFFEUR ──► SERVEUR
+  ├── driver:register          → S'enregistrer comme chauffeur connecté
+  ├── driver:goOnline          → Passer en ligne
+  ├── driver:goOffline         → Passer hors ligne
+  ├── driver:updatePosition    → Envoyer sa position GPS
+  ├── driver:heartbeat         → Signal de vie (toutes les 30s)
+  ├── driver:acceptTrip        → Accepter une course
+  ├── driver:declineTrip       → Refuser une course
+  ├── driver:arrived           → Signaler l'arrivée au point de départ
+  ├── driver:startTrip         → Démarrer la course
+  └── driver:completeTrip      → Terminer la course
 
-3. ATTRIBUTION (Socket.IO)
-   → Service trouverChauffeursEligibles()
-   → Calcul distance Haversine (rayon 8km)
-   → Tri par distance croissante
-   → Envoi séquentiel : nouvelle-reservation → chauffeur le plus proche
-   → Si pas de réponse → passage au suivant (timeout)
+PASSAGER ──► SERVEUR
+  ├── passenger:register       → S'enregistrer comme passager connecté
+  ├── passenger:requestTrip    → Demander une course
+  ├── passenger:cancelTrip     → Annuler une course
+  └── passenger:confirmPayment → Confirmer un paiement
 
-4. ACCEPTATION
-   Chauffeur accepte → chauffeur:accepter
-   → Mise à jour Reservation (statut: ACCEPTEE)
-   → Notification passager → reservation-acceptee
-   → Chauffeur marqué "OCCUPE"
+SERVEUR ──► CHAUFFEUR
+  ├── tripRequestReceived      → Nouvelle course disponible
+  ├── tripConfirmed            → Course confirmée
+  ├── payment:processed        → Paiement traité par admin
 
-5. EN ROUTE VERS LE PASSAGER
-   → Le chauffeur navigue vers le point de départ
-   → Position envoyée en temps réel
-
-6. ARRIVÉE
-   → chauffeur:arrivee
-   → Notification passager : "Votre chauffeur est arrivé"
-   → Reservation (statut: ARRIVEE)
-
-7. DÉMARRAGE DU TRAJET
-   → demarrer-trajet
-   → Activation GPS continu
-   → Reservation (statut: EN_COURS)
-   → Suivi temps réel : position-update + trajet-progress
-
-8. FIN DE COURSE
-   → terminer-course
-   → Calcul prix final
-   → Reservation (statut: TERMINEE)
-   → Création Paiement (si non pré-payé)
-   → Création Trajet (archivage)
-
-9. PAIEMENT
-   → Cash : confirmation chauffeur
-   → Mobile Money : confirmation système
-   → Paiement (statut: PAYE)
-
-10. ÉVALUATION
-    → Passager note le chauffeur
-    → Mise à jour noteMoyenne chauffeur
+SERVEUR ──► PASSAGER
+  ├── driverAssigned           → Chauffeur assigné
+  ├── driverLocation           → Position du chauffeur (temps réel)
+  ├── driverArrived            → Chauffeur arrivé au point de départ
+  ├── tripStarted              → Course démarrée
+  ├── tripCompleted            → Course terminée
+  └── tripCancelled            → Course annulée
 ```
 
-### 📅 Flux 3 : Course planifiée
+### 🔄 Flux de Course Complet
 
 ```
-Passager planifie → création avec datePlanifiee
-→ J-1 : Rappel automatique (checkPlannedReminders)
-→ Jour J : Attribution automatique ou manuelle
-→ Suite identique au flux immédiat
+1. Passager fait une réservation → POST /api/reservations-immediate/confirmer-immediate
+2. Serveur crée la réservation (statut: EN_ATTENTE)
+3. Socket: Recherche chauffeur disponible le plus proche
+4. Socket: Envoi de l'offre au chauffeur (tripRequestReceived)
+5. Chauffeur accepte → driver:acceptTrip
+6. Socket: Met à jour le statut (ACCEPTEE) + notifie le passager (driverAssigned)
+7. Chauffeur conduit vers le passager, position envoyée en continu
+8. Chauffeur arrive → driver:arrived (statut: ARRIVEE)
+9. Passager est notifié (driverArrived)
+10. Chauffeur démarre la course → driver:startTrip (statut: EN_COURS)
+11. Tracking live de la position tout au long du trajet
+12. Chauffeur termine → driver:completeTrip (statut: TERMINEE)
+13. Passager redirigé vers la page de paiement puis d'évaluation
 ```
+
+### 🔒 Mécanismes de Robustesse
+- **Distance Filter** : Envoi de position seulement si déplacement > 10 mètres
+- **Heartbeat** : Signal toutes les 30 secondes pour détecter les déconnexions
+- **Attribution séquentielle** : Si un chauffeur refuse, passe au suivant
+- **Expiration des offres** : Timer sur chaque offre envoyée
+- **Gestion des reconnexions** : Restauration de l'état après reconnexion
+- **Maps de suivi** : `coursePassager`, `courseChauffeur`, `lastKnownPositions`
 
 ---
 
-## 8. SÉCURITÉ & AUTHENTIFICATION
+## 8. STRUCTURE FRONTEND
 
-### 🔐 Mécanismes en place
+### 🎨 Pages Principales
+
+| Page | Fichier | Taille | Rôle |
+|------|---------|--------|------|
+| **Landing Page** | `HomePage.jsx` | 1 KB | Page d'accueil publique |
+| **Connexion** | `Connexion.jsx` | 24 KB | Login multi-rôles |
+| **Inscription** | `Inscription.jsx` | 83 KB | Inscription multi-étapes |
+| **App Passager** | `Passager.jsx` | 23 KB | Interface passager complète |
+| **App Chauffeur** | `ChauffeurApp.jsx` | 10 KB | Interface chauffeur complète |
+| **App Admin** | `AdminApp.jsx` | 14 KB | Dashboard admin complet |
+| **404** | `NotFound.jsx` | 6 KB | Page non trouvée |
+
+### 🔐 Contextes React (State Management)
+
+| Contexte | Fichier | Taille | Description |
+|----------|---------|--------|-------------|
+| **Auth** | `AuthContext.jsx` | 3.6 KB | JWT, login, logout, user actuel |
+| **App** | `AppContext.jsx` | 3.3 KB | État global de l'app |
+| **Passenger** | `PassengerContext.jsx` | 26.4 KB | Tout l'état passager (réservations, socket…) |
+| **Driver** | `DriverContext.jsx` | 20.3 KB | Tout l'état chauffeur (courses, position…) |
+| **Notification** | `NotificationContext.jsx` | 3.7 KB | Gestion des notifications |
+| **Settings** | `SettingsContext.jsx` | 0.6 KB | Paramètres utilisateur |
+| **Theme** | `ThemeContext.jsx` | 2.5 KB | Mode sombre / clair |
+
+### 🪝 Custom Hooks
+
+| Hook | Usage |
+|------|-------|
+| `useCharts` | Configuration des graphiques Chart.js |
+| `useDebounce` | Debounce pour recherche |
+| `useDriver` | Logique spécifique chauffeur |
+| `useGeolocation` | API Geolocation du navigateur |
+| `useImageUpload` | Upload d'images |
+| `useNotificationActions` | Actions sur les notifications |
+| `useNotificationsAudio` | Sons de notification |
+| `usePassager` | Logique spécifique passager |
+| `useSettings` | Gestion des paramètres (11 KB — très complet) |
+| `useTrips` | Logique des trajets |
+
+### 🗺️ Composants Cartographiques
+- **LiveTripMap** : Carte temps réel du trajet en cours
+- **MapController** : Contrôleur de carte (zoom, centrage)
+- **UserLocationMap** : Position de l'utilisateur
+- **leafletIcons** : Configuration des icônes Leaflet (véhicule, passager)
+
+### 📊 Composants Admin Lourds (sections)
+
+| Section | Taille | Description |
+|---------|--------|-------------|
+| `Trajets.jsx` | **82 KB** | Gestion complète des trajets |
+| `Payments.jsx` | **69 KB** | Gestion des paiements |
+| `Commissions.jsx` | **53 KB** | Gestion des commissions |
+| `Reports.jsx` | **51 KB** | Rapports & analyses |
+| `Litiges.jsx` | **44 KB** | Gestion des litiges |
+| `Documents.jsx` | **37 KB** | Gestion documentaire |
+| `Validations.jsx` | **36 KB** | Validation des chauffeurs |
+| `Chauffeurs.jsx` | **36 KB** | Gestion des chauffeurs |
+| `Passagers.jsx` | **27 KB** | Gestion des passagers |
+| `Settings.jsx` | **23 KB** | Paramètres plateforme |
+| `Dashboard.jsx` | **18 KB** | Tableau de bord |
+
+### 🧩 Composants UI Admin (Design System)
+- `Badge`, `Bttn`, `Card`, `ChartCard`
+- `ConfirmModal`, `DocumentViewer`, `ExportDropdown`
+- `Loading`, `Modal`, `Modale`
+- `Pagination`, `PremiumInvoice`
+- `Progress`, `Slider`, `Switch`
+- `Table`, `TableActions`, `Tabs`
+- `Toast`, `Toaste`
+
+---
+
+## 9. SÉCURITÉ & AUTHENTIFICATION
+
+### 🔐 Mécanismes de Sécurité
 
 | Mécanisme | Implémentation |
-|-----------|----------------|
-| **Authentification** | JWT stocké en cookie HTTPOnly |
-| **Hachage mots de passe** | Bcrypt |
-| **Protection headers** | Helmet |
-| **CORS** | Configurable avec whitelist d'origines |
-| **Validation données** | express-validator |
-| **OTP** | Hash du code, TTL automatique, anti brute-force |
-| **AuthGuard** | Composant React côté frontend (vérification rôle) |
-| **Middlewares** | authMiddlewares, isAdmin, roleMiddlewares, statutMiddlewares |
-| **Upload sécurisé** | Multer avec filtrage |
+|-----------|---------------|
+| **Authentification** | JWT (JSON Web Tokens) |
+| **Hashage mots de passe** | bcrypt / bcryptjs |
+| **CORS** | Configuré avec origines autorisées |
+| **Helmet** | Headers HTTP sécurisés |
+| **Validation** | express-validator côté serveur |
+| **Middleware Auth** | Vérification JWT sur chaque route protégée |
+| **Middleware Rôle** | Vérification du rôle utilisateur |
+| **Middleware Statut** | Vérification du statut actif |
+| **Middleware Admin** | Routes admin réservées |
+| **Guard Frontend** | `AuthGuard` vérifie le rôle avant rendu |
+| **OTP** | Code de vérification pour l'inscription |
+| **Chauffeur Actif** | Vérification que le chauffeur est validé et actif |
 
-### ⚠️ Points d'attention sécurité
-| Problème potentiel | Niveau | Détails |
-|--------------------|--------|---------|
-| 🔴 **Secrets dans .env committé** | **CRITIQUE** | Le fichier `.env` contient des secrets (clé API Brevo, MongoDB URI, JWT secret) et est visible dans le repo |
-| 🟠 **JWT_SECRET faible** | ÉLEVÉ | `takataka+secret12345` est trop simple et prédictible |
-| 🟠 **Pas de rate limiting** | ÉLEVÉ | Variables configurées mais pas d'implémentation visible |
-| 🟡 **Pas de HTTPS** | MOYEN | En développement local uniquement, prévoir en production |
-| 🟡 **CORS large en dev** | MOYEN | Multiple origines autorisées (normal en dev) |
+### 🔑 Middlewares Backend
 
----
-
-## 9. SERVICES EXTERNES & INTÉGRATIONS
-
-| Service | Utilisation | API/Protocole |
-|---------|-------------|---------------|
-| **MongoDB Atlas** | Base de données cloud | Mongoose ODM |
-| **Brevo (ex-Sendinblue)** | Envoi OTP par email | API REST |
-| **OSRM** | Calcul d'itinéraires | API REST (router.project-osrm.org) |
-| **Nominatim (OSM)** | Géocodage d'adresses | API REST (nominatim.openstreetmap.org) |
-| **Leaflet / OpenStreetMap** | Affichage cartes (frontend) | JS Library |
-| **Socket.IO** | Communication temps réel | WebSocket |
+| Middleware | Fichier | Description |
+|-----------|---------|-------------|
+| `authMiddlewares` | Protection par JWT |
+| `isAdmin` | Vérifie rôle ADMIN |
+| `roleMiddlewares` | Vérifie les rôles autorisés |
+| `statutMiddlewares` | Vérifie le statut ACTIF |
+| `upload` | Upload de documents (Multer) |
+| `uploadPhoto` | Upload de photos (Multer) |
+| `verifierChauffeurActif` | Chauffeur validé par admin |
 
 ---
 
-## 10. POINTS FORTS DU PROJET
+## 10. STATISTIQUES DU PROJET
 
-### ✅ Architecture bien structurée
-- Séparation claire Backend/Frontend
-- Organisation par rôle (admin, passager, chauffeur)
-- Pattern MVC côté backend
+### 📊 Métriques de Code
 
-### ✅ Temps réel maîtrisé
-- Le fichier `socket.js` de 995 lignes gère tous les événements temps réel
-- Attribution séquentielle intelligente des chauffeurs
-- Suivi GPS robuste avec filtre distance + heartbeat
-
-### ✅ Fonctionnalités complètes
-- 3 interfaces complètes (Passager, Chauffeur, Admin)
-- Cycle de vie complet d'une course
-- Système de paiement avec commissions
-- Gestion des litiges
-- Évaluations détaillées
-
-### ✅ Stack technique moderne
-- React 18, Vite, TailwindCSS
-- Express 5, Mongoose 9
-- Socket.IO 4
-- Framer Motion pour les animations
-
-### ✅ UX pensée
-- Inscription OTP sécurisée
-- Notifications sonores
-- Mode sombre/clair
-- Design responsive
-- Bouton d'urgence pour la sécurité
-
-### ✅ Code en français
-- Adapté au marché guinéen 🇬🇳
-- Noms de variables, modèles, et commentaires en français
-- Géocodage limité à la Guinée
-
----
-
-## 11. AXES D'AMÉLIORATION & RECOMMANDATIONS
-
-### 🔴 PRIORITÉ HAUTE
-
-| # | Point | Détails | Recommandation |
-|---|-------|---------|----------------|
-| 1 | **Sécurité .env** | Les secrets sont committé dans le repo Git | Créer `.env.example`, ajouter `.env` au `.gitignore`, régénérer tous les secrets |
-| 2 | **JWT Secret** | Trop simple (`takatakasecret12345`) | Utiliser un secret généré aléatoirement (64+ caractères) |
-| 3 | **Rate Limiting** | Variables configurées mais pas implémenté | Ajouter `express-rate-limit` sur les routes sensibles (auth, OTP) |
-| 4 | **Tests** | Aucun test automatisé (unitaire, intégration, E2E) | Ajouter Jest/Vitest + Supertest + Cypress/Playwright |
-| 5 | **Gestion d'erreurs centralisée** | Pas de middleware d'erreur global visible | Ajouter un error handler Express global avec logging |
-
-### 🟠 PRIORITÉ MOYENNE
-
-| # | Point | Détails | Recommandation |
-|---|-------|---------|----------------|
-| 6 | **Taille des composants** | Certains composants font 800+ lignes (`BookingSection.jsx`, `Inscription.jsx`) | Découper en sous-composants logiques |
-| 7 | **Double modèle préférences** | `Preferences.js` ET `ParametresUtilisateur.js` font quasi la même chose | Consolider en un seul modèle |
-| 8 | **Double librairie de hachage** | `bcrypt` ET `bcryptjs` dans les dépendances | Garder uniquement `bcryptjs` (plus portable) |
-| 9 | **Pagination** | Partiellement implémentée (chauffeur historique) | Systématiser sur toutes les listes (admin passagers, trajets, paiements) |
-| 10 | **Validation frontend** | Zod installé mais utilisation inconsistante | Systématiser la validation avec RHF + Zod sur tous les formulaires |
-| 11 | **Refresh Token** | Pas de système de refresh token visible | Implémenter un mécanisme de refresh pour éviter les déconnexions |
-
-### 🟡 PRIORITÉ BASSE
-
-| # | Point | Détails | Recommandation |
-|---|-------|---------|----------------|
-| 12 | **Logs structurés** | Utilise `console.log` partout | Remplacer par Winston ou Pino pour des logs structurés |
-| 13 | **Documentation API** | Aucune documentation Swagger/OpenAPI | Ajouter Swagger pour documenter l'API |
-| 14 | **TypeScript** | Tout le projet est en JavaScript | Envisager une migration progressive vers TypeScript |
-| 15 | **CI/CD** | Aucun pipeline | Configurer GitHub Actions (lint, test, build, deploy) |
-| 16 | **Mobile natif** | Application web uniquement | Envisager React Native ou PWA pour une expérience mobile native |
-| 17 | **Internationalisation** | Français uniquement, variable `langue` configurée | Implémenter i18next si expansion prévue |
-| 18 | **Monitoring** | Aucun outil de monitoring | Ajouter PM2, New Relic, ou Sentry pour la production |
-| 19 | **Cache** | Pas de couche de cache | Ajouter Redis pour les sessions et le caching |
-| 20 | **Backup BDD** | Dépend uniquement de MongoDB Atlas | Vérifier les politiques de backup Atlas |
-
----
-
-## 12. SYNTHÈSE FINALE
-
-### 📊 Métriques du projet
-
-| Métrique | Valeur |
-|----------|--------|
-| **Modèles de données** | 17 |
-| **Routes API (fichiers)** | ~34 |
-| **Contrôleurs (fichiers)** | ~36 |
-| **Composants React** | ~103 |
-| **Pages** | 7 |
-| **Hooks personnalisés** | 10 |
-| **Services frontend** | 18 |
-| **Contextes React** | 6 |
+| Catégorie | Compteur |
+|-----------|---------|
+| **Fichiers Backend (src/)** | ~113 fichiers |
+| **Fichiers Frontend (src/)** | ~170 fichiers |
+| **Total fichiers source** | ~283 fichiers |
+| **Modèles MongoDB** | 18 collections |
+| **Controllers Backend** | ~36 controllers |
+| **Routes Backend** | ~35 fichiers de routes |
 | **Middlewares** | 7 |
-| **Services backend** | 7 |
-| **Lignes Socket.IO** | ~995 |
+| **Services Backend** | 7 |
+| **Composants React** | ~105 composants |
+| **Contextes React** | 7 |
+| **Custom Hooks** | 10 |
+| **Services Frontend** | 18 |
+| **Pages Frontend** | 7 |
+| **Socket.IO (socket.js)** | 995 lignes |
+| **Plus gros fichier** | `Inscription.jsx` (83 KB) |
 
-### 🏆 Score global
+### 🔢 Estimation de la Taille
 
-| Critère | Note /5 | Commentaire |
-|---------|---------|-------------|
-| **Architecture** | ⭐⭐⭐⭐ | Bien structurée, modulaire |
-| **Fonctionnalités** | ⭐⭐⭐⭐⭐ | Très complètes pour un MVP+ |
-| **Temps réel** | ⭐⭐⭐⭐⭐ | Robuste, bien pensé |
-| **Sécurité** | ⭐⭐ | Points critiques à corriger |
-| **Tests** | ⭐ | Inexistants |
-| **Code quality** | ⭐⭐⭐ | Lisible mais composants trop gros |
-| **UI/UX** | ⭐⭐⭐⭐ | Design moderne, bon state management |
-| **Documentation** | ⭐⭐ | Minimale |
-| **Production-readiness** | ⭐⭐ | Nécessite sécurité + tests + CI/CD |
-
-### 🎯 Verdict
-
-**Taka Taka Voyage est un projet ambitieux et fonctionnellement très complet** pour une plateforme VTC. Le cœur métier (réservation → attribution → suivi → paiement → évaluation) est bien implémenté avec un solide système temps réel via Socket.IO.
-
-**Les priorités immédiates** avant toute mise en production sont :
-1. 🔐 **Sécuriser les secrets** (retirer .env du git, renforcer le JWT secret)
-2. 🧪 **Ajouter des tests** (au minimum tests d'intégration API)
-3. 🛡️ **Rate limiting** sur les routes d'authentification
-4. 📦 **Refactoriser les gros composants** pour la maintenabilité
-
-Le projet constitue une **excellente base** pour un lancement sur le marché guinéen, à condition de renforcer la couche sécurité et d'ajouter des tests avant le déploiement en production.
+| Module | Estimation |
+|--------|-----------|
+| Backend (code) | ~250+ KB de code source |
+| Frontend (code) | ~1.2+ MB de code source |
+| **Total estimé** | ~1.5+ MB de code source pur |
 
 ---
 
-> *Étude réalisée le 21 février 2026*
+## 11. POINTS FORTS ✅
+
+### 🌟 Architecture
+1. **Séparation claire des responsabilités** : Controllers, Routes, Middlewares, Models, Services
+2. **Architecture multi-rôles** bien pensée (Passager, Chauffeur, Admin)
+3. **API RESTful** avec carte de routes centralisée (`apiRoutes.js`)
+4. **Temps réel robuste** avec Socket.IO et mécanismes de fiabilité
+
+### 🌟 Fonctionnalités
+5. **Cycle de vie complet** d'une course (réservation → tracking → paiement → évaluation)
+6. **Système d'attribution intelligent** avec expiration et rotation des chauffeurs
+7. **Réservations planifiées** avec rappels automatiques
+8. **Système de commissions** complet avec traitement des versements
+9. **Gestion des litiges** multi-types (sécurité, paiement, comportement…)
+10. **Génération de factures PDF** professionnelles
+
+### 🌟 UX / Frontend
+11. **Design moderne** avec TailwindCSS + Framer Motion
+12. **Mode sombre / clair** natif
+13. **Cartographie intégrée** (Leaflet/OpenStreetMap)
+14. **Notifications audio** et visuelles
+15. **Composants UI réutilisables** (design system admin)
+
+### 🌟 Technique
+16. **Validation côté serveur** (express-validator)
+17. **Validation côté client** (Zod + React Hook Form)
+18. **Lazy loading** des composants lourds
+19. **Pagination côté serveur** pour les listes volumineuses
+20. **Index MongoDB** sur les champs fréquemment requêtés
+
+---
+
+## 12. POINTS D'AMÉLIORATION & RECOMMANDATIONS
+
+### 🔴 Critiques (à faire rapidement)
+
+#### 1. **Fichiers trop volumineux**
+- `Inscription.jsx` (83 KB), `Trajets.jsx` (82 KB), `Payments.jsx` (69 KB)
+- **Recommandation** : Découper en sous-composants de 200-300 lignes max
+
+#### 2. **Duplication bcrypt / bcryptjs**
+- Les deux packages sont installés (backend)
+- **Recommandation** : Garder uniquement `bcryptjs` (pur JavaScript, plus portable)
+
+#### 3. **Absence de tests**
+- Aucun test unitaire ou d'intégration détecté
+- **Recommandation** : Ajouter Jest + Supertest (backend), Vitest + Testing Library (frontend)
+
+#### 4. **Pas de rate limiting**
+- Aucun rate limiter détecté sur les routes API
+- **Recommandation** : Ajouter `express-rate-limit` pour prévenir les abus
+
+#### 5. **Variable d'environnement exposée**
+- Le fichier `.env` est présent dans le code source (pas dans `.gitignore` backend)
+- **Recommandation** : Vérifier que `.env` est dans `.gitignore`, utiliser `.env.example`
+
+### 🟡 Importants (à planifier)
+
+#### 6. **Socket.js monolithique (995 lignes)**
+- Tout le code temps réel est dans un seul fichier
+- **Recommandation** : Découper par domaine (`tripSocket.js`, `driverSocket.js`, `paymentSocket.js`)
+
+#### 7. **Pas de système de cache**
+- Toutes les requêtes vont directement à MongoDB
+- **Recommandation** : Ajouter Redis pour les données fréquentes (stats, sessions)
+
+#### 8. **Gestion d'erreurs**
+- Pas de middleware global d'erreur (error handler Express)
+- **Recommandation** : Ajouter un middleware `errorHandler` centralisé
+
+#### 9. **Pas de documentation API**
+- Aucune doc Swagger/OpenAPI
+- **Recommandation** : Ajouter `swagger-jsdoc` + `swagger-ui-express`
+
+#### 10. **Internationalisation (i18n)**
+- Interface uniquement en français
+- **Recommandation** : Préparer avec `react-i18next` pour la scalabilité régionale
+
+### 🟢 Améliorations futures
+
+#### 11. **Application Mobile**
+- Actuellement web uniquement
+- **Recommandation** : React Native pour une app mobile (réutiliser les services)
+
+#### 12. **Monitoring & Logs**
+- Uniquement `morgan` pour les logs HTTP + `console.log`
+- **Recommandation** : Winston pour les logs, PM2 pour le process management, Sentry pour les erreurs
+
+#### 13. **CI/CD**
+- Aucun pipeline détecté
+- **Recommandation** : GitHub Actions pour tests + déploiement automatique
+
+#### 14. **Optimisation des images**
+- Pas de compression des images uploadées
+- **Recommandation** : Sharp pour redimensionner/compresser les photos
+
+#### 15. **Intégration paiement mobile money réelle**
+- Les clés API sont vides (sandbox)
+- **Recommandation** : Intégrer les API réelles Orange Money / MTN Money Guinée
+
+---
+
+## 13. FEUILLE DE ROUTE PROPOSÉE
+
+### Phase 1 — Stabilisation (2-4 semaines)
+- [ ] ✅ Corriger les bugs JSX restants
+- [ ] 🧪 Ajouter des tests unitaires critiques (auth, paiements, réservations)
+- [ ] 🔒 Ajouter rate limiting + error handler global
+- [ ] 📝 Nettoyer le `.env` et les dépendances dupliquées
+- [ ] 🔧 Découper `socket.js` en modules
+
+### Phase 2 — Production Ready (4-6 semaines)
+- [ ] 📊 Ajouter monitoring (Winston, Sentry)
+- [ ] 📖 Documenter l'API (Swagger)
+- [ ] ⚡ Ajouter Redis pour le cache
+- [ ] 🖼️ Compression des images (Sharp)
+- [ ] 🔄 Déploiement (Docker + CI/CD)
+
+### Phase 3 — Intégrations (6-8 semaines)
+- [ ] 💰 Intégration API Orange Money / MTN Money (production)
+- [ ] 📱 Notifications push réelles (Firebase)
+- [ ] 📲 WhatsApp Business API (notifications passagers)
+- [ ] 🗺️ Optimisation du tracking GPS
+
+### Phase 4 — Scalabilité (8-12 semaines)
+- [ ] 📱 Application mobile React Native
+- [ ] 🌍 Internationalisation (Français, Soussou, Poular, Malinké)
+- [ ] 📦 Service de livraison (actuellement désactivé)
+- [ ] 🤖 Analytics avancés et prédictions ML
+
+---
+
+## 📌 RÉSUMÉ EXÉCUTIF
+
+**Taka-Taka-Voyage** est une **plateforme VTC complète et ambitieuse** pour le marché guinéen. Le projet est **fonctionnellement riche** avec un cycle de vie complet (inscription → réservation → tracking temps réel → paiement → évaluation → gestion admin).
+
+### Forces principales :
+- ✅ **Architecture solide** avec séparation frontend/backend
+- ✅ **Temps réel fonctionnel** avec Socket.IO robuste
+- ✅ **Dashboard admin très complet** (11 sections)
+- ✅ **3 rôles utilisateurs** bien distincts
+- ✅ **~283 fichiers** de code source, ~1.5+ MB de code
+
+### Priorités immédiates :
+- 🔴 Refactoring des fichiers trop gros
+- 🔴 Ajout de tests automatisés
+- 🔴 Sécurisation supplémentaire (rate limiting, error handling)
+- 🟡 Documentation API
+- 🟡 Préparation au déploiement en production
+
+---
+
+*Étude générée par Antigravity AI — Version complète et détaillée du projet Taka-Taka-Voyage*

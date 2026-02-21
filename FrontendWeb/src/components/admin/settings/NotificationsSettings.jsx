@@ -1,5 +1,5 @@
-// src/components/settings/components/NotificationsSettings.jsx
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, Smartphone, Mail, Bell, Globe } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Switch from '../ui/Switch';
@@ -51,30 +51,24 @@ const NotificationsSettings = ({ settings, updateSetting, updateNestedSetting, s
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
             {notificationChannels.map(channel => {
               const Icon = channel.icon;
-              const channelSettings = settings.notifications?.[channel.id] || { enabled: false };
-              
+              const channelSettings = settings.notifications?.channels?.[channel.id] || { enabled: false };
+
               return (
-                <Card key={channel.id} className="border-2 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:border-gray-700 transition-all duration-300">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-5 h-5 rounded-lg bg-${channel.color}-100 flex items-center justify-center`}>
-                          <Icon className={`text-${channel.color}-600 w-5 h-5`} />
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-800 dark:text-gray-100">{channel.name}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{channel.description}</p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={channelSettings.enabled}
-                        onChange={() => updateNestedSetting('notifications', channel.id, 'enabled', !channelSettings.enabled)}
-                      />
+                <div key={channel.id} className="flex items-center justify-between p-4 border-2 border-gray-100 dark:border-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-all">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-8 h-8 rounded-lg bg-${channel.color}-100 flex items-center justify-center`}>
+                      <Icon className={`text-${channel.color}-600 w-5 h-5`} />
                     </div>
-                    
-                    
-                  </CardContent>
-                </Card>
+                    <div>
+                      <p className="font-bold text-gray-800 dark:text-gray-100">{channel.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{channel.description}</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={channelSettings.enabled}
+                    onChange={() => updateSetting(`notifications.channels.${channel.id}.enabled`, !channelSettings.enabled)}
+                  />
+                </div>
               );
             })}
           </div>
@@ -84,7 +78,7 @@ const NotificationsSettings = ({ settings, updateSetting, updateNestedSetting, s
       {/* Types de notifications */}
       <Card hoverable className="border-2 border-gray-100 dark:border-gray-800 hover:border-teal-100 transition-all duration-300">
         <CardHeader>
-          <CardTitle className="text-gray-5` flex items-center">
+          <CardTitle className="text-blue-800 flex items-center">
             <Bell className="w-5 h-5 mr-2" />
             Types de notifications
           </CardTitle>
@@ -105,10 +99,10 @@ const NotificationsSettings = ({ settings, updateSetting, updateNestedSetting, s
                   <p className="text-sm text-gray-500 dark:text-gray-400">{type.description}</p>
                 </div>
                 <Switch
-                  checked={settings.notificationTypes?.[type.id] || false}
+                  checked={settings.notifications?.types?.[type.id] || false}
                   onChange={() => {
-                    const current = settings.notificationTypes?.[type.id] || false;
-                    updateNestedSetting('notificationTypes', type.id, !current);
+                    const current = settings.notifications?.types?.[type.id] || false;
+                    updateSetting(`notifications.types.${type.id}`, !current);
                   }}
                 />
               </div>
@@ -117,7 +111,7 @@ const NotificationsSettings = ({ settings, updateSetting, updateNestedSetting, s
         </CardContent>
       </Card>
 
-      
+
     </div>
   );
 };

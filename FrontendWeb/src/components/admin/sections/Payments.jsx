@@ -40,6 +40,8 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { color } from 'chart.js/helpers';
 import { adminService } from '../../../services/adminService';
+import PremiumInvoice from '../ui/PremiumInvoice';
+import ExportDropdown from '../ui/ExportDropdown';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -173,16 +175,14 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900 z-50"
-            >
+              className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900 z-50">
               <div className="py-2">
                 <button
                   onClick={() => {
                     onExport?.(payment, 'pdf');
                     setShowExportMenu(false);
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
-                >
+                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                   <FileText className="w-4 h-4 mr-3 text-red-500" />
                   Export PDF
                 </button>
@@ -191,8 +191,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
                     onExport?.(payment, 'csv');
                     setShowExportMenu(false);
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
-                >
+                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                   <FileSpreadsheet className="w-4 h-4 mr-3 text-green-500" />
                   Export CSV
                 </button>
@@ -201,8 +200,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
                     onExport?.(payment, 'doc');
                     setShowExportMenu(false);
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
-                >
+                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                   <FileText className="w-4 h-4 mr-3 text-blue-500" />
                   Export DOC
                 </button>
@@ -214,8 +212,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
       <button
         className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:bg-gray-800 rounded-lg transition"
         onClick={() => setShowActions(!showActions)}
-        title="Plus d'actions"
-      >
+        title="Plus d'actions">
         <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
       </button>
       <AnimatePresence>
@@ -224,16 +221,14 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
             initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
-            className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900 z-50"
-          >
+            className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-900 z-50">
             <div className="py-1">
               <button
                 onClick={() => {
                   onView(payment);
                   setShowActions(false);
                 }}
-                className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
-              >
+                className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                 <Eye className="w-4 h-4 mr-2 text-blue-500" />
                 Voir détails
               </button>
@@ -244,8 +239,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
                     onDownload?.(payment);
                     setShowActions(false);
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
-                >
+                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                   <Download className="w-4 h-4 mr-2 text-green-500" />
                   Télécharger facture
                 </button>
@@ -256,8 +250,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
                     onRefund?.(payment);
                     setShowActions(false);
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
-                >
+                  className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                   <RefreshCw className="w-4 h-4 mr-2 text-orange-500" />
                   Rembourser
                 </button>
@@ -267,8 +260,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
                   onExport?.(payment, 'print');
                   setShowActions(false);
                 }}
-                className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
-              >
+                className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                 <FileText className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
                 Imprimer
               </button>
@@ -472,11 +464,24 @@ const Payments = () => {
   }, [timeRange]);
 
   // États pour les modales et notifications
+  // Configuration des colonnes pour l'exportation
+  const exportColumns = useMemo(() => [
+    { header: 'ID Facture', accessor: 'invoiceNumber' },
+    { header: 'Passager', accessor: (p) => p.passenger.name },
+    { header: 'Chauffeur', accessor: (p) => p.driver.name },
+    { header: 'Montant', accessor: 'amount' },
+    { header: 'Méthode', accessor: 'method' },
+    { header: 'Date', accessor: 'date' },
+    { header: 'Statut', accessor: 'status' },
+    { header: 'Transaction ID', accessor: 'transactionId' },
+  ], []);
+
   const [modalState, setModalState] = useState({
     showDetails: false,
     showExport: false,
     showRefund: false,
     showGenerate: false,
+    showPremiumInvoice: false, // Nouvel état pour la facture premium
     selectedPayment: null,
     selectedFormat: 'pdf',
     loading: false
@@ -766,145 +771,151 @@ const Payments = () => {
   };
 
   const handleDownloadInvoice = (payment) => {
-    showToast('Téléchargement', `Génération de la facture ${payment.invoiceNumber}...`, 'info');
-
-    setTimeout(() => {
-      try {
-        const doc = new jsPDF();
-
-        // --- En-tête ---
-        // Logo (simulé par un carré coloré ou texte stylisé)
-        doc.setFillColor(16, 185, 129); // Vert Taka Taka
-        doc.rect(0, 0, 210, 20, 'F');
-
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.setFont("helvetica", "bold");
-        doc.text("Taka Taka Voyage", 14, 13);
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text("ADMINISTRATION", 160, 13);
-
-        // --- Info Entreprise (en haut à droite) ---
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(10);
-        doc.text("Taka Taka Voyage SARL", 150, 35);
-        doc.text("Conakry, Guinée", 150, 40);
-        doc.text("contact@takataka.com", 150, 45);
-        doc.text("+224 620 00 00 00", 150, 50);
-
-        // --- Titre Facture ---
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text("RECU DE PAIEMENT", 14, 45);
-
-        // --- Détails Facture (Gauche) ---
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(80, 80, 80);
-        doc.text(`Numéro de facture :`, 14, 55);
-        doc.text(`Date de transaction :`, 14, 60);
-        doc.text(`ID Transaction :`, 14, 65);
-        doc.text(`Méthode :`, 14, 70);
-
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text(payment.invoiceNumber, 55, 55);
-        doc.text(`${payment.date} à ${payment.time}`, 55, 60);
-        doc.text(payment.transactionId, 55, 65);
-        doc.text(payment.method.toUpperCase(), 55, 70);
-
-        // --- Ligne de séparation ---
-        doc.setDrawColor(200, 200, 200);
-        doc.line(14, 78, 196, 78);
-
-        // --- Infos Client et Chauffeur ---
-        const yPosInfo = 88;
-
-        // Passager
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("CLIENT (Passager)", 14, yPosInfo);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(80, 80, 80);
-        doc.text(`Nom :`, 14, yPosInfo + 7);
-        doc.text(`Téléphone :`, 14, yPosInfo + 12);
-        doc.text(`Email :`, 14, yPosInfo + 17);
-
-        doc.setTextColor(0, 0, 0);
-        doc.text(payment.passenger.name, 40, yPosInfo + 7);
-        doc.text(payment.passenger.phone, 40, yPosInfo + 12);
-        doc.text(payment.passenger.email, 40, yPosInfo + 17);
-
-        // Chauffeur
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("PRESTATAIRE (Chauffeur)", 110, yPosInfo);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(80, 80, 80);
-        doc.text(`Nom :`, 110, yPosInfo + 7);
-        doc.text(`Véhicule :`, 110, yPosInfo + 12);
-        // doc.text(`Téléphone :`, 110, yPosInfo + 17);
-
-        doc.setTextColor(0, 0, 0);
-        doc.text(payment.driver.name, 135, yPosInfo + 7);
-        doc.text(payment.driver.vehicle, 135, yPosInfo + 12);
-        // doc.text(payment.driver.phone, 135, yPosInfo + 17);
-
-        // --- Détails du Trajet ---
-        autoTable(doc, {
-          startY: yPosInfo + 25,
-          head: [['Détails du Trajet', 'Données']],
-          body: [
-            ['Départ', payment.trip.route.split('→')[0].trim()],
-            ['Destination', payment.trip.route.split('→')[1]?.trim() || '-'],
-            ['Date du trajet', payment.trip.date],
-            ['Distance', payment.trip.distance],
-            ['Durée estimée', payment.trip.duration],
-          ],
-          theme: 'grid',
-          headStyles: { fillColor: [240, 240, 240], textColor: [50, 50, 50], fontStyle: 'bold' },
-          styles: { fontSize: 9, cellPadding: 3 },
-          columnStyles: { 0: { fontStyle: 'bold', width: 60 } }
-        });
-
-        // --- Détails Financiers ---
-        autoTable(doc, {
-          startY: doc.lastAutoTable.finalY + 10,
-          head: [['Description', 'Montant (GNF)']],
-          body: [
-            ['Prix de la course', payment.amount],
-            ['Frais de service (Plateforme)', payment.fees?.platform || '0 GNF'],
-            ['TVA (18%)', 'Inclus'],
-          ],
-          foot: [['Total Payé', payment.amount]],
-          theme: 'striped',
-          headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
-          footStyles: { fillColor: [50, 50, 50], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'right' },
-          columnStyles: { 1: { halign: 'right' } }
-        });
-
-        // --- Pied de page ---
-        const pageHeight = doc.internal.pageSize.height;
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text("Ce document est une preuve de paiement générée électroniquement par la plateforme Taka Taka Voyage.", 105, pageHeight - 15, { align: 'center' });
-        doc.text("Merci de votre confiance.", 105, pageHeight - 10, { align: 'center' });
-
-        // Sauvegarde
-        doc.save(`Recu_${payment.invoiceNumber}.pdf`);
-        showToast('Facture téléchargée', 'Le fichier PDF a été généré avec succès', 'success');
-
-      } catch (error) {
-        console.error('Erreur PDF:', error);
-        showToast('Erreur PDF', `Erreur: ${error.message || 'Impossible de générer le PDF'}`, 'error');
-      }
-    }, 500);
+    // Remplacer l'ancienne logique par l'ouverture de la facture premium
+    setModalState(prev => ({
+      ...prev,
+      showPremiumInvoice: true,
+      selectedPayment: payment
+    }));
   };
+  /*
+    const handleOldDownloadInvoice = (payment) => {
+        try {
+          const doc = new jsPDF();
+  
+          // --- En-tête ---
+          // Logo (simulé par un carré coloré ou texte stylisé)
+          doc.setFillColor(16, 185, 129); // Vert Taka Taka
+          doc.rect(0, 0, 210, 20, 'F');
+  
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(22);
+          doc.setFont("helvetica", "bold");
+          doc.text("Taka Taka Voyage", 14, 13);
+  
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
+          doc.text("ADMINISTRATION", 160, 13);
+  
+          // --- Info Entreprise (en haut à droite) ---
+          doc.setTextColor(50, 50, 50);
+          doc.setFontSize(10);
+          doc.text("Taka Taka Voyage SARL", 150, 35);
+          doc.text("Conakry, Guinée", 150, 40);
+          doc.text("contact@takataka.com", 150, 45);
+          doc.text("+224 620 00 00 00", 150, 50);
+  
+          // --- Titre Facture ---
+          doc.setFontSize(18);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 0, 0);
+          doc.text("RECU DE PAIEMENT", 14, 45);
+  
+          // --- Détails Facture (Gauche) ---
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80, 80, 80);
+          doc.text(`Numéro de facture :`, 14, 55);
+          doc.text(`Date de transaction :`, 14, 60);
+          doc.text(`ID Transaction :`, 14, 65);
+          doc.text(`Méthode :`, 14, 70);
+  
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 0, 0);
+          doc.text(payment.invoiceNumber, 55, 55);
+          doc.text(`${payment.date} à ${payment.time}`, 55, 60);
+          doc.text(payment.transactionId, 55, 65);
+          doc.text(payment.method.toUpperCase(), 55, 70);
+  
+          // --- Ligne de séparation ---
+          doc.setDrawColor(200, 200, 200);
+          doc.line(14, 78, 196, 78);
+  
+          // --- Infos Client et Chauffeur ---
+          const yPosInfo = 88;
+  
+          // Passager
+          doc.setFontSize(12);
+          doc.setFont("helvetica", "bold");
+          doc.text("CLIENT (Passager)", 14, yPosInfo);
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80, 80, 80);
+          doc.text(`Nom :`, 14, yPosInfo + 7);
+          doc.text(`Téléphone :`, 14, yPosInfo + 12);
+          doc.text(`Email :`, 14, yPosInfo + 17);
+  
+          doc.setTextColor(0, 0, 0);
+          doc.text(payment.passenger.name, 40, yPosInfo + 7);
+          doc.text(payment.passenger.phone, 40, yPosInfo + 12);
+          doc.text(payment.passenger.email, 40, yPosInfo + 17);
+  
+          // Chauffeur
+          doc.setFontSize(12);
+          doc.setFont("helvetica", "bold");
+          doc.text("PRESTATAIRE (Chauffeur)", 110, yPosInfo);
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80, 80, 80);
+          doc.text(`Nom :`, 110, yPosInfo + 7);
+          doc.text(`Véhicule :`, 110, yPosInfo + 12);
+          // doc.text(`Téléphone :`, 110, yPosInfo + 17);
+  
+          doc.setTextColor(0, 0, 0);
+          doc.text(payment.driver.name, 135, yPosInfo + 7);
+          doc.text(payment.driver.vehicle, 135, yPosInfo + 12);
+          // doc.text(payment.driver.phone, 135, yPosInfo + 17);
+  
+          // --- Détails du Trajet ---
+          autoTable(doc, {
+            startY: yPosInfo + 25,
+            head: [['Détails du Trajet', 'Données']],
+            body: [
+              ['Départ', payment.trip.route.split('→')[0].trim()],
+              ['Destination', payment.trip.route.split('→')[1]?.trim() || '-'],
+              ['Date du trajet', payment.trip.date],
+              ['Distance', payment.trip.distance],
+              ['Durée estimée', payment.trip.duration],
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [240, 240, 240], textColor: [50, 50, 50], fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 3 },
+            columnStyles: { 0: { fontStyle: 'bold', width: 60 } }
+          });
+  
+          // --- Détails Financiers ---
+          autoTable(doc, {
+            startY: doc.lastAutoTable.finalY + 10,
+            head: [['Description', 'Montant (GNF)']],
+            body: [
+              ['Prix de la course', payment.amount],
+              ['Frais de service (Plateforme)', payment.fees?.platform || '0 GNF'],
+              ['TVA (18%)', 'Inclus'],
+            ],
+            foot: [['Total Payé', payment.amount]],
+            theme: 'striped',
+            headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] },
+            footStyles: { fillColor: [50, 50, 50], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'right' },
+            columnStyles: { 1: { halign: 'right' } }
+          });
+  
+          // --- Pied de page ---
+          const pageHeight = doc.internal.pageSize.height;
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          doc.text("Ce document est une preuve de paiement générée électroniquement par la plateforme Taka Taka Voyage.", 105, pageHeight - 15, { align: 'center' });
+          doc.text("Merci de votre confiance.", 105, pageHeight - 10, { align: 'center' });
+  
+          // Sauvegarde
+          doc.save(`Recu_${payment.invoiceNumber}.pdf`);
+          showToast('Facture téléchargée', 'Le fichier PDF a été généré avec succès', 'success');
+  
+        } catch (error) {
+          console.error('Erreur PDF:', error);
+          showToast('Erreur PDF', `Erreur: ${error.message || 'Impossible de générer le PDF'}`, 'error');
+        }
+      };
+  */
 
 
 
@@ -1084,8 +1095,7 @@ const Payments = () => {
         isOpen={modalState.showDetails}
         onClose={() => setModalState(prev => ({ ...prev, showDetails: false }))}
         title="Détails du paiement"
-        size="lg"
-      >
+        size="lg">
         <div className="space-y-6 scroll-m-t-2 overflow-auto h-[70vh]">
           {/* En-tête */}
           <div className="flex items-start justify-between">
@@ -1252,42 +1262,13 @@ const Payments = () => {
                 </div>
               </CardContent>
             </Card>
-            {/* 
-            <Card>
-              <CardHeader>
-                <CardTitle>Métadonnées</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">Facture:</span>
-                    <span className="font-medium">{payment.invoiceNumber}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">Score de risque:</span>
-                    <span className={`font-medium ${payment.riskScore > 70 ? 'text-red-600' : payment.riskScore > 30 ? 'text-yellow-600' : 'text-green-600'}`}>
-                      {payment.riskScore}/100
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">Appareil:</span>
-                    <span className="font-medium">{payment.metadata.device}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">Pays:</span>
-                    <span className="font-medium">{payment.country}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card> */}
+
           </div>
 
-          {/* Actions */}
           <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-200 dark:border-gray-800">
             <Button
               variant="secondary"
-              onClick={() => setModalState(prev => ({ ...prev, showDetails: false }))}
-            >
+              onClick={() => setModalState(prev => ({ ...prev, showDetails: false }))}>
               Fermer
             </Button>
             {payment.invoiceGenerated && (
@@ -1297,8 +1278,7 @@ const Payments = () => {
                 onClick={() => {
                   handleDownloadInvoice(payment);
                   setModalState(prev => ({ ...prev, showDetails: false }));
-                }}
-              >
+                }}>
                 Télécharger facture
               </Button>
             )}
@@ -1308,8 +1288,7 @@ const Payments = () => {
               onClick={() => {
                 navigator.clipboard.writeText(payment.id);
                 showToast('ID copié', 'L\'ID de la transaction a été copié', 'success');
-              }}
-            >
+              }}>
               Partager
             </Button>
           </div>
@@ -1342,7 +1321,7 @@ const Payments = () => {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6 px-2 md:px-0 ">
+    <div className="space-y-4 md:space-y-6 px-2 md:px-0">
       {/* Toast Notification */}
       {toast.show && (
         <Toast
@@ -1354,51 +1333,51 @@ const Payments = () => {
       )}
 
       {/* Modales */}
-      <PaymentDetailsModal />
-      <RefundModal />
+      <div key="modals-container">
+        <PaymentDetailsModal />
+        <RefundModal />
+        <AnimatePresence>
+          {modalState.showPremiumInvoice && (
+            <PremiumInvoice
+              payment={modalState.selectedPayment}
+              onClose={() => setModalState(prev => ({ ...prev, showPremiumInvoice: false }))}
+            />
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* En-tête avec actions */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
-      >
+        className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">Gestion des Paiements</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">Surveillez et gérez toutes les transactions financières</p>
         </div>
 
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          {selectedPayments.length > 0 && (
-            <>
-
-              <Button
-                variant="secondary"
-                icon={Download}
-                onClick={() => handleBulkExport('csv')}
-                className="flex-1 md:flex-none"
-              >
-                <span className="hidden md:inline">Exporter ({selectedPayments.length})</span>
-                <span className="md:hidden">Exporter</span>
-              </Button>
-            </>
-          )}
-
-        </div>
+        <ExportDropdown
+          data={selectedPayments.length > 0 ? payments.filter(p => selectedPayments.includes(p.id)) : payments}
+          columns={exportColumns}
+          fileName="paiements_taka_taka"
+          title="Historique des Paiements - Taka Taka"
+          showToast={(title, msg, type) => showToast(title, msg, type)}
+        />
       </motion.div>
 
       {/* Statistiques */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {stats.map((stat, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <StatCard {...stat} />
-          </motion.div>
-        ))}
+        {
+          stats.map((stat, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}>
+              <StatCard {...stat} />
+            </motion.div>
+          ))
+        }
       </div>
 
       {/* Graphiques */}
@@ -1415,15 +1394,13 @@ const Payments = () => {
                   <Button
                     variant={timeRange === '30j' ? 'primary' : 'secondary'}
                     size="small"
-                    onClick={() => setTimeRange('30j')}
-                  >
+                    onClick={() => setTimeRange('30j')}>
                     30j
                   </Button>
                   <Button
                     variant={timeRange === '90j' ? 'primary' : 'secondary'}
                     size="small"
-                    onClick={() => setTimeRange('90j')}
-                  >
+                    onClick={() => setTimeRange('90j')}>
                     90j
                   </Button>
                 </div>
@@ -1536,8 +1513,7 @@ const Payments = () => {
             onChange={(e) => {
               setPaymentFilter(e.target.value);
               setCurrentPage(1);
-            }}
-          >
+            }}>
             <option value="all">Tous les statuts</option>
             <option value="paid">Payé</option>
             <option value="pending">En attente</option>
@@ -1551,8 +1527,7 @@ const Payments = () => {
             onChange={(e) => {
               setMethodFilter(e.target.value);
               setCurrentPage(1);
-            }}
-          >
+            }}>
             <option value="all">Toutes les méthodes</option>
             <option value="cash">Espèces</option>
             <option value="orange">Orange Money</option>
@@ -1620,8 +1595,7 @@ const Payments = () => {
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
-                }}
-              >
+                }}>
                 <option value="5">5</option>
                 <option value="10">10</option>
                 <option value="20">20</option>
@@ -1654,8 +1628,7 @@ const Payments = () => {
                 'Montant',
                 'Statut',
                 'Actions'
-              ]}
-            >
+              ]}>
               {paginatedPayments.map((payment) => (
                 <TableRow key={payment.id}>
 
@@ -1735,3 +1708,4 @@ const Payments = () => {
 };
 
 export default Payments;
+

@@ -253,46 +253,76 @@ export const exportToPDF = async ({
       compress: true // Compression activée
     });
 
-    // En-tête
-    doc.setFontSize(16);
-    doc.setTextColor(40, 40, 40);
-    doc.text(title, 14, 15);
+    // En-tête Moderne
+    // Bandeau couleur en haut
+    doc.setFillColor(16, 185, 129); // Emerald 500
+    doc.rect(0, 0, doc.internal.pageSize.width, 25, 'F');
 
-    // Informations
+    // Nom de la plateforme
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("TAKA TAKA VOYAGE", 14, 16);
+
+    // Titre du rapport
     doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
+    doc.setFont("helvetica", "normal");
+    doc.text(`SYSTÈME D'ADMINISTRATION - ${title.toUpperCase()}`, doc.internal.pageSize.width - 14, 16, { align: 'right' });
+
+    // Informations complémentaires
+    doc.setFontSize(10);
+    doc.setTextColor(40, 40, 40);
     const dateStr = new Date().toLocaleDateString('fr-FR');
-    doc.text(`Généré le ${dateStr}`, 14, 22);
-    doc.text(`Total: ${actualRows} ligne${actualRows > 1 ? 's' : ''}`, 14, 27);
+    const timeStr = new Date().toLocaleTimeString('fr-FR');
+
+    doc.setFont("helvetica", "bold");
+    doc.text(`Rapport: ${title}`, 14, 35);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Généré le: ${dateStr} à ${timeStr}`, 14, 42);
+    doc.text(`Nombre d'enregistrements: ${actualRows}`, 14, 47);
+
+    // Ligne de séparation
+    doc.setDrawColor(226, 232, 240);
+    doc.line(14, 52, doc.internal.pageSize.width - 14, 52);
 
     // Tableau
     autoTable(doc, {
-      startY: 35,
+      startY: 58,
       head: [head],
       body: safeBody,
-      theme: 'striped',
+      theme: 'grid',
       headStyles: {
-        fillColor: [16, 185, 129], // Emerald 500 (Taka Taka color)
+        fillColor: [15, 23, 42], // Slate 900
         textColor: 255,
         fontStyle: 'bold',
-        fontSize: 10,
-        halign: 'left'
+        fontSize: 9,
+        halign: 'left',
+        cellPadding: 4
       },
       bodyStyles: {
-        fontSize: 9,
+        fontSize: 8,
         cellPadding: 3,
-        textColor: [50, 50, 50]
+        textColor: [51, 65, 85] // Slate 700
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252] // Slate 50
       },
-      margin: { top: 35, left: 14, right: 14 },
+      margin: { top: 58, left: 14, right: 14 },
       didDrawPage: (data) => {
         // Pied de page
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
         const pageCount = doc.internal.getNumberOfPages();
-        doc.text(`Taka Taka - Rapport Confidentiel - Page ${data.pageNumber} / ${pageCount}`, 14, doc.internal.pageSize.height - 10);
+
+        // Bandeau de bas de page
+        doc.setDrawColor(16, 185, 129);
+        doc.setLineWidth(0.5);
+        doc.line(14, doc.internal.pageSize.height - 15, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 15);
+
+        doc.text(`Taka Taka Voyage | Rapport Administratif Confidentiel`, 14, doc.internal.pageSize.height - 10);
+        doc.text(`Page ${data.pageNumber} sur ${pageCount}`, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 10, { align: 'right' });
       }
     });
 

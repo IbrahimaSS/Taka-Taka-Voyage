@@ -28,6 +28,7 @@ import { useImageUpload } from '../../../hooks/useImageUpload';
 import { useUserStore } from '../../../data/userStore';
 import { useAuth } from '../../../context/AuthContext';
 import { profileService } from '../../../services/profileService';
+import { adminService } from '../../../services/adminService';
 
 const UserProfile = () => {
   // États principaux
@@ -38,6 +39,7 @@ const UserProfile = () => {
   const [toast, setToast] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
+  const [loadingPersonnels, setLoadingPersonnels] = useState(false);
 
   // Gestion de l'avatar
   const { uploadImage } = useImageUpload(null);
@@ -74,54 +76,74 @@ const UserProfile = () => {
     }
   }, [user]);
 
-  // Données des utilisateurs (personnels)
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: 'Mariam Diallo',
-      email: 'mariam@takataka.ci',
-      phone: '+224 611 22 33 44',
-      role: 'Superviseur',
-      status: 'active',
-      joinDate: '20/03/2023'
-    },
-    {
-      id: 2,
-      name: 'Amadou Bah',
-      email: 'amadou@takataka.ci',
-      phone: '+224 622 33 44 55',
-      role: 'Agent',
-      status: 'active',
-      joinDate: '15/05/2023'
-    },
-    {
-      id: 3,
-      name: 'Fatoumata Kourouma',
-      email: 'fatou@takataka.ci',
-      phone: '+224 633 44 55 66',
-      role: 'Agent',
-      status: 'inactive',
-      joinDate: '10/07/2023'
-    },
-    {
-      id: 4,
-      name: 'Sékou Camara',
-      email: 'sekou@takataka.ci',
-      phone: '+224 644 55 66 77',
-      role: 'Analyste',
-      status: 'active',
-      joinDate: '01/09/2023'
-    },
-    {
-      id: 5,
-      name: 'Aïcha Sow',
-      email: 'aicha@takataka.ci',
-      phone: '+224 655 66 77 88',
-      role: 'Superviseur',
-      status: 'active',
-      joinDate: '25/11/2023'
+  // Données des personnels (depuis le backend)
+  const [users, setUsers] = useState([]);
+
+  // Charger les personnels depuis le backend
+  const fetchPersonnels = useCallback(async () => {
+    setLoadingPersonnels(true);
+    try {
+      const response = await adminService.getPersonnels();
+      if (response.data?.succes && response.data?.personnels) {
+        const mappedUsers = response.data.personnels.map(p => ({
+          id: p._id,
+          name: `${p.prenom || ''} ${p.nom || ''}`.trim(),
+          email: p.email || '',
+          phone: p.telephone || '',
+          role: mapRoleLabel(p.role),
+          roleBackend: p.role,
+          status: p.statut === 'ACTIF' ? 'active' : 'inactive',
+          statusBackend: p.statut,
+          joinDate: p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR') : '',
+          permissions: {
+            view: p.permissions?.lecture ?? true,
+            edit: p.permissions?.edition ?? false,
+            create: p.permissions?.creation ?? false,
+            delete: p.permissions?.suppression ?? false,
+            manageUsers: p.permissions?.gestionUtilisateurs ?? false,
+          },
+          photoProfil: p.photoProfil || null,
+        }));
+        setUsers(mappedUsers);
+      }
+    } catch (error) {
+      console.error('Erreur chargement personnels:', error);
+      showToast('Erreur', 'Impossible de charger les personnels', 'error');
+    } finally {
+      setLoadingPersonnels(false);
     }
-  ]);
+  }, []);
+
+  // Charger au montage
+  useEffect(() => {
+    fetchPersonnels();
+  }, [fetchPersonnels]);
+
+  // Mapper les rôles backend → frontend
+  const mapRoleLabel = (role) => {
+    const map = {
+      'ADMIN': 'Administrateur',
+      'SUPERVISEUR': 'Superviseur',
+      'AGENT': 'Agent',
+      'ANALYSTE': 'Analyste',
+    };
+    return map[role] || role;
+  };
+
+  // Mapper les rôles frontend → backend
+  const mapRoleBackend = (role) => {
+    const map = {
+      'admin': 'ADMIN',
+      'supervisor': 'SUPERVISEUR',
+      'agent': 'AGENT',
+      'analyst': 'ANALYSTE',
+      'Administrateur': 'ADMIN',
+      'Superviseur': 'SUPERVISEUR',
+      'Agent': 'AGENT',
+      'Analyste': 'ANALYSTE',
+    };
+    return map[role] || 'AGENT';
+  };
 
   // Tabs
   const tabs = [
@@ -225,46 +247,134 @@ const UserProfile = () => {
     }
   }, [showToast]);
 
-  const handleEditUser = useCallback((userData) => {
-    if (!editingUser || !editingUser.id) return;
+  // ========================
+  // CRUD Personnel (API réelle)
+  // ========================
 
-    setUsers(prev => prev.map(u =>
-      u.id === editingUser.id ? {
-        ...u,
-        ...userData,
+  const handleAddUser = useCallback(async (userData) => {
+    setIsSaving(true);
+    try {
+      // Extraire nom et prénom depuis le champ name
+      const nameParts = (userData.name || '').trim().split(' ');
+      const prenom = nameParts[0] || '';
+      const nom = nameParts.slice(1).join(' ') || prenom;
+
+      const payload = {
+        nom,
+        prenom,
+        email: userData.email,
+        telephone: userData.phone || '',
+        role: mapRoleBackend(userData.role),
         permissions: {
-          ...(u.permissions || {}),
-          ...(userData.permissions || {})
-        }
-      } : u
-    ));
-    setShowUserForm(false);
-    setEditingUser(null);
-    showToast('Succès', 'Personnel modifié avec succès', 'success');
-  }, [editingUser]);
+          lecture: userData.permissions?.view ?? true,
+          edition: userData.permissions?.edit ?? false,
+          creation: userData.permissions?.create ?? false,
+          suppression: userData.permissions?.delete ?? false,
+          gestionUtilisateurs: userData.permissions?.manageUsers ?? false,
+        },
+      };
 
-  const handleAddUser = useCallback((userData) => {
-    const newUser = {
-      ...userData,
-      id: users.length + 1,
-      status: 'active',
-      joinDate: new Date().toLocaleDateString('fr-FR'),
-      permissions: userData.permissions || {}
-    };
+      const response = await adminService.createPersonnel(payload);
 
-    setUsers(prev => [newUser, ...prev]);
-    setShowUserForm(false);
-    showToast('Succès', 'Personnel ajouté avec succès', 'success');
-  }, [users.length]);
+      if (response.data?.succes) {
+        showToast('Succès', `Personnel créé avec succès. Mot de passe temporaire : ${response.data.motDePasseTemporaire || '(envoyé par email)'}`, 'success');
+        setShowUserForm(false);
+        setEditingUser(null);
+        // Recharger la liste
+        await fetchPersonnels();
+      } else {
+        showToast('Erreur', response.data?.message || 'Erreur lors de la création', 'error');
+      }
+    } catch (error) {
+      console.error('Erreur création personnel:', error);
+      showToast('Erreur', error.response?.data?.message || 'Erreur lors de la création du personnel', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [showToast, fetchPersonnels]);
 
-  const handleToggleUserStatus = useCallback((userId) => {
-    setUsers(prev => prev.map(u =>
-      u.id === userId
-        ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' }
-        : u
-    ));
-  }, []);
+  const handleEditUser = useCallback(async (userData) => {
+    if (!editingUser || !editingUser.id) return;
+    setIsSaving(true);
+    try {
+      const nameParts = (userData.name || '').trim().split(' ');
+      const prenom = nameParts[0] || '';
+      const nom = nameParts.slice(1).join(' ') || prenom;
 
+      const payload = {
+        nom,
+        prenom,
+        email: userData.email,
+        telephone: userData.phone || '',
+        role: mapRoleBackend(userData.role),
+        permissions: {
+          lecture: userData.permissions?.view ?? true,
+          edition: userData.permissions?.edit ?? false,
+          creation: userData.permissions?.create ?? false,
+          suppression: userData.permissions?.delete ?? false,
+          gestionUtilisateurs: userData.permissions?.manageUsers ?? false,
+        },
+      };
+
+      const response = await adminService.updatePersonnel(editingUser.id, payload);
+
+      if (response.data?.succes) {
+        showToast('Succès', 'Personnel modifié avec succès', 'success');
+        setShowUserForm(false);
+        setEditingUser(null);
+        await fetchPersonnels();
+      } else {
+        showToast('Erreur', response.data?.message || 'Erreur lors de la modification', 'error');
+      }
+    } catch (error) {
+      console.error('Erreur modification personnel:', error);
+      showToast('Erreur', error.response?.data?.message || 'Erreur lors de la modification du personnel', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [editingUser, showToast, fetchPersonnels]);
+
+  const handleToggleUserStatus = useCallback(async (userId) => {
+    try {
+      const response = await adminService.togglePersonnelStatus(userId);
+
+      if (response.data?.succes) {
+        const newStatut = response.data.statut;
+        showToast(
+          'Succès',
+          `Personnel ${newStatut === 'ACTIF' ? 'débloqué' : 'bloqué'} avec succès`,
+          'success'
+        );
+        // Mettre à jour localement pour réactivité immédiate
+        setUsers(prev => prev.map(u =>
+          u.id === userId
+            ? { ...u, status: newStatut === 'ACTIF' ? 'active' : 'inactive', statusBackend: newStatut }
+            : u
+        ));
+      } else {
+        showToast('Erreur', response.data?.message || 'Erreur lors du changement de statut', 'error');
+      }
+    } catch (error) {
+      console.error('Erreur toggle statut personnel:', error);
+      showToast('Erreur', error.response?.data?.message || 'Erreur lors du changement de statut', 'error');
+    }
+  }, [showToast]);
+
+  const handleDeleteUser = useCallback(async (userId) => {
+    try {
+      const response = await adminService.deletePersonnel(userId);
+
+      if (response.data?.succes) {
+        showToast('Succès', 'Personnel supprimé avec succès', 'success');
+        setUsers(prev => prev.filter(u => u.id !== userId));
+      } else {
+        showToast('Erreur', response.data?.message || 'Erreur lors de la suppression', 'error');
+      }
+    } catch (error) {
+      console.error('Erreur suppression personnel:', error);
+      showToast('Erreur', error.response?.data?.message || 'Erreur lors de la suppression', 'error');
+    }
+  }, [showToast]);
 
   // Rendu du contenu des onglets
   const renderTabContent = () => {
@@ -337,6 +447,7 @@ const UserProfile = () => {
           >
             <UserManagement
               users={users}
+              loading={loadingPersonnels}
               onAddUser={() => {
                 setEditingUser(null);
                 setShowUserForm(true);
@@ -346,6 +457,8 @@ const UserProfile = () => {
                 setShowUserForm(true);
               }}
               onToggleStatus={handleToggleUserStatus}
+              onDeleteUser={handleDeleteUser}
+              onRefresh={fetchPersonnels}
               showToast={showToast}
             />
           </motion.div>
@@ -435,7 +548,7 @@ const UserProfile = () => {
             manageUsers: false
           }
         } : null}
-        title={editingUser ? "Modifier l'personnel" : "Ajouter un personnel"}
+        title={editingUser ? "Modifier le personnel" : "Ajouter un personnel"}
       />
 
       {/* Toast */}

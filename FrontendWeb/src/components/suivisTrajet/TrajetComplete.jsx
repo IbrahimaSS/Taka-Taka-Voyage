@@ -30,6 +30,8 @@ import { useNavigate } from 'react-router-dom';
 import { socketService } from '../../services/socketService';
 import toast from 'react-hot-toast';
 
+import { useSettings } from '../../context/SettingsContext';
+
 const TripComplete = ({
   trip,
   driver,
@@ -37,6 +39,8 @@ const TripComplete = ({
   onBack,
   role = 'passenger' // 'passenger' or 'driver'
 }) => {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState('--:--');
   const [selectedPayment, setSelectedPayment] = useState(trip?.paymentMethod?.toLowerCase().includes('orange') ? 'orange' : 'cash');
@@ -326,14 +330,18 @@ const TripComplete = ({
           <div ref={confettiContainerRef} className="fixed inset-0 top-5 pointer-events-none z-100" />
 
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-              <Car className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300">
+              {platform.logo ? (
+                <img src={platform.logo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <Car className="w-6 h-6 text-white" />
+              )}
             </div>
             <div>
-              <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Taka<span className="gradient-text">Taka</span>
+              <span className="text-2xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">
+                {platform.name || 'TakaTaka'}
               </span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Paiement du trajet</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{platform.tagline || 'Paiement du trajet'}</p>
             </div>
           </div>
 
@@ -397,7 +405,7 @@ const TripComplete = ({
               Vous êtes arrivé à destination !
             </h1>
             <p className="text-gray-600 dark:text-gray-400 text-lg mb-6">
-              Votre trajet s'est déroulé avec succès. Merci d'avoir choisi TakaTaka.
+              Votre trajet s'est déroulé avec succès. Merci d'avoir choisi {platform.name || 'TakaTaka'}.
             </p>
 
             <div className="inline-flex items-center space-x-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-6 py-3 rounded-full">

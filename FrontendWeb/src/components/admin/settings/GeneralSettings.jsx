@@ -157,16 +157,14 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
                   Taille recommandée: 512x512 pixels. Formats acceptés: PNG, JPG, SVG (max 2MB)
                 </p>
                 <div className="flex space-x-3">
-                  <label htmlFor="logo-upload">
-                    <Button
-                      variant="outline"
-                      icon={Upload} as="div"
-                      className="cursor-pointer"
-                      onClick={handleImportClick}
-                    >
-                      Changer le logo
-                    </Button>
-                  </label>
+                  <Button
+                    variant="outline"
+                    icon={Upload}
+                    className="cursor-pointer"
+                    onClick={handleImportClick}
+                  >
+                    Changer le logo
+                  </Button>
                   {(logoPreview || settings.platform?.logo) && (
                     <Button
                       variant="danger"

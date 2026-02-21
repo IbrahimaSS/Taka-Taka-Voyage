@@ -53,18 +53,33 @@ export const NotificationProvider = ({ children }) => {
             priority: data.priority || 'normal',
         };
 
+        // Check for duplicates in active toasts (same title and message)
+        const isDuplicate = toasts.some(t => t.title === newNotification.title && t.message === newNotification.message);
+        if (isDuplicate && data.showToast !== false) {
+            return null; // Ignore duplicate toast
+        }
+
         // Add to history
         setNotifications(prev => [newNotification, ...prev]);
 
         // Add to active toasts if not purely informational/background
         if (data.showToast !== false) {
-            setToasts(prev => [...prev, newNotification]);
+            setToasts(prev => {
+                // Si c'est une notification système, on supprime les anciens toasts système pour éviter l'encombrement
+                let filtered = prev;
+                if (newNotification.category === NOTIFICATION_CATEGORIES.SYSTEM) {
+                    filtered = prev.filter(t => t.category !== NOTIFICATION_CATEGORIES.SYSTEM);
+                }
 
-            // Auto-remove toast after 5s unless urgent
+                // On garde un seul toast système à la fois, et max 2 toasts au total pour la lisibilité
+                return [...filtered.slice(-1), newNotification];
+            });
+
+            // Auto-remove toast after 3s unless urgent
             if (newNotification.type !== NOTIFICATION_TYPES.URGENT) {
                 setTimeout(() => {
                     removeToast(newNotification.id);
-                }, 5000);
+                }, 3000);
             }
         }
 

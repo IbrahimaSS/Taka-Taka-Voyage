@@ -1,6 +1,6 @@
-// TripConfirmationModal.jsx - Version finale corrigée
+// TripConfirmationModal.jsx - Version avec services dynamiques admin
 import React, { useMemo, useState, useEffect } from "react";
-import { MapPin, Flag, Radar, Clock, Car, Check, CreditCard, Calendar } from "lucide-react";
+import { MapPin, Flag, Radar, Clock, Car, Bike, Package, Check, CreditCard, Calendar, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 import Modal from "../admin/ui/Modal";
@@ -9,6 +9,38 @@ import Card, { CardHeader, CardTitle, CardContent } from "../admin/ui/Card";
 import Badge from "../admin/ui/Badge";
 
 import PaymentModal from "./PaymentModal";
+import { platformService } from "../../services/platformService";
+
+// Mapping icon string → composant Lucide
+const ICON_MAP = {
+  bike: Bike,
+  car: Car,
+  package: Package,
+};
+
+// Mapping couleur → classes Tailwind
+const COLOR_MAP = {
+  blue: {
+    text: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-100 dark:bg-blue-900/30",
+  },
+  green: {
+    text: "text-green-600 dark:text-green-400",
+    bg: "bg-green-100 dark:bg-green-900/30",
+  },
+  purple: {
+    text: "text-purple-600 dark:text-purple-400",
+    bg: "bg-purple-100 dark:bg-purple-900/30",
+  },
+  orange: {
+    text: "text-orange-600 dark:text-orange-400",
+    bg: "bg-orange-100 dark:bg-orange-900/30",
+  },
+  gray: {
+    text: "text-gray-400 dark:text-gray-500",
+    bg: "bg-gray-100 dark:bg-gray-800",
+  },
+};
 
 const TripConfirmationModal = ({
   isOpen,
@@ -17,7 +49,7 @@ const TripConfirmationModal = ({
   tripDetails = {},
   user,
 }) => {
-  const [selectedVehicle, setSelectedVehicle] = useState("taxi");
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [tripType, setTripType] = useState("now"); // now | schedule
   const [paymentTime, setPaymentTime] = useState("advance"); // advance | end
   const [scheduleDate, setScheduleDate] = useState("");
@@ -26,6 +58,34 @@ const TripConfirmationModal = ({
 
   const [showPayment, setShowPayment] = useState(false);
   const [pendingTripData, setPendingTripData] = useState(null);
+
+  // ── Services chargés depuis l'API admin ──
+  const [platformServices, setPlatformServices] = useState([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+
+  // Charger les services au montage du modal
+  useEffect(() => {
+    if (isOpen && platformServices.length === 0) {
+      setLoadingServices(true);
+      platformService
+        .getServicesActifs()
+        .then((res) => {
+          if (res.data?.success && res.data.services) {
+            setPlatformServices(res.data.services);
+            // Sélectionner automatiquement le premier service actif
+            const firstEnabled = res.data.services.find((s) => s.enabled);
+            if (firstEnabled) {
+              setSelectedVehicle(firstEnabled.frontendKey);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Erreur chargement services:", err);
+          toast.error("Impossible de charger les services disponibles");
+        })
+        .finally(() => setLoadingServices(false));
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -36,52 +96,48 @@ const TripConfirmationModal = ({
       setScheduleTime("");
       setTripType("now");
       setPaymentTime("advance");
-      setSelectedVehicle("taxi");
+      // On ne reset pas selectedVehicle ni platformServices pour le cache
     }
   }, [isOpen]);
 
-  const vehicles = useMemo(
-    () => [
-      {
-        id: "moto",
-        name: "Moto-taxi",
-        icon: Car,
-        price: 5000,
-        description: "Idéal pour les trajets courts",
-        features: ["Arrivée rapide", "Économique"],
-        color: "text-blue-600 dark:text-blue-400",
-        bgColor: "bg-blue-100 dark:bg-blue-900/30",
-      },
-      {
-        id: "taxi",
-        name: "Taxi partagé",
-        icon: Car,
-        price: tripDetails?.estimatedPrice || 15000,
-        description: "Confort et sécurité",
-        features: ["Bagages inclus", "Climatisation"],
-        color: "text-green-600 dark:text-green-400",
-        bgColor: "bg-green-100 dark:bg-green-900/30",
-      },
-      {
-        id: "voiture",
-        name: "Voiture privée",
-        icon: Car,
-        price: 25000,
-        description: "Luxe et confort",
-        features: ["Wifi", "Eau offerte"],
-        color: "text-purple-600 dark:text-purple-400",
-        bgColor: "bg-purple-100 dark:bg-purple-900/30",
-      },
-    ],
-    [tripDetails?.estimatedPrice]
-  );
+  // Transformer les services API en format véhicules pour l'affichage
+  const vehicles = useMemo(() => {
+    return platformServices.map((svc) => {
+      const distanceKm = parseFloat(tripDetails?.estimatedDistance) || 5;
+      const durationMin = parseInt(tripDetails?.estimatedDuration) || 15;
+
+      // Calcul du prix dynamique basé sur les tarifs admin
+      const calculatedPrice =
+        svc.pricing.basePrice +
+        distanceKm * svc.pricing.perKm +
+        durationMin * svc.pricing.perMinute;
+
+      const finalPrice = Math.max(
+        Math.round(calculatedPrice),
+        svc.pricing.minimumFare || 0
+      );
+
+      return {
+        id: svc.frontendKey,
+        serviceId: svc.id,
+        name: svc.name,
+        icon: ICON_MAP[svc.icon] || Car,
+        price: finalPrice,
+        description: svc.description,
+        features: svc.features || [],
+        color: COLOR_MAP[svc.color] || COLOR_MAP.gray,
+        enabled: svc.enabled,
+        pricing: svc.pricing,
+      };
+    });
+  }, [platformServices, tripDetails?.estimatedDistance, tripDetails?.estimatedDuration]);
 
   const selectedVehicleData = useMemo(
     () => vehicles.find((v) => v.id === selectedVehicle),
     [vehicles, selectedVehicle]
   );
 
-  const basePrice = Number(selectedVehicleData?.price) || 15000;
+  const basePrice = Number(selectedVehicleData?.price) || 0;
   const serviceFee = 500;
   const totalPrice = basePrice + serviceFee;
 
@@ -102,6 +158,11 @@ const TripConfirmationModal = ({
   const handleConfirm = async () => {
     if (tripType === "schedule" && (!scheduleDate || !scheduleTime)) {
       toast.error("Veuillez choisir une date et une heure");
+      return;
+    }
+
+    if (!selectedVehicleData?.enabled) {
+      toast.error("Ce service est actuellement désactivé");
       return;
     }
 
@@ -257,11 +318,10 @@ const TripConfirmationModal = ({
                 <button
                   type="button"
                   onClick={() => setTripType("now")}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    tripType === "now"
+                  className={`p-4 rounded-xl border-2 transition-all ${tripType === "now"
                       ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
                       : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
-                  }`}
+                    }`}
                 >
                   <div className="flex flex-col items-center">
                     <Clock className="w-8 h-8 text-green-600 dark:text-green-400 mb-2" />
@@ -274,11 +334,10 @@ const TripConfirmationModal = ({
                 <button
                   type="button"
                   onClick={() => setTripType("schedule")}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    tripType === "schedule"
+                  className={`p-4 rounded-xl border-2 transition-all ${tripType === "schedule"
                       ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
                       : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
-                  }`}
+                    }`}
                 >
                   <div className="flex flex-col items-center">
                     <Calendar className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-2" />
@@ -334,11 +393,10 @@ const TripConfirmationModal = ({
                 <button
                   type="button"
                   onClick={() => setPaymentTime("advance")}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    paymentTime === "advance"
+                  className={`p-4 rounded-xl border-2 transition-all ${paymentTime === "advance"
                       ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
                       : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
-                  }`}
+                    }`}
                 >
                   <div className="flex flex-col items-center">
                     <CreditCard className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-2" />
@@ -354,11 +412,10 @@ const TripConfirmationModal = ({
                 <button
                   type="button"
                   onClick={() => setPaymentTime("end")}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    paymentTime === "end"
+                  className={`p-4 rounded-xl border-2 transition-all ${paymentTime === "end"
                       ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
                       : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
-                  }`}
+                    }`}
                 >
                   <div className="flex flex-col items-center">
                     <Clock className="w-8 h-8 text-amber-600 dark:text-amber-400 mb-2" />
@@ -380,67 +437,104 @@ const TripConfirmationModal = ({
             </CardContent>
           </Card>
 
-          {/* Véhicule */}
+          {/* ═══════ Véhicule — DYNAMIQUE depuis admin ═══════ */}
           <Card hoverable={false} className="bg-transparent border-none shadow-none p-0">
             <CardHeader className="p-0">
               <CardTitle size="md">Choisissez votre véhicule</CardTitle>
             </CardHeader>
             <CardContent className="p-0 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {vehicles.map((vehicle) => {
-                  const Icon = vehicle.icon;
-                  const isSelected = selectedVehicle === vehicle.id;
+              {loadingServices ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                  <span className="ml-3 text-gray-500">Chargement des services...</span>
+                </div>
+              ) : vehicles.length === 0 ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">Aucun service disponible pour le moment</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {vehicles.map((vehicle) => {
+                    const Icon = vehicle.icon;
+                    const isSelected = selectedVehicle === vehicle.id;
+                    const isDisabled = !vehicle.enabled;
 
-                  return (
-                    <button
-                      type="button"
-                      key={vehicle.id}
-                      onClick={() => setSelectedVehicle(vehicle.id)}
-                      className={`p-6 rounded-xl border-2 transition-all ${
-                        isSelected
-                          ? "border-green-500 bg-gradient-to-br from-green-50/50 to-blue-50/50 dark:from-green-900/10 dark:to-blue-900/10"
-                          : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
-                      }`}
-                    >
-                      <div className="flex flex-col items-center text-center">
-                        <div
-                          className={`w-20 h-20 rounded-full ${vehicle.bgColor} flex items-center justify-center mb-4 ${
-                            isSelected
-                              ? "ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900"
-                              : ""
+                    return (
+                      <button
+                        type="button"
+                        key={vehicle.id}
+                        onClick={() => {
+                          if (isDisabled) {
+                            toast.error(`Le service "${vehicle.name}" est actuellement désactivé par l'administrateur`);
+                            return;
+                          }
+                          setSelectedVehicle(vehicle.id);
+                        }}
+                        disabled={isDisabled}
+                        className={`relative p-6 rounded-xl border-2 transition-all ${isDisabled
+                            ? "border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 opacity-50 cursor-not-allowed grayscale"
+                            : isSelected
+                              ? "border-green-500 bg-gradient-to-br from-green-50/50 to-blue-50/50 dark:from-green-900/10 dark:to-blue-900/10"
+                              : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
                           }`}
-                        >
-                          <Icon className={`w-10 h-10 ${vehicle.color}`} />
-                        </div>
-                        <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-2">
-                          {vehicle.name}
-                        </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          {vehicle.description}
-                        </p>
-                        <div className="text-green-600 dark:text-green-400 font-bold text-xl mb-3">
-                          {Number(vehicle.price).toLocaleString()} GNF
-                        </div>
-                        <div className="space-y-1 mb-3">
-                          {vehicle.features.map((feature, idx) => (
-                            <p key={idx} className="text-xs text-gray-500 dark:text-gray-400">
-                              {feature}
-                            </p>
-                          ))}
-                        </div>
-                        {isSelected && (
-                          <div className="mt-2">
-                            <Badge variant="success" size="sm">
-                              <Check className="w-3 h-3 mr-1" />
-                              Sélectionné
-                            </Badge>
+                      >
+                        {/* Badge désactivé */}
+                        {isDisabled && (
+                          <div className="absolute top-2 right-2">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 uppercase tracking-wider">
+                              Indisponible
+                            </span>
                           </div>
                         )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+
+                        <div className="flex flex-col items-center text-center">
+                          <div
+                            className={`w-20 h-20 rounded-full ${isDisabled
+                                ? "bg-gray-200 dark:bg-gray-700"
+                                : vehicle.color.bg
+                              } flex items-center justify-center mb-4 ${isSelected && !isDisabled
+                                ? "ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900"
+                                : ""
+                              }`}
+                          >
+                            <Icon
+                              className={`w-10 h-10 ${isDisabled
+                                  ? "text-gray-400 dark:text-gray-500"
+                                  : vehicle.color.text
+                                }`}
+                            />
+                          </div>
+                          <h4 className={`font-bold mb-2 ${isDisabled ? "text-gray-400 dark:text-gray-600" : "text-gray-900 dark:text-gray-100"}`}>
+                            {vehicle.name}
+                          </h4>
+                          <p className={`text-sm mb-3 ${isDisabled ? "text-gray-300 dark:text-gray-600" : "text-gray-600 dark:text-gray-400"}`}>
+                            {vehicle.description}
+                          </p>
+                          <div className={`font-bold text-xl mb-3 ${isDisabled ? "text-gray-300 dark:text-gray-600 line-through" : "text-green-600 dark:text-green-400"}`}>
+                            {Number(vehicle.price).toLocaleString()} GNF
+                          </div>
+                          <div className="space-y-1 mb-3">
+                            {vehicle.features.map((feature, idx) => (
+                              <p key={idx} className={`text-xs ${isDisabled ? "text-gray-300 dark:text-gray-600" : "text-gray-500 dark:text-gray-400"}`}>
+                                {feature}
+                              </p>
+                            ))}
+                          </div>
+                          {isSelected && !isDisabled && (
+                            <div className="mt-2">
+                              <Badge variant="success" size="sm">
+                                <Check className="w-3 h-3 mr-1" />
+                                Sélectionné
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -486,6 +580,7 @@ const TripConfirmationModal = ({
               loading={isConfirming}
               icon={Car}
               className="sm:flex-1"
+              disabled={!selectedVehicleData?.enabled}
             >
               {paymentTime === "advance" ? "Continuer vers paiement" : "Confirmer et chercher un chauffeur"}
             </Button>
