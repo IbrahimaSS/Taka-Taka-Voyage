@@ -204,15 +204,12 @@ export default function Header({
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5 text-slate-700 dark:text-slate-200" />
-              {unreadCount > 0 ? (
+              {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center animate-pulse">
                   {unreadCount}
                 </span>
-              ) : (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center animate-pulse">
-                  0
-                </span>
               )}
+
             </button>
 
             <AnimatePresence>

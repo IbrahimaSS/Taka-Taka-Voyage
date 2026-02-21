@@ -5,6 +5,8 @@ import { toast } from "react-hot-toast";
 import socketService from "../services/socketService";
 import { API_ROUTES } from "../services/apiRoutes";
 import { useAuth } from './AuthContext';
+import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from "./NotificationContext";
+
 
 const PassengerContext = createContext();
 export const usePassenger = () => useContext(PassengerContext);
@@ -15,6 +17,8 @@ export const PassengerProvider = ({ children }) => {
   const { user, updateUser: updateAuthUser } = useAuth();
   const [passenger, setPassenger] = useState(user || null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const { addNotification } = useNotificationCenter();
+
 
   const [currentPage, setCurrentPage] = useState("home");
 
@@ -177,6 +181,8 @@ export const PassengerProvider = ({ children }) => {
 
   const retryLocation = () => requestLocationPermission();
 
+  const notifiedEvents = useRef(new Set());
+
   // ===================== SOCKET CONNECT PASSAGER (UNE SEULE FOIS) =====================
   useEffect(() => {
     const pid = passenger?._id || passenger?.id;
@@ -184,6 +190,9 @@ export const PassengerProvider = ({ children }) => {
 
     console.log(`🔌 [CONTEXT] Connexion socket passager ID=${pid}`);
     socketService.connect(pid, "PASSAGER", passenger.nom, passenger.prenom);
+
+    // Reset notifications set on new connection or trip change if needed
+    // But better to just use it to track uniqueness of events per trip
 
     // ✅ helper compare ID robuste
     const sameRid = (a, b) => {
@@ -194,6 +203,10 @@ export const PassengerProvider = ({ children }) => {
     const onAccepted = (payload) => {
       console.log("📩 [CONTEXT] course:acceptee reçu", payload);
       const reservationId = payload?.reservationId || payload?._id || payload?.reservation?._id;
+
+      const eventKey = `accepted-${reservationId}`;
+      if (notifiedEvents.current.has(eventKey)) return;
+
       const chauffeur = payload?.chauffeur || payload?.driver;
 
       if (!reservationId) return;
@@ -246,9 +259,18 @@ export const PassengerProvider = ({ children }) => {
 
       // ✅ Rejoindre la room RESERVATION pour position:chauffeur
       console.log(`🔌 [CONTEXT] Joining reservation room: RESERVATION_${reservationId}`);
-      socketService.emit("reservation:join", { reservationId });
+      if (reservationId) {
+        socketService.emit("reservation:join", { reservationId });
+      }
 
-      toast.success("✅ Chauffeur trouvé !", { id: "driver-found" });
+      addNotification({
+        type: NOTIFICATION_TYPES.SUCCESS,
+        category: NOTIFICATION_CATEGORIES.TRIP,
+        title: 'Chauffeur trouvé ! ✅',
+        message: `${chauffeur?.prenom || ""} ${chauffeur?.nom || ""} a accepté votre course.`,
+      });
+      notifiedEvents.current.add(eventKey);
+
     };
 
     const onEnRoute = ({ reservationId, message } = {}) => {
@@ -257,14 +279,29 @@ export const PassengerProvider = ({ children }) => {
       if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
 
       console.log(`📩 [CONTEXT] course:chauffeur_en_route reçu for RID=${reservationId}`);
+
+      const eventKey = `approaching-${reservationId}`;
+      if (notifiedEvents.current.has(eventKey)) return;
+
       setTripStatus("approaching");
       setCurrentTrip((prev) => (prev ? { ...prev, status: "approaching" } : prev));
-      toast.success(message || "🚗 Votre chauffeur est en route pour vous récupérer..", { id: "driver-en-route" });
+
+      addNotification({
+        type: NOTIFICATION_TYPES.INFO,
+        category: NOTIFICATION_CATEGORIES.TRIP,
+        title: 'Chauffeur en route 🚗',
+        message: message || "Votre chauffeur est en route pour vous récupérer.",
+      });
+      notifiedEvents.current.add(eventKey);
+
     };
 
     const onArrived = ({ reservationId } = {}) => {
       console.log(`🔔 [SOCKET] course:chauffeur_arrive REÇU pour RID=${reservationId}`);
       const trip = currentTripRef.current;
+
+      const eventKey = `arrived-${reservationId}`;
+      if (notifiedEvents.current.has(eventKey)) return;
 
       // Sécurité : si on n'a aucune course, on ignore (ou on pourrait fetcher)
       if (!trip?.reservationId) {
@@ -288,18 +325,14 @@ export const PassengerProvider = ({ children }) => {
         return { ...prev, status: "arrived" };
       });
 
-      // Feedback utilisateur immédiat
-      toast.success("📍 Votre chauffeur est arrivé..", {
-        id: "driver-arrived-urgent",
-        duration: 8000,
-        icon: '👋',
-        style: {
-          borderRadius: '10px',
-          background: '#333',
-          color: '#fff',
-          fontWeight: 'bold',
-        },
+      addNotification({
+        type: NOTIFICATION_TYPES.SUCCESS,
+        category: NOTIFICATION_CATEGORIES.TRIP,
+        title: 'Chauffeur arrivé ! ✅',
+        message: 'Votre chauffeur est arrivé au point de ramassage.',
       });
+      notifiedEvents.current.add(eventKey);
+
 
       // Petit hack : vibrer si sur mobile
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
@@ -310,9 +343,21 @@ export const PassengerProvider = ({ children }) => {
       if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
 
       console.log(`📩 [CONTEXT] course:demarre reçu for RID=${reservationId}`);
+
+      const eventKey = `started-${reservationId}`;
+      if (notifiedEvents.current.has(eventKey)) return;
+
       setTripStatus("en_route");
       setCurrentTrip((prev) => (prev ? { ...prev, status: "en_route" } : prev));
-      toast.success("🚀 Trajet démarré", { id: "trip-started" });
+
+      addNotification({
+        type: NOTIFICATION_TYPES.INFO,
+        category: NOTIFICATION_CATEGORIES.TRIP,
+        title: 'Trajet démarré 🚀',
+        message: 'Votre course a commencé. Bon voyage !',
+      });
+      notifiedEvents.current.add(eventKey);
+
     };
 
     const onGlobalStarted = ({ reservationId, message } = {}) => {
@@ -346,12 +391,24 @@ export const PassengerProvider = ({ children }) => {
 
       console.log(`📩 [CONTEXT] course:terminee reçu for RID=${reservationId}`);
       setTripStatus("completed");
-      toast.success("🏁 Trajet terminé ! Merci d'avoir voyagé avec TakaTaka", { id: "trip-completed" });
+
+      const eventKey = `completed-${reservationId}`;
+      if (notifiedEvents.current.has(eventKey)) return;
+
+      addNotification({
+        type: NOTIFICATION_TYPES.SUCCESS,
+        category: NOTIFICATION_CATEGORIES.TRIP,
+        title: 'Trajet terminé 🏁',
+        message: 'Vous êtes arrivé à destination. Merci d\'avoir choisi TakaTaka !',
+      });
+
       setTimeout(() => {
         setCurrentTrip(null);
         setSelectedDriver(null);
         setTripStatus(null);
+        notifiedEvents.current.clear();
       }, 2500);
+      notifiedEvents.current.add(eventKey);
     };
 
     // ✅ Fix 4 : écouter l'annulation côté backend
@@ -364,8 +421,27 @@ export const PassengerProvider = ({ children }) => {
       setTripStatus("cancelled");
       setCurrentTrip(null);
       setSelectedDriver(null);
-      toast.error(message || "❌ Course annulée", { id: "trip-cancelled" });
+
+      addNotification({
+        type: NOTIFICATION_TYPES.ERROR,
+        category: NOTIFICATION_CATEGORIES.TRIP,
+        title: 'Course annulée ❌',
+        message: message || "Votre course a été annulée.",
+      });
+
       setTimeout(() => setTripStatus(null), 2500);
+    };
+
+    // ✅ Nouveauté : Mise à jour du statut d'un litige
+    const onDisputeUpdate = (data) => {
+      console.log(`📩 [CONTEXT] litige:status_update reçu for ID=${data.litigeId}`);
+      addNotification({
+        title: 'Litige mis à jour ⚖️',
+        message: data.message || `Le statut de votre litige #${data.reference} a été mis à jour : ${data.statut}.`,
+        type: data.statut === 'RESOLU' ? NOTIFICATION_TYPES.SUCCESS : (data.statut === 'REJETER' ? NOTIFICATION_TYPES.ERROR : NOTIFICATION_TYPES.WARNING),
+        category: NOTIFICATION_CATEGORIES.MODERATION,
+        priority: 'high'
+      });
     };
 
     // ✅ Nouveauté : Réservation planifiée non acceptée après 15 min
@@ -381,14 +457,13 @@ export const PassengerProvider = ({ children }) => {
     socketService.on("course:acceptee", onAccepted);
     socketService.on("course:chauffeur_en_route", onEnRoute);
     socketService.on("course:chauffeur_arrive", onArrived);
-    socketService.on("course:arrivee", onArrived);
-    socketService.on("course:signaler_arrivee", onArrived);
     socketService.on("course:demarre", onStarted);
     socketService.on("course:demarre_global", onGlobalStarted);
     socketService.on("position:chauffeur", onPosition);
     socketService.on("course:terminee", onCompleted);
     socketService.on("course:annulee", onCancelled);
     socketService.on("reservation:planifiee_non_acceptee", onPlannedNotAccepted);
+    socketService.on("litige:status_update", onDisputeUpdate);
 
     return () => {
       socketService.off("course:acceptee", onAccepted);
@@ -402,6 +477,7 @@ export const PassengerProvider = ({ children }) => {
       socketService.off("course:terminee", onCompleted);
       socketService.off("course:annulee", onCancelled);
       socketService.off("reservation:planifiee_non_acceptee", onPlannedNotAccepted);
+      socketService.off("litige:status_update", onDisputeUpdate);
     };
   }, [passenger?._id, passenger?.id]);
 

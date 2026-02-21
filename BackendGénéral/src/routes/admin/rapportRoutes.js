@@ -47,5 +47,11 @@ router.get(
     autoriserRoles("ADMIN"),
     rapportController.detailsRapport
 );
+router.delete(
+    "/rapports/:rapportId",
+    verifierToken,
+    autoriserRoles("ADMIN"),
+    rapportController.supprimerRapport
+);
 
 module.exports = router;

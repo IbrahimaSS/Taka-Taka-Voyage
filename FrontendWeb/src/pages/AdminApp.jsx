@@ -23,6 +23,12 @@ import Reports from '../components/admin/sections/Reports';
 import Commissions from '../components/admin/sections/Commissions';
 import Settings from '../components/admin/sections/Settings';
 import UserProfile from '../components/admin/profile/UserProfile';
+import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../context/NotificationContext';
+import { socketService } from '../services/socketService';
+import { useAuth } from '../context/AuthContext';
+
+
+
 
 // UI Components
 import Toast from '../components/admin/ui/Toast';
@@ -46,9 +52,77 @@ function AdminApp() {
     return () => clearInterval(interval);
   }, []);
 
-  const showToast = (title, message, type = 'success') => {
-    setToast({ title, message, type });
+  const { user } = useAuth();
+  const { addNotification } = useNotificationCenter();
+
+
+  // Real-time socket for Admin
+  useEffect(() => {
+    const userId = user?._id || user?.id;
+    if (userId) {
+      console.log("🔌 [ADMIN] Connecting to socket system...");
+      socketService.connect(userId, 'ADMIN', user.nom, user.prenom);
+
+      const onSystemAlert = (data) => {
+        addNotification({
+          title: data.title || 'Système 🚨',
+          message: data.message,
+          type: NOTIFICATION_TYPES.URGENT,
+          category: NOTIFICATION_CATEGORIES.SYSTEM,
+          priority: 'high'
+        });
+      };
+
+      socketService.on('system:alert', onSystemAlert);
+
+      const onNewDispute = (data) => {
+        addNotification({
+          title: 'Nouveau litige ⚠️',
+          message: `${data.reference}: ${data.type}`,
+          type: NOTIFICATION_TYPES.WARNING,
+          category: NOTIFICATION_CATEGORIES.MODERATION,
+          link: '/admin/litiges',
+          priority: 'high'
+        });
+      };
+
+      socketService.on('dispute:new', onNewDispute);
+
+      return () => {
+        socketService.off('system:alert', onSystemAlert);
+        socketService.off('dispute:new', onNewDispute);
+      };
+
+    }
+  }, [user?._id, user?.id, addNotification]);
+
+
+
+  const showToast = (titleOrObj, message, type = 'success') => {
+    let finalTitle, finalMessage, finalType;
+
+    if (typeof titleOrObj === 'object' && titleOrObj !== null) {
+      finalTitle = titleOrObj.title || 'Notification';
+      finalMessage = titleOrObj.message || '';
+      finalType = titleOrObj.type || 'success';
+    } else {
+      finalTitle = titleOrObj;
+      finalMessage = message;
+      finalType = type;
+    }
+
+    setToast({ title: finalTitle, message: finalMessage, type: finalType });
+
+    // Also add to notification history for the bell icon
+    addNotification({
+      title: finalTitle,
+      message: finalMessage,
+      type: finalType === 'error' ? NOTIFICATION_TYPES.ERROR : (finalType === 'warning' ? NOTIFICATION_TYPES.WARNING : NOTIFICATION_TYPES.SUCCESS),
+      category: NOTIFICATION_CATEGORIES.SYSTEM,
+      showToast: false // We already show it via the local toast state
+    });
   };
+
 
   const showModal = (content) => {
     setModal(content);

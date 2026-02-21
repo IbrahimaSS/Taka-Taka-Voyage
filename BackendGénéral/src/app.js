@@ -61,9 +61,9 @@ app.use("/api/admin", passagerRoutes);
 app.use("/api/admin", chauffeurRoutes);
 app.use("/api/admin", documentRoutes);
 app.use("/api/admin", commissionRoutes);
-app.use("/api/admin", validationRoutes);
-app.use("/api/admin", trajetRoutes);
-app.use("/api/admin", paiementRoutes);
+app.use("/api/admin/chauffeurs/validation", validationRoutes);
+app.use("/api/admin/trajets", trajetRoutes);
+app.use("/api/admin/paiements", paiementRoutes);
 app.use("/api/admin", rapportRoutes);
 app.use("/api/admin", litigeRoutes);
 app.use("/api/admin", profileRoutes);
@@ -131,7 +131,7 @@ app.use("/api/chauffeur", chauffeurDashboardRoutes);
 const historiqueTrajetsRoutes = require("./routes/chauffeur/historiqueTrajetsRoutes");
 app.use("/api/chauffeur", historiqueTrajetsRoutes);
 
-//Revenus Chauffeur
+//Chauffeur - Revenus
 const chauffeurRevenusRoutes = require("./routes/chauffeur/chauffeurRevenusRoutes");
 app.use("/api/chauffeur", chauffeurRevenusRoutes);
 
@@ -139,8 +139,9 @@ app.use("/api/chauffeur", chauffeurRevenusRoutes);
 const mesCoursesRoutes = require("./routes/chauffeur/mesCoursesRoutes");
 app.use("/api/chauffeur", mesCoursesRoutes);
 
-
-
-
+// ===================== ROUTES COMMUNES =====================
+const commonLitigeRoutes = require("./routes/common/litigeRoutes");
+app.use("/api/litiges", commonLitigeRoutes);
 
 module.exports = app;
+

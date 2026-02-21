@@ -15,7 +15,9 @@ import {
     User,
     Clock,
     Navigation,
-    ArrowRight
+    ArrowRight,
+    CheckCircle2,
+    Hourglass
 } from "lucide-react";
 import { isToday, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { tripService } from "../../services/tripService";
@@ -136,6 +138,34 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                             </div>
                         </div>
                     </div>
+
+                    {/* Statut du versement */}
+                    <div className={`rounded-2xl p-4 border ${ride.verse
+                            ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'
+                            : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
+                        }`}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                {ride.verse
+                                    ? <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                    : <Hourglass className="w-5 h-5 text-amber-600" />
+                                }
+                                <span className={`font-bold ${ride.verse
+                                        ? 'text-emerald-700 dark:text-emerald-400'
+                                        : 'text-amber-700 dark:text-amber-400'
+                                    }`}>
+                                    {ride.verse ? 'Versé' : 'En attente de versement'}
+                                </span>
+                            </div>
+                            {ride.verse && ride.verseLe && (
+                                <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                                    {new Date(ride.verseLe).toLocaleDateString('fr-FR', {
+                                        day: '2-digit', month: 'short', year: 'numeric'
+                                    })}
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
@@ -200,7 +230,9 @@ const Revenues = ({ onToast, onModal }) => {
                         paymentMethod: mapPaymentMethod(item.modePaiement),
                         montantBrut: item.montantBrut || 0,
                         commission: item.commission || 0,
-                        net: item.gainNet || 0
+                        net: item.gainNet || 0,
+                        verse: item.verse || false,
+                        verseLe: item.verseLe || null
                     }));
                     setRevenueData(formattedData);
                 }
@@ -513,8 +545,17 @@ const Revenues = ({ onToast, onModal }) => {
                                                 {formatAmount(ride.montantBrut)}
                                             </div>
 
-                                            <div className="lg:col-span-2 font-black text-green-600 text-right">
-                                                {formatAmount(ride.net)}
+                                            <div className="lg:col-span-2 text-right">
+                                                <p className="font-black text-green-600">{formatAmount(ride.net)}</p>
+                                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold mt-1 px-2 py-0.5 rounded-full ${ride.verse
+                                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                                    : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                                                    }`}>
+                                                    {ride.verse
+                                                        ? <><CheckCircle2 className="w-3 h-3" /> Versé</>
+                                                        : <><Hourglass className="w-3 h-3" /> En attente</>
+                                                    }
+                                                </span>
                                             </div>
 
                                             <div className="lg:col-span-1 flex justify-center">

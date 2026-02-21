@@ -28,6 +28,8 @@ import TripNotificationToast from "../components/chauffeur/TripNotificationToast
 import { DriverProvider, useDriverContext } from '../context/DriverContext';
 import { Toaster } from 'react-hot-toast';
 import { ROLES } from '../config/navConfig';
+import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
+
 
 const LiveTrackingWrapper = () => {
   const { acceptedTrips, driverLocation } = useDriverContext();
@@ -83,7 +85,21 @@ const DriverAutoOnline = () => {
   return null;
 };
 
+const ChauffeurDisputeButton = () => {
+  const { acceptedTrips } = useDriverContext();
+  const mainTrip = acceptedTrips?.length > 0 ? acceptedTrips[0] : null;
+
+  return (
+    <FloatingDisputeButton
+      currentTrip={mainTrip}
+      role="chauffeur"
+      offset={6}
+    />
+  );
+};
+
 function ChauffeurApp() {
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
@@ -114,8 +130,10 @@ function ChauffeurApp() {
   return (
     <DriverProvider>
       <DriverAutoOnline />
+      <ChauffeurDisputeButton />
 
       <div className="flex min-h-screen inset-0 bg-gray-100 bg-gradient-to-br from-primary-50 to-secondary-100 dark:from-gray-800 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
         <TripNotificationToast />
 
         {!isLiveTracking && (

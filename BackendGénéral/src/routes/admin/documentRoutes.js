@@ -14,6 +14,14 @@ router.get(
     autoriserRoles("ADMIN"),
     documentController.statsDocuments
 );
+//Listes des documents par chauffeurs
+router.get(
+    "/documents/chauffeurs",
+    verifierToken,
+    autoriserRoles("ADMIN"),
+    documentController.listeChauffeursAvecDocuments
+);
+
 //Listes des documents
 router.get(
     "/documents",

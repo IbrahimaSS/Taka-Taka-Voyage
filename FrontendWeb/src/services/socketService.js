@@ -26,8 +26,12 @@ class SocketService {
     }
 
     if (this.socket) {
-      // ✅ On ne remove pas TOUS les listeners (sinon on perd ceux du front)
-      // On se déconnecte juste proprement
+      // Before disconnecting, remove all listeners from the old socket instance
+      // to prevent them from being called multiple times if they are re-attached
+      // to a new socket instance.
+      this.listeners.forEach((callbacks, event) => {
+        callbacks.forEach(cb => this.socket.off(event, cb));
+      });
       this.socket.disconnect();
       this.socket = null;
     }
@@ -43,13 +47,13 @@ class SocketService {
       withCredentials: true,
     });
 
+    // ✅ Attach existing listeners to the NEW socket instance ONLY ONCE
+    this.listeners.forEach((callbacks, event) => {
+      callbacks.forEach(cb => this.socket.on(event, cb));
+    });
+
     this.socket.on("connect", () => {
       console.log(`🟢 Socket connecté → ${this.socket.id} (${role})`);
-
-      // ✅ Re-appliquer tous les listeners enregistrés
-      this.listeners.forEach((callbacks, event) => {
-        callbacks.forEach(cb => this.socket.on(event, cb));
-      });
 
       this.socket.emit("client:online", { role, userId, nom, prenom });
 

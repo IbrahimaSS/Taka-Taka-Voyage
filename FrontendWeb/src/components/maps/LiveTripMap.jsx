@@ -28,7 +28,7 @@ function lerp(a, b, t) {
  * - Simple OpenStreetMap tracking view for Admin follow modal.
  * - Shows start, end, current position (interpolated by progress 0..100).
  */
-export default function LiveTripMap({ trip, progress = 0, height = 260 }) {
+export default function LiveTripMap({ trip, progress = 0, height = 260, currentLocation }) {
   useEffect(() => {
     ensureLeafletIcons();
   }, []);
@@ -41,10 +41,11 @@ export default function LiveTripMap({ trip, progress = 0, height = 260 }) {
     : null;
 
   const current = useMemo(() => {
+    if (currentLocation) return [currentLocation.lat, currentLocation.lng];
     if (!start || !end) return null;
     const t = Math.max(0, Math.min(1, progress / 100));
     return [lerp(start[0], end[0], t), lerp(start[1], end[1], t)];
-  }, [start, end, progress]);
+  }, [start, end, progress, currentLocation]);
 
   const polyline = useMemo(() => {
     if (!start || !end) return [];
@@ -55,9 +56,9 @@ export default function LiveTripMap({ trip, progress = 0, height = 260 }) {
     const pts = [];
     if (start) pts.push(start);
     if (end) pts.push(end);
-    if (current) pts.push(current);
+    // On ne change pas les bounds avec 'current' pour éviter que la carte ne "saute" ou re-zoom constamment
     return pts;
-  }, [start, end, current]);
+  }, [start, end]);
 
   if (!start || !end) {
     return (

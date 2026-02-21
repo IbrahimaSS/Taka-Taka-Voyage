@@ -17,6 +17,8 @@ import Pagination from '../ui/Pagination';
 import Toast from '../ui/Toast';
 import Modal from '../ui/Modal';
 import ExportDropdown from '../ui/ExportDropdown';
+import { adminService } from '../../../services/adminService';
+import { exportToPDF, exportToCSV, exportToWord } from '../../../utils/exporters';
 
 // ============= COMPOSANTS INTERNES =============
 
@@ -445,7 +447,10 @@ const generateReports = (count = 50) => {
 // Exemple: GET API_ROUTES.admin.reports, POST /admin/reports/generate
 const Reports = () => {
   // États
-  const [reports, setReports] = useState(() => generateReports(50));
+  const [reports, setReports] = useState([]);
+  const [statsData, setStatsData] = useState({ commissionCeMois: 0, chauffeursPayes: 0 });
+  const [totalItems, setTotalItems] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [activeReportType, setActiveReportType] = useState('all');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -467,8 +472,8 @@ const Reports = () => {
   });
 
   const [newReport, setNewReport] = useState({
-    type: 'financial',
-    format: 'pdf',
+    type: 'FINANCIER',
+    format: 'PDF',
     period: 'month',
     customStart: '',
     customEnd: '',
@@ -488,42 +493,92 @@ const Reports = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Stats calculées
-  const stats = useMemo(() => {
-    const generated = reports.filter(r => r.status === 'generated').length;
-    const totalDownloads = reports.reduce((acc, r) => acc + r.downloadCount, 0);
+  // Fetch Stats et Rapports
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data: statsRes } = await adminService.getReportStats();
+      if (statsRes.succes) {
+        setStatsData(statsRes.Cards);
+      }
 
+      const params = {
+        page: currentPage,
+        limit: pageSize,
+      };
+
+      const typeMap = {
+        'FINANCIER': 'financial',
+        'UTILISATEURS': 'users',
+        'GEOGRAPHIQUE': 'geographic',
+        'TRAJETS': 'geographic',
+        'PERFORMANCE': 'performance',
+        'SECURITE': 'security'
+      };
+
+      const { data: rapportsRes } = await adminService.getReports(params);
+      if (rapportsRes.succes) {
+        setReports(rapportsRes.rapports.map(r => ({
+          id: r.id,
+          title: r.rapport,
+          description: `Rapport ${r.type.toLowerCase()} généré par le système`,
+          type: typeMap[r.type] || r.type.toLowerCase(),
+          status: r.statut?.toLowerCase() === 'genere' ? 'generated' :
+            r.statut?.toLowerCase() === 'en_attente' ? 'pending' :
+              r.statut?.toLowerCase() === 'en_cours' ? 'processing' : 'failed',
+          format: r.format?.toLowerCase() || 'pdf',
+          author: 'Système',
+          createdAt: new Date(r.creeLe).toLocaleDateString('fr-FR'),
+          period: r.periode ? `${new Date(r.periode.debut).toLocaleDateString('fr-FR')} - ${new Date(r.periode.fin).toLocaleDateString('fr-FR')}` : "Période non def.",
+          downloadCount: 0,
+          raw: r
+        })));
+        setTotalItems(rapportsRes.pagination.total);
+      }
+    } catch (error) {
+      console.error("Erreur fetching reports:", error);
+      showToast('Erreur', 'Impossible de charger les données', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [currentPage, pageSize]);
+
+  // Stats calculées pour l'affichage (Cards)
+  const stats = useMemo(() => {
     return [
       {
-        title: 'Rapports générés',
-        value: generated.toString(),
-        icon: CheckCircle,
+        title: 'Commissions ce mois',
+        value: `${statsData.commissionCeMois.toLocaleString()} GNF`,
+        icon: DollarSign,
         color: 'green',
         trend: 'up',
-        percentage: Math.round((generated / reports.length) * 100),
-        progress: (generated / reports.length) * 100,
-        subtitle: `${generated} rapports disponibles`
+        percentage: 12, // mock progress
+        progress: 65,
+        subtitle: 'Revenus plateforme'
       },
       {
-        title: 'Téléchargements',
-        value: totalDownloads.toString(),
-        icon: Download,
+        title: 'Chauffeurs payés',
+        value: statsData.chauffeursPayes.toString(),
+        icon: Users,
         color: 'purple',
         trend: 'up',
-        percentage: Math.round((totalDownloads / 500) * 100),
-        progress: Math.min((totalDownloads / 1000) * 100, 100),
-        subtitle: 'Téléchargements totaux'
+        percentage: 8,
+        progress: 45,
+        subtitle: 'Ce mois-ci'
       }
     ];
-  }, [reports]);
+  }, [statsData]);
 
-  // Filtrage des rapports
+  // Filtrage des rapports (Client-side search on top of paginated results)
   const filteredReports = useMemo(() => {
     return reports.filter(report => {
       const matchesSearch =
         search === '' ||
         report.title.toLowerCase().includes(search.toLowerCase()) ||
-        report.description.toLowerCase().includes(search.toLowerCase()) ||
         report.id.toLowerCase().includes(search.toLowerCase());
 
       const matchesStatus = statusFilter === 'all' || report.status === statusFilter;
@@ -534,84 +589,134 @@ const Reports = () => {
     });
   }, [reports, search, statusFilter, formatFilter, activeReportType]);
 
-  // Pagination
-  const paginatedReports = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    return filteredReports.slice(startIndex, endIndex);
-  }, [filteredReports, currentPage, pageSize]);
-
-  const totalPages = Math.ceil(filteredReports.length / pageSize);
+  const totalPages = Math.ceil(totalItems / pageSize);
 
   // Handlers
-  const handleGenerateReport = (reportData = null) => {
+  const handleGenerateReport = async () => {
     setModalState(prev => ({ ...prev, loading: true }));
+    try {
+      const payload = {
+        titre: `Rapport ${newReport.type.toLowerCase()} généré le ${new Date().toLocaleDateString('fr-FR')}`,
+        type: newReport.type,
+        format: newReport.format,
+        periode: {
+          debut: new Date(new Date().setDate(new Date().getDate() - 30)),
+          fin: new Date()
+        }
+      };
 
-    const reportId = reportData?.id || `RPT-${String(reports.length + 1000).padStart(6, '0')}`;
-    const title = reportData?.title || `Rapport ${new Date().toLocaleDateString('fr-FR')}`;
+      const { data: res } = await adminService.createReport(payload);
+      if (res.succes) {
+        showToast('Rapport généré', 'Le rapport a été créé avec succès', 'success');
+        fetchData(); // rafraichir la liste
+      }
+    } catch (error) {
+      console.error("Erreur création rapport:", error);
+      showToast('Erreur', 'Impossible de générer le rapport', 'error');
+    } finally {
+      setModalState(prev => ({ ...prev, loading: false, showGenerate: false }));
+    }
+  };
 
-    setTimeout(() => {
-      if (reportData) {
-        // Regénérer un rapport existant
-        setReports(prev => prev.map(report =>
-          report.id === reportId
-            ? { ...report, status: 'generated', lastAccessed: new Date().toLocaleDateString('fr-FR') }
-            : report
-        ));
+  const handleDeleteReport = async (reportId) => {
+    setModalState(prev => ({ ...prev, loading: true }));
+    try {
+      const { data: res } = await adminService.deleteReport(reportId);
+      if (res.succes) {
+        showToast('Rapport supprimé', 'Le rapport a été supprimé avec succès', 'warning');
+        fetchData();
+      }
+    } catch (error) {
+      console.error("Erreur suppression:", error);
+      showToast('Erreur', 'Impossible de supprimer le rapport', 'error');
+    } finally {
+      setModalState(prev => ({ ...prev, loading: false, showDelete: false }));
+    }
+  };
+
+  const handleDownloadReport = async (report) => {
+    const reportFormat = report.format ? report.format.toLowerCase() : 'pdf';
+    const type = report.type ? report.type.toLowerCase() : 'users';
+
+    showToast('Téléchargement', `Génération du rapport ${type} en format ${reportFormat.toUpperCase()}...`, 'info');
+
+    try {
+      let data = [];
+      let columns = [];
+      const exportTitle = `Rapport ${type.charAt(0).toUpperCase() + type.slice(1)} - Taka Taka`;
+      const fileName = `rapport_${type}_${report.id}`;
+
+      // Configuration selon le type de rapport
+      if (type === 'users' || type === 'utilisateurs') {
+        const { data: res } = await adminService.getPassengers({ limit: 1000 });
+        data = res.utilisateurs || [];
+        columns = [
+          { header: 'Nom', accessor: (u) => `${u.prenom || ''} ${u.nom || ''}` },
+          { header: 'Email', accessor: 'email' },
+          { header: 'Téléphone', accessor: 'telephone' },
+          { header: 'Inscrit le', accessor: (u) => new Date(u.createdAt).toLocaleDateString('fr-FR') },
+          { header: 'Statut', accessor: 'statut' },
+          { header: 'Trajets', accessor: (u) => u.nombreTrajets || 0 }
+        ];
+      } else if (type === 'financial' || type === 'financier') {
+        const { data: res } = await adminService.getPaymentList({ limit: 1000 });
+        data = res.paiements || [];
+        columns = [
+          { header: 'ID Trajet', accessor: (p) => p.reservation?.toString().slice(-6).toUpperCase() || 'N/A' },
+          { header: 'Passager', accessor: (p) => p.passager ? `${p.passager.prenom} ${p.passager.nom}` : 'N/A' },
+          { header: 'Chauffeur', accessor: (p) => p.chauffeur ? `${p.chauffeur.prenom} ${p.chauffeur.nom}` : 'N/A' },
+          { header: 'Montant', accessor: (p) => `${p.montantTotal?.toLocaleString()} GNF` },
+          { header: 'Commission', accessor: (p) => `${p.commissionPlateforme?.toLocaleString()} GNF` },
+          { header: 'Date', accessor: (p) => new Date(p.createdAt).toLocaleDateString('fr-FR') },
+          { header: 'Statut', accessor: 'statut' }
+        ];
+      } else if (type === 'geographic' || type === 'trajets') {
+        const { data: res } = await adminService.getTrips({ limit: 1000 });
+        data = res.trajets || [];
+        columns = [
+          { header: 'ID', accessor: (t) => t._id?.toString().slice(-6).toUpperCase() },
+          { header: 'Départ', accessor: 'pointDepart.adresse' },
+          { header: 'Arrivée', accessor: 'pointArrivee.adresse' },
+          { header: 'Catégorie', accessor: 'categorie' },
+          { header: 'Prix', accessor: (t) => `${t.prix?.toLocaleString()} GNF` },
+          { header: 'Statut', accessor: 'statut' },
+          { header: 'Date', accessor: (t) => new Date(t.createdAt).toLocaleDateString('fr-FR') }
+        ];
       } else {
-        // Générer un nouveau rapport
-        const newReportObj = {
-          id: reportId,
-          title,
-          description: newReport.type === 'financial' ? 'Analyse financière complète' :
-            newReport.type === 'users' ? 'Statistiques utilisateurs' :
-              newReport.type === 'geographic' ? 'Répartition géographique' :
-                newReport.type === 'performance' ? 'Indicateurs performance' : 'Audit sécurité',
-          type: newReport.type,
-          status: 'generated',
-          format: newReport.format,
-          size: Math.floor(Math.random() * 5000) + 1000,
-          author: 'Admin',
-          createdAt: new Date().toLocaleDateString('fr-FR'),
-          period: `${new Date().getDate()}/${new Date().getMonth() + 1} - ${new Date(new Date().setDate(new Date().getDate() + 30)).getDate()}/${new Date().getMonth() + 1}`,
-          lastAccessed: null,
-          downloadCount: 0,
-          tags: [newReport.type, newReport.format, 'nouveau']
-        };
-
-        setReports(prev => [newReportObj, ...prev]);
+        // Fallback pour les types non encore implémentés spécifiquement
+        data = reports.filter(r => r.id === report.id);
+        columns = exportColumns;
       }
 
-      setModalState(prev => ({ ...prev, loading: false, showGenerate: false }));
-      showToast(
-        'Rapport généré',
-        reportData ? 'Le rapport a été regénéré avec succès' : 'Nouveau rapport généré avec succès',
-        'success'
-      );
-    }, 1500);
-  };
+      if (data.length === 0 && (type === 'users' || type === 'financial' || type === 'geographic' || type === 'trajets' || type === 'utilisateurs' || type === 'financier')) {
+        showToast('Info', 'Aucune donnée trouvée pour ce type de rapport actuellement.', 'info');
+        return;
+      }
 
-  const handleDeleteReport = (reportId) => {
-    setModalState(prev => ({ ...prev, loading: true }));
+      // Appel de l'exporteur approprié
+      const exportOptions = {
+        data,
+        columns,
+        fileName,
+        title: exportTitle,
+        onToast: (t, m, s) => showToast(t, m, s)
+      };
 
-    setTimeout(() => {
-      setReports(prev => prev.filter(report => report.id !== reportId));
-      setModalState(prev => ({ ...prev, loading: false, showDelete: false }));
-      showToast('Rapport supprimé', 'Le rapport a été supprimé avec succès', 'warning');
-    }, 1000);
-  };
+      if (reportFormat === 'pdf') {
+        await exportToPDF(exportOptions);
+      } else if (reportFormat === 'csv') {
+        exportToCSV(exportOptions);
+      } else if (reportFormat === 'word') {
+        exportToWord(exportOptions);
+      } else {
+        // Fallback PDF
+        await exportToPDF(exportOptions);
+      }
 
-  const handleDownloadReport = (report, format = 'pdf') => {
-    showToast('Téléchargement', `Téléchargement du rapport ${report.id}...`, 'info');
-
-    setTimeout(() => {
-      const updatedReports = reports.map(r =>
-        r.id === report.id ? { ...r, downloadCount: r.downloadCount + 1, lastAccessed: new Date().toLocaleDateString('fr-FR') } : r
-      );
-      setReports(updatedReports);
-
-      showToast('Téléchargement terminé', `Le rapport ${report.id} a été téléchargé en format ${format}`, 'success');
-    }, 1000);
+    } catch (error) {
+      console.error("Export error:", error);
+      showToast('Erreur', 'Impossible de récupérer les données pour générer le fichier.', 'error');
+    }
   };
 
   const showToast = (title, message, type = 'success') => {
@@ -837,11 +942,11 @@ const Reports = () => {
               onChange={(e) => setNewReport(prev => ({ ...prev, type: e.target.value }))}
               className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
             >
-              <option value="financial">Financier</option>
-              <option value="users">Utilisateurs</option>
-              <option value="geographic">Géographique</option>
-              <option value="performance">Performance</option>
-              <option value="security">Sécurité</option>
+              <option value="FINANCIER">Financier</option>
+              <option value="UTILISATEURS">Utilisateurs</option>
+              <option value="TRAJETS">Trajets / Géographique</option>
+              <option value="PERFORMANCE">Performance</option>
+              <option value="SECURITE">Sécurité</option>
             </select>
           </div>
 
@@ -854,9 +959,9 @@ const Reports = () => {
               onChange={(e) => setNewReport(prev => ({ ...prev, format: e.target.value }))}
               className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
             >
-              <option value="pdf">PDF</option>
-              <option value="csv">CSV</option>
-              <option value="word">Word</option>
+              <option value="PDF">PDF</option>
+              <option value="CSV">CSV</option>
+              <option value="WORD">Word</option>
             </select>
           </div>
 
@@ -1052,9 +1157,9 @@ const Reports = () => {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle>Rapports ({filteredReports.length})</CardTitle>
+              <CardTitle>Rapports ({totalItems})</CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {paginatedReports.length} affiché(s) sur {filteredReports.length}
+                {filteredReports.length} affiché(s) sur {totalItems}
               </p>
             </div>
 
@@ -1078,10 +1183,14 @@ const Reports = () => {
         </CardHeader>
 
         <CardContent>
-          {/* Version mobile */}
-          {isMobile ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <RefreshCw className="w-10 h-10 text-green-500 animate-spin mb-4" />
+              <p className="text-gray-500 animate-pulse">Chargement des rapports...</p>
+            </div>
+          ) : isMobile ? (
             <div className="space-y-3">
-              {paginatedReports.map((report) => (
+              {filteredReports.map((report) => (
                 <MobileReportCard
                   key={report.id}
                   report={report}
@@ -1110,7 +1219,7 @@ const Reports = () => {
                   'Actions'
                 ]}
               >
-                {paginatedReports.map((report) => (
+                {filteredReports.map((report) => (
                   <TableRow key={report.id}>
                     <TableCell>
                       <div className="min-w-[200px]">
@@ -1156,31 +1265,31 @@ const Reports = () => {
               </Table>
             </div>
           )}
-
-          {/* Pagination */}
-          {filteredReports.length > 0 && (
-            <div className="mt-6">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                pageSize={pageSize}
-                totalItems={filteredReports.length}
-                showInfo={true}
-              />
-            </div>
-          )}
-
-          {paginatedReports.length === 0 && (
-            <div className="text-center py-12">
-              <AlertCircle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">Aucun rapport trouvé</p>
-              <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-                Essayez de modifier vos filtres ou générez un nouveau rapport
-              </p>
-            </div>
-          )}
         </CardContent>
+
+        {/* Pagination */}
+        {filteredReports.length > 0 && (
+          <div className="p-6 border-t border-gray-100 dark:border-gray-800">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              showInfo={true}
+            />
+          </div>
+        )}
+
+        {filteredReports.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <AlertCircle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">Aucun rapport trouvé</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+              Essayez de modifier vos filtres ou générez un nouveau rapport
+            </p>
+          </div>
+        )}
       </Card>
     </div>
   );

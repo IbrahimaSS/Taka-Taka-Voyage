@@ -36,6 +36,8 @@ import RealTimeTracking from '../components/suivisTrajet/TrajetEnTempReel';
 import TrajetComplete from '../components/suivisTrajet/TrajetComplete';
 import TrajetNote from '../components/suivisTrajet/TrajetNote';
 import SearchIndicator from '../components/passager/SearchIndicator';
+import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
+
 
 const getStoredUser = () => {
   try {
@@ -647,8 +649,15 @@ const Passenger = () => {
           </div>
         </footer>
       </div>
+
+      <FloatingDisputeButton
+        currentTrip={currentTrip}
+        role="passager"
+        offset={6}
+      />
     </>
   );
 };
+
 
 export default Passenger;

@@ -200,7 +200,7 @@ const TripComplete = ({
                     Paiement reçu !
                   </p>
                   <p className="mt-1 text-sm text-gray-500">
-                    Le passager confirme l'envoi de {data.montant} GNF.
+                    {data.message || `Le passager confirme l'envoi de ${data.montant} GNF.`}
                   </p>
                 </div>
               </div>
@@ -265,12 +265,14 @@ const TripComplete = ({
       return;
     }
 
-    // Simulation OM/MM (pour le moment)
+    // ✅ [FIX] Mobile Money (Orange Money / MTN)
     setIsProcessing(true);
-    setTimeout(() => {
-      // En prod, ceci serait déclenché par un webhook backend -> socket
-      socketService.emit('paiement:confirmer_reception', { reservationId: trip?.reservationId || trip?.id });
-    }, 2000);
+    // On notifie le serveur que le passager a initié/confirmé le paiement via OM/MTN
+    // pour que le chauffeur reçoive la demande de confirmation.
+    socketService.emit('paiement:confirmer_envoi', {
+      reservationId: trip?.reservationId || trip?.id,
+      method: selectedPayment.toUpperCase()
+    });
   };
 
   const handleReportProblem = () => {

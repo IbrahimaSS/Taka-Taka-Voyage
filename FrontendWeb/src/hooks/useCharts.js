@@ -8,62 +8,91 @@ export const useChart = (config) => {
 
   useEffect(() => {
     if (chartRef.current) {
+      // Si une instance existe déjà et que le type est le même, on met à jour au lieu de détruire
+      if (chartInstance.current && chartInstance.current.config.type === config.type) {
+        chartInstance.current.data = config.data;
+        Object.assign(chartInstance.current.options, {
+          responsive: true,
+          maintainAspectRatio: false,
+          ...config.options
+        });
+        chartInstance.current.update('none'); // Mise à jour silencieuse
+        return;
+      }
+
+      // Sinon (premier rendu ou changement de type), on (ré)initialise
       if (chartInstance.current) {
         chartInstance.current.destroy();
       }
 
+      const isLinear = config.type === 'line' || config.type === 'bar';
+
       chartInstance.current = new Chart(chartRef.current, {
-        ...config,
+        type: config.type,
+        data: config.data,
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              display: false,
+              display: config.type === 'doughnut' ? true : false,
+              position: 'right',
+              labels: {
+                usePointStyle: true,
+                padding: 20,
+                font: { size: 12 }
+              }
             },
             tooltip: {
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
               titleColor: '#1F2937',
               bodyColor: '#4B5563',
               borderColor: '#E5E7EB',
               borderWidth: 1,
-              cornerRadius: 8,
+              padding: 12,
+              cornerRadius: 10,
+              displayColors: true,
               callbacks: {
                 label: (context) => {
-                  return new Intl.NumberFormat('fr-FR').format(context.raw) + ' GNF';
+                  const value = context.raw;
+                  if (config.type === 'doughnut') {
+                    return ` ${context.label}: ${value} litiges`;
+                  }
+                  return ` ${new Intl.NumberFormat('fr-FR').format(value)} GNF`;
                 },
               },
             },
           },
-          scales: {
-            y: {
-              beginAtZero: true,
-              grid: {
-                drawBorder: false,
-                color: 'rgba(0, 0, 0, 0.05)',
+          ...(isLinear ? {
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { drawBorder: false, color: 'rgba(0, 0, 0, 0.05)' },
+              },
+              x: {
+                grid: { display: false },
               },
             },
-            x: {
-              grid: {
-                display: false,
-              },
-            },
-          },
+          } : {}),
           animation: {
-            duration: 2000,
+            duration: 1000,
             easing: 'easeOutQuart',
           },
           ...config.options,
         },
       });
     }
+  }, [config]);
 
+  // Nettoyage final au démontage du composant
+  useEffect(() => {
     return () => {
       if (chartInstance.current) {
         chartInstance.current.destroy();
+        chartInstance.current = null;
       }
     };
-  }, [config]);
+  }, []);
 
   return chartRef;
 };

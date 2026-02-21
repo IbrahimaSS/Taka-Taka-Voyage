@@ -6,30 +6,36 @@ const ChauffeurProfile = require("../../models/ChauffeurProfile");
 exports.historiqueTrajetsChauffeur = async (req, res) => {
     try {
         const userId = req.utilisateur._id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
 
         // 1. Récupérer les trajets terminés (depuis le modèle Trajet)
-        // C'est la source de vérité pour les succès
+        // Note: On ne peut pas faire une pagination parfaite sur deux collections fusionnées 
+        // facilement ici sans aggregation complexe, donc on va récupérer un certain nombre de chaque
+        // pour cette version.
         const trajetsTermines = await Trajet.find({
             chauffeur: userId,
             statut: "TERMINEE"
         })
             .populate("passager", "nom prenom noteMoyenne photoUrl")
             .sort({ dateFin: -1 })
+            .limit(100) // On prend les 100 derniers pour le merge
             .lean();
 
         // 2. Récupérer les réservations annulées (depuis le modèle Reservation)
-        // C'est la source pour les échecs
         const reservationsAnnulees = await Reservation.find({
             chauffeur: userId,
             statut: "ANNULEE"
         })
             .populate("passager", "nom prenom noteMoyenne photoUrl")
             .sort({ createdAt: -1 })
+            .limit(100)
             .lean();
 
         // 3. Formater les trajets terminés
         const formattedTermines = trajetsTermines.map(t => ({
-            id: t.reservation || t._id, // On utilise l'ID de résa pour le dédoublonnage
+            id: t.reservation || t._id,
             passengerName: t.passager ? `${t.passager.prenom} ${t.passager.nom}` : "Inconnu",
             passengerRating: t.passager?.noteMoyenne || 5,
             passengerPhoto: t.passager?.photoUrl || null,
@@ -57,30 +63,29 @@ exports.historiqueTrajetsChauffeur = async (req, res) => {
             status: 'cancelled'
         }));
 
-        // 5. Fusionner et supprimer les doublons (si une résa est dans les deux, on garde la version terminée)
+        // 5. Fusionner et supprimer les doublons
         const mapHistorique = new Map();
-
-        // On traite d'abord les annulées
         formattedAnnulees.forEach(item => {
             mapHistorique.set(item.id.toString(), item);
         });
-
-        // Puis on écrase avec les terminées (elles sont prioritaires)
         formattedTermines.forEach(item => {
             mapHistorique.set(item.id.toString(), item);
         });
 
-        const historique = Array.from(mapHistorique.values());
+        const allHistory = Array.from(mapHistorique.values());
+        allHistory.sort((a, b) => new Date(b.requestedTime) - new Date(a.requestedTime));
 
-        // 6. Tri final par date
-        historique.sort((a, b) => new Date(b.requestedTime) - new Date(a.requestedTime));
+        // 6. Pagination manuelle sur le résultat fusionné
+        const total = allHistory.length;
+        const data = allHistory.slice(skip, skip + limit);
 
         return res.status(200).json({
             succes: true,
-            total: historique.length,
-            data: historique,
+            total,
+            page,
+            limit,
+            data,
         });
-
 
     } catch (error) {
         return res.status(500).json({

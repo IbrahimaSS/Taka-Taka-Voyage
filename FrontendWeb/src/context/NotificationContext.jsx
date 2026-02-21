@@ -40,7 +40,7 @@ export const NotificationProvider = ({ children }) => {
      */
     const addNotification = useCallback((data) => {
         const newNotification = {
-            id: Date.now().toString(),
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             timestamp: new Date().toISOString(),
             isRead: false,
             type: data.type || NOTIFICATION_TYPES.INFO,

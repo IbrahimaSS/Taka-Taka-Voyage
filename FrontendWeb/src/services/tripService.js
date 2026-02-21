@@ -25,7 +25,7 @@ export const tripService = {
 
   // Historique
   getPassengerHistory: (params) => apiClient.get('/passager/trajets', { params }),
-  getDriverHistory: () => apiClient.get('/chauffeur/trajets/historique'),
+  getDriverHistory: (params) => apiClient.get('/chauffeur/trajets/historique', { params }),
 
   // Paiements
   getPayments: (params) => apiClient.get('/passager/paiements/paiements', { params }),

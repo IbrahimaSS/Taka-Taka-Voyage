@@ -142,7 +142,9 @@ exports.chauffeurRevenusListe = async (req, res) => {
             montantBrut: p.montantTotal,
             commission: p.commissionPlateforme,
             gainNet: p.montantChauffeur,
-            statutPaiement: p.statut
+            statutPaiement: p.statut,
+            verse: p.verse || false,
+            verseLe: p.verseLe || null
         }));
 
         return res.status(200).json({

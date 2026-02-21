@@ -7,6 +7,7 @@ const ChauffeurProfile = require("../../models/ChauffeurProfile");
 //====================================GESTIONS TRAJETS=============================
 
 // CARDS TRAJETS (ADMIN)
+// CARDS TRAJETS (ADMIN)
 exports.statsTrajets = async (req, res) => {
     try {
         // Début du jour
@@ -15,89 +16,108 @@ exports.statsTrajets = async (req, res) => {
 
         // Trajets aujourd’hui
         const trajetsAujourdhui = await Reservation.countDocuments({
-        createdAt: { $gte: debutJour },
+            createdAt: { $gte: debutJour },
         });
 
         // Trajets en cours
         const trajetsEnCours = await Reservation.countDocuments({
-        statut: "EN_COURS",
+            statut: "EN_COURS",
         });
 
         // Trajets annulés
         const trajetsAnnules = await Reservation.countDocuments({
-        statut: "ANNULEE",
+            statut: "ANNULEE",
         });
 
         // Revenus journaliers (PAYE aujourd’hui)
         const revenusAgg = await Reservation.aggregate([
-        {
-            $match: {
-            "paiement.statut": "PAYE",
-            createdAt: { $gte: debutJour },
+            {
+                $match: {
+                    "paiement.statut": "PAYE",
+                    createdAt: { $gte: debutJour },
+                },
             },
-        },
-        {
-            $group: {
-            _id: null,
-            total: { $sum: "$prix" },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: "$prix" },
+                },
             },
-        },
         ]);
 
         const revenusJournaliers = revenusAgg?.[0]?.total || 0;
 
+        // Distance Totale (Somme de tout les trajets terminés)
+        const distanceAgg = await Reservation.aggregate([
+            { $match: { statut: "TERMINEE" } },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: "$distanceKm" }
+                }
+            }
+        ]);
+        const distanceTotale = distanceAgg?.[0]?.total || 0;
+
+
         return res.status(200).json({
-        succes: true,
-        stats: {
-            trajetsAujourdhui,
-            trajetsEnCours,
-            trajetsAnnules,
-            revenusJournaliers,
-        },
+            succes: true,
+            stats: {
+                trajetsAujourdhui,
+                trajetsEnCours,
+                trajetsAnnules,
+                revenusJournaliers,
+                distanceTotale
+            },
         });
     } catch (error) {
         return res.status(500).json({
-        succes: false,
-        message: error.message,
+            succes: false,
+            message: error.message,
         });
     }
 };
 
-// TOUS LES TRAJETS (ADMIN + PAGINATION)
+// TOUS LES TRAJETS (ADMIN + PAGINATION + FILTRES)
 exports.tousLesTrajets = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
+        const { chauffeur, passager } = req.query;
+
+        const filtre = {};
+        if (chauffeur) filtre.chauffeur = chauffeur;
+        if (passager) filtre.passager = passager;
 
         // Total trajets
-        const total = await Reservation.countDocuments();
+        const total = await Reservation.countDocuments(filtre);
 
         // Trajets paginés
-        const trajets = await Reservation.find()
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate("passager", "nom prenom telephone")
-        .populate("chauffeur", "nom prenom")
-        .select("depart destination statut prix createdAt");
+        const trajets = await Reservation.find(filtre)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate("passager", "nom prenom telephone photoUrl email")
+            .populate("chauffeur", "nom prenom telephone photoUrl vehicule")
+            .select("_id depart destination departCoords destinationCoords statut prix createdAt dureeMin distanceKm typeVehicule reference");
 
         return res.status(200).json({
-        succes: true,
-        pagination: {
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-            from: total === 0 ? 0 : skip + 1,
-            to: skip + trajets.length,
-        },
-        trajets,
+            succes: true,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+                from: total === 0 ? 0 : skip + 1,
+                to: skip + trajets.length,
+            },
+            trajets,
         });
     } catch (error) {
         return res.status(500).json({
-        succes: false,
-        message: error.message,
+            succes: false,
+            message: error.message,
         });
     }
 };
@@ -112,25 +132,25 @@ exports.trajetsCarte = async (req, res) => {
         };
 
         if (depart) {
-        filter.depart = { $regex: depart, $options: "i" };
+            filter.depart = { $regex: depart, $options: "i" };
         }
 
         if (destination) {
-        filter.destination = { $regex: destination, $options: "i" };
+            filter.destination = { $regex: destination, $options: "i" };
         }
 
         const trajets = await Reservation.find(filter).select(
-        "_id depart destination latitudeDepart longitudeDepart latitudeArrivee longitudeArrivee"
+            "_id depart destination latitudeDepart longitudeDepart latitudeArrivee longitudeArrivee"
         );
 
         return res.status(200).json({
-        succes: true,
-        trajets,
+            succes: true,
+            trajets,
         });
     } catch (error) {
         return res.status(500).json({
-        succes: false,
-        message: error.message,
+            succes: false,
+            message: error.message,
         });
     }
 };
@@ -141,49 +161,49 @@ exports.detailTrajet = async (req, res) => {
         const { id } = req.params;
 
         const trajet = await Reservation.findById(id)
-        .populate("passager", "nom prenom email telephone")
-        .populate("chauffeur", "nom prenom telephone");
+            .populate("passager", "nom prenom email telephone")
+            .populate("chauffeur", "nom prenom telephone");
 
         if (!trajet) {
-        return res.status(404).json({
-            succes: false,
-            message: "Trajet introuvable",
-        });
+            return res.status(404).json({
+                succes: false,
+                message: "Trajet introuvable",
+            });
         }
 
         // 🔹 Profil chauffeur (véhicule)
         let vehicule = null;
         if (trajet.chauffeur) {
-        const profil = await ChauffeurProfile.findOne({
-            utilisateur: trajet.chauffeur._id,
-        });
+            const profil = await ChauffeurProfile.findOne({
+                utilisateur: trajet.chauffeur._id,
+            });
 
-        if (profil) {
-            vehicule = {
-            modele: profil.marqueVehicule,
-            plaque: profil.plaque,
-            couleur: profil.couleur,
-            annee: profil.annee,
-            capacite: profil.capacite,
-            carburant: profil.carburant,
-            };
-        }
+            if (profil) {
+                vehicule = {
+                    modele: profil.marqueVehicule,
+                    plaque: profil.plaque,
+                    couleur: profil.couleur,
+                    annee: profil.annee,
+                    capacite: profil.capacite,
+                    carburant: profil.carburant,
+                };
+            }
         }
 
         // NOTE DU CHAUFFEUR POUR CE TRAJET
         const evaluation = await Evaluation.findOne({
-        reservation: trajet._id,
+            reservation: trajet._id,
         });
 
         const noteChauffeur = evaluation
-        ? {
-            noteGlobale: evaluation.noteGlobale,
-            details: evaluation.details,
-            ressenti: evaluation.ressenti,
-            pointsForts: evaluation.pointsForts,
-            commentaire: evaluation.commentaire,
+            ? {
+                noteGlobale: evaluation.noteGlobale,
+                details: evaluation.details,
+                ressenti: evaluation.ressenti,
+                pointsForts: evaluation.pointsForts,
+                commentaire: evaluation.commentaire,
             }
-        : null;
+            : null;
 
         // Finances
         const totalPassager = trajet.prix || 0;
@@ -192,36 +212,36 @@ exports.detailTrajet = async (req, res) => {
         const gainChauffeur = totalPassager - commission - fraisPlateforme;
 
         return res.status(200).json({
-        succes: true,
-        trajet: {
-            reference: trajet.reference || `TR-${trajet._id.toString().slice(-6)}`,
-            statut: trajet.statut,
-            paiement: trajet.paiement?.mode || "ESPECES",
-            date: trajet.createdAt,
+            succes: true,
+            trajet: {
+                reference: trajet.reference || `TR-${trajet._id.toString().slice(-6)}`,
+                statut: trajet.statut,
+                paiement: trajet.paiement?.mode || "ESPECES",
+                date: trajet.createdAt,
 
-            depart: trajet.depart,
-            destination: trajet.destination,
+                depart: trajet.depart,
+                destination: trajet.destination,
 
-            distanceKm: trajet.distanceKm,
-            dureeMin: trajet.dureeMin,
+                distanceKm: trajet.distanceKm,
+                dureeMin: trajet.dureeMin,
 
-            passager: trajet.passager,
-            chauffeur: trajet.chauffeur,
-            vehicule,
-            noteChauffeur,
+                passager: trajet.passager,
+                chauffeur: trajet.chauffeur,
+                vehicule,
+                noteChauffeur,
 
-            finances: {
-            totalPassager,
-            commission,
-            fraisPlateforme,
-            gainChauffeur,
+                finances: {
+                    totalPassager,
+                    commission,
+                    fraisPlateforme,
+                    gainChauffeur,
+                },
             },
-        },
         });
     } catch (error) {
         return res.status(500).json({
-        succes: false,
-        message: error.message,
+            succes: false,
+            message: error.message,
         });
     }
 };

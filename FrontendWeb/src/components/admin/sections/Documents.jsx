@@ -18,6 +18,10 @@ import Progress from '../ui/Progress';
 import DocumentViewer from '../ui/DocumentViewer';
 import ExportDropdown from '../ui/ExportDropdown';
 import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
+import { adminService } from '../../../services/adminService';
+import toast from 'react-hot-toast';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // TODO API (admin/documents):
 // Remplacer les donnees simulees et les validations locales par des appels backend
@@ -43,529 +47,106 @@ const Documents = ({ showToast }) => {
 
   // Types de documents
   const documentTypes = [
-    { id: 'license', label: 'Permis de conduire', icon: IdCard, color: 'blue', required: true },
-    { id: 'id_card', label: "Carte d'identité", icon: User, color: 'purple', required: true },
-    { id: 'registration', label: 'Carte grise', icon: Car, color: 'green', required: true },
-    { id: 'insurance', label: 'Assurance', icon: Shield, color: 'orange', required: true },
-    { id: 'inspection', label: 'Contrôle technique', icon: FileCheck, color: 'red', required: true },
-    { id: 'medical', label: 'Certificat médical', icon: FileText, color: 'teal', required: false },
-    { id: 'bank', label: 'RIB', icon: FileText, color: 'indigo', required: false },
-    { id: 'photo', label: "Photo d'identité", icon: User, color: 'pink', required: true }
+    { id: 'PERMIS', label: 'Permis de conduire', icon: IdCard, color: 'blue', required: true },
+    { id: 'IDENTITE', label: "Carte d'identité", icon: User, color: 'purple', required: true },
+    { id: 'CARTE_GRISE', label: 'Carte grise', icon: Car, color: 'green', required: true },
+    { id: 'ASSURANCE', label: 'Assurance', icon: Shield, color: 'orange', required: true },
+    { id: 'PHOTO_VEHICULE', label: 'Photo véhicule', icon: Car, color: 'red', required: true }
   ];
 
   // Statuts de documents
   const statusTypes = [
-    { id: 'valid', label: 'Valide', icon: CheckCircle, color: 'success', bgColor: 'bg-green-50', textColor: 'text-green-700' },
-    { id: 'rejected', label: 'Rejeté', icon: FileX, color: 'error', bgColor: 'bg-red-50', textColor: 'text-red-700' },
-    { id: 'pending', label: 'En attente', icon: Clock, color: 'warning', bgColor: 'bg-yellow-50', textColor: 'text-yellow-700' },
-    { id: 'expired', label: 'Expiré', icon: XCircle, color: 'error', bgColor: 'bg-red-100', textColor: 'text-red-800' },
-    { id: 'expiring', label: 'Expire bientôt', icon: AlertTriangle, color: 'warning', bgColor: 'bg-orange-50', textColor: 'text-orange-700' }
+    { id: 'VALIDE', label: 'Valide', icon: CheckCircle, color: 'success', bgColor: 'bg-green-50', textColor: 'text-green-700' },
+    { id: 'REFUSE', label: 'Rejeté', icon: FileX, color: 'error', bgColor: 'bg-red-50', textColor: 'text-red-700' },
+    { id: 'VERIFIER', label: 'En attente', icon: Clock, color: 'warning', bgColor: 'bg-yellow-50', textColor: 'text-yellow-700' },
+    { id: 'EXPIRE', label: 'Expiré', icon: XCircle, color: 'error', bgColor: 'bg-red-100', textColor: 'text-red-800' }
   ];
 
-  // Données simulées (20 documents maximum)
-  const initialDocuments = [
-    {
-      id: 1,
-      type: 'license',
-      owner: { id: 1, name: 'Kouamé Adou', role: 'chauffeur', phone: '+225 01 23 45 67 89', email: 'kouame@example.com' },
-      number: '123456789',
-      expiryDate: '2026-08-15',
-      issueDate: '2021-08-15',
-      uploadDate: '2024-03-15',
-      uploadBy: 'Admin System',
-      validity: 85,
-      status: 'valid',
-      size: '2.4 MB',
-      format: 'PDF',
-      notes: 'Permis international valide',
-      fileName: 'permis_kouame_adou.pdf',
-      fileUrl: '/documents/permis.pdf',
-      reviewedBy: 'Jean Dupont',
-      reviewDate: '2024-03-16'
-    },
-    {
-      id: 2,
-      type: 'registration',
-      owner: { id: 1, name: 'Kouamé Adou', role: 'chauffeur' },
-      number: 'AB-123-CD',
-      expiryDate: '2025-06-30',
-      issueDate: '2022-06-30',
-      uploadDate: '2024-02-10',
-      uploadBy: 'Kouamé Adou',
-      validity: 60,
-      status: 'expiring',
-      size: '1.8 MB',
-      format: 'PDF',
-      notes: 'Carte grise à jour',
-      fileName: 'carte_grise_kouame.pdf',
-      fileUrl: '/documents/carte_grise.pdf',
-      reviewedBy: null,
-      reviewDate: null
-    },
-    {
-      id: 3,
-      type: 'id_card',
-      owner: { id: 1, name: 'Kouamé Adou', role: 'chauffeur' },
-      number: '987654321',
-      expiryDate: '2030-05-20',
-      issueDate: '2020-05-20',
-      uploadDate: '2024-01-15',
-      uploadBy: 'Admin System',
-      validity: 90,
-      status: 'valid',
-      size: '1.2 MB',
-      format: 'JPG',
-      notes: "Carte d'identité nationale",
-      fileName: 'cni_kouame.jpg',
-      fileUrl: '/documents/cni.jpg',
-      reviewedBy: 'Jean Dupont',
-      reviewDate: '2024-01-16'
-    },
-    {
-      id: 4,
-      type: 'insurance',
-      owner: { id: 2, name: 'Aïcha Diarra', role: 'chauffeur', phone: '+225 07 89 12 34 56', email: 'aicha@example.com' },
-      number: 'ASS-456-789',
-      expiryDate: '2024-12-31',
-      issueDate: '2023-12-31',
-      uploadDate: '2024-03-20',
-      uploadBy: 'Aïcha Diarra',
-      validity: 80,
-      status: 'valid',
-      size: '3.1 MB',
-      format: 'PDF',
-      notes: 'Assurance tous risques',
-      fileName: 'assurance_aicha.pdf',
-      fileUrl: '/documents/assurance.pdf',
-      reviewedBy: 'Admin System',
-      reviewDate: '2024-03-21'
-    },
-    {
-      id: 5,
-      type: 'inspection',
-      owner: { id: 2, name: 'Aïcha Diarra', role: 'chauffeur' },
-      number: 'CT-2024-045',
-      expiryDate: '2025-02-28',
-      issueDate: '2024-02-28',
-      uploadDate: '2024-04-05',
-      uploadBy: 'Aïcha Diarra',
-      validity: 95,
-      status: 'pending',
-      size: '2.5 MB',
-      format: 'PDF',
-      notes: 'Contrôle technique à vérifier',
-      fileName: 'controle_technique_aicha.pdf',
-      fileUrl: '/documents/controle.pdf',
-      reviewedBy: null,
-      reviewDate: null
-    },
-    {
-      id: 6,
-      type: 'license',
-      owner: { id: 3, name: 'Mohamed Sylla', role: 'chauffeur', phone: '+225 05 67 89 01 23', email: 'mohamed@example.com' },
-      number: '555777888',
-      expiryDate: '2027-11-30',
-      issueDate: '2022-11-30',
-      uploadDate: '2024-03-25',
-      uploadBy: 'Mohamed Sylla',
-      validity: 75,
-      status: 'valid',
-      size: '2.3 MB',
-      format: 'PDF',
-      notes: 'Permis catégorie B',
-      fileName: 'permis_mohamed.pdf',
-      fileUrl: '/documents/permis.pdf',
-      reviewedBy: 'Jean Dupont',
-      reviewDate: '2024-03-26'
-    },
-    {
-      id: 7,
-      type: 'medical',
-      owner: { id: 3, name: 'Mohamed Sylla', role: 'chauffeur' },
-      number: 'MED-2024-123',
-      expiryDate: '2025-09-15',
-      issueDate: '2024-03-15',
-      uploadDate: '2024-04-01',
-      uploadBy: 'Mohamed Sylla',
-      validity: 100,
-      status: 'valid',
-      size: '1.5 MB',
-      format: 'PDF',
-      notes: 'Certificat médical d\'aptitude',
-      fileName: 'certificat_mohamed.pdf',
-      fileUrl: '/documents/certificat.pdf',
-      reviewedBy: 'Admin System',
-      reviewDate: '2024-04-02'
-    },
-    {
-      id: 8,
-      type: 'registration',
-      owner: { id: 3, name: 'Mohamed Sylla', role: 'chauffeur' },
-      number: 'EF-789-GH',
-      expiryDate: '2024-08-31',
-      issueDate: '2021-08-31',
-      uploadDate: '2024-02-28',
-      uploadBy: 'Mohamed Sylla',
-      validity: 10,
-      status: 'expiring',
-      size: '1.9 MB',
-      format: 'PDF',
-      notes: 'Carte grise expirant bientôt',
-      fileName: 'carte_grise_mohamed.pdf',
-      fileUrl: '/documents/carte_grise.pdf',
-      reviewedBy: null,
-      reviewDate: null
-    },
-    {
-      id: 9,
-      type: 'photo',
-      owner: { id: 1, name: 'Kouamé Adou', role: 'chauffeur' },
-      number: null,
-      expiryDate: null,
-      issueDate: null,
-      uploadDate: '2024-03-15',
-      uploadBy: 'Kouamé Adou',
-      validity: 100,
-      status: 'valid',
-      size: '0.8 MB',
-      format: 'JPG',
-      notes: 'Photo d\'identité récente',
-      fileName: 'photo_kouame.jpg',
-      fileUrl: '/documents/photo.jpg',
-      reviewedBy: 'Jean Dupont',
-      reviewDate: '2024-03-16'
-    },
-    {
-      id: 10,
-      type: 'insurance',
-      owner: { id: 1, name: 'Kouamé Adou', role: 'chauffeur' },
-      number: 'ASS-111-222',
-      expiryDate: '2024-04-30',
-      issueDate: '2023-04-30',
-      uploadDate: '2024-01-20',
-      uploadBy: 'Kouamé Adou',
-      validity: 5,
-      status: 'expiring',
-      size: '2.7 MB',
-      format: 'PDF',
-      notes: 'Assurance à renouveler',
-      fileName: 'assurance_kouame.pdf',
-      fileUrl: '/documents/assurance.pdf',
-      reviewedBy: null,
-      reviewDate: null
-    },
-    {
-      id: 11,
-      type: 'id_card',
-      owner: { id: 2, name: 'Aïcha Diarra', role: 'chauffeur' },
-      number: '1122334455',
-      expiryDate: '2029-07-15',
-      issueDate: '2019-07-15',
-      uploadDate: '2024-03-10',
-      uploadBy: 'Aïcha Diarra',
-      validity: 85,
-      status: 'valid',
-      size: '1.3 MB',
-      format: 'PDF',
-      notes: 'CNI valide',
-      fileName: 'cni_aicha.pdf',
-      fileUrl: '/documents/cni.pdf',
-      reviewedBy: 'Admin System',
-      reviewDate: '2024-03-11'
-    },
-    {
-      id: 12,
-      type: 'inspection',
-      owner: { id: 2, name: 'Aïcha Diarra', role: 'chauffeur' },
-      number: 'CT-2023-789',
-      expiryDate: '2024-10-15',
-      issueDate: '2023-10-15',
-      uploadDate: '2024-02-05',
-      uploadBy: 'Aïcha Diarra',
-      validity: 40,
-      status: 'expiring',
-      size: '2.1 MB',
-      format: 'PDF',
-      notes: 'Contrôle technique à vérifier',
-      fileName: 'controle_aicha.pdf',
-      fileUrl: '/documents/controle.pdf',
-      reviewedBy: null,
-      reviewDate: null
-    },
-    {
-      id: 13,
-      type: 'bank',
-      owner: { id: 1, name: 'Kouamé Adou', role: 'chauffeur' },
-      number: 'CI001 12345 67890123456 78',
-      expiryDate: null,
-      issueDate: '2023-05-10',
-      uploadDate: '2024-03-01',
-      uploadBy: 'Kouamé Adou',
-      validity: 100,
-      status: 'valid',
-      size: '0.9 MB',
-      format: 'PDF',
-      notes: 'RIB pour paiements',
-      fileName: 'rib_kouame.pdf',
-      fileUrl: '/documents/rib.pdf',
-      reviewedBy: 'Jean Dupont',
-      reviewDate: '2024-03-02'
-    },
-    {
-      id: 14,
-      type: 'license',
-      owner: { id: 4, name: 'Fatoumata Bâ', role: 'chauffeur', phone: '+225 03 45 67 89 01', email: 'fatoumata@example.com' },
-      number: '999888777',
-      expiryDate: '2028-03-20',
-      issueDate: '2023-03-20',
-      uploadDate: '2024-04-10',
-      uploadBy: 'Fatoumata Bâ',
-      validity: 95,
-      status: 'pending',
-      size: '2.6 MB',
-      format: 'PDF',
-      notes: 'Nouveau permis',
-      fileName: 'permis_fatoumata.pdf',
-      fileUrl: '/documents/permis.pdf',
-      reviewedBy: null,
-      reviewDate: null
-    },
-    {
-      id: 15,
-      type: 'insurance',
-      owner: { id: 4, name: 'Fatoumata Bâ', role: 'chauffeur' },
-      number: 'ASS-333-444',
-      expiryDate: '2024-05-31',
-      issueDate: '2023-05-31',
-      uploadDate: '2024-04-12',
-      uploadBy: 'Fatoumata Bâ',
-      validity: 15,
-      status: 'expiring',
-      size: '3.0 MB',
-      format: 'PDF',
-      notes: 'Assurance expirant bientôt',
-      fileName: 'assurance_fatoumata.pdf',
-      fileUrl: '/documents/assurance.pdf',
-      reviewedBy: null,
-      reviewDate: null
-    },
-    {
-      id: 16,
-      type: 'id_card',
-      owner: { id: 4, name: 'Fatoumata Bâ', role: 'chauffeur' },
-      number: '6677889900',
-      expiryDate: '2031-12-31',
-      issueDate: '2021-12-31',
-      uploadDate: '2024-04-08',
-      uploadBy: 'Fatoumata Bâ',
-      validity: 90,
-      status: 'valid',
-      size: '1.4 MB',
-      format: 'JPG',
-      notes: 'CNI valide',
-      fileName: 'cni_fatoumata.jpg',
-      fileUrl: '/documents/cni.jpg',
-      reviewedBy: 'Admin System',
-      reviewDate: '2024-04-09'
-    },
-    {
-      id: 17,
-      type: 'registration',
-      owner: { id: 3, name: 'Mohamed Sylla', role: 'chauffeur' },
-      number: 'IJ-456-KL',
-      expiryDate: '2026-01-15',
-      issueDate: '2023-01-15',
-      uploadDate: '2024-03-18',
-      uploadBy: 'Mohamed Sylla',
-      validity: 85,
-      status: 'valid',
-      size: '2.0 MB',
-      format: 'PDF',
-      notes: 'Carte grise valide',
-      fileName: 'carte_grise_mohamed2.pdf',
-      fileUrl: '/documents/carte_grise.pdf',
-      reviewedBy: 'Jean Dupont',
-      reviewDate: '2024-03-19'
-    },
-    {
-      id: 18,
-      type: 'inspection',
-      owner: { id: 1, name: 'Kouamé Adou', role: 'chauffeur' },
-      number: 'CT-2024-056',
-      expiryDate: '2025-04-30',
-      issueDate: '2024-04-30',
-      uploadDate: '2024-04-15',
-      uploadBy: 'Kouamé Adou',
-      validity: 100,
-      status: 'pending',
-      size: '2.2 MB',
-      format: 'PDF',
-      notes: 'Nouveau contrôle technique',
-      fileName: 'controle_kouame.pdf',
-      fileUrl: '/documents/controle.pdf',
-      reviewedBy: null,
-      reviewDate: null
-    },
-    {
-      id: 19,
-      type: 'photo',
-      owner: { id: 2, name: 'Aïcha Diarra', role: 'chauffeur' },
-      number: null,
-      expiryDate: null,
-      issueDate: null,
-      uploadDate: '2024-03-22',
-      uploadBy: 'Aïcha Diarra',
-      validity: 100,
-      status: 'valid',
-      size: '0.7 MB',
-      format: 'JPG',
-      notes: 'Photo d\'identité',
-      fileName: 'photo_aicha.jpg',
-      fileUrl: '/documents/photo.jpg',
-      reviewedBy: 'Admin System',
-      reviewDate: '2024-03-23'
-    },
-    {
-      id: 20,
-      type: 'bank',
-      owner: { id: 2, name: 'Aïcha Diarra', role: 'chauffeur' },
-      number: 'CI002 54321 98765432109 87',
-      expiryDate: null,
-      issueDate: '2023-08-25',
-      uploadDate: '2024-03-05',
-      uploadBy: 'Aïcha Diarra',
-      validity: 100,
-      status: 'valid',
-      size: '1.0 MB',
-      format: 'PDF',
-      notes: 'RIB pour virements',
-      fileName: 'rib_aicha.pdf',
-      fileUrl: '/documents/rib.pdf',
-      reviewedBy: 'Jean Dupont',
-      reviewDate: '2024-03-06'
+  // Données réelles chargées depuis le backend
+  const [statsData, setStatsData] = useState({ documentsTotaux: 0, aVerifier: 0, expirentBientot: 0 });
+
+  // Initialisation des données
+  useEffect(() => {
+    loadDocuments();
+  }, [currentPage, pageSize]);
+
+  const loadDocuments = async () => {
+    setLoading(true);
+    try {
+      // 1. Charger les statistiques globales
+      const statsRes = await adminService.getDocumentStats();
+      if (statsRes.data?.succes) {
+        setStatsData(statsRes.data.stats);
+      }
+
+      // 2. Charger les chauffeurs et leurs documents
+      const response = await adminService.getChauffeursDocuments({
+        page: currentPage,
+        limit: pageSize
+      });
+
+      if (response.data?.succes) {
+        const driversData = response.data.donnees.map(d => ({
+          ...d,
+          name: d.nom, // Alias pour la compatibilité UI
+          role: 'chauffeur'
+        }));
+        setDrivers(driversData);
+        setFilteredDrivers(driversData);
+
+        // On aplatit également les documents pour les fonctions d'export si besoin
+        const allDocs = driversData.flatMap(driver => driver.documents);
+        setDocuments(allDocs);
+      }
+    } catch (error) {
+      console.error("Erreur chargement documents:", error);
+      toast.error("Erreur lors de la récupération des documents");
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   // Configuration pour ExportDropdown
   const exportConfig = useMemo(() => ({
     columns: [
       { header: 'Type', accessor: (doc) => documentTypes.find(t => t.id === doc.type)?.label || doc.type },
-      { header: 'Propriétaire', accessor: (doc) => doc.owner.name },
-      { header: 'Numéro', accessor: (doc) => doc.number || 'N/A' },
-      { header: 'Statut', accessor: (doc) => statusTypes.find(s => s.id === doc.status)?.label || doc.status },
-      { header: 'Date expiration', accessor: (doc) => doc.expiryDate || 'N/A' },
-      { header: 'Date upload', accessor: (doc) => doc.uploadDate },
-      { header: 'Fichier', accessor: (doc) => doc.fileName },
-      { header: 'Taille', accessor: (doc) => doc.size },
+      { header: 'Propriétaire', accessor: (doc) => doc.chauffeur?.nom || 'N/A' },
+      { header: 'Statut', accessor: (doc) => statusTypes.find(s => s.id === doc.statut)?.label || doc.statut },
+      { header: 'Fichier', accessor: (doc) => doc.fichier || 'N/A' },
+      { header: 'Date upload', accessor: (doc) => doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'N/A' },
     ],
     fileName: `documents_${new Date().toISOString().split('T')[0]}`,
-    title: 'Liste des documents',
+    title: 'Liste des documents Chauffeurs',
     orientation: 'landscape'
-  }), []);
-
-  // Groupement des documents par chauffeur
-  const groupDocumentsByDriver = (docs) => {
-    const driversMap = {};
-
-    docs.forEach(doc => {
-      const driverId = doc.owner.id;
-      if (!driversMap[driverId]) {
-        driversMap[driverId] = {
-          ...doc.owner,
-          documents: [],
-          totalDocuments: 0,
-          validCount: 0,
-          pendingCount: 0,
-          expiredCount: 0,
-          expiringCount: 0,
-          rejectedCount: 0,
-          completeness: 0
-        };
-      }
-
-      driversMap[driverId].documents.push(doc);
-      driversMap[driverId].totalDocuments++;
-
-      // Compter par statut
-      if (doc.status === 'valid') driversMap[driverId].validCount++;
-      if (doc.status === 'pending') driversMap[driverId].pendingCount++;
-      if (doc.status === 'expired') driversMap[driverId].expiredCount++;
-      if (doc.status === 'expiring') driversMap[driverId].expiringCount++;
-      if (doc.status === 'rejected') driversMap[driverId].rejectedCount++;
-    });
-
-    // Calculer le taux de complétude
-    Object.keys(driversMap).forEach(driverId => {
-      const driver = driversMap[driverId];
-      const requiredDocs = documentTypes.filter(d => d.required);
-      const completedRequired = requiredDocs.filter(reqType =>
-        driver.documents.some(doc => doc.type === reqType.id && doc.status === 'valid')
-      ).length;
-
-      driver.completeness = requiredDocs.length > 0
-        ? Math.round((completedRequired / requiredDocs.length) * 100)
-        : 0;
-    });
-
-    return Object.values(driversMap);
-  };
-
-  // Initialisation des données
-  useEffect(() => {
-    const loadDocuments = async () => {
-      setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setDocuments(initialDocuments);
-      const driversData = groupDocumentsByDriver(initialDocuments);
-      setDrivers(driversData);
-      setFilteredDrivers(driversData);
-      setLoading(false);
-    };
-
-    loadDocuments();
-  }, []);
+  }), [documentTypes, statusTypes]);
 
   // Stats calculées
-  const stats = useMemo(() => {
-    const totalDrivers = drivers.length;
-    const totalDocuments = documents.length;
-    const completeProfiles = drivers.filter(d => d.completeness === 100).length;
-    const pendingReviews = drivers.reduce((sum, driver) => sum + driver.pendingCount, 0);
-    const expiringSoon = drivers.reduce((sum, driver) => sum + driver.expiringCount, 0);
-
-    return [
-      {
-        title: 'Chauffeurs',
-        value: totalDrivers.toString(),
-        icon: Users,
-        color: 'blue',
-        trend: totalDrivers > 3 ? 'up' : 'stable',
-        percentage: totalDrivers > 0 ? Math.round((completeProfiles / totalDrivers) * 100) : 0,
-        progress: totalDrivers > 0 ? Math.round((completeProfiles / totalDrivers) * 100) : 0,
-        description: `${completeProfiles} profils complets`,
-      },
-      {
-        title: 'Documents',
-        value: totalDocuments.toString(),
-        icon: FileText,
-        color: 'green',
-        trend: 'stable',
-        percentage: 100,
-        progress: 100,
-        description: `${pendingReviews} à vérifier`,
-      },
-      {
-        title: 'Expirent bientôt',
-        value: expiringSoon.toString(),
-        icon: Clock,
-        color: 'orange',
-        trend: expiringSoon > 0 ? 'up' : 'stable',
-        percentage: totalDocuments > 0 ? Math.round((expiringSoon / totalDocuments) * 100) : 0,
-        progress: totalDocuments > 0 ? Math.round((expiringSoon / totalDocuments) * 100) : 0,
-        description: 'À renouveler rapidement',
-      }
-    ];
-  }, [drivers, documents]);
+  const stats = useMemo(() => [
+    {
+      title: 'Chauffeurs',
+      value: drivers.length.toString(),
+      icon: Users,
+      color: 'blue',
+      trend: 'stable',
+      description: `Profils à suivre`,
+    },
+    {
+      title: 'Documents à vérifier',
+      value: statsData.aVerifier.toString(),
+      icon: FileText,
+      color: 'green',
+      trend: 'stable',
+      description: `Actions requises par l'admin`,
+    },
+    {
+      title: 'Expirent bientôt',
+      value: statsData.expirentBientot.toString(),
+      icon: Clock,
+      color: 'orange',
+      trend: statsData.expirentBientot > 0 ? 'up' : 'stable',
+      description: 'Documents à renouveler',
+    }
+  ], [drivers, statsData]);
 
   // Filtrage et recherche
   useEffect(() => {
@@ -652,140 +233,68 @@ const Documents = ({ showToast }) => {
   };
 
   // Actions batch
-  const handleBatchValidate = () => {
-    const updatedDocuments = documents.map(doc =>
-      selectedDocuments.includes(doc.id)
-        ? { ...doc, status: 'valid', reviewDate: new Date().toISOString().split('T')[0] }
-        : doc
-    );
-
-    setDocuments(updatedDocuments);
-    const updatedDrivers = groupDocumentsByDriver(updatedDocuments);
-    setDrivers(updatedDrivers);
-    setSelectedDocuments([]);
-
-    if (showToast) {
-      showToast(
-        'Documents validés',
-        `${selectedDocuments.length} document(s) validé(s) avec succès`,
-        'success'
-      );
+  const handleBatchValidate = async () => {
+    try {
+      await Promise.all(selectedDocuments.map(id =>
+        adminService.updateDocumentStatus(id, 'VALIDE')
+      ));
+      toast.success(`${selectedDocuments.length} document(s) validé(s)`);
+      setSelectedDocuments([]);
+      loadDocuments();
+    } catch (error) {
+      toast.error("Erreur lors de la validation groupée");
     }
   };
 
-  const handleBatchReject = () => {
-    const updatedDocuments = documents.map(doc =>
-      selectedDocuments.includes(doc.id)
-        ? { ...doc, status: 'rejected', reviewDate: new Date().toISOString().split('T')[0] }
-        : doc
-    );
-
-    setDocuments(updatedDocuments);
-    const updatedDrivers = groupDocumentsByDriver(updatedDocuments);
-    setDrivers(updatedDrivers);
-    setSelectedDocuments([]);
-
-    if (showToast) {
-      showToast(
-        'Documents rejetés',
-        `${selectedDocuments.length} document(s) rejeté(s)`,
-        'warning'
-      );
+  const handleBatchReject = async () => {
+    try {
+      await Promise.all(selectedDocuments.map(id =>
+        adminService.updateDocumentStatus(id, 'REFUSE')
+      ));
+      toast.success(`${selectedDocuments.length} document(s) rejeté(s)`);
+      setSelectedDocuments([]);
+      loadDocuments();
+    } catch (error) {
+      toast.error("Erreur lors du rejet groupé");
     }
-  };
-
-  // Fonction d'export unifiée
-  const handleExport = (format, data = documents) => {
-    const payload = {
-      data,
-      columns: exportConfig.columns,
-      fileName: exportConfig.fileName,
-      title: exportConfig.title,
-      orientation: exportConfig.orientation,
-      onToast: showToast
-    };
-
-    switch (format) {
-      case 'csv':
-        exportToCSV(payload);
-        break;
-      case 'word':
-        exportToWord(payload);
-        break;
-      case 'pdf':
-        exportToPDF(payload);
-        break;
-      default:
-        break;
-    }
-  };
-
-  // Télécharger un document individuel
-  const handleDownloadDocument = (document) => {
-    if (showToast) {
-      showToast(
-        'Téléchargement',
-        `Le document "${document.fileName}" est en cours de téléchargement`,
-        'info'
-      );
-    }
-
-    // Simulation de téléchargement
-    setTimeout(() => {
-      const link = document.createElement('a');
-      link.href = '#';
-      link.download = document.fileName;
-      link.click();
-
-      if (showToast) {
-        showToast(
-          'Téléchargement réussi',
-          'Document téléchargé avec succès',
-          'success'
-        );
-      }
-    }, 1000);
   };
 
   // Valider un document individuel
-  const handleValidateDocument = (documentId) => {
-    const updatedDocuments = documents.map(doc =>
-      doc.id === documentId
-        ? { ...doc, status: 'valid', reviewDate: new Date().toISOString().split('T')[0] }
-        : doc
-    );
-
-    setDocuments(updatedDocuments);
-    const updatedDrivers = groupDocumentsByDriver(updatedDocuments);
-    setDrivers(updatedDrivers);
-
-    if (showToast) {
-      showToast(
-        'Document validé',
-        'Le document a été validé avec succès',
-        'success'
-      );
+  const handleValidateDocument = async (documentId) => {
+    try {
+      const response = await adminService.updateDocumentStatus(documentId, 'VALIDE');
+      if (response.data?.succes) {
+        toast.success("Document validé");
+        loadDocuments();
+        // Si une modale est ouverte, on pourrait avoir besoin de mettre à jour selectedDriver
+        if (selectedDriver) {
+          const updatedDocs = selectedDriver.documents.map(d =>
+            d.id === documentId ? { ...d, statut: 'VALIDE' } : d
+          );
+          setSelectedDriver({ ...selectedDriver, documents: updatedDocs });
+        }
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la validation");
     }
   };
 
   // Rejeter un document individuel
-  const handleRejectDocument = (documentId) => {
-    const updatedDocuments = documents.map(doc =>
-      doc.id === documentId
-        ? { ...doc, status: 'rejected', reviewDate: new Date().toISOString().split('T')[0] }
-        : doc
-    );
-
-    setDocuments(updatedDocuments);
-    const updatedDrivers = groupDocumentsByDriver(updatedDocuments);
-    setDrivers(updatedDrivers);
-
-    if (showToast) {
-      showToast(
-        'Document rejeté',
-        'Le document a été rejeté',
-        'warning'
-      );
+  const handleRejectDocument = async (documentId) => {
+    try {
+      const response = await adminService.updateDocumentStatus(documentId, 'REFUSE');
+      if (response.data?.succes) {
+        toast.success("Document rejeté");
+        loadDocuments();
+        if (selectedDriver) {
+          const updatedDocs = selectedDriver.documents.map(d =>
+            d.id === documentId ? { ...d, statut: 'REFUSE' } : d
+          );
+          setSelectedDriver({ ...selectedDriver, documents: updatedDocs });
+        }
+      }
+    } catch (error) {
+      toast.error("Erreur lors du rejet");
     }
   };
 
@@ -852,6 +361,40 @@ const Documents = ({ showToast }) => {
     { value: 'incomplete', label: 'Profil incomplet' },
   ];
 
+  // Fonction d'export unifiée
+  const handleExport = (format, data = documents) => {
+    const payload = {
+      data,
+      columns: exportConfig.columns,
+      fileName: exportConfig.fileName,
+      title: exportConfig.title,
+      orientation: exportConfig.orientation,
+      onToast: showToast
+    };
+
+    switch (format) {
+      case 'csv': exportToCSV(payload); break;
+      case 'word': exportToWord(payload); break;
+      case 'pdf': exportToPDF(payload); break;
+      default: break;
+    }
+  };
+
+  const handleDownloadDocument = async (document) => {
+    try {
+      const url = `${API_URL}${document.fichier || document.fileUrl}`;
+      window.open(url, '_blank');
+    } catch (error) {
+      toast.error("Erreur lors du téléchargement");
+    }
+  };
+
+  const getFullFileUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Barre de recherche et filtres */}
@@ -869,17 +412,24 @@ const Documents = ({ showToast }) => {
             {/* En-tête */}
             <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900 dark:to-blue-900 rounded-xl p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-lg">{selectedDriver.name}</h3>
-                  <p className="text-gray-600 dark:text-gray-300">{selectedDriver.phone || ''} {selectedDriver.phone && selectedDriver.email ? '•' : ''} {selectedDriver.email || ''}</p>
-                  <div className="flex items-center mt-2">
-                    <div className="w-48 bg-gray-200 dark:bg-gray-800 rounded-full h-2 mr-3">
-                      <div
-                        className="bg-green-500 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${selectedDriver.completeness}%` }}
-                      />
+                <div className="flex items-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4 overflow-hidden shadow-md">
+                    {selectedDriver.photoUrl ? (
+                      <img src={getFullFileUrl(selectedDriver.photoUrl)} className="w-full h-full object-cover" />
+                    ) : selectedDriver.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">{selectedDriver.name}</h3>
+                    <p className="text-gray-600 dark:text-gray-300">{selectedDriver.phone || ''} {selectedDriver.phone && selectedDriver.email ? '•' : ''} {selectedDriver.email || ''}</p>
+                    <div className="flex items-center mt-2">
+                      <div className="w-48 bg-gray-200 dark:bg-gray-800 rounded-full h-2 mr-3">
+                        <div
+                          className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${selectedDriver.completeness}%` }}
+                        />
+                      </div>
+                      <span className="font-semibold">{selectedDriver.completeness}% complet</span>
                     </div>
-                    <span className="font-semibold">{selectedDriver.completeness}% complet</span>
                   </div>
                 </div>
                 <div className="text-right">
@@ -956,7 +506,6 @@ const Documents = ({ showToast }) => {
                 const DocIcon = getDocumentIcon(doc.type);
                 const docType = documentTypes.find(t => t.id === doc.type);
                 const isSelected = selectedDocuments.includes(doc.id);
-                const daysUntilExpiry = getDaysUntilExpiry(doc.expiryDate);
 
                 return (
                   <motion.div
@@ -980,37 +529,42 @@ const Documents = ({ showToast }) => {
                           <DocIcon className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="font-medium">{docType?.label}</p>
+                          <p className="font-medium">{docType?.label || doc.type}</p>
                           <div className="flex items-center space-x-3 text-sm text-gray-500 dark:text-gray-400">
-                            <span>N°: {doc.number || 'N/A'}</span>
-                            <span>•</span>
-                            <span>Exp: {formatDate(doc.expiryDate)}</span>
-                            {daysUntilExpiry !== null && daysUntilExpiry < 30 && (
-                              <span className="text-red-600 font-medium">{daysUntilExpiry} jours</span>
-                            )}
+                            <span>Mis en ligne le {new Date(doc.createdAt).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        {getStatusBadge(doc.status)}
+                        {getStatusBadge(doc.statut)}
 
                         <div className="flex space-x-1">
                           <Button
                             variant="ghost"
                             size="small"
                             icon={Eye}
-                            onClick={() => setViewingDocument(doc)}
+                            onClick={() => setViewingDocument({
+                              id: doc.id,
+                              type: doc.type,
+                              fileName: docType?.label || doc.type,
+                              fileUrl: getFullFileUrl(doc.fichier),
+                              owner: { name: selectedDriver.name },
+                              createdAt: doc.createdAt
+                            })}
                             title="Visualiser"
                           />
-                          <Button
-                            variant="ghost"
-                            size="small"
-                            icon={Download}
-                            onClick={() => handleDownloadDocument(doc)}
+                          <a
+                            href={getFullFileUrl(doc.fichier)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 hover:bg-gray-100 rounded-lg transition"
                             title="Télécharger"
-                          />
-                          {doc.status === 'pending' && (
+                          >
+                            <Download className="w-4 h-4 text-gray-500" />
+                          </a>
+
+                          {doc.statut === 'VERIFIER' && (
                             <>
                               <Button
                                 variant="ghost"
@@ -1253,12 +807,16 @@ const Documents = ({ showToast }) => {
                     <div className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center">
-                          <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg mr-3">
-                            {driver.name.charAt(0)}
+                          <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg mr-3 overflow-hidden shadow-sm">
+                            {driver.photoUrl ? (
+                              <img src={getFullFileUrl(driver.photoUrl)} className="w-full h-full object-cover" />
+                            ) : (
+                              driver.name.charAt(0)
+                            )}
                           </div>
                           <div>
                             <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg">{driver.name}</h3>
-                            <p className="text-gray-600 dark:text-gray-300 text-sm">{driver.role}</p>
+                            <p className="text-gray-600 dark:text-gray-300 text-sm">Chauffeur</p>
                           </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500" />
@@ -1287,20 +845,15 @@ const Documents = ({ showToast }) => {
                               Documents requis manquants:
                             </p>
                             <div className="flex flex-wrap gap-2">
-                              {documentTypes
-                                .filter(type => type.required)
-                                .filter(type => !driver.documents.some(doc =>
-                                  doc.type === type.id && doc.status === 'valid'
-                                ))
-                                .map(type => (
-                                  <span
-                                    key={type.id}
-                                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800"
-                                  >
-                                    {React.createElement(type.icon, { className: "w-3 h-3 mr-1" })}
-                                    {type.label}
-                                  </span>
-                                ))}
+                              {driver.manquants.map((label, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100/80 text-red-700 border border-red-200"
+                                >
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
+                                  {label}
+                                </span>
+                              ))}
                             </div>
                           </div>
                         )}
