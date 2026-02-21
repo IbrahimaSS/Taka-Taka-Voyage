@@ -73,4 +73,8 @@ export const adminService = {
   updatePersonnel: (id, data) => apiClient.put(API_ROUTES.admin.personnels.update(id), data),
   deletePersonnel: (id) => apiClient.delete(API_ROUTES.admin.personnels.delete(id)),
   togglePersonnelStatus: (id) => apiClient.put(API_ROUTES.admin.personnels.toggleStatus(id)),
+
+  // Paramètres de la plateforme
+  getParametres: () => apiClient.get(API_ROUTES.admin.parametres),
+  updateParametres: (data) => apiClient.patch(API_ROUTES.admin.parametres, data),
 };

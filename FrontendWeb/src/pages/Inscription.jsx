@@ -35,10 +35,13 @@ import Modal from '../components/admin/ui/Modal';
 import ConfirmModal from '../components/admin/ui/ConfirmModal';
 import Toast from '../components/admin/ui/Toast';
 import { authService } from '../services/authService';
-import { chauffeurService } from '../services/chauffeurService';
+import { useSettings } from '../context/SettingsContext';
 
 // Composant pour l'étape documents chauffeur
 const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
+
   const [driverData, setDriverData] = useState({
     photo: null,
     license: null,
@@ -1133,7 +1136,7 @@ const Inscription = () => {
           <div className="space-y-3">
             <h5 className="font-medium text-gray-800 dark:text-gray-200">1. Utilisation du service</h5>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Le service Taka Taka permet la mise en relation entre passagers et chauffeurs pour des trajets urbains.
+              Le service <span className="font-bold bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">{platform.name || 'Taka Taka'}</span> permet la mise en relation entre passagers et chauffeurs pour des trajets urbains.
             </p>
 
             <h5 className="font-medium text-gray-800 dark:text-gray-200">2. Données personnelles</h5>
@@ -1173,8 +1176,8 @@ const Inscription = () => {
                 <Car className="text-white" size={24} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">TAKA TAKA</h1>
-                <p className="text-sm text-blue-200">Mobilité Intelligente</p>
+                <h1 className="text-xl font-bold text-white uppercase tracking-tight bg-gradient-to-r from-emerald-500 to-blue-200 bg-clip-text text-transparent">{platform.name || 'TAKA TAKA'}</h1>
+                <p className="text-sm text-blue-200">{platform.tagline || 'Mobilité Intelligente'}</p>
               </div>
             </div>
 
@@ -1264,8 +1267,8 @@ const Inscription = () => {
                 <Car className="text-white" size={24} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">TAKA TAKA</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Mobilité Intelligente</p>
+                <h1 className="text-xl font-bold uppercase tracking-tight bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">{platform.name || 'TAKA TAKA'}</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{platform.tagline || 'Mobilité Intelligente'}</p>
               </div>
             </div>
 
@@ -1763,7 +1766,7 @@ const Inscription = () => {
                         >
                           Politique de confidentialité
                         </button>{' '}
-                        de Taka Taka
+                        de <span className="font-bold bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">{platform.name || 'Taka Taka'}</span>
                       </label>
                     </div>
 
@@ -1825,7 +1828,7 @@ const Inscription = () => {
             {/* Liens */}
             <div className="text-center mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
               <p className="text-gray-600 dark:text-gray-400">
-                Vous avez déjà un compte ?{' '}
+                Vous avez déjà un compte <span className="font-bold bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">{platform.name || 'Taka Taka'}</span> ?{' '}
                 <a href="/connexion" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold ml-2 hover:underline">
                   Se connecter
                 </a>

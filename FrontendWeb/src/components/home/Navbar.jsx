@@ -5,8 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../ui/Buttons';
 import { ThemeToggle } from '../../ui/ThemeToggle';
 import { cn } from '../../utils/cn';
+import { useSettings } from '../../context/SettingsContext';
 
 const Navbar = () => {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -41,14 +44,18 @@ const Navbar = () => {
               className="flex items-center gap-3 group"
             >
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 shadow-sm">
-                <Car className="h-5 w-5 text-white" />
+                {platform.logo ? (
+                  <img src={platform.logo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
+                ) : (
+                  <Car className="h-5 w-5 text-white" />
+                )}
               </span>
               <span className="leading-tight text-left">
-                <span className="block text-sm font-semibold tracking-wide text-slate-900 dark:text-white">
-                  TAKATAKA
+                <span className="block text-sm font-bold tracking-wide bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent uppercase">
+                  {platform.name || 'TAKATAKA'}
                 </span>
                 <span className="block text-xs text-slate-500 dark:text-slate-400">
-                  Mobilité & Logistique
+                  {platform.tagline || 'Mobilité & Logistique'}
                 </span>
               </span>
             </button>

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import MenuItem from './MenuItem';
 import { cn } from '../../../utils/cn';
-import { useSettings } from '../../../hooks/useSettings';
+import { useSettings } from '../../../context/SettingsContext';
 import { NAV_CONFIG, ROLES } from '../../../config/navConfig';
 import { useUserStore } from '../../../data/userStore';
 import { useAuth } from '../../../context/AuthContext';
@@ -48,8 +48,8 @@ const Sidebar = ({
       </div>
       {!compact && (
         <div className="leading-tight min-w-0 flex-1">
-          <div className="text-xl font-bold text-slate-900 dark:text-white">
-            Taka<span className="text-transparent bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text">Taka</span>
+          <div className="text-xl font-bold bg-gradient-to-r from-green-500 to-blue-600 bg-clip-text text-transparent">
+            {platform.name || 'Taka Taka'}
           </div>
           <div className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200 uppercase">
             {config.title}

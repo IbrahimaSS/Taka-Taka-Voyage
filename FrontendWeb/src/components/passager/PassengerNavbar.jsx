@@ -8,6 +8,7 @@ import { usePassenger } from '../../context/PassengerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotificationCenter } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../context/SettingsContext';
 
 const PassengerNavbar = ({
   activeTab,
@@ -16,6 +17,11 @@ const PassengerNavbar = ({
   isTripInProgress = false,
   onNavigateToTracking
 }) => {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
+
+  console.log('🔍 [PassengerNavbar] Platform settings:', platform);
+
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -56,13 +62,17 @@ const PassengerNavbar = ({
             className="flex items-center space-x-3 cursor-pointer"
           >
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300">
-              <Car className="w-6 h-6 text-white" />
+              {platform.logo ? (
+                <img src={platform.logo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <Car className="w-6 h-6 text-white" />
+              )}
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Taka<span className="bg-gradient-to-r from-green-500 to-blue-600 bg-clip-text text-transparent">Taka</span>
+              <h1 className="text-2xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">
+                {platform.name || 'TakaTaka'}
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Mobilité intelligente</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{platform.tagline || 'Mobilité intelligente'}</p>
             </div>
           </motion.div>
 

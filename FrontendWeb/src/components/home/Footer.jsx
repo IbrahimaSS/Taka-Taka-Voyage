@@ -1,11 +1,11 @@
 import React from 'react';
-import { 
-  Car, 
-  Apple, 
+import {
+  Car,
+  Apple,
   Facebook,
-  Twitter, 
-  Instagram, 
-  Linkedin, 
+  Twitter,
+  Instagram,
+  Linkedin,
   ArrowUpRight,
   MapPin,
   Phone,
@@ -15,7 +15,12 @@ import {
 
 import Button from '../../ui/Buttons';
 
+import { useSettings } from '../../context/SettingsContext';
+
 const Footer = () => {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -66,31 +71,35 @@ const Footer = () => {
           {/* Logo & Description */}
           <div className="md:w-1/3">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primaryGreen-start to-primaryBlue-start flex items-center justify-center">
-                <Car className="text-white" size={24} />
+              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primaryGreen-start to-primaryBlue-start flex items-center justify-center overflow-hidden">
+                {platform.logo ? (
+                  <img src={platform.logo} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <Car className="text-white" size={24} />
+                )}
               </div>
               <div>
-                <h1 className="text-2xl font-bold">TAKA TAKA</h1>
-                <p className="text-gray-400 text-sm font-medium">Mobilité Intelligente</p>
+                <h1 className="text-2xl font-bold uppercase tracking-tight bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">{platform.name || 'TAKA TAKA'}</h1>
+                <p className="text-gray-400 text-xs font-medium">{platform.tagline || 'Mobilité Intelligente'}</p>
               </div>
             </div>
             <p className="text-gray-400 leading-relaxed max-w-md">
               La solution de mobilité urbaine la plus complète, connectant passagers et chauffeurs en temps réel.
             </p>
-            
+
             {/* Contact Info */}
             <div className="mt-6 space-y-3">
               <div className="flex items-center gap-3 text-gray-400">
-                <MapPin size={16} />
-                <span>Rue du Commerce, Kaloum, Conakry, Guinée</span>
+                <MapPin size={16} className="text-emerald-500 shrink-0" />
+                <span className="text-sm">{platform.companyAddress || 'Rue du Commerce, Kaloum, Conakry, Guinée'}</span>
               </div>
               <div className="flex items-center gap-3 text-gray-400">
-                <Phone size={16} />
-                <span>+224 123 45 67 89</span>
+                <Phone size={16} className="text-blue-500 shrink-0" />
+                <span className="text-sm">{platform.contactPhone || '+224 000 00 00 00'}</span>
               </div>
               <div className="flex items-center gap-3 text-gray-400">
-                <Mail size={16} />
-                <span>contact@takataka.gn</span>
+                <Mail size={16} className="text-purple-500 shrink-0" />
+                <span className="text-sm">{platform.contactEmail || 'contact@takataka.gn'}</span>
               </div>
             </div>
           </div>
@@ -161,7 +170,7 @@ const Footer = () => {
           {/* Copyright */}
           <div className="flex items-center gap-4">
             <p className="text-gray-400 text-sm">
-              © {new Date().getFullYear()} Taka Taka. Tous droits réservés.
+              © {new Date().getFullYear()} {platform.name || 'Taka Taka'}. Tous droits réservés.
             </p>
             <Button
               variant="ghost"

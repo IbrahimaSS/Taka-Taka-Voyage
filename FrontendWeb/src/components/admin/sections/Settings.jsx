@@ -23,14 +23,12 @@ import PaymentsSettings from '../settings/PaymentsSettings';
 // import SmsUssdSettings from '../settings/SmsUssdSettings';
 
 // Hooks
-import { useSettings } from '../../../hooks/useSettings';
+import { useSettings } from '../../../context/SettingsContext';
+import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../../../context/NotificationContext';
 
-// TODO API (admin/parametres):
-// Remplacer les valeurs locales par des appels backend
-// Exemple: GET /admin/settings, PATCH /admin/settings
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
-  const [toast, setToast] = useState(null);
+  const { addNotification } = useNotificationCenter();
   const [saveProgress, setSaveProgress] = useState(0);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [lastAutoSave, setLastAutoSave] = useState(null);
@@ -53,27 +51,27 @@ const Settings = () => {
     { id: 'services', label: 'Services', icon: Users, color: 'green' },
     { id: 'payments', label: 'Paiements', icon: CreditCard, color: 'purple' },
     { id: 'notifications', label: 'Notifications', icon: Bell, color: 'orange' },
-    // { id: 'sms-ussd', label: 'SMS/USSD', icon: Smartphone, color: 'indigo' },
-    // { id: 'security', label: 'Sécurité', icon: Shield, color: 'yellow' },
     { id: 'backup', label: 'Sauvegarde', icon: Database, color: 'gray' }
   ];
-
-
 
   // Mettre à jour le timestamp de la dernière sauvegarde auto
   useEffect(() => {
     const timer = setInterval(() => {
       setLastAutoSave(`Sauvegarde auto dans ${Math.floor(Math.random() * 3) + 5}s...`);
-      if (hasChanges) {
-      }
     }, 3000);
 
     return () => clearInterval(timer);
-  }, [hasChanges]);
+  }, []);
 
   const showToast = (title, message, type = 'success') => {
-    setToast({ title, message, type });
-    setTimeout(() => setToast(null), 5000);
+    addNotification({
+      title,
+      message,
+      type: type === 'error' ? NOTIFICATION_TYPES.ERROR :
+        type === 'warning' ? NOTIFICATION_TYPES.WARNING :
+          type === 'info' ? NOTIFICATION_TYPES.INFO : NOTIFICATION_TYPES.SUCCESS,
+      category: NOTIFICATION_CATEGORIES.SYSTEM
+    });
   };
 
   const handleSave = async () => {
@@ -103,7 +101,14 @@ const Settings = () => {
       setSaveStatus(success ? 'success' : 'error');
 
       if (success) {
-        showToast('Succès', 'Paramètres sauvegardés avec succès', 'success');
+        // Harmonisé avec le message du serveur pour le dédoublonnage
+        addNotification({
+          title: 'Mise à jour système',
+          message: 'Les paramètres de la plateforme ont été mis à jour.',
+          type: NOTIFICATION_TYPES.SUCCESS,
+          category: NOTIFICATION_CATEGORIES.SYSTEM
+        });
+
         setTimeout(() => {
           setSaveStatus('idle');
           setSaveProgress(0);
@@ -349,16 +354,6 @@ const Settings = () => {
           </div>
         </div>
       </div>
-
-      {/* Toast */}
-      {toast && (
-        <Toast
-          title={toast.title}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
     </div>
   );
 };

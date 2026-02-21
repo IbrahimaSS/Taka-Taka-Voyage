@@ -30,7 +30,11 @@ import { useNavigate } from 'react-router-dom';
 import evaluationService from '../../services/evaluationService';
 import toast from 'react-hot-toast';
 
+import { useSettings } from '../../context/SettingsContext';
+
 const TripRating = ({ trip, onRatingComplete, onBack }) => {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
   const navigate = useNavigate();
   const confettiContainerRef = useRef(null);
 
@@ -198,14 +202,18 @@ const TripRating = ({ trip, onRatingComplete, onBack }) => {
 
 
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-              <Car className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-700 rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300">
+              {platform.logo ? (
+                <img src={platform.logo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <Car className="w-6 h-6 text-white" />
+              )}
             </div>
             <div>
-              <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Taka<span className="gradient-text">Taka</span>
+              <span className="text-2xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">
+                {platform.name || 'TakaTaka'}
               </span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Évaluation du trajet</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{platform.tagline || 'Évaluation du trajet'}</p>
             </div>
           </div>
 
@@ -536,7 +544,7 @@ const TripRating = ({ trip, onRatingComplete, onBack }) => {
       <footer className="mt-12 bg-gray-900 dark:bg-black text-white py-8 border-t border-gray-800 transition-colors">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center">
-            <p className="text-gray-500 mb-6">© 2024 TakaTaka. Tous droits réservés.</p>
+            <p className="text-gray-500 mb-6">© {new Date().getFullYear()} {platform.name || 'TakaTaka'}. Tous droits réservés.</p>
             <div className="flex justify-center gap-6">
               <button className="text-gray-500 hover:text-white transition-colors text-sm flex items-center">
                 <ShieldCheck className="w-4 h-4 mr-2" />

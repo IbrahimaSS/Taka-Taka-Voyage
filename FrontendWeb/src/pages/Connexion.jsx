@@ -23,8 +23,12 @@ import Modal from '../components/admin/ui/Modal';
 import Toast from '../components/admin/ui/Toast';
 import { authService } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
 const Connexion = () => {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
+
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -250,12 +254,16 @@ const Connexion = () => {
             <div>
               <div className="flex items-start justify-between mb-12">
                 <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/20">
-                    <Car className="text-white" size={32} />
+                  <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/20 overflow-hidden">
+                    {platform.logo ? (
+                      <img src={platform.logo} alt="Logo" className="w-full h-full object-cover" />
+                    ) : (
+                      <Car className="text-white" size={32} />
+                    )}
                   </div>
                   <div>
-                    <h1 className="text-3xl font-bold">TAKA TAKA</h1>
-                    <p className="text-blue-100 text-lg">Mobilité Intelligente</p>
+                    <h1 className="text-3xl font-bold uppercase tracking-tight bg-gradient-to-r from-emerald-500 to-blue-200 bg-clip-text text-transparent">{platform.name || 'TAKA TAKA'}</h1>
+                    <p className="text-blue-100 text-lg">{platform.tagline || 'Mobilité Intelligente'}</p>
                   </div>
                 </div>
 
@@ -321,12 +329,16 @@ const Connexion = () => {
             {/* Mobile Logo */}
             <div className="lg:hidden flex justify-center mb-8">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-600 to-green-600 flex items-center justify-center shadow-lg">
-                  <Car className="text-white" size={24} />
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-600 to-green-600 flex items-center justify-center shadow-lg overflow-hidden">
+                  {platform.logo ? (
+                    <img src={platform.logo} alt="Logo" className="w-full h-full object-cover" />
+                  ) : (
+                    <Car className="text-white" size={24} />
+                  )}
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">TAKA TAKA</h1>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">Mobilité Intelligente</p>
+                  <h1 className="text-2xl font-bold uppercase tracking-tight bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">{platform.name || 'TAKA TAKA'}</h1>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">{platform.tagline || 'Mobilité Intelligente'}</p>
                 </div>
               </div>
             </div>
@@ -336,7 +348,7 @@ const Connexion = () => {
               {/* Form Header */}
               <div className="mb-8  ">
                 <h2 className="text-2xl text-center font-bold text-gray-900 dark:text-white mb-2">Se connecter</h2>
-                <p className="text-gray-600 text-center dark:text-gray-400">Accédez à votre compte Taka Taka</p>
+                <p className="text-gray-600 text-center dark:text-gray-400">Accédez à votre compte {platform.name || 'Taka Taka'}</p>
               </div>
 
               {/* Login Form */}
@@ -500,7 +512,7 @@ const Connexion = () => {
                 {/* Signup Links */}
                 <div className="text-center mb-8">
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    Nouveau sur Taka Taka ?
+                    Nouveau sur {platform.name || 'Taka Taka'} ?
                     <button
                       onClick={() => navigate('/inscription')}
                       className="font-bold text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 ml-2 transition-colors hover:underline"

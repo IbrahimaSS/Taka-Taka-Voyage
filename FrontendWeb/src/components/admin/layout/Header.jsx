@@ -19,7 +19,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { cn } from '../../../utils/cn';
 import { useUserStore } from '../../../data/userStore';
 import { useAuth } from '../../../context/AuthContext';
-import { useSettings } from '../../../hooks/useSettings';
+import { useSettings } from '../../../context/SettingsContext';
 import { NAV_CONFIG, ROLES } from '../../../config/navConfig';
 import AvailabilityToggle from '../../chauffeur/AvailabilityToggle';
 import { useDriverContext } from '../../../context/DriverContext';

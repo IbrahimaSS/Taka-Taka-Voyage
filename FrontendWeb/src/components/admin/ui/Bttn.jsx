@@ -4,23 +4,24 @@ import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 
-const Button = ({ 
-  children, 
-  variant = 'primary', 
-  size = 'medium', 
-  loading = false, 
-  disabled = false, 
-  icon: Icon, 
-  onClick, 
-  className = '', 
+const Button = ({
+  children,
+  variant = 'primary',
+  size = 'medium',
+  loading = false,
+  disabled = false,
+  icon: Icon,
+  iconPosition = 'left',
+  onClick,
+  className = '',
   fullWidth = false,
   tooltip,
-  ...props 
+  ...props
 }) => {
   const baseClasses = 'inline-flex  items-center justify-center rounded-xl font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2';
-  
+
   const variantClasses = {
-    perso:  'bg-gradient-to-br from-primary-500 to-secondary-600  text-white',
+    perso: 'bg-gradient-to-br from-primary-500 to-secondary-600  text-white',
     primary: 'btn-primary hover:shadow-md hover:-translate-y-0.5 active:translate-y-0',
     secondary: 'btn-secondary hover:shadow-sm',
     danger: 'bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700 focus:ring-red-500/50 shadow-sm hover:shadow-md',
@@ -50,7 +51,7 @@ const Button = ({
 
   return (
     <motion.button
-   
+
       whileTap={{ scale: disabled || loading ? 1 : 0.97 }}
       whileHover={disabled || loading ? {} : { scale: 1.02 }}
       className={classes}
@@ -63,8 +64,9 @@ const Button = ({
       {loading && (
         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
       )}
-      {!loading && Icon && <Icon className="w-4 h-4 mr-2" />}
+      {!loading && Icon && iconPosition === 'left' && <Icon className="w-4 h-4 mr-2" />}
       <span className="whitespace-nowrap">{children}</span>
+      {!loading && Icon && iconPosition === 'right' && <Icon className="w-4 h-4 ml-2" />}
     </motion.button>
   );
 };

@@ -37,6 +37,9 @@ import TrajetComplete from '../components/suivisTrajet/TrajetComplete';
 import TrajetNote from '../components/suivisTrajet/TrajetNote';
 import SearchIndicator from '../components/passager/SearchIndicator';
 import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
+import MaintenanceBanner from '../components/common/MaintenanceBanner';
+import usePlatformNotifications from '../hooks/usePlatformNotifications';
+import { useSettings } from '../context/SettingsContext';
 
 
 const getStoredUser = () => {
@@ -49,6 +52,8 @@ const getStoredUser = () => {
 };
 
 const Passenger = () => {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
   const [activeTab, setActiveTab] = useState('home');
   const [showTripModal, setShowTripModal] = useState(false);
   const [showTripStatusModal, setShowTripStatusModal] = useState(false);
@@ -65,6 +70,9 @@ const Passenger = () => {
     setSelectedDriver: setCurrentDriver,
     isLoadingProfile,
   } = usePassenger();
+
+  // ⚡ Notifications temps réel plateforme (maintenance, services)
+  usePlatformNotifications();
 
 
 
@@ -469,6 +477,8 @@ const Passenger = () => {
 
   return (
     <>
+      {/* Bannière de maintenance — par-dessus tout */}
+      <MaintenanceBanner />
       <AnimatePresence mode="wait">
         {/* ... existing Tracking and Complete modals ... */}
         {isOnTrackingView && tripStatus === 'en_route' && (
@@ -623,13 +633,17 @@ const Passenger = () => {
               <div className="mb-8 md:mb-0 text-center md:text-left">
                 <div className="flex items-center justify-center md:justify-start space-x-3 mb-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 flex items-center justify-center shadow-lg">
-                    <Car className="w-6 h-6 text-white" />
+                    {platform.logo ? (
+                      <img src={platform.logo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <Car className="w-6 h-6 text-white" />
+                    )}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold">
-                      Taka<span className="bg-gradient-to-r from-green-500 to-blue-600 bg-clip-text text-transparent">Taka</span>
+                    <h2 className="text-2xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">
+                      {platform.name || 'TakaTaka'}
                     </h2>
-                    <p className="text-gray-400 text-sm dark:text-gray-100">Mobilité intelligente</p>
+                    <p className="text-gray-400 text-sm dark:text-gray-100">{platform.tagline || 'Mobilité intelligente'}</p>
                   </div>
                 </div>
               </div>
@@ -643,7 +657,7 @@ const Passenger = () => {
             </div>
 
             <div className="mt-12 pt-8 border-t border-gray-800 dark:border-gray-800/50 text-center">
-              <p className="text-gray-500">© {new Date().getFullYear()} Taka Taka. Tous droits réservés.</p>
+              <p className="text-gray-500">© {new Date().getFullYear()} {platform.name || 'Taka Taka'}. Tous droits réservés.</p>
               <p className="text-gray-600 text-xs mt-2 uppercase tracking-widest">Service disponible 24h/24, 7j/7</p>
             </div>
           </div>

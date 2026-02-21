@@ -5,14 +5,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
-
-// CORS avec cookies
+// CORS avec cookies (Avant les body parsers)
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
 app.use(
     cors({
@@ -20,6 +14,13 @@ app.use(
         credentials: true,
     })
 );
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 app.use(morgan("dev"));
 
@@ -55,6 +56,7 @@ const litigeRoutes = require("./routes/admin/litigeRoutes");
 const profileRoutes = require("./routes/admin/profileRoutes");
 const personnelRoutes = require("./routes/admin/personnelRoutes");
 const securityRoutes = require("./routes/admin/securityRoutes");
+const parametresRoutes = require("./routes/admin/parametresRoutes");
 //Montage
 app.use("/api/admin", dashboardRoutes);
 app.use("/api/admin", passagerRoutes);
@@ -67,6 +69,7 @@ app.use("/api/admin/paiements", paiementRoutes);
 app.use("/api/admin", rapportRoutes);
 app.use("/api/admin", litigeRoutes);
 app.use("/api/admin", profileRoutes);
+app.use("/api/admin/parametres", parametresRoutes);
 
 //Personnel
 app.use("/api/admin/personnels", personnelRoutes);
@@ -142,6 +145,10 @@ app.use("/api/chauffeur", mesCoursesRoutes);
 // ===================== ROUTES COMMUNES =====================
 const commonLitigeRoutes = require("./routes/common/litigeRoutes");
 app.use("/api/litiges", commonLitigeRoutes);
+
+// Services actifs (route publique — pas d'auth requise)
+const servicesRoutes = require("./routes/common/servicesRoutes");
+app.use("/api/services-actifs", servicesRoutes);
 
 module.exports = app;
 

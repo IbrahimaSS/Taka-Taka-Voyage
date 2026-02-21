@@ -29,6 +29,7 @@ import { DriverProvider, useDriverContext } from '../context/DriverContext';
 import { Toaster } from 'react-hot-toast';
 import { ROLES } from '../config/navConfig';
 import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
+import { useSettings } from '../context/SettingsContext';
 
 
 const LiveTrackingWrapper = () => {
@@ -99,6 +100,8 @@ const ChauffeurDisputeButton = () => {
 };
 
 function ChauffeurApp() {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -185,7 +188,7 @@ function ChauffeurApp() {
             <footer className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-gray-800/40 backdrop-blur-sm px-6 py-4">
               <div className="flex flex-col md:flex-row justify-between items-center">
                 <p className="text-slate-600 dark:text-slate-300 text-sm mb-2 md:mb-0">
-                  © {new Date().getFullYear()} TakaTaka Driver. Tous droits réservés.
+                  © {new Date().getFullYear()} {platform.name || 'TakaTaka'} Driver. Tous droits réservés.
                 </p>
                 <div className="flex items-center space-x-6">
                   <Bttn

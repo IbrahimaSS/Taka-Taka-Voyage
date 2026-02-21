@@ -137,6 +137,7 @@ export const API_ROUTES = {
     security: {
       password: "/admin/security/password",
     },
+    parametres: "/admin/parametres",
   },
 
   // ===================== CHAUFFEUR =====================
@@ -166,6 +167,11 @@ export const API_ROUTES = {
   // ===================== UPLOADS =====================
   uploads: {
     base: "/uploads",
+  },
+
+  // ===================== PLATEFORME (PUBLIC) =====================
+  platform: {
+    servicesActifs: "/services-actifs",
   },
 };
 

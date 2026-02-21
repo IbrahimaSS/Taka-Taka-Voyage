@@ -23,6 +23,7 @@ import Reports from '../components/admin/sections/Reports';
 import Commissions from '../components/admin/sections/Commissions';
 import Settings from '../components/admin/sections/Settings';
 import UserProfile from '../components/admin/profile/UserProfile';
+import { useSettings } from '../context/SettingsContext';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../context/NotificationContext';
 import { socketService } from '../services/socketService';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +36,8 @@ import Toast from '../components/admin/ui/Toast';
 import Modal from '../components/admin/ui/Modale';
 
 function AdminApp() {
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
@@ -291,7 +294,7 @@ function AdminApp() {
         <footer className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-gray-800/40 backdrop-blur-sm px-6 py-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-slate-600 dark:text-slate-300 text-sm mb-2 md:mb-0">
-              © {new Date().getFullYear()} TakaTaka Admin. Tous droits réservés.
+              © {new Date().getFullYear()} {platform.name || 'TakaTaka'} Admin. Tous droits réservés.
             </p>
             <div className="flex items-center space-x-6">
               <a href="#" className="text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-all duration-200 text-sm hover:underline">

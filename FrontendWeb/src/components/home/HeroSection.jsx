@@ -3,9 +3,12 @@ import { Download, PlayCircle, Star, Users, Car, MapPin } from 'lucide-react';
 import Button from '../../ui/Buttons';
 import Card from '../../ui/Card';
 import { useNavigate } from 'react-router-dom';
+import { useSettings } from '../../context/SettingsContext';
 
 const HeroSection = () => {
-     const navigate=useNavigate()
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
+  const navigate = useNavigate();
   useEffect(() => {
     const createParticles = () => {
       const particlesContainer = document.getElementById('particles');
@@ -26,7 +29,7 @@ const HeroSection = () => {
         particlesContainer.appendChild(particle);
       }
     };
- 
+
 
     createParticles();
   }, []);
@@ -54,7 +57,7 @@ const HeroSection = () => {
             </h1>
 
             <p className="text-lg  md:text-xl mb-8 text-gray-600 dark:text-gray-300 leading-relaxed">
-              Taka Taka connecte passagers et chauffeurs en temps réel pour des trajets rapides, sécurisés et abordables.
+              <span className="font-bold bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">{platform.name || 'Taka Taka'}</span> connecte passagers et chauffeurs en temps réel pour des trajets rapides, sécurisés et abordables.
               Réservez un trajet en quelques secondes, suivez votre chauffeur en direct et payez facilement.
             </p>
 

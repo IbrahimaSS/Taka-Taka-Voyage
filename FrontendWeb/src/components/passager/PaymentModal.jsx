@@ -4,8 +4,10 @@ import { motion } from "framer-motion";
 import { X, Smartphone, CreditCard, Wallet, Loader, Shield, Lock, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { PaymentService } from "../../services/paymentService";
+import { useSettings } from "../../context/SettingsContext";
 
 const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, user }) => {
+  const { settings, isLoading: settingsLoading } = useSettings();
   const [selectedMethod, setSelectedMethod] = useState("orange_money");
   const [isProcessing, setIsProcessing] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(user?.telephone || user?.phone || "");
@@ -14,15 +16,63 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
 
   const userId = user?._id; // ✅ Mongo
 
-  const paymentMethods = useMemo(
-    () => [
-      { id: "orange_money", name: "Orange Money", icon: Smartphone, color: "text-orange-600", description: "Paiement instantané" },
-      { id: "mtn_money", name: "MTN Mobile Money", icon: Smartphone, color: "text-yellow-600", description: "Paiement instantané" },
-      { id: "wallet", name: "Portefeuille TakaTaka", icon: Wallet, color: "text-green-600", description: "Solde disponible" },
-      { id: "card", name: "Carte bancaire", icon: CreditCard, color: "text-indigo-600", description: "Visa / Mastercard" },
-    ],
-    []
-  );
+  const paymentMethods = useMemo(() => {
+    const methods = settings?.payments?.methods || {};
+
+    return [
+      {
+        id: "orange_money",
+        name: "Orange Money",
+        icon: Smartphone,
+        color: "text-orange-600",
+        description: "Paiement instantané",
+        enabled: methods.orangeMoney?.enabled ?? true
+      },
+      {
+        id: "mtn_money",
+        name: "MTN Mobile Money",
+        icon: Smartphone,
+        color: "text-yellow-600",
+        description: "Paiement instantané",
+        enabled: methods.mtnMoney?.enabled ?? true
+      },
+      {
+        id: "wallet",
+        name: "Portefeuille TakaTaka",
+        icon: Wallet,
+        color: "text-green-600",
+        description: "Solde disponible",
+        enabled: true // Toujours activé sauf si précisé autrement
+      },
+      {
+        id: "card",
+        name: "Carte bancaire",
+        icon: CreditCard,
+        color: "text-indigo-600",
+        description: "Visa / Mastercard",
+        enabled: methods.stripe?.enabled ?? true
+      },
+      {
+        id: "cash",
+        name: "Espèces",
+        icon: Wallet,
+        color: "text-emerald-600",
+        description: "Payer au chauffeur",
+        enabled: methods.cash?.enabled ?? true
+      },
+    ];
+  }, [settings]);
+
+  // Sélection automatique d'une méthode activée si celle par défaut est inactive
+  useEffect(() => {
+    if (isOpen && settings?.payments?.methods) {
+      const currentMethodData = paymentMethods.find(m => m.id === selectedMethod);
+      if (currentMethodData && !currentMethodData.enabled) {
+        const firstEnabled = paymentMethods.find(m => m.enabled);
+        if (firstEnabled) setSelectedMethod(firstEnabled.id);
+      }
+    }
+  }, [isOpen, settings, paymentMethods, selectedMethod]);
 
   // Reset
   useEffect(() => {
@@ -292,22 +342,31 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
               {paymentMethods.map((method) => {
                 const Icon = method.icon;
                 const active = selectedMethod === method.id;
+                const isDisabled = !method.enabled;
 
                 return (
                   <button
                     key={method.id}
-                    onClick={() => setSelectedMethod(method.id)}
-                    disabled={isProcessing}
-                    className={`p-3 rounded-xl border-2 transition-all ${
-                      active
-                        ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30"
-                        : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    onClick={() => !isDisabled && setSelectedMethod(method.id)}
+                    disabled={isProcessing || (isDisabled && !active)}
+                    className={`relative p-3 rounded-xl border-2 transition-all ${isDisabled
+                        ? "border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-700/30 opacity-60 grayscale cursor-not-allowed"
+                        : active
+                          ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 shadow-md"
+                          : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
+                      } disabled:opacity-50 transition-all duration-300`}
                   >
+                    {isDisabled && (
+                      <div className="absolute -top-1 -right-1">
+                        <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 border border-gray-200 dark:border-gray-700 uppercase">
+                          Indisponible
+                        </span>
+                      </div>
+                    )}
                     <div className="flex flex-col items-center">
-                      <Icon className={`w-6 h-6 ${method.color} mb-2`} />
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{method.name}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{method.description}</span>
+                      <Icon className={`w-6 h-6 ${isDisabled ? 'text-gray-400 shadow-none' : method.color} mb-2 transition-colors`} />
+                      <span className={`text-sm font-medium ${isDisabled ? 'text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>{method.name}</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-1">{method.description}</span>
                     </div>
                   </button>
                 );
