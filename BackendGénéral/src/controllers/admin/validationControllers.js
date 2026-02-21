@@ -106,7 +106,7 @@ exports.validerChauffeur = async (req, res) => {
     try {
         const { id } = req.params;
         const { commentaire } = req.body || {};
-        const chauffeur = await ChauffeurProfile.findById(id);
+        const chauffeur = await ChauffeurProfile.findById(id).populate("utilisateur", "nom prenom telephone");
         if (!chauffeur) {
             return res.status(404).json({ succes: false, message: "Chauffeur introuvable" });
         }
@@ -118,6 +118,30 @@ exports.validerChauffeur = async (req, res) => {
         chauffeur.commentaireValidation = commentaire?.trim() || null;
 
         await chauffeur.save();
+
+        // 🔔 Notifier le chauffeur en temps réel qu'il a été validé
+        try {
+            const io = req.app.get("io");
+            if (io && chauffeur.utilisateur) {
+                const userId = String(chauffeur.utilisateur._id);
+                console.log(`🔔 [SOCKET] Tentative d'envoi notification validation à USER_${userId} et CHAUFFEUR_${userId}`);
+
+                io.to(`USER_${userId}`).emit("chauffeur:valide", {
+                    message: "🎉 Félicitations ! Votre compte chauffeur a été validé. Vous pouvez maintenant vous connecter.",
+                    redirectUrl: "/connexion",
+                    commentaire: commentaire?.trim() || null,
+                });
+                io.to(`CHAUFFEUR_${userId}`).emit("chauffeur:valide", {
+                    message: "🎉 Félicitations ! Votre compte chauffeur a été validé. Vous pouvez maintenant vous connecter.",
+                    redirectUrl: "/connexion",
+                    commentaire: commentaire?.trim() || null,
+                });
+            } else {
+                console.warn("⚠️ [SOCKET] Impossible d'envoyer la notification : io ou chauffeur.utilisateur manquant");
+            }
+        } catch (socketErr) {
+            console.error("⚠️ Erreur notification socket chauffeur:", socketErr.message);
+        }
 
         return res.json({ succes: true, message: "Chauffeur validé" });
     } catch (e) {
@@ -132,7 +156,7 @@ exports.rejeterChauffeur = async (req, res) => {
         const { id } = req.params;
         const { motif } = req.body;
 
-        const chauffeur = await ChauffeurProfile.findById(id);
+        const chauffeur = await ChauffeurProfile.findById(id).populate("utilisateur", "nom prenom telephone");
         if (!chauffeur) {
             return res.status(404).json({
                 succes: false,
@@ -144,6 +168,25 @@ exports.rejeterChauffeur = async (req, res) => {
         chauffeur.motifRefus = motif || "Documents non conformes";
 
         await chauffeur.save();
+
+        // 🔔 Notifier le chauffeur en temps réel qu'il a été rejeté
+        try {
+            const io = req.app.get("io");
+            if (io && chauffeur.utilisateur) {
+                const userId = String(chauffeur.utilisateur._id);
+                io.to(`USER_${userId}`).emit("chauffeur:rejete", {
+                    message: `❌ Votre demande a été rejetée. Motif : ${chauffeur.motifRefus}`,
+                    motif: chauffeur.motifRefus,
+                });
+                io.to(`CHAUFFEUR_${userId}`).emit("chauffeur:rejete", {
+                    message: `❌ Votre demande a été rejetée. Motif : ${chauffeur.motifRefus}`,
+                    motif: chauffeur.motifRefus,
+                });
+                console.log(`🔔 [SOCKET] Notification rejet envoyée au chauffeur ${userId}`);
+            }
+        } catch (socketErr) {
+            console.error("⚠️ Erreur notification socket chauffeur:", socketErr.message);
+        }
 
         return res.json({
             succes: true,

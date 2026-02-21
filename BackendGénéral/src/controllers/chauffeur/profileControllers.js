@@ -276,6 +276,24 @@ exports.uploadDocuments = async (req, res) => {
       );
     }
 
+    // 🔔 Notifier les admins en temps réel d'une nouvelle inscription chauffeur
+    try {
+      const io = req.app.get("io");
+      if (io) {
+        const utilisateur = req.utilisateur;
+        io.to("ADMINS").emit("chauffeur:inscription", {
+          nom: `${utilisateur.prenom || ''} ${utilisateur.nom || ''}`.trim(),
+          telephone: utilisateur.telephone,
+          typeVehicule: profile.typeVehicule,
+          documentsCount: docsToCreate.length,
+          chauffeurId: profile._id,
+        });
+        console.log("🔔 [SOCKET] Notification envoyée aux admins: nouvelle inscription chauffeur");
+      }
+    } catch (socketErr) {
+      console.error("⚠️ Erreur notification socket admin:", socketErr.message);
+    }
+
     return res.json({
       succes: true,
       message: "Documents enregistrés",

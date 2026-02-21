@@ -384,13 +384,13 @@ const Planning = ({ onBack, onBookNewTrip }) => {
               <ExportDropdown
                 data={scheduledTrips}
                 columns={[
-                  { key: 'date', label: 'Date' },
-                  { key: 'time', label: 'Heure' },
-                  { key: 'pickup', label: 'Départ' },
-                  { key: 'destination', label: 'Destination' },
-                  { key: 'vehicle', label: 'Véhicule' },
-                  { key: 'price', label: 'Prix' },
-                  { key: 'status', label: 'Statut' }
+                  { accessor: 'date', header: 'Date' },
+                  { accessor: 'time', header: 'Heure' },
+                  { accessor: 'pickup', header: 'Départ' },
+                  { accessor: 'destination', header: 'Destination' },
+                  { accessor: 'vehicle', header: 'Véhicule' },
+                  { accessor: 'price', header: 'Prix' },
+                  { accessor: 'status', header: 'Statut' }
                 ]}
                 fileName="planning_takataka"
                 title="Planning des trajets"

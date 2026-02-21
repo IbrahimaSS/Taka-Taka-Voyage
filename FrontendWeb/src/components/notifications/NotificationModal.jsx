@@ -1,13 +1,13 @@
 // components/NotificationModal.tsx
 import React, { useState } from 'react';
-import { Modal } from '../../ui/Modal';
+import { Modal } from '../ui/Modal';
 import { NotificationItem } from './Notification';
 import { Bell } from 'lucide-react';
 import { mockNotifications } from './mockNotifications';
 
 
 
-export const NotificationModal: = ({
+export const NotificationModal = ({
   isOpen,
   onClose
 }) => {
@@ -20,9 +20,9 @@ export const NotificationModal: = ({
   const markAsRead = (id) => {
     setNotifications(prev =>
       prev.map(notification =>
-        notification.id === id 
-          ? { ...notification, isRead }
-          
+        notification.id === id
+          ? { ...notification, isRead: true }
+          : notification
       )
     );
   };
@@ -30,7 +30,7 @@ export const NotificationModal: = ({
   // Marquer toutes comme lues
   const markAllAsRead = () => {
     setNotifications(prev =>
-      prev.map(notification => ({ ...notification, isRead }))
+      prev.map(notification => ({ ...notification, isRead: true }))
     );
   };
 
@@ -48,7 +48,7 @@ export const NotificationModal: = ({
             {unreadCount} notification{unreadCount > 1 ? 's' : ''} non lue{unreadCount > 1 ? 's' : ''}
           </span>
         </div>
-        
+
         {unreadCount > 0 && (
           <button
             onClick={markAllAsRead}

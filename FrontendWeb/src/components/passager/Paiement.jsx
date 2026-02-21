@@ -9,7 +9,7 @@ import {
   Plus, MoreVertical, QrCode, Shield,
   BarChart3, PieChart, Receipt, Coins,
   Bell, MessageCircle, Link, Copy, Grid,
-  Loader
+  Loader, User
 } from 'lucide-react';
 
 // Composants UI réutilisables
@@ -20,6 +20,7 @@ import Badge from '../admin/ui/Badge';
 import Modal from '../admin/ui/Modal';
 import ExportDropdown from '../admin/ui/ExportDropdown';
 import Pagination from '../admin/ui/Pagination';
+import PremiumInvoice from '../admin/ui/PremiumInvoice';
 
 // Context et services
 import { usePassenger } from '../../context/PassengerContext';
@@ -123,7 +124,7 @@ const TransactionTypeBadge = ({ type, amount }) => {
   );
 };
 
-const TransactionDetailsModal = ({ transaction, isOpen, onClose, onShare }) => (
+const TransactionDetailsModal = ({ transaction, isOpen, onClose, onShare, onShowInvoice }) => (
   <Modal
     isOpen={isOpen}
     onClose={onClose}
@@ -145,7 +146,7 @@ const TransactionDetailsModal = ({ transaction, isOpen, onClose, onShare }) => (
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
             <p className="text-sm text-gray-600 dark:text-gray-400">Date et heure</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{transaction.date} - 14:35</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{transaction.date} {transaction.time ? `- ${transaction.time}` : ''}</p>
           </div>
           <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
             <p className="text-sm text-gray-600 dark:text-gray-400">Type</p>
@@ -157,6 +158,21 @@ const TransactionDetailsModal = ({ transaction, isOpen, onClose, onShare }) => (
           <p className="text-sm text-gray-600 dark:text-gray-400">Méthode de paiement</p>
           <p className="font-semibold text-gray-900 dark:text-white">{transaction.method}</p>
         </div>
+
+        {transaction.details && (
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Chauffeur & Véhicule</p>
+            <div className="flex items-center">
+              <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mr-3 ring-2 ring-white dark:ring-gray-600 shadow-sm overflow-hidden">
+                <User className="w-5 h-5 text-primary-600" />
+              </div>
+              <div>
+                <p className="font-bold text-gray-900 dark:text-white">{transaction.details.driverName}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{transaction.details.vehicleInfo}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
           <p className="text-sm text-gray-600 dark:text-gray-400">Référence</p>
@@ -181,6 +197,14 @@ const TransactionDetailsModal = ({ transaction, isOpen, onClose, onShare }) => (
             Fermer
           </Button>
           <Button
+            variant="warning"
+            onClick={() => onShowInvoice(transaction)}
+            icon={Receipt}
+            className="flex-1"
+          >
+            Reçu
+          </Button>
+          <Button
             variant="primary"
             onClick={onShare}
             icon={Share2}
@@ -197,8 +221,8 @@ const TransactionDetailsModal = ({ transaction, isOpen, onClose, onShare }) => (
 // --- Composant Principal ---
 
 const Transactions = () => {
-  // ❌ Remove context mock data
-  // const { transactions: initialTransactions } = usePassenger();
+  const { passenger } = usePassenger();
+  // ... rest of the component
 
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -208,6 +232,8 @@ const Transactions = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [invoiceData, setInvoiceData] = useState(null);
 
   // ✅ Fetch Real Payments
   useEffect(() => {
@@ -222,11 +248,22 @@ const Transactions = () => {
           const formattedTransactions = data.paiements.map(p => ({
             id: p._id,
             date: new Date(p.createdAt).toLocaleDateString('fr-FR'),
+            time: new Date(p.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
             type: p.type === 'PAIEMENT_TRAJET' ? 'Paiement trajet' : 'Autre', // Map backend types
             amount: -(p.montantTotal || p.montant || 0), // Payments are expenses (negative)
             method: p.methode,
             status: p.statut === 'PAYE' ? 'completed' : p.statut === 'ECHEC' ? 'failed' : 'pending',
-            reference: p.reference || `REF-${p._id.substring(0, 8)}`
+            reference: p.reference || `REF-${p._id.substring(0, 8)}`,
+            details: p.reservation ? {
+              driverName: p.reservation.chauffeur ? `${p.reservation.chauffeur.prenom || ''} ${p.reservation.chauffeur.nom || ''}`.trim() : 'N/A',
+              vehicleInfo: p.reservation.chauffeur?.vehicule
+                ? `${p.reservation.chauffeur.vehicule.marque || ''} ${p.reservation.chauffeur.vehicule.modele || ''}`.trim()
+                : (p.reservation.chauffeur?.marque ? `${p.reservation.chauffeur.marque || ''} ${p.reservation.chauffeur.modele || ''}`.trim() : 'Véhicule standard'),
+              driverPhone: p.reservation.chauffeur?.telephone || '-',
+              route: (p.reservation.depart && p.reservation.destination) ? `${p.reservation.depart} → ${p.reservation.destination}` : 'Trajet TakaTaka',
+              distance: `${p.reservation.distanceKm || '0'} km`,
+              duration: `${p.reservation.dureeMin || '0'} min`
+            } : null
           }));
           setTransactions(formattedTransactions);
         }
@@ -327,6 +364,40 @@ const Transactions = () => {
     toast.success('Référence copiée');
   };
 
+  const handleShowInvoice = (transaction) => {
+    // ❌ Fermer la modale de détails pour ne pas avoir d'overlay conflictuel
+    setShowDetailsModal(false);
+
+    // Transformer l'objet transaction pour qu'il soit compatible avec PremiumInvoice
+    const formattedInvoice = {
+      invoiceNumber: transaction.reference,
+      date: transaction.date,
+      transactionId: transaction.id,
+      method: transaction.method,
+      amount: `${Math.abs(transaction.amount).toLocaleString()} GNF`,
+      passenger: {
+        name: `${passenger?.prenom || ''} ${passenger?.nom || ''}`,
+        phone: passenger?.telephone || '-',
+        email: passenger?.email || '-'
+      },
+      driver: {
+        name: transaction.details?.driverName || 'Chauffeur TakaTaka',
+        vehicle: transaction.details?.vehicleInfo || 'Véhicule standard',
+        phone: transaction.details?.driverPhone || '-'
+      },
+      trip: {
+        route: transaction.details?.route || 'Trajet TakaTaka',
+        distance: transaction.details?.distance || 'N/A',
+        duration: transaction.details?.duration || 'N/A'
+      },
+      fees: {
+        platform: 'Incl.'
+      }
+    };
+    setInvoiceData(formattedInvoice);
+    setShowInvoice(true);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center p-12">
@@ -349,12 +420,12 @@ const Transactions = () => {
               <ExportDropdown
                 data={filteredTransactions}
                 columns={[
-                  { key: 'date', label: 'Date' },
-                  { key: 'type', label: 'Type' },
-                  { key: 'amount', label: 'Montant' },
-                  { key: 'method', label: 'Méthode' },
-                  { key: 'status', label: 'Statut' },
-                  { key: 'reference', label: 'Référence' }
+                  { accessor: 'date', header: 'Date' },
+                  { accessor: 'type', header: 'Type' },
+                  { accessor: 'amount', header: 'Montant' },
+                  { accessor: 'method', header: 'Méthode' },
+                  { accessor: 'status', header: 'Statut' },
+                  { accessor: 'reference', header: 'Référence' }
                 ]}
                 fileName="transactions_takataka"
                 title="Historique des transactions"
@@ -624,7 +695,18 @@ const Transactions = () => {
         isOpen={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         onShare={() => selectedTransaction && handleShareReceipt(selectedTransaction)}
+        onShowInvoice={handleShowInvoice}
       />
+
+      {/* Aperçu Facture */}
+      <AnimatePresence>
+        {showInvoice && (
+          <PremiumInvoice
+            payment={invoiceData}
+            onClose={() => setShowInvoice(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

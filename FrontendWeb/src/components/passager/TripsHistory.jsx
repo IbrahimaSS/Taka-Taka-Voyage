@@ -9,7 +9,7 @@ import {
   Phone, MessageCircle, CheckCircle, Clock,
   Car, Users, Navigation, Award, Zap,
   ChevronDown, MoreVertical, SortAsc, SortDesc,
-  Printer, Smartphone, Grid, Motorbike, CreditCard
+  Printer, Smartphone, Grid, Motorbike, CreditCard, Receipt
 } from 'lucide-react';
 
 // Composants UI réutilisables
@@ -20,6 +20,7 @@ import Badge from '../admin/ui/Badge';
 import Modal from '../admin/ui/Modal';
 import Pagination from '../admin/ui/Pagination';
 import ExportDropdown from '../admin/ui/ExportDropdown';
+import PremiumInvoice from '../admin/ui/PremiumInvoice';
 
 // Context et services
 import { usePassenger } from '../../context/PassengerContext';
@@ -89,126 +90,174 @@ const TripStatusBadge = ({ status }) => {
   );
 };
 
-const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay }) => (
-  <Modal
-    isOpen={isOpen}
-    onClose={onClose}
-    title="Détails du trajet"
-    size="lg"
-  >
-    {trip && (
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gradient-to-r from-primary-50 to-blue-50 dark:from-gray-700 dark:to-gray-700/50 p-4 rounded-xl">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Date et heure</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{trip.date}</p>
-          </div>
-          <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-emerald-900/10 p-4 rounded-xl font-poppins">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Statut</p>
-            <TripStatusBadge status={trip.status} />
-          </div>
-        </div>
+const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, onShowInvoice }) => {
+  const getAvatarUrl = (path) => {
+    if (!path) return null;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    if (path.startsWith('http')) return path;
+    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
 
-        <div className="space-y-4">
-          <div className="flex items-start">
-            <MapPin className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mr-3 mt-1" />
-            <div className="flex-1">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Départ</p>
-              <p className="font-medium text-gray-900 dark:text-white">{trip.departure}</p>
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const parts = name.split(' ');
+    const first = parts[0]?.charAt(0) || '';
+    const last = parts[1]?.charAt(0) || '';
+    return (first + last).toUpperCase() || '?';
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Détails du trajet"
+      size="lg"
+    >
+      {trip && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gradient-to-r from-primary-50 to-blue-50 dark:from-gray-700 dark:to-gray-700/50 p-4 rounded-xl">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Date et heure</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{trip.date}</p>
+            </div>
+            <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-emerald-900/10 p-4 rounded-xl font-poppins">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Statut</p>
+              <TripStatusBadge status={trip.status} />
             </div>
           </div>
-          <div className="flex items-start">
-            <MapPin className="w-5 h-5 text-rose-600 dark:text-rose-400 mr-3 mt-1" />
-            <div className="flex-1">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Destination</p>
-              <p className="font-medium text-gray-900 dark:text-white">{trip.destination}</p>
-            </div>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Chauffeur</p>
-            <div className="flex items-center mt-2 group">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-200 to-blue-200 dark:from-emerald-900/30 dark:to-blue-900/30 flex items-center justify-center mr-3 ring-2 ring-emerald-500/20">
-                <User className="w-5 h-5 text-blue-700 dark:text-blue-300" />
-              </div>
-              <div>
-                <p className="font-bold text-gray-900 dark:text-white group-hover:text-emerald-600 transition-colors">{trip.driver?.name}</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 italic">{trip.driver?.vehicle}</p>
+          <div className="space-y-4">
+            <div className="flex items-start">
+              <MapPin className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mr-3 mt-1" />
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Départ</p>
+                <p className="font-medium text-gray-900 dark:text-white">{trip.departure}</p>
               </div>
             </div>
-          </div>
-          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl flex flex-col justify-center shadow-sm">
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Prix payé</p>
-            <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">{trip.price}</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-4 rounded-xl shadow-sm border border-amber-100/50 dark:border-amber-800/20">
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Note attribuée</p>
-            <div className="flex items-center mt-2">
-              <div className="flex">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-4 h-4 ${i < Math.floor(trip.rating) ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
-                  />
-                ))}
+            <div className="flex items-start">
+              <MapPin className="w-5 h-5 text-rose-600 dark:text-rose-400 mr-3 mt-1" />
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Destination</p>
+                <p className="font-medium text-gray-900 dark:text-white">{trip.destination}</p>
               </div>
-              <span className="ml-2 text-lg font-bold text-amber-600 dark:text-amber-500">
-                {trip.rating?.toFixed(1)}/5
-              </span>
             </div>
           </div>
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl shadow-sm border border-purple-100/50 dark:border-purple-800/20">
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Distance</p>
-            <p className="text-xl font-bold text-purple-700 dark:text-purple-400 mt-1">{trip.distance}</p>
-          </div>
-        </div>
 
-        <div className="flex space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button
-            variant="secondary"
-            onClick={onClose}
-            className="flex-1"
-          >
-            Fermer
-          </Button>
-          {trip.status === 'completed' && trip.payment === 'Espèces' && (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Chauffeur</p>
+              <div className="flex items-center mt-2 group">
+                <div className="relative w-10 h-10 rounded-full bg-gradient-to-r from-emerald-200 to-blue-200 dark:from-emerald-900/30 dark:to-blue-900/30 flex items-center justify-center mr-3 ring-2 ring-emerald-500/20 overflow-hidden">
+                  <span className="z-0 font-bold text-xs">{getInitials(trip.driver?.name)}</span>
+                  {trip.driver?.photo && (
+                    <img
+                      src={getAvatarUrl(trip.driver.photo)}
+                      alt={trip.driver.name}
+                      className="absolute inset-0 w-full h-full object-cover z-10"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white group-hover:text-emerald-600 transition-colors">{trip.driver?.name}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 italic">{trip.driver?.vehicle}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl flex flex-col justify-center shadow-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Prix payé</p>
+              <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">{trip.price}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-4 rounded-xl shadow-sm border border-amber-100/50 dark:border-amber-800/20">
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Note attribuée</p>
+              <div className="flex items-center mt-2">
+                <div className="flex">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-4 h-4 ${i < Math.floor(trip.rating) ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
+                    />
+                  ))}
+                </div>
+                <span className="ml-2 text-lg font-bold text-amber-600 dark:text-amber-500">
+                  {trip.rating?.toFixed(1)}/5
+                </span>
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl shadow-sm border border-purple-100/50 dark:border-purple-800/20">
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Distance</p>
+              <p className="text-xl font-bold text-purple-700 dark:text-purple-400 mt-1">{trip.distance}</p>
+            </div>
+          </div>
+
+          <div className="flex space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <Button
-              variant="warning"
-              onClick={onPay}
-              icon={CreditCard}
+              variant="secondary"
+              onClick={onClose}
               className="flex-1"
             >
-              Payer
+              Fermer
             </Button>
-          )}
-          <Button
-            variant="primary"
-            onClick={onShare}
-            icon={Share2}
-            className="flex-1"
-          >
-            Partager
-          </Button>
-          <Button
-            variant="primary"
-            onClick={onContact}
-            icon={Phone}
-            className="flex-1"
-          >
-            Contacter
-          </Button>
+            {trip.status === 'completed' && trip.payment === 'Espèces' && (
+              <Button
+                variant="warning"
+                onClick={onPay}
+                icon={CreditCard}
+                className="flex-1"
+              >
+                Payer
+              </Button>
+            )}
+            <Button
+              variant="warning"
+              onClick={() => onShowInvoice(trip)}
+              icon={Receipt}
+              className="flex-1"
+            >
+              Reçu
+            </Button>
+            <Button
+              variant="primary"
+              onClick={onShare}
+              icon={Share2}
+              className="flex-1"
+            >
+              Partager
+            </Button>
+            <Button
+              variant="primary"
+              onClick={onContact}
+              icon={Phone}
+              className="flex-1"
+            >
+              Contacter
+            </Button>
+          </div>
         </div>
-      </div>
-    )}
-  </Modal>
-);
+      )}
+    </Modal>
+  );
+};
 
 const TripsHistory = () => {
+  const getAvatarUrl = (path) => {
+    if (!path) return null;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    if (path.startsWith('http')) return path;
+    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const parts = name.split(' ');
+    const first = parts[0]?.charAt(0) || '';
+    const last = parts[1]?.charAt(0) || '';
+    return (first + last).toUpperCase() || '?';
+  };
+
   const { passenger } = usePassenger(); // ✅ Keep user context if needed, remove trips
 
   const [trips, setTrips] = useState([]);
@@ -223,6 +272,8 @@ const TripsHistory = () => {
   const [selectedVehicleType, setSelectedVehicleType] = useState('all');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [tripToPay, setTripToPay] = useState(null);
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [invoiceData, setInvoiceData] = useState(null);
 
   // ✅ Fetch Real History
   useEffect(() => {
@@ -243,12 +294,14 @@ const TripsHistory = () => {
             status: t.statut === 'TERMINEE' ? 'completed' : 'cancelled',
             departure: t.depart,
             destination: t.destination,
-            price: `${t.prix} GNF`,
-            distance: `${t.distanceKm} km`,
+            price: `${(t.prix || 0).toLocaleString()} GNF`,
+            distance: `${t.distanceKm || 0} km`,
             rating: t.note || 0,
             driver: t.chauffeur ? {
-              name: `${t.chauffeur.prenom} ${t.chauffeur.nom}`,
-              vehicle: `${t.chauffeur.marque} ${t.chauffeur.modele}`,
+              name: `${t.chauffeur.prenom || ''} ${t.chauffeur.nom || ''}`.trim(),
+              vehicle: t.chauffeur.vehicule
+                ? `${t.chauffeur.vehicule.marque || ''} ${t.chauffeur.vehicule.modele || ''}`.trim()
+                : (t.chauffeur.marque ? `${t.chauffeur.marque || ''} ${t.chauffeur.modele || ''}`.trim() : 'Véhicule standard'),
               rating: t.chauffeur.noteMoyenne || 5, // ✅ Real rating
               phone: t.chauffeur.telephone,
               photo: t.chauffeur.photoUrl
@@ -385,6 +438,40 @@ const TripsHistory = () => {
     setShowDetailsModal(true);
   };
 
+  const handleShowInvoice = (trip) => {
+    // ❌ Fermer la modale de détails pour ne pas avoir d'overlay conflictuel
+    setShowDetailsModal(false);
+
+    // Transformer l'objet trajet pour qu'il soit compatible avec PremiumInvoice
+    const formattedInvoice = {
+      invoiceNumber: `INV-${trip.id.substring(0, 8)}`.toUpperCase(),
+      date: trip.date,
+      transactionId: trip.id,
+      method: trip.payment || 'ESPECES',
+      amount: trip.price,
+      passenger: {
+        name: `${passenger?.prenom || ''} ${passenger?.nom || ''}`,
+        phone: passenger?.telephone || '-',
+        email: passenger?.email || '-'
+      },
+      driver: {
+        name: trip.driver?.name || 'N/A',
+        vehicle: trip.driver?.vehicle || 'N/A',
+        phone: trip.driver?.phone || '-'
+      },
+      trip: {
+        route: `${trip.departure} → ${trip.destination}`,
+        distance: trip.distance || 'N/A',
+        duration: 'N/A' // Durée non dispo dans la liste immédiate
+      },
+      fees: {
+        platform: 'Incl.'
+      }
+    };
+    setInvoiceData(formattedInvoice);
+    setShowInvoice(true);
+  };
+
   const handleOpenPayment = (trip) => {
     setTripToPay(trip);
     setShowPaymentModal(true);
@@ -420,13 +507,13 @@ const TripsHistory = () => {
               <ExportDropdown
                 data={filteredTrips}
                 columns={[
-                  { key: 'date', label: 'Date' },
-                  { key: 'driver.name', label: 'Chauffeur' },
-                  { key: 'departure', label: 'Départ' },
-                  { key: 'destination', label: 'Destination' },
-                  { key: 'price', label: 'Prix' },
-                  { key: 'status', label: 'Statut' },
-                  { key: 'rating', label: 'Note' }
+                  { accessor: 'date', header: 'Date' },
+                  { accessor: 'driver.name', header: 'Chauffeur' },
+                  { accessor: 'departure', header: 'Départ' },
+                  { accessor: 'destination', header: 'Destination' },
+                  { accessor: 'price', header: 'Prix' },
+                  { accessor: 'status', header: 'Statut' },
+                  { accessor: 'rating', header: 'Note' }
                 ]}
                 fileName="historique_takataka"
                 title="Historique des trajets"
@@ -558,8 +645,16 @@ const TripsHistory = () => {
                             <TableCell>
                               <div className="flex items-center space-x-3">
                                 <div className="relative">
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-200 to-blue-200 dark:from-emerald-900/30 dark:to-blue-900/30 flex items-center justify-center">
-                                    <User className="w-5 h-5 text-blue-700 dark:text-blue-300" />
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-emerald-200 to-blue-200 dark:from-emerald-900/30 dark:to-blue-900/30 flex items-center justify-center overflow-hidden ring-2 ring-white dark:ring-gray-700 shadow-sm">
+                                    <span className="z-0 font-bold text-xs">{getInitials(trip.driver?.name)}</span>
+                                    {trip.driver?.photo && (
+                                      <img
+                                        src={getAvatarUrl(trip.driver.photo)}
+                                        alt={trip.driver.name}
+                                        className="absolute inset-0 w-full h-full object-cover z-10 rounded-full"
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                      />
+                                    )}
                                   </div>
                                 </div>
                                 <div>
@@ -691,7 +786,18 @@ const TripsHistory = () => {
           setShowDetailsModal(false);
           selectedTrip && handleOpenPayment(selectedTrip);
         }}
+        onShowInvoice={handleShowInvoice}
       />
+
+      {/* Aperçu Facture */}
+      <AnimatePresence>
+        {showInvoice && (
+          <PremiumInvoice
+            payment={invoiceData}
+            onClose={() => setShowInvoice(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Modale de paiement */}
       <PaymentModal
