@@ -24,6 +24,11 @@ app.use(helmet({
 
 app.use(morgan("dev"));
 
+// Setup de la documentation Swagger (openapi)
+const setupSwagger = require('./config/swagger');
+setupSwagger(app);
+
+
 
 app.get("/", (req, res) => {
     res.status(200).json({

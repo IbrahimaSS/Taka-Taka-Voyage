@@ -13,13 +13,45 @@ const {
 const { verifierToken } = require("../../middlewares/authMiddlewares");
 const { verifierStatutActif } = require("../../middlewares/statutMiddlewares");
 
+/**
+ * @swagger
+ * /api/passagers/planifier:
+ *   post:
+ *     summary: Créer une réservation planifiée
+ *     description: Permet à un passager de planifier une course pour le futur.
+ *     tags: [3 - Passagers]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Réservation planifiée avec succès.
+ */
 router.post(
     "/planifier",
     verifierToken,
     verifierStatutActif,
     creerReservationPlanifiee
 );
-// Lister le planning des réservations planifiées du passager
+
+/**
+ * @swagger
+ * /api/passagers/planning:
+ *   get:
+ *     summary: Lister le planning des réservations
+ *     description: Récupérer toutes les réservations planifiées du passager.
+ *     tags: [3 - Passagers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des réservations récupérée.
+ */
 router.get(
     "/planning",
     verifierToken,
@@ -27,7 +59,25 @@ router.get(
     listerPlanningPassager
 );
 
-// Détail d’une réservation planifiée
+/**
+ * @swagger
+ * /api/passagers/planning/{reservationId}:
+ *   get:
+ *     summary: Détail d'une réservation planifiée
+ *     description: Récupérer les détails d'une réservation planifiée spécifique.
+ *     tags: [3 - Passagers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reservationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Détails récupérés.
+ */
 router.get(
     "/planning/:reservationId",
     verifierToken,
@@ -35,7 +85,31 @@ router.get(
     detailPlanningPassager
 );
 
-// Modifier une réservation planifiée (optionnel)
+/**
+ * @swagger
+ * /api/passagers/planning/{reservationId}:
+ *   put:
+ *     summary: Modifier une réservation planifiée
+ *     description: Modifier les informations d'une réservation planifiée (optionnel).
+ *     tags: [3 - Passagers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reservationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Réservation modifiée avec succès.
+ */
 router.put(
     "/planning/:reservationId",
     verifierToken,
@@ -43,7 +117,25 @@ router.put(
     modifierReservationPlanifiee
 );
 
-// Annuler une réservation planifiée (optionnel)
+/**
+ * @swagger
+ * /api/passagers/planning/{reservationId}:
+ *   delete:
+ *     summary: Annuler une réservation planifiée
+ *     description: Annuler une réservation planifiée existante (optionnel).
+ *     tags: [3 - Passagers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reservationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Réservation annulée avec succès.
+ */
 router.delete(
     "/planning/:reservationId",
     verifierToken,
