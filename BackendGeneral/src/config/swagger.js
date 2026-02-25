@@ -21,12 +21,23 @@ const options = {
             { name: "4 - Admin", description: "Routes du tableau de bord d'administration" },
             { name: "5 - Autres", description: "Routes communes et services annexes" }
         ],
+        // servers: [
+        //     {
+        //         url: 'http://localhost:5000',
+        //         description: 'Serveur de développement local',
+        //     },
+        // ],
         servers: [
             {
-                url: 'http://localhost:5000',
-                description: 'Serveur de développement local',
+                url: process.env.NODE_ENV === "production"
+                    ? "https://taka-taka-voyage.onrender.com"
+                    : "http://localhost:5000",
+                description: process.env.NODE_ENV === "production"
+                    ? "Serveur de production Render"
+                    : "Serveur de développement local",
             },
         ],
+
         components: {
             securitySchemes: {
                 bearerAuth: {
