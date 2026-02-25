@@ -24,6 +24,8 @@ import { NAV_CONFIG, ROLES } from '../../../config/navConfig';
 import AvailabilityToggle from '../../chauffeur/AvailabilityToggle';
 import { useDriverContext } from '../../../context/DriverContext';
 import { useNotificationCenter } from '../../../context/NotificationContext';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../../common/LanguageSwitcher';
 
 function parsePath(pathname, basePath) {
   if (!pathname.startsWith(basePath)) return { segments: [], first: '' };
@@ -40,6 +42,7 @@ export default function Header({
   showToast,
   role = ROLES.ADMIN
 }) {
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -151,7 +154,7 @@ export default function Header({
                         : 'text-slate-500 hover:text-primary-600 dark:text-slate-400 dark:hover:text-primary-400'
                     )}
                   >
-                    {b.label}
+                    {t(`nav.${b.label.toLowerCase().replace(/\s+/g, '_')}`, b.label)}
                   </Link>
                   {idx < breadcrumbs.length - 1 && <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-600" />}
                 </React.Fragment>
@@ -159,7 +162,7 @@ export default function Header({
             </nav>
             <div className="flex items-center gap-3 min-w-0">
               <h1 className="text-lg md:text-xl font-semibold  tracking-tight text-slate-900 dark:text-slate-100 truncate">
-                {pageTitle}
+                {t(`nav.${pageTitle.toLowerCase().replace(/\s+/g, '_')}`, pageTitle)}
               </h1>
             </div>
           </div>
@@ -176,12 +179,13 @@ export default function Header({
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-blue-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all animate-pulse"
                 >
                   <Navigation className="h-4 w-4" />
-                  <span>Suivi</span>
+                  <span>{i18n.language === 'en' ? 'Live' : 'Suivi'}</span>
                 </Link>
               )}
               <div className="hidden md:block">
                 <AvailabilityToggle />
               </div>
+              <LanguageSwitcher variant="simple" />
             </div>
           )}
 
@@ -220,13 +224,13 @@ export default function Header({
                   className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden"
                 >
                   <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-                    <h3 className="font-bold text-gray-900 dark:text-white text-sm uppercase tracking-wider">Notifications</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-white text-sm uppercase tracking-wider">{t('notifications.title')}</h3>
                     {unreadCount > 0 && (
                       <button
                         onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}
                         className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
                       >
-                        Tout lire
+                        {t('notifications.clear_all')}
                       </button>
                     )}
                   </div>
@@ -262,7 +266,7 @@ export default function Header({
                       ))
                     ) : (
                       <div className="p-8 text-center text-gray-500">
-                        Aucune notification
+                        {t('notifications.no_notifications')}
                       </div>
                     )}
                   </div>
@@ -312,7 +316,7 @@ export default function Header({
                   {profile.prenom && profile.nom ? `${profile.prenom} ${profile.nom}` : (profile.name || 'Admin')}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5 text-primary-600 text-xs leading-tight truncate">
-                  {profile.role || (role === ROLES.ADMIN ? "Administrateur" : "Chauffeur")}
+                  {profile.role ? t(`nav.${profile.role.toLowerCase()}`, profile.role) : (role === ROLES.ADMIN ? t('nav.admin') : t('nav.chauffeur'))}
                 </div>
               </div>
               <ChevronDown className={cn('hidden md:block h-4 w-4 text-slate-400 transition-transform', profileOpen && 'rotate-180')} />
@@ -371,7 +375,7 @@ export default function Header({
                       className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
                       onClick={() => setProfileOpen(false)}
                     >
-                      Mon profil
+                      {t('nav.profile')}
                     </Link>
 
                     <Link
@@ -379,7 +383,7 @@ export default function Header({
                       className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
                       onClick={() => setProfileOpen(false)}
                     >
-                      Paramètres
+                      {t('nav.settings')}
                     </Link>
                   </div>
 
@@ -392,7 +396,7 @@ export default function Header({
                       className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/20"
                     >
                       <LogOut className="h-4 w-4" />
-                      Déconnexion
+                      {t('nav.logout')}
                     </button>
                   </div>
                 </motion.div>

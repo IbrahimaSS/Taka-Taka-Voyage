@@ -14,8 +14,13 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [user, setUser] = useState(() => {
+        const savedUser = localStorage.getItem('user');
+        return savedUser ? JSON.parse(savedUser) : null;
+    });
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        return !!localStorage.getItem('user');
+    });
     const [isLoading, setIsLoading] = useState(true);
 
     // Vérifier la session au chargement
@@ -24,12 +29,19 @@ export const AuthProvider = ({ children }) => {
             const response = await apiClient.get(API_ROUTES.auth.me);
             if (response.data.succes) {
                 setUser(response.data.utilisateur);
+                localStorage.setItem('user', JSON.stringify(response.data.utilisateur));
                 setIsAuthenticated(true);
             }
         } catch (error) {
-            console.error('Session non valide ou expirée');
-            setUser(null);
-            setIsAuthenticated(false);
+            console.error('Session non valide ou expirée (hors-ligne possible)');
+            // On ne vide PAS le user si on est en erreur de réseau (timeout/offline)
+            if (error.code === 'ECONNABORTED' || !navigator.onLine) {
+                console.log('📶 Mode hors-ligne détecté, conservation de la session locale');
+            } else {
+                setUser(null);
+                localStorage.removeItem('user');
+                setIsAuthenticated(false);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -45,6 +57,7 @@ export const AuthProvider = ({ children }) => {
             const response = await authService.login(credentials);
             if (response.data.succes) {
                 setUser(response.data.utilisateur);
+                localStorage.setItem('user', JSON.stringify(response.data.utilisateur));
                 setIsAuthenticated(true);
                 return {
                     succes: true,
@@ -68,6 +81,7 @@ export const AuthProvider = ({ children }) => {
         } finally {
             // Toujours nettoyer l'état local, même si l'appel backend échoue
             setUser(null);
+            localStorage.removeItem('user');
             setIsAuthenticated(false);
         }
     };

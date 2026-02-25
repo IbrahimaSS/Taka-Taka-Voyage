@@ -7,8 +7,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { useDriverContext } from '../../context/DriverContext';
+import { useTranslation } from 'react-i18next';
 
 const AvailabilityToggle = ({ className = '' }) => {
+    const { t } = useTranslation();
     const { isOnline, isConnecting, status, toggleOnline, pendingRequestsCount } = useDriverContext();
 
     // Configuration des styles selon le statut
@@ -18,7 +20,7 @@ const AvailabilityToggle = ({ className = '' }) => {
             iconBg: 'bg-emerald-100 dark:bg-emerald-800/50',
             iconColor: 'text-emerald-600 dark:text-emerald-400',
             text: 'text-emerald-700 dark:text-emerald-300',
-            label: 'En ligne',
+            label: t('common.online'),
             indicator: 'bg-emerald-500'
         },
         busy: {
@@ -26,7 +28,7 @@ const AvailabilityToggle = ({ className = '' }) => {
             iconBg: 'bg-amber-100 dark:bg-amber-800/50',
             iconColor: 'text-amber-600 dark:text-amber-400',
             text: 'text-amber-700 dark:text-amber-300',
-            label: 'Occupé',
+            label: t('common.busy'),
             indicator: 'bg-amber-500'
         },
         offline: {
@@ -34,12 +36,12 @@ const AvailabilityToggle = ({ className = '' }) => {
             iconBg: 'bg-gray-200 dark:bg-gray-600',
             iconColor: 'text-gray-500 dark:text-gray-400',
             text: 'text-gray-600 dark:text-gray-300',
-            label: 'Hors ligne',
+            label: t('common.offline'),
             indicator: 'bg-gray-300'
         }
     };
 
-    
+
     const currentConfig = statusConfig[status] || statusConfig.offline;
 
     return (
@@ -60,7 +62,7 @@ const AvailabilityToggle = ({ className = '' }) => {
             {/* Toggle Switch */}
             <motion.button
                 onClick={toggleOnline}
-                disabled={isConnecting }
+                disabled={isConnecting}
                 className={`
           relative flex items-center gap-2 px-3 py-2 rounded-xl
           transition-all duration-300 ease-out
@@ -69,7 +71,7 @@ const AvailabilityToggle = ({ className = '' }) => {
           disabled:opacity-80 disabled:cursor-not-allowed
         `}
                 whileTap={{ scale: 0.98 }}
-                aria-label={isOnline ? 'Se mettre hors ligne' : 'Se mettre en ligne'}
+                aria-label={isOnline ? t('common.set_offline') : t('common.set_online')}
             >
                 {/* Indicateur de pulsation quand en ligne */}
                 {isOnline && !isConnecting && (
@@ -107,7 +109,7 @@ const AvailabilityToggle = ({ className = '' }) => {
             text-xs font-bold transition-colors duration-300
             ${currentConfig.text}
           `}>
-                        {isConnecting ? 'Connexion...' : currentConfig.label}
+                        {isConnecting ? t('common.connecting') : currentConfig.label}
                     </span>
                 </div>
 

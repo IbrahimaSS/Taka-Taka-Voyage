@@ -1,5 +1,6 @@
 // src/components/sections/Reports.jsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Download, Calendar, ChevronDown, Users, DollarSign,
@@ -24,6 +25,7 @@ import { exportToPDF, exportToCSV, exportToWord } from '../../../utils/exporters
 
 // Composant pour les actions rapides
 const ReportActions = ({ report, onView, onGenerate, onExport, isMobile }) => {
+  const { t } = useTranslation();
   const [showActions, setShowActions] = useState(false);
   const menuRef = useRef(null);
 
@@ -98,7 +100,7 @@ const ReportActions = ({ report, onView, onGenerate, onExport, isMobile }) => {
                 }}
               >
                 <Eye className="w-4 h-4 mr-2 text-blue-500" />
-                Voir détails
+                {t('trips.view_details', 'Voir détails')}
               </button>
               {report.status === 'generated' ? (
                 <>
@@ -110,7 +112,7 @@ const ReportActions = ({ report, onView, onGenerate, onExport, isMobile }) => {
                     }}
                   >
                     <Download className="w-4 h-4 mr-2 text-green-500" />
-                    Télécharger
+                    {t('reports.download', 'Télécharger')}
                   </button>
                   <button
                     className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
@@ -120,7 +122,7 @@ const ReportActions = ({ report, onView, onGenerate, onExport, isMobile }) => {
                     }}
                   >
                     <FileDown className="w-4 h-4 mr-2 text-blue-500" />
-                    Exporter...
+                    {t('common.export_now', 'Exporter...')}
                   </button>
                 </>
               ) : (
@@ -132,7 +134,7 @@ const ReportActions = ({ report, onView, onGenerate, onExport, isMobile }) => {
                   }}
                 >
                   <RefreshCw className="w-4 h-4 mr-2 text-yellow-500" />
-                  Regénérer
+                  {t('common.regenerate', 'Regénérer')}
                 </button>
               )}
             </div>
@@ -145,6 +147,7 @@ const ReportActions = ({ report, onView, onGenerate, onExport, isMobile }) => {
 
 // Composant pour le badge de statut
 const StatusBadge = ({ status }) => {
+  const { t } = useTranslation();
   const config = {
     generated: {
       label: 'Généré',
@@ -188,6 +191,7 @@ const StatusBadge = ({ status }) => {
 
 // Composant pour le badge de type
 const TypeBadge = ({ type }) => {
+  const { t } = useTranslation();
   const config = {
     financial: {
       label: 'Financier',
@@ -238,6 +242,7 @@ const TypeBadge = ({ type }) => {
 
 // Composant pour le badge de format
 const FormatBadge = ({ format }) => {
+  const { t } = useTranslation();
   const config = {
     pdf: {
       label: 'PDF',
@@ -278,6 +283,7 @@ const ReportFilters = ({
   showToast,
   setCurrentPage
 }) => {
+  const { t } = useTranslation();
   return (
     <Card hoverable={false} className="mb-4 md:mb-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
@@ -285,7 +291,7 @@ const ReportFilters = ({
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4 md:w-5 md:h-5" />
           <input
             type="text"
-            placeholder="Rechercher..."
+            placeholder={t('common.search', 'Rechercher...')}
             className="w-full pl-10 pr-3 py-2 md:pl-12 md:pr-4 md:py-3 border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-sm"
             value={search}
             onChange={(e) => {
@@ -303,11 +309,11 @@ const ReportFilters = ({
             setCurrentPage(1);
           }}
         >
-          <option value="all">Tous les statuts</option>
-          <option value="generated">Généré</option>
-          <option value="pending">En attente</option>
-          <option value="processing">En cours</option>
-          <option value="failed">Échoué</option>
+          <option value="all">{t('common.all_status', 'Tous les statuts')}</option>
+          <option value="generated">{t('common.generated', 'Généré')}</option>
+          <option value="pending">{t('trips.status.pending', 'En attente')}</option>
+          <option value="processing">{t('disputes.in_review', 'En cours')}</option>
+          <option value="failed">{t('common.failed', 'Échoué')}</option>
         </select>
 
         <select
@@ -318,7 +324,7 @@ const ReportFilters = ({
             setCurrentPage(1);
           }}
         >
-          <option value="all">Tous les formats</option>
+          <option value="all">{t('common.all_formats', 'Tous les formats')}</option>
           <option value="pdf">PDF</option>
           <option value="csv">CSV</option>
           <option value="word">Word</option>
@@ -446,6 +452,7 @@ const generateReports = (count = 50) => {
 // Remplacer les donnees simulees et la generation locale par des appels backend
 // Exemple: GET API_ROUTES.admin.reports, POST /admin/reports/generate
 const Reports = () => {
+  const { t } = useTranslation();
   // États
   const [reports, setReports] = useState([]);
   const [statsData, setStatsData] = useState({ commissionCeMois: 0, chauffeursPayes: 0 });
@@ -551,24 +558,24 @@ const Reports = () => {
   const stats = useMemo(() => {
     return [
       {
-        title: 'Commissions ce mois',
+        title: t('commissions.commissions_this_month', 'Commissions ce mois'),
         value: `${statsData.commissionCeMois.toLocaleString()} GNF`,
         icon: DollarSign,
         color: 'green',
         trend: 'up',
         percentage: 12, // mock progress
         progress: 65,
-        subtitle: 'Revenus plateforme'
+        subtitle: t('commissions.platform_revenue', 'Revenus plateforme')
       },
       {
-        title: 'Chauffeurs payés',
+        title: t('commissions.paid_drivers', 'Chauffeurs payés'),
         value: statsData.chauffeursPayes.toString(),
         icon: Users,
         color: 'purple',
         trend: 'up',
         percentage: 8,
         progress: 45,
-        subtitle: 'Ce mois-ci'
+        subtitle: t('common.this_month', 'Ce mois-ci')
       }
     ];
   }, [statsData]);
@@ -663,24 +670,29 @@ const Reports = () => {
         data = res.paiements || [];
         columns = [
           { header: 'ID Trajet', accessor: (p) => p.reservation?.toString().slice(-6).toUpperCase() || 'N/A' },
-          { header: 'Passager', accessor: (p) => p.passager ? `${p.passager.prenom} ${p.passager.nom}` : 'N/A' },
-          { header: 'Chauffeur', accessor: (p) => p.chauffeur ? `${p.chauffeur.prenom} ${p.chauffeur.nom}` : 'N/A' },
-          { header: 'Montant', accessor: (p) => `${p.montantTotal?.toLocaleString()} GNF` },
-          { header: 'Commission', accessor: (p) => `${p.commissionPlateforme?.toLocaleString()} GNF` },
-          { header: 'Date', accessor: (p) => new Date(p.createdAt).toLocaleDateString('fr-FR') },
+          { header: 'Passager', accessor: (p) => p.passager ? `${p.passager.prenom || ''} ${p.passager.nom || ''}`.trim() : 'N/A' },
+          { header: 'Chauffeur', accessor: (p) => p.chauffeur ? `${p.chauffeur.prenom || ''} ${p.chauffeur.nom || ''}`.trim() : 'N/A' },
+          { header: 'Montant', accessor: (p) => `${Number(p.montantTotal || 0).toLocaleString('fr-FR')} GNF` },
+          { header: 'Commission', accessor: (p) => `${Number(p.commissionPlateforme || 0).toLocaleString('fr-FR')} GNF` },
+          { header: 'Date', accessor: (p) => p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR') : 'N/A' },
           { header: 'Statut', accessor: 'statut' }
         ];
       } else if (type === 'geographic' || type === 'trajets') {
         const { data: res } = await adminService.getTrips({ limit: 1000 });
         data = res.trajets || [];
         columns = [
-          { header: 'ID', accessor: (t) => t._id?.toString().slice(-6).toUpperCase() },
-          { header: 'Départ', accessor: 'pointDepart.adresse' },
-          { header: 'Arrivée', accessor: 'pointArrivee.adresse' },
-          { header: 'Catégorie', accessor: 'categorie' },
-          { header: 'Prix', accessor: (t) => `${t.prix?.toLocaleString()} GNF` },
+          { header: 'ID', accessor: (t) => t._id?.toString().slice(-6).toUpperCase() || 'N/A' },
+          { header: 'Départ', accessor: (t) => t.depart || (t.pointDepart && t.pointDepart.adresse) || (t.reservation && t.reservation.depart) || 'N/A' },
+          { header: 'Arrivée', accessor: (t) => t.destination || (t.pointArrivee && t.pointArrivee.adresse) || (t.reservation && t.reservation.destination) || 'N/A' },
+          { header: 'Catégorie', accessor: (t) => t.typeVehicule || t.categorie || (t.reservation && t.reservation.typeVehicule) || 'N/A' },
+          {
+            header: 'Prix', accessor: (t) => {
+              const p = t.prix || t.montant || (t.reservation && t.reservation.prix);
+              return p ? `${Number(p).toLocaleString('fr-FR')} GNF` : 'N/A';
+            }
+          },
           { header: 'Statut', accessor: 'statut' },
-          { header: 'Date', accessor: (t) => new Date(t.createdAt).toLocaleDateString('fr-FR') }
+          { header: 'Date', accessor: (t) => t.createdAt ? new Date(t.createdAt).toLocaleDateString('fr-FR') : 'N/A' }
         ];
       } else {
         // Fallback pour les types non encore implémentés spécifiquement
@@ -761,16 +773,16 @@ const Reports = () => {
 
   // Configuration des tabs
   const reportTypes = [
-    { id: 'all', label: 'Tous', icon: FileText },
-    { id: 'financial', label: 'Financier', icon: DollarSign },
-    { id: 'users', label: 'Utilisateurs', icon: Users },
-    { id: 'geographic', label: 'Géographique', icon: MapPin },
-    { id: 'performance', label: 'Performance', icon: Activity },
-    { id: 'security', label: 'Sécurité', icon: Shield }
+    { id: 'all', label: t('common.all', 'Tous'), icon: FileText },
+    { id: 'financial', label: t('reports.financial', 'Financier'), icon: DollarSign },
+    { id: 'users', label: t('nav.utilisateurs', 'Utilisateurs'), icon: Users },
+    { id: 'geographic', label: t('reports.geographic', 'Géographique'), icon: MapPin },
+    { id: 'performance', label: t('reports.driver_performance', 'Performance'), icon: Activity },
+    { id: 'security', label: t('common.security', 'Sécurité'), icon: Shield }
   ];
 
   // Modal de détails du rapport
-  const ReportDetailsModal = () => {
+  const renderReportDetailsModal = () => {
     const report = modalState.selectedReport;
     if (!report) return null;
 
@@ -778,7 +790,7 @@ const Reports = () => {
       <Modal
         isOpen={modalState.showDetails}
         onClose={() => setModalState(prev => ({ ...prev, showDetails: false }))}
-        title="Détails du rapport"
+        title={t('reports.details_title', 'Détails du rapport')}
         size="lg"
       >
         <div className="space-y-6 max-h-[70vh] overflow-y-auto p-1">
@@ -892,7 +904,7 @@ const Reports = () => {
                     setModalState(prev => ({ ...prev, showDetails: false }));
                   }}
                 >
-                  Télécharger
+                  {t('reports.download', 'Télécharger')}
                 </Button>
                 <Button
                   variant="secondary"
@@ -902,7 +914,7 @@ const Reports = () => {
                     showToast('Lien copié', 'Le lien vers le rapport a été copié', 'success');
                   }}
                 >
-                  Partager
+                  {t('reports.share', 'Partager')}
                 </Button>
               </>
             ) : (
@@ -914,7 +926,7 @@ const Reports = () => {
                   setModalState(prev => ({ ...prev, showDetails: false }));
                 }}
               >
-                Regénérer
+                {t('common.regenerate', 'Regénérer')}
               </Button>
             )}
           </div>
@@ -924,35 +936,35 @@ const Reports = () => {
   };
 
   // Modal pour générer un nouveau rapport
-  const GenerateReportModal = () => (
+  const renderGenerateReportModal = () => (
     <Modal
       isOpen={modalState.showGenerate}
       onClose={() => setModalState(prev => ({ ...prev, showGenerate: false }))}
-      title="Générer un nouveau rapport"
+      title={t('reports.generate_report', 'Générer un nouveau rapport')}
       size="lg"
     >
       <div className="space-y-6 max-h-[70vh] overflow-y-auto p-1">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Type de rapport
+              {t('reports.report_type', 'Type de rapport')}
             </label>
             <select
               value={newReport.type}
               onChange={(e) => setNewReport(prev => ({ ...prev, type: e.target.value }))}
               className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
             >
-              <option value="FINANCIER">Financier</option>
-              <option value="UTILISATEURS">Utilisateurs</option>
-              <option value="TRAJETS">Trajets / Géographique</option>
-              <option value="PERFORMANCE">Performance</option>
-              <option value="SECURITE">Sécurité</option>
+              <option value="FINANCIER">{t('reports.financial', 'Financier')}</option>
+              <option value="UTILISATEURS">{t('nav.utilisateurs', 'Utilisateurs')}</option>
+              <option value="TRAJETS">{t('reports.geographic', 'Trajets / Géographique')}</option>
+              <option value="PERFORMANCE">{t('reports.driver_performance', 'Performance')}</option>
+              <option value="SECURITE">{t('common.security', 'Sécurité')}</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Format de sortie
+              {t('reports.output_format', 'Format de sortie')}
             </label>
             <select
               value={newReport.format}
@@ -967,19 +979,19 @@ const Reports = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Période
+              {t('reports.period', 'Période')}
             </label>
             <select
               value={newReport.period}
               onChange={(e) => setNewReport(prev => ({ ...prev, period: e.target.value }))}
               className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
             >
-              <option value="today">Aujourd'hui</option>
-              <option value="week">Cette semaine</option>
-              <option value="month">Ce mois</option>
-              <option value="quarter">Ce trimestre</option>
-              <option value="year">Cette année</option>
-              <option value="custom">Personnalisée</option>
+              <option value="today">{t('common.today', "Aujourd'hui")}</option>
+              <option value="week">{t('common.this_week', 'Cette semaine')}</option>
+              <option value="month">{t('common.this_month', 'Ce mois')}</option>
+              <option value="quarter">{t('reports.this_quarter', 'Ce trimestre')}</option>
+              <option value="year">{t('common.this_year', 'Cette année')}</option>
+              <option value="custom">{t('common.custom', 'Personnalisée')}</option>
             </select>
           </div>
 
@@ -987,7 +999,7 @@ const Reports = () => {
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                  Date de début
+                  {t('reports.start_date', 'Date de début')}
                 </label>
                 <input
                   type="date"
@@ -998,7 +1010,7 @@ const Reports = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                  Date de fin
+                  {t('reports.end_date', 'Date de fin')}
                 </label>
                 <input
                   type="date"
@@ -1012,7 +1024,7 @@ const Reports = () => {
         </div>
 
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200">Options supplémentaires</h4>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200">{t('reports.additional_options', 'Options supplémentaires')}</h4>
           <div className="space-y-3">
             <label className="flex items-center">
               <input
@@ -1021,7 +1033,7 @@ const Reports = () => {
                 onChange={(e) => setNewReport(prev => ({ ...prev, includeCharts: e.target.checked }))}
                 className="rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-500"
               />
-              <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">Inclure les graphiques</span>
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">{t('reports.include_charts', 'Inclure les graphiques')}</span>
             </label>
             <label className="flex items-center">
               <input
@@ -1030,7 +1042,7 @@ const Reports = () => {
                 onChange={(e) => setNewReport(prev => ({ ...prev, includeDetails: e.target.checked }))}
                 className="rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-500"
               />
-              <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">Inclure les détails complets</span>
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">{t('reports.include_details', 'Inclure les détails complets')}</span>
             </label>
           </div>
         </div>
@@ -1040,7 +1052,7 @@ const Reports = () => {
             variant="secondary"
             onClick={() => setModalState(prev => ({ ...prev, showGenerate: false }))}
           >
-            Annuler
+            {t('common.cancel', 'Annuler')}
           </Button>
           <Button
             variant="perso"
@@ -1048,7 +1060,7 @@ const Reports = () => {
             onClick={() => handleGenerateReport()}
             loading={modalState.loading}
           >
-            Générer le rapport
+            {t('reports.generate_report_btn', 'Générer le rapport')}
           </Button>
         </div>
       </div>
@@ -1058,8 +1070,8 @@ const Reports = () => {
   return (
     <div className="space-y-4 md:space-y-6 p-2 ">
       {/* Modales */}
-      <ReportDetailsModal />
-      <GenerateReportModal />
+      {renderReportDetailsModal()}
+      {renderGenerateReportModal()}
 
       {/* Toast Notification */}
       {toast.show && (
@@ -1092,8 +1104,8 @@ const Reports = () => {
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
       >
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">Rapports et analyses</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">Analyses détaillées et rapports de performance</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">{t('reports.title', 'Rapports et analyses')}</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">{t('reports.subtitle', 'Analyses détaillées et rapports de performance')}</p>
         </div>
 
         <div className="flex w-full md:w-auto">
@@ -1103,7 +1115,7 @@ const Reports = () => {
             className="w-full md:w-auto"
             variant='perso'
           >
-            <span className="hidden md:inline">Nouveau rapport</span>
+            <span className="hidden md:inline">{t('reports.generate_report', 'Nouveau rapport')}</span>
             <span className="md:hidden">Nouveau</span>
           </Button>
         </div>
@@ -1157,14 +1169,14 @@ const Reports = () => {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle>Rapports ({totalItems})</CardTitle>
+              <CardTitle>{t('reports.title', 'Rapports')} ({totalItems})</CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {filteredReports.length} affiché(s) sur {totalItems}
+                {t('common.showing_n_of_m', { n: filteredReports.length, m: totalItems, defaultValue: `${filteredReports.length} affiché(s) sur ${totalItems}` })}
               </p>
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto">
-              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Afficher :</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{t('common.display', 'Afficher :')}</span>
               <select
                 className="border border-gray-200 dark:bg-gray-900/40 dark:border-gray-800 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-400 transition w-full md:w-auto"
                 value={pageSize}
@@ -1212,11 +1224,11 @@ const Reports = () => {
             <div className="overflow-x-auto">
               <Table
                 headers={[
-                  'Rapport',
-                  'Type',
-                  'Statut',
-                  'Créé le',
-                  'Actions'
+                  t('reports.trip_summary', 'Rapport'),
+                  t('common.categories', 'Type'),
+                  t('common.status', 'Statut'),
+                  t('commissions.created_at', 'Créé le'),
+                  t('common.actions', 'Actions')
                 ]}
               >
                 {filteredReports.map((report) => (

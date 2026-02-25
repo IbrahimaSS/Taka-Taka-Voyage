@@ -108,23 +108,29 @@ const RealTimeTracking = ({
       name: trip?.destination || trip?.destinationAddress || 'Destination',
       address: trip?.destination || trip?.destinationAddress || ''
     },
-    driver: driver || {
-      id: 1,
-      name: "Mamadou Diallo",
-      phone: "+224 623 09 02 24",
-      rating: 4.8,
-      totalTrips: 1247,
-      experience: '3 ans',
-      vehicle: {
-        brand: "Toyota",
-        model: "Corolla",
-        plate: "AB-123-CD",
-        color: "Blanc",
-        type: trip?.vehicleType || 'taxi',
-        year: 2022,
-        capacity: 4
-      }
-    },
+    driver: (() => {
+      const d = driver || trip?.chauffeur || {};
+      const vRaw = d.vehicle || d.vehicule || d.vehiculeDetail || {};
+      const v = (vRaw && typeof vRaw === 'object') ? vRaw : {};
+
+      return {
+        ...d,
+        name: d.name || d.nom || (d.prenom ? `${d.prenom} ${d.nom}` : "Ib Tara Barry"),
+        phone: d.phone || d.telephone || d.phoneNumber || "+224 000 00 00 00",
+        rating: d.rating || 5.0,
+        totalTrips: d.totalTrips || d.nombreCourses || 0,
+        experience: d.experience || '1 an',
+        vehicle: {
+          brand: v.brand || v.marque || d.vehicleBrand || d.marque || trip?.vehicleBrand || trip?.marque || (typeof vRaw === 'string' ? vRaw : "Véhicule"),
+          model: v.model || v.modele || d.vehicleModel || d.modele || trip?.vehicleModel || trip?.modele || "Taka-Taka",
+          plate: v.plate || v.immatriculation || d.vehiclePlate || d.immatriculation || trip?.vehiclePlate || trip?.immatriculation || "N/A",
+          color: v.color || v.couleur || d.vehicleColor || d.couleur || trip?.vehicleColor || trip?.couleur || "Inconnue",
+          type: v.type || trip?.vehicleType || 'taxi',
+          year: v.year || 2023,
+          capacity: v.capacity || 4
+        }
+      };
+    })(),
     trip: {
       totalDistance: (() => {
         const val = trip?.estimatedDistance || trip?.distanceKm || trip?.distance;
@@ -144,19 +150,23 @@ const RealTimeTracking = ({
         return parseInt(String(val || '').replace(' min', '')) || 20;
       })(),
       price: {
-        // Safe price formatting
-        estimated: (() => {
-          const priceRaw = trip?.estimatedPrice || trip?.estimatedFare || trip?.prix || trip?.price || '0';
-          const price = String(priceRaw).replace(/[^0-9]/g, '');
-          return parseInt(price || 0);
-        })() || 15000,
-        serviceFee: 1000,
-        trafficSurcharge: 0,
         total: (() => {
           const priceRaw = trip?.estimatedPrice || trip?.estimatedFare || trip?.prix || trip?.price || '0';
-          const price = String(priceRaw).replace(/[^0-9]/g, '');
-          return (parseInt(price || 0) || 15000) + 1000;
-        })()
+          const priceTotal = parseInt(String(priceRaw).replace(/[^0-9]/g, '')) || 0;
+          return priceTotal > 0 ? priceTotal : 15000;
+        })(),
+        estimated: (() => {
+          const priceRaw = trip?.estimatedPrice || trip?.estimatedFare || trip?.prix || trip?.price || '0';
+          const priceTotal = parseInt(String(priceRaw).replace(/[^0-9]/g, '')) || 0;
+          const fee = trip?.fraisService || trip?.serviceFee || 500;
+          const feeVal = parseInt(String(fee).replace(/[^0-9]/g, '')) || 500;
+          return priceTotal > feeVal ? priceTotal - feeVal : priceTotal;
+        })() || 15000,
+        serviceFee: (() => {
+          const fee = trip?.fraisService || trip?.serviceFee || 500;
+          return parseInt(String(fee).replace(/[^0-9]/g, '')) || 500;
+        })(),
+        trafficSurcharge: 0,
       },
       paymentMethod: (trip?.paymentMethod && trip.paymentMethod !== 'Non spécifié') ? trip.paymentMethod : null
     }
@@ -170,8 +180,17 @@ const RealTimeTracking = ({
   }, []);
 
 
-  // Fonction pour afficher des notifications
+  // Fonction pour afficher des notifications harmonisée avec le reste de l'app
   const showToast = (message, type = 'info') => {
+    const isEndTrip = message.toLowerCase().includes('terminé') || message.toLowerCase().includes('atteinte');
+    const toastId = isEndTrip ? 'trip-completion' : undefined;
+
+    if (type === 'success') toast.success(message, { id: toastId });
+    else if (type === 'danger' || type === 'error') toast.error(message, { id: toastId });
+    else if (type === 'warning') toast.error(message, { id: toastId });
+    else toast(message, { id: toastId });
+
+    // On garde l'état local au cas où certains composants map-overlay en dépendent encore pour l'instant
     setNotification({ message, type });
     setShowNotification(true);
     setTimeout(() => setShowNotification(false), 3000);
@@ -440,10 +459,14 @@ const RealTimeTracking = ({
     };
 
     socketService.on('course:finit_avec_paiement', handleTripFinished);
+    socketService.on('course:terminee', handleTripFinished);
+    socketService.on('paiement:confirme', handleTripFinished);
     socketService.on('course:arrive_destination', handleTripFinished);
 
     return () => {
       socketService.off('course:finit_avec_paiement', handleTripFinished);
+      socketService.off('course:terminee', handleTripFinished);
+      socketService.off('paiement:confirme', handleTripFinished);
       socketService.off('course:arrive_destination', handleTripFinished);
     };
   }, [trip?.reservationId, trip?.id, onEndTrip]);

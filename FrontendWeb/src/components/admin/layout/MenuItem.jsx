@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 
 import { cn } from '../../../utils/cn';
+import { useTranslation } from 'react-i18next';
 
 const MenuItem = ({
   icon: Icon,
@@ -14,6 +15,7 @@ const MenuItem = ({
   onClick,
   subItems = [],
 }) => {
+  const { t } = useTranslation();
   const [isSubMenuOpen, setIsSubMenuOpen] = useState(false);
   const hasSubItems = !!(subItems && subItems.length);
 
@@ -81,7 +83,7 @@ const MenuItem = ({
 
             {!collapsed && (
               <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                <span className="truncate">{label}</span>
+                <span className="truncate">{t(`nav.${label.toLowerCase().replace(/\s+/g, '_')}`, label)}</span>
                 <div className="flex items-center">
                   {badge}
                   {hasSubItems && (
@@ -129,7 +131,7 @@ const MenuItem = ({
                   onClick={onClick}
                   end
                 >
-                  <span className="truncate">{subItem.label}</span>
+                  <span className="truncate">{t(`nav.${subItem.label.toLowerCase().replace(/\s+/g, '_')}`, subItem.label)}</span>
                   {subItem.count !== null && subItem.count !== undefined && (
                     <span className="ml-2 inline-flex items-center justify-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
                       {subItem.count}

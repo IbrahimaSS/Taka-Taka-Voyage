@@ -13,6 +13,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Bttn';
 import Tabs from '../ui/Tabs';
 import Toast from '../ui/Toast';
+import { useTranslation } from 'react-i18next';
 
 // Composants de paramétrage
 import GeneralSettings from '../settings/GeneralSettings';
@@ -27,6 +28,7 @@ import { useSettings } from '../../../context/SettingsContext';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../../../context/NotificationContext';
 
 const Settings = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('general');
   const { addNotification } = useNotificationCenter();
   const [saveProgress, setSaveProgress] = useState(0);
@@ -47,11 +49,11 @@ const Settings = () => {
   } = useSettings();
 
   const tabs = [
-    { id: 'general', label: 'Général', icon: Cog, color: 'blue' },
-    { id: 'services', label: 'Services', icon: Users, color: 'green' },
-    { id: 'payments', label: 'Paiements', icon: CreditCard, color: 'purple' },
-    { id: 'notifications', label: 'Notifications', icon: Bell, color: 'orange' },
-    { id: 'backup', label: 'Sauvegarde', icon: Database, color: 'gray' }
+    { id: 'general', label: t('nav.general'), icon: Cog, color: 'blue' },
+    { id: 'services', label: t('nav.services'), icon: Users, color: 'green' },
+    { id: 'payments', label: t('nav.payments'), icon: CreditCard, color: 'purple' },
+    { id: 'notifications', label: t('nav.notifications'), icon: Bell, color: 'orange' },
+    { id: 'backup', label: t('nav.backup'), icon: Database, color: 'gray' }
   ];
 
   // Mettre à jour le timestamp de la dernière sauvegarde auto
@@ -103,8 +105,8 @@ const Settings = () => {
       if (success) {
         // Harmonisé avec le message du serveur pour le dédoublonnage
         addNotification({
-          title: 'Mise à jour système',
-          message: 'Les paramètres de la plateforme ont été mis à jour.',
+          title: t('settings.system_update_title'),
+          message: t('settings.system_update_msg'),
           type: NOTIFICATION_TYPES.SUCCESS,
           category: NOTIFICATION_CATEGORIES.SYSTEM
         });
@@ -114,7 +116,7 @@ const Settings = () => {
           setSaveProgress(0);
         }, 2000);
       } else {
-        showToast('Erreur', 'Échec de la sauvegarde', 'error');
+        showToast(t('common.error'), t('settings.save_failed'), 'error');
         setTimeout(() => {
           setSaveStatus('idle');
           setSaveProgress(0);
@@ -124,7 +126,7 @@ const Settings = () => {
       clearInterval(interval);
       setSaveProgress(0);
       setSaveStatus('error');
-      showToast('Erreur', 'Erreur lors de la sauvegarde', 'error');
+      showToast(t('common.error'), t('settings.save_error'), 'error');
 
       setTimeout(() => {
         setSaveStatus('idle');
@@ -134,12 +136,12 @@ const Settings = () => {
 
   const handleImport = async (file) => {
     if (!file) {
-      showToast('Erreur', 'Veuillez sélectionner un fichier', 'error');
+      showToast(t('common.error'), t('settings.select_file_error'), 'error');
       return;
     }
 
     if (file.type !== 'application/json') {
-      showToast('Erreur', 'Le fichier doit être au format JSON', 'error');
+      showToast(t('common.error'), t('settings.json_format_error'), 'error');
       return;
     }
 
@@ -147,14 +149,14 @@ const Settings = () => {
       setSaveStatus('saving');
       await importSettings(file);
       setSaveStatus('success');
-      showToast('Import réussi', 'Les paramètres ont été importés', 'success');
+      showToast(t('settings.import_success_title'), t('settings.import_success_msg'), 'success');
 
       setTimeout(() => {
         setSaveStatus('idle');
       }, 2000);
     } catch (error) {
       setSaveStatus('error');
-      showToast('Erreur', error.message || 'Échec de l\'import', 'error');
+      showToast(t('common.error'), error.message || t('settings.import_failed'), 'error');
 
       setTimeout(() => {
         setSaveStatus('idle');
@@ -163,18 +165,18 @@ const Settings = () => {
   };
 
   const handleReset = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir réinitialiser tous les paramètres aux valeurs par défaut ?\n\nCette action est irréversible et supprimera toutes vos modifications.')) {
+    if (window.confirm(t('settings.reset_confirm_msg'))) {
       resetToDefaults();
-      showToast('Réinitialisation', 'Tous les paramètres ont été réinitialisés', 'info');
+      showToast(t('settings.reset_title'), t('settings.reset_all_success'), 'info');
     }
   };
 
   const handleExport = () => {
     try {
       exportSettings();
-      showToast('Export réussi', 'Les paramètres ont été exportés', 'success');
+      showToast(t('settings.export_success_title'), t('settings.export_success_msg'), 'success');
     } catch (error) {
-      showToast('Erreur', 'Échec de l\'export', 'error');
+      showToast(t('common.error'), t('settings.export_failed'), 'error');
     }
   };
 
@@ -225,15 +227,15 @@ const Settings = () => {
           className="flex flex-col lg:flex-row lg:items-center justify-between gap-4"
         >
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">Paramètres de l'application</h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-1">Configurez et gérez tous les aspects de Taka Taka</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">{t('settings.title')}</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">{t('settings.description')}</p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
             <div className="flex items-center space-x-2 mb-2 sm:mb-0">
               <div className={`w-3 h-3 rounded-full ${hasChanges ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                {hasChanges ? 'Modifications non sauvegardées' : 'Tout est sauvegardé'}
+                {hasChanges ? t('settings.unsaved_changes') : t('settings.all_saved')}
               </span>
               {hasChanges && lastAutoSave && (
                 <span className="text-xs text-blue-500 ml-2">
@@ -252,7 +254,7 @@ const Settings = () => {
                 size="sm"
                 className="min-w-[120px]"
               >
-                Par défaut
+                {t('common.default')}
               </Button>
 
               <Button
@@ -264,9 +266,9 @@ const Settings = () => {
                 disabled={!hasChanges || saveStatus === 'saving' || isLoading}
                 size="sm"
               >
-                {saveStatus === 'saving' ? 'Sauvegarde...' :
-                  saveStatus === 'success' ? '✓ Sauvegardé' :
-                    saveStatus === 'error' ? 'Erreur' : 'Sauvegarder'}
+                {saveStatus === 'saving' ? t('common.saving') :
+                  saveStatus === 'success' ? `✓ ${t('common.saved')}` :
+                    saveStatus === 'error' ? t('common.error') : t('common.save')}
               </Button>
             </div>
           </div>
@@ -281,8 +283,8 @@ const Settings = () => {
           <div className="lg:w-64">
             <Card className="border-2 border-gray-100 dark:border-gray-900 sticky top-6 shadow-sm">
               <div className="p-4 border-b border-gray-200 dark:border-gray-900">
-                <h3 className="font-bold text-gray-800 dark:text-gray-100">Catégories</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Tous les paramètres</p>
+                <h3 className="font-bold text-gray-800 dark:text-gray-100">{t('common.categories') || 'Catégories'}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings.all_settings') || 'Tous les paramètres'}</p>
               </div>
               <div className="space-y-1 p-2">
                 {tabs.map(tab => {
@@ -360,6 +362,7 @@ const Settings = () => {
 
 // Composant de gestion des services
 const ServiceManagement = ({ settings, updateNestedSetting, showToast }) => {
+  const { t } = useTranslation();
   const serviceIcons = {
     motoTaxi: Bike,
     sharedTaxi: Car,
@@ -386,8 +389,8 @@ const ServiceManagement = ({ settings, updateNestedSetting, showToast }) => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Gestion des services</h2>
-        <p className="text-gray-600 dark:text-gray-300">Activez et configurez les services disponibles sur la plateforme</p>
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">{t('nav.services_management')}</h2>
+        <p className="text-gray-600 dark:text-gray-300">{t('settings.services_description')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
@@ -411,13 +414,13 @@ const ServiceManagement = ({ settings, updateNestedSetting, showToast }) => {
       <div className="p-4 bg-slate-200/30 dark:bg-gray-800 rounded-xl border-2 border-blue-200">
         <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2 flex items-center">
           <AlertTriangle className="w-5 h-5 mr-2 text-blue-600" />
-          Conseils de configuration
+          {t('settings.config_tips')}
         </h4>
         <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
-          <li>• Activez uniquement les services que vous pouvez fournir de manière fiable</li>
-          <li>• Les tarifs doivent être compétitifs mais rentables</li>
-          <li>• Testez chaque service avant de l'activer pour les utilisateurs</li>
-          <li>• Configurez les heures d'opération si nécessaire</li>
+          <li>• {t('settings.tip_active_services')}</li>
+          <li>• {t('settings.tip_competitive_rates')}</li>
+          <li>• {t('settings.tip_test_service')}</li>
+          <li>• {t('settings.tip_op_hours')}</li>
         </ul>
       </div>
     </div>
@@ -426,6 +429,7 @@ const ServiceManagement = ({ settings, updateNestedSetting, showToast }) => {
 
 // Carte de service améliorée
 const ServiceCard = ({ service, serviceId, icon, colorClass, onUpdate, onToggle }) => {
+  const { t } = useTranslation();
   const [localPrice, setLocalPrice] = useState({
     basePrice: service.basePrice || '',
     perKm: service.perKm || '',
@@ -465,10 +469,10 @@ const ServiceCard = ({ service, serviceId, icon, colorClass, onUpdate, onToggle 
               <p className="text-sm text-gray-500 dark:text-gray-400">{service.description}</p>
               <div className="flex items-center space-x-2 mt-1">
                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${service.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100'}`}>
-                  {service.enabled ? 'Actif' : 'Inactif'}
+                  {service.enabled ? t('common.active') : t('common.inactive')}
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Exemple: {calculateExample()} GNF
+                  {t('common.example')}: {calculateExample()} {t('common.currency_symbol')}
                 </span>
               </div>
             </div>
@@ -476,7 +480,7 @@ const ServiceCard = ({ service, serviceId, icon, colorClass, onUpdate, onToggle 
           <button
             onClick={onToggle}
             className={`w-12 h-6 rounded-full transition-colors duration-200 ${service.enabled ? 'bg-green-500' : 'bg-gray-300'}`}
-            aria-label={service.enabled ? 'Désactiver le service' : 'Activer le service'}
+            aria-label={service.enabled ? t('settings.deactivate_service') : t('settings.activate_service')}
           >
             <div className={`w-5 h-5 rounded-full bg-white dark:bg-gray-700 transform transition-transform duration-200 ${service.enabled ? 'translate-x-7' : 'translate-x-1'}`} />
           </button>
@@ -486,7 +490,7 @@ const ServiceCard = ({ service, serviceId, icon, colorClass, onUpdate, onToggle 
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">Base</label>
+                <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">{t('settings.base_price')}</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -495,11 +499,11 @@ const ServiceCard = ({ service, serviceId, icon, colorClass, onUpdate, onToggle 
                     onChange={(e) => handlePriceChange('basePrice', e.target.value)}
                     className="w-full border border-gray-300 dark:bg-gray-900/40 dark:border-gray-900/40 rounded-lg px-2 py-1.5 text-sm pr-6"
                   />
-                  <span className="absolute right-2 top-1.5 text-xs text-gray-500 dark:text-gray-400">GNF</span>
+                  <span className="absolute right-2 top-1.5 text-xs text-gray-500 dark:text-gray-400">{t('common.currency_symbol')}</span>
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">Par km</label>
+                <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">{t('settings.per_km')}</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -508,11 +512,11 @@ const ServiceCard = ({ service, serviceId, icon, colorClass, onUpdate, onToggle 
                     onChange={(e) => handlePriceChange('perKm', e.target.value)}
                     className="w-full border border-gray-300 dark:bg-gray-900/40 dark:border-gray-900/40 rounded-lg px-2 py-1.5 text-sm pr-6"
                   />
-                  <span className="absolute right-2 top-1.5 text-xs text-gray-500 dark:text-gray-400">GNF</span>
+                  <span className="absolute right-2 top-1.5 text-xs text-gray-500 dark:text-gray-400">{t('common.currency_symbol')}</span>
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">Par min</label>
+                <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">{t('settings.per_min')}</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -521,15 +525,15 @@ const ServiceCard = ({ service, serviceId, icon, colorClass, onUpdate, onToggle 
                     onChange={(e) => handlePriceChange('perMinute', e.target.value)}
                     className="w-full border border-gray-300 dark:bg-gray-900/40 dark:border-gray-900/40 rounded-lg px-2 py-1.5 text-sm pr-6"
                   />
-                  <span className="absolute right-2 top-1.5 text-xs text-gray-500 dark:text-gray-400">GNF</span>
+                  <span className="absolute right-2 top-1.5 text-xs text-gray-500 dark:text-gray-400">{t('common.currency_symbol')}</span>
                 </div>
               </div>
             </div>
 
             <div className="text-xs text-gray-500 dark:text-gray-400 p-2 bg-gray-50 dark:bg-gray-800 rounded">
               <div className="flex justify-between">
-                <span>Exemple (5km, 15min):</span>
-                <span className="font-bold text-green-600">{calculateExample()} GNF</span>
+                <span>{t('settings.example_ride')}:</span>
+                <span className="font-bold text-green-600">{calculateExample()} {t('common.currency_symbol')}</span>
               </div>
               <div className="text-[10px] mt-1">
                 {localPrice.basePrice} + (5 × {localPrice.perKm}) + (15 × {localPrice.perMinute})

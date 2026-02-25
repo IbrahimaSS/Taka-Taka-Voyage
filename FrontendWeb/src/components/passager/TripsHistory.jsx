@@ -1,5 +1,6 @@
 // components/passager/TripsHistory.jsx
 import React, { useState, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, User, MapPin, Tag, Circle, Star,
@@ -57,26 +58,27 @@ const FilterChip = ({ active, onClick, icon: Icon, label }) => (
 );
 
 const TripStatusBadge = ({ status }) => {
+  const { t } = useTranslation();
   const config = {
     completed: {
       variant: 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-700 dark:text-green-400',
       icon: CheckCircle,
-      label: 'Terminé'
+      label: t('history.status.completed')
     },
     cancelled: {
       variant: 'bg-gradient-to-r from-red-500/20 to-pink-500/20 text-red-700 dark:text-red-400',
       icon: X,
-      label: 'Annulé'
+      label: t('history.status.cancelled')
     },
     pending: {
       variant: 'warning',
       icon: Clock,
-      label: 'En attente'
+      label: t('history.status.pending')
     },
     in_progress: {
       variant: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-700 dark:text-amber-400',
       icon: Navigation,
-      label: 'En cours'
+      label: t('history.status.in_progress')
     }
   };
 
@@ -91,6 +93,7 @@ const TripStatusBadge = ({ status }) => {
 };
 
 const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, onShowInvoice }) => {
+  const { t } = useTranslation();
   const getAvatarUrl = (path) => {
     if (!path) return null;
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -110,18 +113,18 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Détails du trajet"
+      title={t('history.details.title')}
       size="lg"
     >
       {trip && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-gradient-to-r from-primary-50 to-blue-50 dark:from-gray-700 dark:to-gray-700/50 p-4 rounded-xl">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Date et heure</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('history.details.date_time')}</p>
               <p className="font-semibold text-gray-900 dark:text-white">{trip.date}</p>
             </div>
             <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-emerald-900/10 p-4 rounded-xl font-poppins">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Statut</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('history.details.status')}</p>
               <TripStatusBadge status={trip.status} />
             </div>
           </div>
@@ -130,14 +133,14 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
             <div className="flex items-start">
               <MapPin className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mr-3 mt-1" />
               <div className="flex-1">
-                <p className="text-sm text-gray-600 dark:text-gray-400">Départ</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('history.details.pickup')}</p>
                 <p className="font-medium text-gray-900 dark:text-white">{trip.departure}</p>
               </div>
             </div>
             <div className="flex items-start">
               <MapPin className="w-5 h-5 text-rose-600 dark:text-rose-400 mr-3 mt-1" />
               <div className="flex-1">
-                <p className="text-sm text-gray-600 dark:text-gray-400">Destination</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('history.details.destination')}</p>
                 <p className="font-medium text-gray-900 dark:text-white">{trip.destination}</p>
               </div>
             </div>
@@ -145,7 +148,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
 
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
-              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Chauffeur</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{t('history.details.driver')}</p>
               <div className="flex items-center mt-2 group">
                 <div className="relative w-10 h-10 rounded-full bg-gradient-to-r from-emerald-200 to-blue-200 dark:from-emerald-900/30 dark:to-blue-900/30 flex items-center justify-center mr-3 ring-2 ring-emerald-500/20 overflow-hidden">
                   <span className="z-0 font-bold text-xs">{getInitials(trip.driver?.name)}</span>
@@ -165,14 +168,14 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
               </div>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl flex flex-col justify-center shadow-sm">
-              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Prix payé</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{t('history.details.price_paid')}</p>
               <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">{trip.price}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-4 rounded-xl shadow-sm border border-amber-100/50 dark:border-amber-800/20">
-              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Note attribuée</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{t('history.details.rating_given')}</p>
               <div className="flex items-center mt-2">
                 <div className="flex">
                   {[...Array(5)].map((_, i) => (
@@ -188,7 +191,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
               </div>
             </div>
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl shadow-sm border border-purple-100/50 dark:border-purple-800/20">
-              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Distance</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{t('history.details.distance')}</p>
               <p className="text-xl font-bold text-purple-700 dark:text-purple-400 mt-1">{trip.distance}</p>
             </div>
           </div>
@@ -199,7 +202,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
               onClick={onClose}
               className="flex-1"
             >
-              Fermer
+              {t('history.details.close')}
             </Button>
             {trip.status === 'completed' && trip.payment === 'Espèces' && (
               <Button
@@ -208,7 +211,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
                 icon={CreditCard}
                 className="flex-1"
               >
-                Payer
+                {t('history.details.pay')}
               </Button>
             )}
             <Button
@@ -217,7 +220,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
               icon={Receipt}
               className="flex-1"
             >
-              Reçu
+              {t('history.details.invoice')}
             </Button>
             <Button
               variant="primary"
@@ -225,7 +228,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
               icon={Share2}
               className="flex-1"
             >
-              Partager
+              {t('history.details.share')}
             </Button>
             <Button
               variant="primary"
@@ -233,7 +236,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
               icon={Phone}
               className="flex-1"
             >
-              Contacter
+              {t('history.details.contact')}
             </Button>
           </div>
         </div>
@@ -243,6 +246,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
 };
 
 const TripsHistory = () => {
+  const { t } = useTranslation();
   const getAvatarUrl = (path) => {
     if (!path) return null;
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -286,34 +290,68 @@ const TripsHistory = () => {
         });
 
         if (data.succes) {
-          const formattedTrips = data.trajets.map(t => ({
-            id: t._id,
-            date: new Date(t.createdAt).toLocaleString('fr-FR', {
+          const formattedTrips = data.trajets.map(t_raw => ({
+            id: t_raw._id,
+            date: new Date(t_raw.createdAt).toLocaleString(undefined, {
               day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
             }),
-            status: t.statut === 'TERMINEE' ? 'completed' : 'cancelled',
-            departure: t.depart,
-            destination: t.destination,
-            price: `${(t.prix || 0).toLocaleString()} GNF`,
-            distance: `${t.distanceKm || 0} km`,
-            rating: t.note || 0,
-            driver: t.chauffeur ? {
-              name: `${t.chauffeur.prenom || ''} ${t.chauffeur.nom || ''}`.trim(),
-              vehicle: t.chauffeur.vehicule
-                ? `${t.chauffeur.vehicule.marque || ''} ${t.chauffeur.vehicule.modele || ''}`.trim()
-                : (t.chauffeur.marque ? `${t.chauffeur.marque || ''} ${t.chauffeur.modele || ''}`.trim() : 'Véhicule standard'),
-              rating: t.chauffeur.noteMoyenne || 5, // ✅ Real rating
-              phone: t.chauffeur.telephone,
-              photo: t.chauffeur.photoUrl
-            } : { name: "Chauffeur inconnu", vehicle: "N/A" },
-            payment: 'Espèces', // Default or from backend if available
-            rawDate: t.createdAt
+            status: t_raw.statut === 'TERMINEE' ? 'completed' : 'cancelled',
+            departure: t_raw.depart || (t_raw.pointDepart && t_raw.pointDepart.adresse) || (t_raw.reservation && t_raw.reservation.depart) || 'Non défini',
+            destination: t_raw.destination || (t_raw.pointDestination && t_raw.pointDestination.adresse) || (t_raw.reservation && t_raw.reservation.destination) || 'Non défini',
+            price: `${(t_raw.prix || t_raw.montantTotal || 0).toLocaleString()} GNF`,
+            distance: `${t_raw.distanceKm || 0} km`,
+            rating: t_raw.note || 0,
+            driver: (() => {
+              const ch = t_raw.chauffeur || t_raw.reservation?.chauffeur || {};
+              // Si ch n'est pas un objet (ex: chaine "N/A"), on prend un objet vide
+              const chObj = (ch && typeof ch === 'object') ? ch : {};
+
+              const nameParts = [
+                chObj.prenom,
+                chObj.nom,
+                chObj.utilisateur?.prenom,
+                chObj.utilisateur?.nom,
+                chObj.user?.prenom,
+                chObj.user?.nom
+              ].map(s => String(s || '').trim()).filter(s => s && !['N/A', '-', 'undefined', 'null'].includes(s.toUpperCase()));
+
+              let name = nameParts.length > 0 ? nameParts.join(' ') : (chObj.nomComplet || chObj.name || chObj.utilisateur?.nomComplet || 'Chauffeur');
+              if (!name || ['N/A', '-', 'UNDEFINED', 'NULL'].includes(String(name).toUpperCase().trim())) {
+                name = 'Chauffeur TakaTaka';
+              }
+
+              let phone = chObj.telephone || chObj.phone || chObj.tel || chObj.utilisateur?.telephone || chObj.utilisateur?.phone || '-';
+              if (!phone || ['N/A', '-', 'UNDEFINED', 'NULL'].includes(String(phone).toUpperCase().trim())) phone = '-';
+
+              const veh = chObj.vehicule || chObj.vehicle || {};
+              let vehicle = (typeof veh === 'object')
+                ? `${veh.marque || ''} ${veh.modele || ''}`.trim() || veh.marque || veh.modele
+                : veh;
+
+              if (!vehicle) {
+                vehicle = (chObj.marque ? `${chObj.marque || ''} ${chObj.modele || ''}`.trim() : 'Véhicule standard');
+              }
+
+              if (!vehicle || ['N/A', '-', 'UNDEFINED', 'NULL'].includes(String(vehicle).toUpperCase().trim())) {
+                vehicle = 'Véhicule standard';
+              }
+
+              return {
+                name,
+                vehicle,
+                rating: chObj.noteMoyenne || 5,
+                phone,
+                photo: chObj.photoUrl || chObj.photoProfil || chObj.utilisateur?.photoUrl
+              };
+            })(),
+            payment: 'Espèces',
+            rawDate: t_raw.createdAt
           }));
           setTrips(formattedTrips);
         }
       } catch (err) {
         console.error("Error fetching history:", err);
-        toast.error("Impossible de charger l'historique");
+        toast.error(t('common.error'));
       } finally {
         setLoading(false);
       }
@@ -323,24 +361,24 @@ const TripsHistory = () => {
   }, [currentPage]); // Reload when page changes if server pagination used, here we fetch 50 and filter locally for now
 
   const vehicleFilters = [
-    { id: 'all', label: 'Tous véhicules', icon: Grid },
-    { id: 'Taxi', label: 'Taxi', icon: Car },
-    { id: 'Moto-taxi', label: 'Moto', icon: Motorbike },
-    { id: 'Voiture privée', label: 'Privé', icon: Smartphone },
+    { id: 'all', label: t('history.vehicle.all'), icon: Grid },
+    { id: 'Taxi', label: t('history.vehicle.taxi'), icon: Car },
+    { id: 'Moto-taxi', label: t('history.vehicle.moto'), icon: Motorbike },
+    { id: 'Voiture privée', label: t('history.vehicle.private'), icon: Smartphone },
   ];
 
   const statusFilters = [
-    { id: 'all', label: 'Tous', icon: BarChart3 },
-    { id: 'completed', label: 'Terminés', icon: CheckCircle },
-    { id: 'cancelled', label: 'Annulés', icon: X },
-    { id: 'pending', label: 'En attente', icon: Clock },
+    { id: 'all', label: t('history.status.all'), icon: BarChart3 },
+    { id: 'completed', label: t('history.status.completed'), icon: CheckCircle },
+    { id: 'cancelled', label: t('history.status.cancelled'), icon: X },
+    { id: 'pending', label: t('history.status.pending'), icon: Clock },
   ];
 
   const dateFilters = [
-    { id: 'all', label: 'Toutes dates', icon: Calendar },
-    { id: 'today', label: "Aujourd'hui", icon: Calendar },
-    { id: 'week', label: 'Cette semaine', icon: Calendar },
-    { id: 'month', label: 'Ce mois', icon: Calendar },
+    { id: 'all', label: t('history.date.all'), icon: Calendar },
+    { id: 'today', label: t('history.date.today'), icon: Calendar },
+    { id: 'week', label: t('history.date.week'), icon: Calendar },
+    { id: 'month', label: t('history.date.month'), icon: Calendar },
   ];
 
   const sortedTrips = useMemo(() => {
@@ -420,7 +458,13 @@ const TripsHistory = () => {
   };
 
   const handleShareTrip = (trip) => {
-    const shareText = `Mon trajet TakaTaka du ${trip.date} : ${trip.departure} → ${trip.destination} pour ${trip.price} ⭐ ${trip.rating}/5`;
+    const shareText = t('history.sharing.text', {
+      date: trip.date,
+      departure: trip.departure,
+      destination: trip.destination,
+      price: trip.price,
+      rating: trip.rating
+    });
 
     if (navigator.share) {
       navigator.share({
@@ -429,7 +473,7 @@ const TripsHistory = () => {
       });
     } else {
       navigator.clipboard.writeText(shareText);
-      toast.success('Détails du trajet copiés dans le presse-papier');
+      toast.success(t('history.sharing.copied'));
     }
   };
 
@@ -447,22 +491,23 @@ const TripsHistory = () => {
       invoiceNumber: `INV-${trip.id.substring(0, 8)}`.toUpperCase(),
       date: trip.date,
       transactionId: trip.id,
+      status: 'paid', // Historique passager = trajets complétés et payés
       method: trip.payment || 'ESPECES',
       amount: trip.price,
       passenger: {
-        name: `${passenger?.prenom || ''} ${passenger?.nom || ''}`,
-        phone: passenger?.telephone || '-',
-        email: passenger?.email || '-'
+        name: [passenger?.prenom, passenger?.nom].filter(Boolean).join(' ').trim() || '-',
+        phone: passenger?.telephone || passenger?.phone || '-',
+        email: passenger?.email || passenger?.mail || '-'
       },
       driver: {
-        name: trip.driver?.name || 'N/A',
-        vehicle: trip.driver?.vehicle || 'N/A',
+        name: trip.driver?.name || 'Chauffeur TakaTaka',
+        vehicle: trip.driver?.vehicle || 'Véhicule standard',
         phone: trip.driver?.phone || '-'
       },
       trip: {
         route: `${trip.departure} → ${trip.destination}`,
-        distance: trip.distance || 'N/A',
-        duration: 'N/A' // Durée non dispo dans la liste immédiate
+        distance: trip.distance ? `${trip.distance} km` : '-',
+        duration: '-'
       },
       fees: {
         platform: 'Incl.'
@@ -478,7 +523,7 @@ const TripsHistory = () => {
   };
 
   const onPaymentSuccess = (paymentResult) => {
-    toast.success('Paiement confirmé ! Votre historique sera mis à jour.');
+    toast.success(t('common.save_success'));
     setShowPaymentModal(false);
     setTrips(prev => prev.map(t =>
       t.id === tripToPay.id ? { ...t, payment: paymentResult.paymentMethod } : t
@@ -490,7 +535,7 @@ const TripsHistory = () => {
     setActiveFilter('all');
     setSelectedVehicleType('all');
     setSortConfig({ key: 'date', direction: 'desc' });
-    toast.success('Filtres réinitialisés');
+    toast.success(t('history.reset_filters'));
   };
 
   return (
@@ -500,23 +545,23 @@ const TripsHistory = () => {
         <CardHeader align="start" className="mb-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
             <div>
-              <CardTitle size="xl" className="text-gray-900 dark:text-white">Historique des trajets</CardTitle>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">Vos déplacements en un coup d'œil</p>
+              <CardTitle size="xl" className="text-gray-900 dark:text-white">{t('history.title')}</CardTitle>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">{t('history.subtitle')}</p>
             </div>
             <div className="flex items-center space-x-3">
               <ExportDropdown
                 data={filteredTrips}
                 columns={[
-                  { accessor: 'date', header: 'Date' },
-                  { accessor: 'driver.name', header: 'Chauffeur' },
-                  { accessor: 'departure', header: 'Départ' },
-                  { accessor: 'destination', header: 'Destination' },
-                  { accessor: 'price', header: 'Prix' },
-                  { accessor: 'status', header: 'Statut' },
-                  { accessor: 'rating', header: 'Note' }
+                  { accessor: 'date', header: t('history.table.date') },
+                  { accessor: 'driver.name', header: t('history.table.driver') },
+                  { accessor: 'departure', header: t('history.table.pickup') },
+                  { accessor: 'destination', header: t('history.table.destination') },
+                  { accessor: 'price', header: t('history.table.price') },
+                  { accessor: 'status', header: t('history.table.status') },
+                  { accessor: 'rating', header: t('history.details.rating_given') }
                 ]}
                 fileName="historique_takataka"
-                title="Historique des trajets"
+                title={t('history.title')}
                 className="mr-2"
               />
               <Button
@@ -524,7 +569,7 @@ const TripsHistory = () => {
                 onClick={resetFilters}
                 icon={RotateCcw}
               >
-                Actualiser
+                {t('history.refresh')}
               </Button>
             </div>
           </div>
@@ -533,19 +578,19 @@ const TripsHistory = () => {
         {/* Statistiques */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
-            label="Total trajets"
+            label={t('history.total')}
             value={stats.total}
             icon={BarChart3}
             colorClass="bg-gradient-to-r from-primary-500 to-secondary-600"
           />
           <StatCard
-            label="Distance totale"
+            label={t('history.total_distance')}
             value={`${stats.totalDistance.toFixed(1)} km`}
             icon={Navigation}
             colorClass="bg-gradient-to-r from-primary-500 to-secondary-600"
           />
           <StatCard
-            label="Note moyenne"
+            label={t('history.average_rating')}
             value={stats.averageRating.toFixed(1)}
             icon={Award}
             colorClass="bg-gradient-to-r from-primary-500 to-secondary-600"
@@ -559,7 +604,7 @@ const TripsHistory = () => {
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  placeholder="Rechercher par chauffeur, lieu ou destination..."
+                  placeholder={t('history.search_placeholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 text-sm transition-all"
@@ -568,7 +613,7 @@ const TripsHistory = () => {
 
               <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">Statut:</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">{t('history.status.title')}:</span>
                   {statusFilters.map((filter) => (
                     <FilterChip
                       key={filter.id}
@@ -581,7 +626,7 @@ const TripsHistory = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">Véhicule:</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">{t('history.vehicle.title')}:</span>
                   {vehicleFilters.map((filter) => (
                     <FilterChip
                       key={filter.id}
@@ -615,22 +660,22 @@ const TripsHistory = () => {
                           <TableHeader>
                             <button onClick={() => requestSort('date')} className="flex items-center">
                               <Calendar className="w-4 h-4 mr-2" />
-                              DATE
+                              {t('history.table.date')}
                               {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
                             </button>
                           </TableHeader>
-                          <TableHeader>CHAUFFEUR</TableHeader>
-                          <TableHeader>DÉPART</TableHeader>
-                          <TableHeader>DESTINATION</TableHeader>
+                          <TableHeader>{t('history.table.driver')}</TableHeader>
+                          <TableHeader>{t('history.table.pickup')}</TableHeader>
+                          <TableHeader>{t('history.table.destination')}</TableHeader>
                           <TableHeader>
                             <button onClick={() => requestSort('price')} className="flex items-center">
                               <Tag className="w-4 h-4 mr-2" />
-                              PRIX
+                              {t('history.table.price')}
                               {sortConfig.key === 'price' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
                             </button>
                           </TableHeader>
-                          <TableHeader>STATUT</TableHeader>
-                          <TableHeader>ACTIONS</TableHeader>
+                          <TableHeader>{t('history.table.status')}</TableHeader>
+                          <TableHeader>{t('history.table.actions')}</TableHeader>
                         </tr>
                       </thead>
                       <tbody>
@@ -724,9 +769,9 @@ const TripsHistory = () => {
 
                 <CardFooter align="between" className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Affichage de <span className="font-bold text-gray-900 dark:text-white">{startIndex + 1}</span> à{' '}
-                    <span className="font-bold text-gray-900 dark:text-white">{Math.min(endIndex, filteredTrips.length)}</span> sur{' '}
-                    <span className="font-bold text-gray-900 dark:text-white">{filteredTrips.length}</span> trajets
+                    {t('history.pagination.showing')} <span className="font-bold text-gray-900 dark:text-white">{startIndex + 1}</span> {t('history.pagination.to')}{' '}
+                    <span className="font-bold text-gray-900 dark:text-white">{Math.min(endIndex, filteredTrips.length)}</span> {t('history.pagination.of')}{' '}
+                    <span className="font-bold text-gray-900 dark:text-white">{filteredTrips.length}</span> {t('history.pagination.results')}
                   </div>
 
                   <Pagination
@@ -746,10 +791,10 @@ const TripsHistory = () => {
                     }}
                     className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl px-4 py-2 text-sm focus:border-primary-500 outline-none transition-all"
                   >
-                    <option value={8}>8 par page</option>
-                    <option value={16}>16 par page</option>
-                    <option value={24}>24 par page</option>
-                    <option value={50}>50 par page</option>
+                    <option value={8}>8 {t('history.pagination.per_page')}</option>
+                    <option value={16}>16 {t('history.pagination.per_page')}</option>
+                    <option value={24}>24 {t('history.pagination.per_page')}</option>
+                    <option value={50}>50 {t('history.pagination.per_page')}</option>
                   </select>
                 </CardFooter>
               </Card>
@@ -760,14 +805,14 @@ const TripsHistory = () => {
                 <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                   <Search className="w-10 h-10 text-gray-400 dark:text-gray-500" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Aucun trajet trouvé</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-8">Essayez de modifier vos critères de recherche</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('history.no_trips')}</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-8">{t('history.no_trips_desc')}</p>
                 <Button
                   variant="primary"
                   onClick={resetFilters}
                   icon={RotateCcw}
                 >
-                  Réinitialiser les filtres
+                  {t('history.reset_filters')}
                 </Button>
               </CardContent>
             </Card>

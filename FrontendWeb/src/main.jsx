@@ -7,6 +7,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ToastProvider } from './components/notifications/ToastProvider';
+import './i18n/config';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

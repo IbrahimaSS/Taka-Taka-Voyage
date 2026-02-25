@@ -5,6 +5,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Toaster } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 // Layout Components
 import Sidebar from '../components/admin/layout/Sidebar';
@@ -36,6 +37,7 @@ import Toast from '../components/admin/ui/Toast';
 import Modal from '../components/admin/ui/Modale';
 
 function AdminApp() {
+  const { t } = useTranslation();
   const { settings } = useSettings();
   const platform = settings?.platform || {};
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -342,17 +344,17 @@ function AdminApp() {
         <footer className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-gray-800/40 backdrop-blur-sm px-6 py-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-slate-600 dark:text-slate-300 text-sm mb-2 md:mb-0">
-              © {new Date().getFullYear()} {platform.name || 'TakaTaka'} Admin. Tous droits réservés.
+              © {new Date().getFullYear()} {platform.name || 'TakaTaka'} Admin. {t('common.all_rights_reserved') || 'Tous droits réservés.'}
             </p>
             <div className="flex items-center space-x-6">
               <a href="#" className="text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-all duration-200 text-sm hover:underline">
-                Aide
+                {t('common.help') || 'Aide'}
               </a>
               <a href="#" className="text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-all duration-200 text-sm hover:underline">
-                Sécurité
+                {t('common.security') || 'Sécurité'}
               </a>
               <a href="#" className="text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-all duration-200 text-sm hover:underline">
-                Confidentialité
+                {t('common.privacy') || 'Confidentialité'}
               </a>
             </div>
           </div>

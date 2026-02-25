@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvent, Polyline } from 'react-leaflet';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import 'leaflet/dist/leaflet.css';
 
 // Composants UI réutilisables
@@ -25,14 +26,15 @@ import MapController from '../maps/MapController';
 
 // Gestionnaire d'événements carte
 function MapEvents({ onPickupSelect, onDestinationSelect, selectionMode }) {
+  const { t } = useTranslation();
   useMapEvent({
     click(e) {
       if (selectionMode === 'pickup') {
         onPickupSelect(e.latlng);
-        toast.success('Point de départ sélectionné');
+        toast.success(t('booking.pickup_selected'));
       } else if (selectionMode === 'destination') {
         onDestinationSelect(e.latlng);
-        toast.success('Destination sélectionnée');
+        toast.success(t('booking.destination_selected'));
       }
     }
   });
@@ -50,6 +52,7 @@ const BookingSection = ({
   isOnMapView,
   onShowTracking
 }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     pickup: '',
     destination: '',
@@ -187,12 +190,12 @@ const BookingSection = ({
   // Localiser l'utilisateur
   const locateUser = useCallback(async () => {
     if (!hasLocationPermission) {
-      toast.error('Veuillez autoriser la géolocalisation dans vos paramètres');
+      toast.error(t('booking.error_location_denied'));
       return;
     }
 
     setIsLoading(prev => ({ ...prev, geolocation: true }));
-    const toastId = toast.loading('Recherche de votre position...');
+    const toastId = toast.loading(t('booking.locating'));
 
     try {
       const position = await GeolocationService.getCurrentPosition();
@@ -216,15 +219,15 @@ const BookingSection = ({
       }
 
       toast.dismiss(toastId);
-      toast.success('Position trouvée !');
+      toast.success(t('booking.position_found'));
     } catch (error) {
       console.error('Erreur de géolocalisation:', error);
       toast.dismiss(toastId);
-      let message = 'Impossible de vous localiser';
+      let message = t('booking.error_locating');
       switch (error.code) {
-        case 1: message = 'Permission de localisation refusée'; break;
-        case 2: message = 'Position indisponible'; break;
-        case 3: message = 'Délai de localisation dépassé'; break;
+        case 1: message = t('booking.permission_denied'); break;
+        case 2: message = t('booking.position_unavailable'); break;
+        case 3: message = t('booking.timeout'); break;
       }
       if (error.code === 1 || error.code === 0) {
         setHasLocationPermission(false);
@@ -338,9 +341,11 @@ const BookingSection = ({
     };
 
     const rates = dynamicRates || fallbackRates;
-    const rate = rates[formData.vehicleType] || rates.taxi;
+    const rate = rates[formData.vehicleType] || rates.taxi || fallbackRates.taxi;
 
-    let price = (rate.basePrice || 0) + distance * rate.perKm + duration * (rate.perMinute || 0);
+    if (!rate) return null;
+
+    let price = (rate.basePrice || 0) + distance * (rate.perKm || 0) + duration * (rate.perMinute || 0);
     price = Math.max(Math.round(price), rate.min || 0);
 
     return {
@@ -356,13 +361,13 @@ const BookingSection = ({
     e.preventDefault();
 
     if (!formData.pickup || !formData.destination || !pickupLocation || !destinationLocation) {
-      toast.error('Veuillez spécifier le départ et la destination');
+      toast.error(t('booking.enter_locations'));
       return;
     }
 
     const calculatedPrice = calculatePrice();
     if (!calculatedPrice) {
-      toast.error('Impossible de calculer le prix');
+      toast.error(t('booking.error_calculating'));
       return;
     }
 
@@ -430,8 +435,8 @@ const BookingSection = ({
                 />
               </div>
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recherche de chauffeur en cours...</h3>
-                <p className="text-gray-600 dark:text-gray-400">Nous recherchons le meilleur chauffeur pour vous</p>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('booking.searching_driver')}</h3>
+                <p className="text-gray-600 dark:text-gray-400">{t('booking.best_driver_msg')}</p>
                 {currentTrip && (
                   <div className="mt-2 flex items-center text-sm text-gray-500">
                     <MapPin className="w-4 h-4 mr-1 text-emerald-500" />
@@ -454,7 +459,7 @@ const BookingSection = ({
               />
             </div>
             <p className="mt-2 text-sm text-gray-500 text-center">
-              Vous pouvez naviguer librement pendant la recherche
+              {t('booking.map_tip')}
             </p>
           </Card>
         </motion.div>
@@ -469,10 +474,10 @@ const BookingSection = ({
           <Card hoverable padding="p-8">
             <CardHeader align="start" className="mb-8">
               <CardTitle size="lg">
-                {isSearching ? 'Recherche en cours' : shouldShowDriver ? 'Votre trajet' : 'Réserver un trajet'}
+                {isSearching ? t('booking.searching_driver') : shouldShowDriver ? t('booking.your_trip') : t('booking.title')}
               </CardTitle>
               <p className="text-gray-600 mt-2">
-                {isSearching ? 'Patientez, nous cherchons un chauffeur...' : shouldShowDriver ? 'Votre chauffeur est en route' : 'Choisissez votre destination en toute simplicité'}
+                {isSearching ? t('booking.wait_searching') : shouldShowDriver ? t('booking.driver_approaching') : t('booking.select_destination_tip')}
               </p>
             </CardHeader>
             <CardContent>
@@ -484,7 +489,7 @@ const BookingSection = ({
                       <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mr-3">
                         <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       </div>
-                      Lieu de départ
+                      {t('booking.pickup_label')}
                     </label>
                     <Button
                       variant="secondary"
@@ -497,9 +502,9 @@ const BookingSection = ({
                     >
                       {selectionMode === 'pickup' ? (
                         <span className="flex items-center">
-                          <Check className="w-3 h-3 mr-1" /> Mode sélection
+                          <Check className="w-3 h-3 mr-1" /> {t('booking.selection_mode')}
                         </span>
-                      ) : 'Sélection sur carte'}
+                      ) : t('booking.select_on_map')}
                     </Button>
                   </div>
                   <div className="relative">
@@ -508,7 +513,7 @@ const BookingSection = ({
                       value={formData.pickup}
                       onChange={(e) => handleAddressInput('pickup', e.target.value)}
                       className="w-full px-4 py-3 pl-12 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl transition-all duration-300 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none focus:shadow-lg"
-                      placeholder="Où êtes-vous ?"
+                      placeholder={t('booking.pickup_placeholder')}
                       disabled={shouldShowDriver}
                     />
                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -540,7 +545,7 @@ const BookingSection = ({
                       <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mr-3">
                         <MapPin className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                       </div>
-                      Destination
+                      {t('booking.destination_label')}
                     </label>
                     <Button
                       variant="secondary"
@@ -552,8 +557,8 @@ const BookingSection = ({
                       className={selectionMode === 'destination' ? 'bg-rose-500 text-white hover:bg-rose-600' : ''}
                     >
                       {selectionMode === 'destination' ? (
-                        <span className="flex items-center"><Check className="w-3 h-3 mr-1" /> Mode sélection</span>
-                      ) : 'Sélection sur carte'}
+                        <span className="flex items-center"><Check className="w-3 h-3 mr-1" /> {t('booking.selection_mode')}</span>
+                      ) : t('booking.select_on_map')}
                     </Button>
                   </div>
                   <div className="relative">
@@ -562,7 +567,7 @@ const BookingSection = ({
                       value={formData.destination}
                       onChange={(e) => handleAddressInput('destination', e.target.value)}
                       className="w-full px-4 py-3 pl-12 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl transition-all duration-300 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none focus:shadow-lg"
-                      placeholder="Où allez-vous ?"
+                      placeholder={t('booking.destination_placeholder')}
                       disabled={shouldShowDriver}
                     />
                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-rose-600 dark:text-rose-400" />
@@ -592,25 +597,25 @@ const BookingSection = ({
                   animate={{ opacity: 1, y: 0 }}
                   className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30"
                 >
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-4">Estimation du trajet</h3>
+                  <h3 className="font-bold text-gray-900 dark:text-white mb-4">{t('booking.estimation_title')}</h3>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                         {priceData?.price || '—'} GNF
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Prix estimé</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('booking.estimated_price')}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-gray-900 dark:text-white">
                         {priceData?.distance || '—'} km
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Distance</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('booking.distance')}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-gray-900 dark:text-white">
                         {priceData?.duration || '—'} min
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Durée estimée</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('booking.duration')}</div>
                     </div>
                   </div>
                 </motion.div>
@@ -629,7 +634,7 @@ const BookingSection = ({
                         className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold flex items-center justify-center transition-all shadow-lg shadow-emerald-500/30"
                       >
                         <Phone className="w-5 h-5 mr-2" />
-                        Appeler le chauffeur
+                        {t('booking.call_driver')}
                       </button>
                     ) : (
                       <Button
@@ -638,7 +643,7 @@ const BookingSection = ({
                         className="w-full py-4"
                         icon={Navigation}
                       >
-                        Suivre en direct
+                        {t('booking.follow_live')}
                       </Button>
                     )}
                   </motion.div>
@@ -654,10 +659,10 @@ const BookingSection = ({
                     {isLoading.submit ? (
                       <span className="flex items-center justify-center">
                         <Loader className="w-5 h-5 mr-2 animate-spin" />
-                        En cours...
+                        {t('common.loading')}
                       </span>
                     ) : (
-                      'Voir les détails et confirmer'
+                      t('booking.confirm_btn')
                     )}
                   </Button>
                 )}
@@ -678,21 +683,21 @@ const BookingSection = ({
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="font-bold text-gray-900 dark:text-white text-lg">
-                    {shouldShowDriver ? 'Votre chauffeur en route' : 'Carte interactive'}
+                    {shouldShowDriver ? t('booking.driver_en_route') : t('booking.interactive_map')}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {selectionMode ? (
                       <span className="flex items-center">
                         <span className={`inline-block w-2 h-2 rounded-full mr-2 ${selectionMode === 'pickup' ? 'bg-green-500' : 'bg-red-500'}`} />
-                        Cliquez pour sélectionner le {selectionMode === 'pickup' ? 'départ' : 'destination'}
+                        {t('booking.click_on_map_msg', { mode: selectionMode === 'pickup' ? t('booking.pickup_label') : t('booking.destination_label') })}
                       </span>
                     ) : shouldShowDriver ? (
                       <span className="flex items-center">
                         <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse mr-2" />
-                        Votre chauffeur arrive dans {currentDriver.eta}
+                        {t('booking.driver_arriving', { eta: currentDriver.eta })}
                       </span>
                     ) : (
-                      'Cliquez sur "Sélection sur carte" pour choisir un point'
+                      t('booking.map_tip')
                     )}
                   </p>
                 </div>
@@ -705,12 +710,12 @@ const BookingSection = ({
                     {isLoading.geolocation ? (
                       <>
                         <Loader className="w-4 h-4 mr-2 animate-spin" />
-                        Localisation...
+                        {t('booking.currently_locating')}
                       </>
                     ) : (
                       <>
                         <Navigation className="w-4 h-4 mr-1" />
-                        Ma position
+                        {t('booking.my_position')}
                       </>
                     )}
                   </button>
@@ -741,7 +746,7 @@ const BookingSection = ({
                     <Marker position={userLocation} icon={leafletIcons.user}>
                       <Popup>
                         <div className="p-2">
-                          <div className="font-bold text-blue-600">Votre position</div>
+                          <div className="font-bold text-blue-600">{t('booking.legend.position')}</div>
                         </div>
                       </Popup>
                     </Marker>
@@ -750,7 +755,7 @@ const BookingSection = ({
                     <Marker position={pickupLocation} icon={leafletIcons.start}>
                       <Popup>
                         <div className="p-2">
-                          <div className="font-bold text-green-600">Point de départ</div>
+                          <div className="font-bold text-green-600">{t('booking.legend.pickup')}</div>
                           <div className="text-sm text-gray-600 mt-1">{formData.pickup}</div>
                         </div>
                       </Popup>
@@ -760,7 +765,7 @@ const BookingSection = ({
                     <Marker position={destinationLocation} icon={leafletIcons.end}>
                       <Popup>
                         <div className="p-2">
-                          <div className="font-bold text-red-600">Destination</div>
+                          <div className="font-bold text-red-600">{t('booking.legend.destination')}</div>
                           <div className="text-sm text-gray-600 mt-1">{formData.destination}</div>
                         </div>
                       </Popup>
@@ -770,14 +775,14 @@ const BookingSection = ({
                     <Marker position={currentDriver.location} icon={leafletIcons.driver}>
                       <Popup>
                         <div className="p-2">
-                          <div className="font-bold text-blue-600">Votre chauffeur</div>
+                          <div className="font-bold text-blue-600">{t('booking.legend.driver')}</div>
                           <div className="text-sm text-gray-600">{currentDriver.name}</div>
                           <div className="text-xs text-gray-500">
                             {currentDriver.vehicle.brand} {currentDriver.vehicle.model} • {currentDriver.vehicle.plate}
                           </div>
                           <div className="mt-2">
                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                              Arrive dans {currentDriver.eta}
+                              {t('booking.driver_arriving', { eta: currentDriver.eta })}
                             </span>
                           </div>
                         </div>
@@ -803,10 +808,10 @@ const BookingSection = ({
                       <div className={`w-4 h-4 rounded-full ${selectionMode === 'pickup' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
                       <div>
                         <span className="font-bold text-gray-900">
-                          Mode {selectionMode === 'pickup' ? 'Départ' : 'Destination'}
+                          {t('booking.map_mode', { type: selectionMode === 'pickup' ? t('booking.legend.pickup') : t('booking.legend.destination') })}
                         </span>
                         <p className="text-sm text-gray-600 mt-1">
-                          Cliquez sur la carte pour définir le point
+                          {t('booking.map_instruction')}
                         </p>
                       </div>
                     </div>
@@ -818,20 +823,20 @@ const BookingSection = ({
               <div className="mt-6 flex items-center justify-center space-x-8">
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700">Départ</span>
+                  <span className="text-sm text-gray-700">{t('booking.legend.pickup')}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                  <span className="text-sm text-gray-700">Destination</span>
+                  <span className="text-sm text-gray-700">{t('booking.legend.destination')}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm text-gray-700">Votre position</span>
+                  <span className="text-sm text-gray-700">{t('booking.legend.position')}</span>
                 </div>
                 {shouldShowDriver && (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-gradient-to-r from-green-500 to-blue-600 rounded-full animate-pulse"></div>
-                    <span className="text-sm text-gray-700">Chauffeur</span>
+                    <span className="text-sm text-gray-700">{t('booking.legend.driver')}</span>
                   </div>
                 )}
               </div>
@@ -852,19 +857,26 @@ const BookingSection = ({
           <CardContent padding="p-6">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Trajets récents</h2>
-                <p className="text-gray-500">Vos dernières courses</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('booking.recent_trips.title')}</h2>
+                <p className="text-gray-500">{t('booking.recent_trips.subtitle')}</p>
               </div>
               <Button
                 variant="primary"
                 onClick={() => setShowTripHistory(true)}
                 icon={History}
               >
-                Voir l'historique
+                {t('booking.recent_trips.view_all')}
               </Button>
             </div>
             <Table
-              headers={['DATE', 'DÉPART', 'DESTINATION', 'PRIX', 'STATUT', 'ACTIONS']}
+              headers={[
+                t('history.table.date'),
+                t('history.table.pickup'),
+                t('history.table.destination'),
+                t('history.table.price'),
+                t('history.table.status'),
+                t('history.table.actions')
+              ]}
               striped
               hoverable
             >
@@ -899,12 +911,12 @@ const BookingSection = ({
                     </TableCell>
                     <TableCell>
                       <Badge variant={trip.status === 'completed' ? 'success' : 'danger'} size="sm">
-                        {trip.status === 'completed' ? 'Terminé' : 'Annulé'}
+                        {trip.status === 'completed' ? t('history.status.completed') : t('history.status.cancelled')}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="small" icon={Eye}>
-                        Détails
+                        {t('history.table.actions')}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -912,7 +924,7 @@ const BookingSection = ({
               ) : (
                 <TableRow>
                   <TableCell colSpan={6}>
-                    <div className="text-center py-4 text-gray-500">Aucun trajet récent</div>
+                    <div className="text-center py-4 text-gray-500">{t('booking.recent_trips.no_recent')}</div>
                   </TableCell>
                 </TableRow>
               )}
@@ -925,21 +937,21 @@ const BookingSection = ({
       < Modal
         isOpen={showTripHistory}
         onClose={() => setShowTripHistory(false)}
-        title="Historique complet des trajets"
+        title={t('booking.full_history_modal.title')}
         size="xl"
       >
         <div className="space-y-4">
           <p className="text-gray-600">
-            Consultez l'ensemble de vos trajets passés et téléchargez vos reçus.
+            {t('booking.full_history_modal.desc')}
           </p>
           <div className="flex justify-between items-center">
             <Button variant="secondary" icon={Download}>
-              Exporter en PDF
+              {t('booking.full_history_modal.export_pdf')}
             </Button>
             <div className="flex space-x-2">
-              <Button variant="ghost">Tous</Button>
-              <Button variant="primary" size="small">Ce mois</Button>
-              <Button variant="ghost" size="small">Cette année</Button>
+              <Button variant="ghost">{t('booking.full_history_modal.filter_all')}</Button>
+              <Button variant="primary" size="small">{t('booking.full_history_modal.filter_month')}</Button>
+              <Button variant="ghost" size="small">{t('booking.full_history_modal.filter_year')}</Button>
             </div>
           </div>
         </div>

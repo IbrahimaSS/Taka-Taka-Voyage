@@ -46,21 +46,8 @@ const SearchIndicator = ({
     }
   }, [isDriverFound, driver?.id]);
 
-  /* Notification "Chauffeur en route" */
-  React.useEffect(() => {
-    if (status === 'approaching') {
-      toast.success("Votre chauffeur est en route pour vous récupérer !", {
-        duration: 5000,
-        icon: '🚗',
-        position: 'top-center',
-        style: {
-          background: '#10B981',
-          color: '#fff',
-          fontWeight: 'bold',
-        },
-      });
-    }
-  }, [status]);
+  // Suppression du toast redondant ici car géré par PassengerContext.jsx
+  /* Notification "Chauffeur en route" retirée */
 
   const handleRestore = () => setIsCardVisible(true);
 

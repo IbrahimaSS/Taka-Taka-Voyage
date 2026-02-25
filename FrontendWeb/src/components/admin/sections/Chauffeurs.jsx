@@ -11,9 +11,11 @@ import ConfirmModal from '../ui/ConfirmModal';
 import ExportDropdown from '../ui/ExportDropdown';
 import useDriverActions from '../../../hooks/useDriver';
 import { adminService } from '../../../services/adminService';
+import { useTranslation } from 'react-i18next';
 import HistoriqueTrajet from '../../chauffeur/HistoriqueTrajet'; // Import du composant partagé
 
 const Drivers = ({ showToast }) => {
+  const { t, i18n } = useTranslation();
   // Hook d'actions chauffeur (Activer / Désactiver / Suspendre)
   const { confirmationModal, openStatusModal, confirmAction, closeConfirmationModal, isLoading } = useDriverActions({
     refresh: () => fetchDrivers(),
@@ -80,7 +82,7 @@ const Drivers = ({ showToast }) => {
       }
     } catch (error) {
       console.error('Erreur chargement chauffeurs:', error);
-      showToast('Erreur', 'Impossible de charger les chauffeurs', 'error');
+      showToast(t('common.error') || 'Erreur', t('drivers.error_loading') || 'Impossible de charger les chauffeurs', 'error');
     } finally {
       setLoading(false);
     }
@@ -102,22 +104,22 @@ const Drivers = ({ showToast }) => {
   // Configuration des filtres
   const filterOptions = {
     status: [
-      { value: 'all', label: 'Tous les statuts' },
-      { value: 'active', label: 'Actif' },
-      { value: 'inactive', label: 'Inactif' },
-      { value: 'suspended', label: 'Suspendu' },
+      { value: 'all', label: t('common.all_status') || 'Tous les statuts' },
+      { value: 'active', label: t('common.active') || 'Actif' },
+      { value: 'inactive', label: t('common.inactive') || 'Inactif' },
+      { value: 'suspended', label: t('common.suspended') || 'Suspendu' },
     ],
     verification: [
-      { value: 'all', label: 'Tous les états' },
-      { value: 'verified', label: 'Vérifié' },
-      { value: 'pending', label: 'En attente' },
-      { value: 'rejected', label: 'Rejeté' },
+      { value: 'all', label: t('drivers.all_states') || 'Tous les états' },
+      { value: 'verified', label: t('drivers.status_verified') || 'Vérifié' },
+      { value: 'pending', label: t('drivers.status_pending') || 'En attente' },
+      { value: 'rejected', label: t('drivers.status_rejected') || 'Rejeté' },
     ],
     type: [
-      { value: 'all', label: 'Tous les types' },
-      { value: 'Moto-taxi', label: 'Moto-taxi' },
-      { value: 'Taxi partagé', label: 'Taxi partagé' },
-      { value: 'Voiture privée', label: 'Voiture privée' },
+      { value: 'all', label: t('drivers.all_types') || 'Tous les types' },
+      { value: 'Moto-taxi', label: t('services.moto_taxi') || 'Moto-taxi' },
+      { value: 'Taxi partagé', label: t('services.taxi_partage') || 'Taxi partagé' },
+      { value: 'Voiture privée', label: t('services.voiture_privee') || 'Voiture privée' },
     ]
   };
 
@@ -131,34 +133,34 @@ const Drivers = ({ showToast }) => {
 
     return [
       {
-        title: 'Chauffeurs actifs',
+        title: t('drivers.active_drivers') || 'Chauffeurs actifs',
         value: statsData.chauffeursActifs?.toString() || '0',
         icon: User,
         color: 'green',
         trend: 'stable',
         percentage: 0,
         progress: 100,
-        description: `Totalité des chauffeurs actifs`,
+        description: t('drivers.all_active_desc') || `Totalité des chauffeurs actifs`,
       },
       {
-        title: 'Revenus du jour',
-        value: `${(statsData.revenusDuJour || 0).toLocaleString()} fg`,
+        title: t('drivers.daily_earnings') || 'Revenus du jour',
+        value: `${(statsData.revenusDuJour || 0).toLocaleString()} ${t('common.currency_symbol_short') || 'fg'}`,
         icon: Car,
         color: 'blue',
         trend: 'up',
         percentage: 0,
         progress: 65,
-        description: 'Cumul des gains aujourd\'hui',
+        description: t('drivers.daily_earnings_desc') || "Cumul des gains aujourd'hui",
       },
       {
-        title: 'Trajets effectués',
+        title: t('drivers.trips_completed') || 'Trajets effectués',
         value: statsData.trajetsDuJour?.toString() || '0',
         icon: Car,
         color: 'purple',
         trend: 'up',
         percentage: 0,
         progress: 85,
-        description: 'Total des courses aujourd\'hui',
+        description: t('drivers.daily_trips_desc') || "Total des courses aujourd'hui",
       }
     ];
   }, [statsData]);
@@ -209,7 +211,7 @@ const Drivers = ({ showToast }) => {
       }
     } catch (error) {
       console.error('Erreur détails chauffeur:', error);
-      showToast('Erreur', 'Impossible de charger les détails', 'error');
+      showToast(t('common.error') || 'Erreur', t('common.error_loading_details') || 'Impossible de charger les détails', 'error');
     }
   };
 
@@ -219,9 +221,9 @@ const Drivers = ({ showToast }) => {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Non disponible';
+    if (!dateString) return t('common.not_available') || 'Non disponible';
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
@@ -241,21 +243,21 @@ const Drivers = ({ showToast }) => {
         return (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
             <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
-            Actif
+            {t('common.active') || 'Actif'}
           </span>
         );
       case 'INACTIF':
         return (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
             <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1.5"></span>
-            Inactif
+            {t('common.inactive') || 'Inactif'}
           </span>
         );
       case 'SUSPENDU':
         return (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1.5"></span>
-            Suspendu
+            {t('common.suspended') || 'Suspendu'}
           </span>
         );
       default:
@@ -272,14 +274,14 @@ const Drivers = ({ showToast }) => {
       return (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
           <CheckCircle className="w-3 h-3 mr-1" />
-          Vérifié
+          {t('drivers.status_verified') || 'Vérifié'}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700">
         <Clock className="w-3 h-3 mr-1" />
-        En attente
+        {t('drivers.status_pending') || 'En attente'}
       </span>
     );
   };
@@ -291,9 +293,13 @@ const Drivers = ({ showToast }) => {
       'Voiture privée': 'bg-indigo-100 text-indigo-800',
     };
 
+    const typeLabel = type === 'Moto-taxi' ? (t('services.moto_taxi') || 'Moto-taxi') :
+      type === 'Taxi partagé' ? (t('services.taxi_partage') || 'Taxi partagé') :
+        type === 'Voiture privée' ? (t('services.voiture_privee') || 'Voiture privée') : type;
+
     return (
       <span className={`px-2 py-0.5 text-xs font-medium rounded ${colors[type] || 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100'}`}>
-        {type}
+        {typeLabel}
       </span>
     );
   };
@@ -305,7 +311,7 @@ const Drivers = ({ showToast }) => {
           <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-3 transition-all hover:shadow-sm">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <CheckCircle className="w-4 h-4" />
-              <span className="text-[10px] font-bold tracking-tight">VALIDE</span>
+              <span className="text-[10px] font-bold tracking-tight">{t('common.status_valid_caps') || 'VALIDE'}</span>
             </div>
           </div>
         );
@@ -314,7 +320,7 @@ const Drivers = ({ showToast }) => {
           <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border border-orange-100 dark:border-orange-900/30 rounded-lg p-3 transition-all hover:shadow-sm">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <Clock className="w-4 h-4" />
-              <span className="text-[10px] font-bold tracking-tight">EXPIRÉ</span>
+              <span className="text-[10px] font-bold tracking-tight">{t('common.status_expired_caps') || 'EXPIRÉ'}</span>
             </div>
           </div>
         );
@@ -323,7 +329,7 @@ const Drivers = ({ showToast }) => {
           <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 rounded-lg p-3 transition-all hover:shadow-sm">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <RefreshCw className="w-4 h-4 animate-spin-slow" />
-              <span className="text-[10px] font-bold tracking-tight">EN COURS</span>
+              <span className="text-[10px] font-bold tracking-tight">{t('common.status_in_progress_caps') || 'EN COURS'}</span>
             </div>
           </div>
         );
@@ -332,7 +338,7 @@ const Drivers = ({ showToast }) => {
           <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30 rounded-lg p-3 transition-all hover:shadow-sm">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <XCircle className="w-4 h-4" />
-              <span className="text-[10px] font-bold tracking-tight">REFUSÉ</span>
+              <span className="text-[10px] font-bold tracking-tight">{t('common.status_refused_caps') || 'REFUSÉ'}</span>
             </div>
           </div>
         );
@@ -341,7 +347,7 @@ const Drivers = ({ showToast }) => {
           <div className="bg-gray-50 dark:bg-gray-800/40 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-800/50 rounded-lg p-3">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <Ban className="w-4 h-4" />
-              <span className="text-[10px] font-bold tracking-tight uppercase">Manquant</span>
+              <span className="text-[10px] font-bold tracking-tight uppercase">{t('common.missing') || 'Manquant'}</span>
             </div>
           </div>
         );
@@ -350,22 +356,22 @@ const Drivers = ({ showToast }) => {
 
   // Colonnes d'export (utilisées par <ExportDropdown />)
   const exportColumns = useMemo(() => ([
-    { header: 'Nom', accessor: 'name' },
+    { header: t('common.name') || 'Nom', accessor: 'name' },
     { header: 'Email', accessor: 'email' },
-    { header: 'Téléphone', accessor: 'phone' },
+    { header: t('common.phone') || 'Téléphone', accessor: 'phone' },
     { header: 'Type', accessor: 'type' },
-    { header: 'Véhicule', accessor: 'vehicle' },
-    { header: 'Plaque', accessor: 'plate' },
+    { header: t('drivers.vehicle') || 'Véhicule', accessor: 'vehicle' },
+    { header: t('drivers.plate') || 'Plaque', accessor: 'plate' },
     {
-      header: 'Statut',
+      header: t('common.status') || 'Statut',
       accessor: 'statut',
-      formatter: (v) => (v === 'ACTIF' ? 'Actif' : v === 'INACTIF' ? 'Inactif' : v === 'SUSPENDU' ? 'Suspendu' : v ?? ''),
+      formatter: (v) => (v === 'ACTIF' ? (t('common.active') || 'Actif') : v === 'INACTIF' ? (t('common.inactive') || 'Inactif') : v === 'SUSPENDU' ? (t('common.suspended') || 'Suspendu') : v ?? ''),
     },
-    { header: 'Trajets', accessor: 'trips', formatter: (v) => v ?? 0 },
-    { header: 'Note', accessor: 'rating', formatter: (v) => v ?? '-' },
-    { header: 'Gains (GNF)', accessor: 'earnings', formatter: (v) => (v ?? 0).toLocaleString() },
-    { header: 'Inscription', accessor: 'joinDate', formatter: (v) => formatDate(v) },
-  ]), []);
+    { header: t('nav.trajets') || 'Trajets', accessor: 'trips', formatter: (v) => v ?? 0 },
+    { header: t('common.note') || 'Note', accessor: 'rating', formatter: (v) => v ?? '-' },
+    { header: `${t('drivers.earnings') || 'Gains'} (${t('common.currency_symbol') || 'GNF'})`, accessor: 'earnings', formatter: (v) => (v ?? 0).toLocaleString() },
+    { header: t('common.registration') || 'Inscription', accessor: 'joinDate', formatter: (v) => formatDate(v) },
+  ]), [t, i18n.language]);
 
   // Compte des filtres actifs
   const activeFilterCount = Object.values(selectedFilters).filter(v => v && v !== 'all').length;
@@ -390,7 +396,7 @@ const Drivers = ({ showToast }) => {
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         size="lg"
-        title="Détails du chauffeur"
+        title={t('drivers.details_title') || 'Détails du chauffeur'}
       >
         {selectedDriver ? (
           <div className="space-y-6 scroll-m-t-2 overflow-auto h-[70vh] pr-2">
@@ -421,24 +427,23 @@ const Drivers = ({ showToast }) => {
             {/* Informations de contact */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-4 border-t border-gray-200 dark:border-gray-900 ms-8">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Téléphone</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.phone') || 'Téléphone'}</p>
                 <p className="font-medium">{selectedDriver.phone || selectedDriver.telephone}</p>
               </div>
-
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Inscription</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.registration') || 'Inscription'}</p>
                 <p className="font-medium">{formatDate(selectedDriver.joinDate || selectedDriver.inscritLe)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Dernière activité</p>
-                <p className="font-medium">{selectedDriver.derniereActivite ? formatDate(selectedDriver.derniereActivite) : 'Indisponible'}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.last_activity') || 'Dernière activité'}</p>
+                <p className="font-medium">{selectedDriver.derniereActivite ? formatDate(selectedDriver.derniereActivite) : (t('common.not_available') || 'Indisponible')}</p>
               </div>
             </div>
 
             {/* Véhicule et note */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Véhicule</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('drivers.vehicle') || 'Véhicule'}</p>
                 <p className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">
                   {selectedDriver.vehicle || selectedDriver.vehicule?.marque}
                 </p>
@@ -447,7 +452,7 @@ const Drivers = ({ showToast }) => {
                 </p>
               </div>
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Note moyenne</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('passengers.average_rating') || 'Note moyenne'}</p>
                 <div className="flex items-center">
                   <Star className="w-5 h-5 text-yellow-400 fill-current" />
                   <span className="ml-2 text-2xl font-bold text-gray-800 dark:text-gray-100">
@@ -456,52 +461,52 @@ const Drivers = ({ showToast }) => {
                   <span className="ml-2 text-gray-500 dark:text-gray-400">/5</span>
                 </div>
                 <p className="text-gray-600 dark:text-gray-300 mt-1">
-                  {selectedDriver.trips || selectedDriver.stats?.nombreTrajets || '0'} trajets effectués
+                  {selectedDriver.trips || selectedDriver.stats?.nombreTrajets || '0'} {t('drivers.trips_completed_text') || 'trajets effectués'}
                 </p>
               </div>
             </div>
 
             {/* Documents */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-900">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-4">Documents du chauffeur</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-4">{t('drivers.documents_title') || 'Documents du chauffeur'}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                 <div className="text-center">
                   {getDocBadge(selectedDriver.documents?.permis)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">Permis</p>
+                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('drivers.license') || 'Permis'}</p>
                 </div>
                 <div className="text-center">
                   {getDocBadge(selectedDriver.documents?.assurance)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">Assurance</p>
+                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('drivers.insurance') || 'Assurance'}</p>
                 </div>
                 <div className="text-center">
                   {getDocBadge(selectedDriver.documents?.carteGrise)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">Carte grise</p>
+                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('drivers.reg_card') || 'Carte grise'}</p>
                 </div>
                 <div className="text-center">
                   {getDocBadge(selectedDriver.documents?.identite)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">Identité</p>
+                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('common.identity') || 'Identité'}</p>
                 </div>
                 <div className="text-center">
                   {getDocBadge(selectedDriver.documents?.photoVehicule)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">Photo Véhicule</p>
+                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('drivers.vehicle_photo') || 'Photo Véhicule'}</p>
                 </div>
               </div>
             </div>
 
             {/* Revenus */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-900">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">Revenus totaux</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('drivers.total_earnings') || 'Revenus totaux'}</p>
               <div className="bg-green-50 rounded-xl p-4 text-center">
                 <p className="text-3xl font-bold text-green-700">
-                  GNF {(selectedDriver.earnings || selectedDriver.revenus?.totalGagne || 0).toLocaleString()}
+                  {t('common.currency_symbol') || 'GNF'} {(selectedDriver.earnings || selectedDriver.revenus?.totalGagne || 0).toLocaleString()}
                 </p>
-                <p className="text-green-600 mt-1">Total gagné sur la plateforme</p>
+                <p className="text-green-600 mt-1">{t('drivers.total_platform_earnings') || 'Total gagné sur la plateforme'}</p>
               </div>
             </div>
 
             {/* Historique des trajets */}
             <div className="pt-6 border-t border-gray-200 dark:border-gray-900 overflow-hidden">
-              <p className="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-widest mb-4">Historique des trajets</p>
+              <p className="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-widest mb-4">{t('nav.history') || 'Historique des trajets'}</p>
               <div className="max-h-[500px] overflow-y-auto px-1 -mx-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800">
                 <HistoriqueTrajet chauffeurId={selectedDriver.id} />
               </div>
@@ -513,7 +518,7 @@ const Drivers = ({ showToast }) => {
                 variant="outline"
                 onClick={() => setIsDetailModalOpen(false)}
               >
-                Quitter
+                {t('common.close') || 'Quitter'}
               </Button>
               <Button
                 variant="secondary"
@@ -522,7 +527,7 @@ const Drivers = ({ showToast }) => {
                   openStatusModal(selectedDriver, selectedDriver.statut === 'ACTIF' ? 'deactivate' : 'activate');
                 }}
               >
-                {selectedDriver.statut === 'ACTIF' ? 'Désactiver' : 'Activer'}
+                {selectedDriver.statut === 'ACTIF' ? (t('common.deactivate') || 'Désactiver') : (t('common.activate') || 'Activer')}
               </Button>
               <Button
                 variant="danger"
@@ -531,13 +536,13 @@ const Drivers = ({ showToast }) => {
                   openStatusModal(selectedDriver, 'suspend');
                 }}
               >
-                Suspendre
+                {t('common.suspend') || 'Suspendre'}
               </Button>
             </div>
           </div>
         ) : (
           <div className="text-center py-8">
-            <p className="text-gray-500 dark:text-gray-400">Aucun chauffeur sélectionné</p>
+            <p className="text-gray-500 dark:text-gray-400">{t('drivers.no_driver_selected') || 'Aucun chauffeur sélectionné'}</p>
           </div>
         )}
       </Modal>
@@ -549,9 +554,9 @@ const Drivers = ({ showToast }) => {
         className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
         <div>
-          <CardTitle>Gestion des Chauffeurs</CardTitle>
+          <CardTitle>{t('drivers.management_title') || 'Gestion des Chauffeurs'}</CardTitle>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            {drivers.length} chauffeurs inscrits • {filteredDrivers.length} résultats
+            {t('drivers.found_summary', { total: drivers.length, count: filteredDrivers.length }) || `${drivers.length} chauffeurs inscrits • ${filteredDrivers.length} résultats`}
           </p>
         </div>
 
@@ -582,7 +587,7 @@ const Drivers = ({ showToast }) => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="Rechercher par nom, téléphone, email, véhicule..."
+                  placeholder={`${t('drivers.search_placeholder') || 'Rechercher par nom, téléphone, email, véhicule'}...`}
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:bg-gray-800 dark:border-gray-900 rounded-xl focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-base"
                   value={searchTerm}
                   onChange={handleSearch}
@@ -623,7 +628,7 @@ const Drivers = ({ showToast }) => {
                   data={filteredDrivers}
                   columns={exportColumns}
                   fileName="chauffeurs_taka_taka"
-                  title="Liste des chauffeurs - Taka Taka"
+                  title={t('drivers.export_title') || 'Liste des chauffeurs - Taka Taka'}
                   showToast={showToast}
                   className="w-full sm:w-auto"
                 />
@@ -633,7 +638,7 @@ const Drivers = ({ showToast }) => {
                 className="text-sm text-red-600 hover:text-red-700 flex items-center"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Réinitialiser tous les filtres
+                {t('common.reset_filters') || 'Réinitialiser tous les filtres'}
               </button>
             </div>
 
@@ -657,14 +662,14 @@ const Drivers = ({ showToast }) => {
             <CardContent>
               <div className="text-center py-12">
                 <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Aucun chauffeur trouvé</h3>
-                <p className="text-gray-500 dark:text-gray-400">Essayez de modifier vos critères de recherche ou de filtres</p>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('drivers.no_driver_found') || 'Aucun chauffeur trouvé'}</h3>
+                <p className="text-gray-500 dark:text-gray-400">{t('drivers.no_driver_match') || 'Essayez de modifier vos critères de recherche ou de filtres'}</p>
                 <Button
                   variant="secondary"
                   onClick={clearFilters}
                   className="mt-4"
                 >
-                  Réinitialiser les filtres
+                  {t('common.reset_filters') || 'Réinitialiser les filtres'}
                 </Button>
               </div>
             </CardContent>
@@ -713,17 +718,17 @@ const Drivers = ({ showToast }) => {
                       <div className="">
                         {getTypeBadge(driver.type)}
                       </div>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{driver.trips} trajets</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{driver.trips} {t('nav.trajets') || 'trajets'}</p>
 
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="bg-gray-50 dark:bg-gray-900/40 rounded-xl p-3">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Véhicule</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('drivers.vehicle') || 'Véhicule'}</p>
                         <p className="font-medium text-gray-800 dark:text-gray-100 text-sm truncate">{driver.vehicle}</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-900/40 rounded-xl p-3">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Plaque</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('drivers.plate') || 'Plaque'}</p>
                         <p className="font-medium text-gray-800 dark:text-gray-100 text-sm">{driver.plate}</p>
                       </div>
                     </div>
@@ -740,15 +745,15 @@ const Drivers = ({ showToast }) => {
                     </div>
 
                     <div className="mb-4">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Gains totaux</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('drivers.total_earnings') || 'Gains totaux'}</p>
                       <p className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                        <span className='text-gray-800 dark:text-gray-100'>GNF</span> {driver.earnings.toLocaleString()}
+                        <span className='text-gray-800 dark:text-gray-100'>{t('common.currency_symbol') || 'GNF'}</span> {driver.earnings.toLocaleString()}
                       </p>
                     </div>
 
                     <div className="flex justify-between items-center">
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Inscrit le {formatDate(driver.joinDate)}
+                        {t('common.registered_on') || 'Inscrit le'} {formatDate(driver.joinDate)}
                       </div>
                       <div className="flex space-x-2">
                         <Button
@@ -756,7 +761,7 @@ const Drivers = ({ showToast }) => {
                           size="small"
                           icon={Eye}
                           onClick={() => handleViewDriver(driver)}
-                          title="Voir les détails"
+                          title={t('common.view_details') || 'Voir les détails'}
                           className="p-2"
                         />
 
@@ -766,7 +771,7 @@ const Drivers = ({ showToast }) => {
                             size="small"
                             icon={CheckCircle}
                             onClick={() => openStatusModal(driver, 'activate')}
-                            title="Activer"
+                            title={t('common.activate') || 'Activer'}
                             className="p-2 text-green-600 hover:text-green-700"
                           />
                         )}
@@ -777,7 +782,7 @@ const Drivers = ({ showToast }) => {
                             size="small"
                             icon={XCircle}
                             onClick={() => openStatusModal(driver, 'deactivate')}
-                            title="Désactiver"
+                            title={t('common.deactivate') || 'Désactiver'}
                             className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:text-gray-200"
                           />
                         )}
@@ -788,7 +793,7 @@ const Drivers = ({ showToast }) => {
                             size="small"
                             icon={Ban}
                             onClick={() => openStatusModal(driver, 'suspend')}
-                            title="Suspendre"
+                            title={t('common.suspend') || 'Suspendre'}
                             className="p-2 text-red-600 hover:text-red-700"
                           />
                         )}

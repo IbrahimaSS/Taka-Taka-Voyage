@@ -14,8 +14,10 @@ import Progress from '../admin/ui/Progress';
 import { litigeService } from '../../services/litigeService';
 import { tripService } from '../../services/tripService';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 const Support = () => {
+  const { t } = useTranslation();
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [lastTrip, setLastTrip] = useState(null);
   const [formData, setFormData] = useState({
@@ -120,8 +122,8 @@ const Support = () => {
   ];
 
   const tabs = [
-    { id: 'faq', label: 'FAQ', icon: HelpCircle },
-    { id: 'contact', label: 'Contact', icon: MessageSquare },
+    { id: 'faq', label: t('support.faq_title'), icon: HelpCircle },
+    { id: 'contact', label: t('support.contact_title'), icon: MessageSquare },
   ];
 
   const handleFileUpload = (e) => {
@@ -154,7 +156,7 @@ const Support = () => {
     e.preventDefault();
 
     if (!formData.subject || !formData.description) {
-      toast.error('Veuillez remplir tous les champs obligatoires');
+      toast.error(t('support.error_fields'));
       return;
     }
 
@@ -192,7 +194,7 @@ const Support = () => {
         setShowSuccessModal(true);
         setFormData({ subject: '', description: '', attachDetails: false });
         setUploadedFiles([]);
-        toast.success('Votre demande a été envoyée');
+        toast.success(t('support.send_success'));
       } else {
         throw new Error(response.data.message || "Erreur lors de l'envoi");
       }
@@ -219,10 +221,10 @@ const Support = () => {
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="mb-6 md:mb-0">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                  Centre d'aide et support
+                  {t('support.title')}
                 </h1>
                 <p className="text-gray-600 dark:text-gray-300">
-                  Nous sommes là pour vous aider 24h/24 et 7j/7
+                  {t('support.subtitle')}
                 </p>
               </div>
               <div className="flex items-center space-x-4">
@@ -231,14 +233,14 @@ const Support = () => {
                     <Headphones className="w-6 h-6 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900 dark:text-gray-100">Support 24/7</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Réponse sous 2h</p>
+                    <p className="font-bold text-gray-900 dark:text-gray-100">{t('support.support_247')}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('support.response_time')}</p>
                   </div>
                 </div>
                 <Badge variant="success" size="lg">
                   <span className="flex items-center">
                     <MessageCircle className="w-4 h-4 mr-1" />
-                    En ligne
+                    {t('support.online_status')}
                   </span>
                 </Badge>
               </div>
@@ -260,9 +262,9 @@ const Support = () => {
         {activeTab === 'faq' && (
           <Card>
             <CardHeader>
-              <CardTitle>Questions fréquentes</CardTitle>
+              <CardTitle>{t('support.faq_title')}</CardTitle>
               <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Trouvez rapidement des réponses à vos questions
+                {t('support.faq_subtitle')}
               </p>
             </CardHeader>
             <CardContent>
@@ -307,7 +309,7 @@ const Support = () => {
                             className="mt-3"
                             onClick={() => window.open(`/faq#${faq.id}`, '_blank')}
                           >
-                            Voir plus de détails
+                            {t('support.view_more')}
                           </Button>
                         </div>
                       </motion.div>
@@ -318,7 +320,7 @@ const Support = () => {
             </CardContent>
             <CardFooter align="center">
               <Button variant="outline" onClick={() => window.open('/faq', '_blank')}>
-                Voir toutes les questions
+                {t('support.view_all_faq')}
               </Button>
             </CardFooter>
           </Card>
@@ -329,16 +331,16 @@ const Support = () => {
             {/* Formulaire de contact */}
             <Card>
               <CardHeader>
-                <CardTitle>Contactez-nous</CardTitle>
+                <CardTitle>{t('support.contact_title')}</CardTitle>
                 <p className="text-gray-600 dark:text-gray-400 mt-2">
-                  Remplissez ce formulaire pour nous contacter directement
+                  {t('support.contact_subtitle')}
                 </p>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-                      Sujet <span className="text-red-500">*</span>
+                      {t('support.subject_label')} <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={formData.subject}
@@ -346,33 +348,33 @@ const Support = () => {
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition"
                       required
                     >
-                      <option value="">Sélectionnez un sujet</option>
-                      <option value="trip_problem">Problème avec un trajet</option>
-                      <option value="payment_problem">Problème de paiement</option>
-                      <option value="driver_problem">Problème avec un chauffeur</option>
-                      <option value="account_question">Question sur mon compte</option>
-                      <option value="suggestion">Suggestion d'amélioration</option>
-                      <option value="other">Autre</option>
+                      <option value="">{t('support.subject_placeholder')}</option>
+                      <option value="trip_problem">{t('support.subjects.trip_problem')}</option>
+                      <option value="payment_problem">{t('support.subjects.payment_problem')}</option>
+                      <option value="driver_problem">{t('support.subjects.driver_problem')}</option>
+                      <option value="account_question">{t('support.subjects.account_question')}</option>
+                      <option value="suggestion">{t('support.subjects.suggestion')}</option>
+                      <option value="other">{t('support.subjects.other')}</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-                      Description <span className="text-red-500">*</span>
+                      {t('support.description_label')} <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       rows={4}
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition"
-                      placeholder="Décrivez votre problème en détail..."
+                      placeholder={t('support.description_placeholder')}
                       required
                     />
                   </div>
 
                   <div>
                     <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">
-                      Pièces jointes (optionnel)
+                      {t('support.attachments_label')}
                     </label>
                     <div className="space-y-4">
                       <label className="block border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-8 text-center hover:border-green-500 dark:hover:border-green-400 transition-colors cursor-pointer">
@@ -384,9 +386,9 @@ const Support = () => {
                           accept=".jpg,.jpeg,.png,.gif,.pdf,.txt"
                         />
                         <Upload className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                        <p className="text-gray-600 dark:text-gray-400">Glissez-déposez vos fichiers ici</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-500">ou cliquez pour parcourir</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">JPG, PNG, GIF, PDF, TXT (max 5MB)</p>
+                        <p className="text-gray-600 dark:text-gray-400">{t('support.upload_drop_msg')}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-500">{t('support.upload_click_msg')}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{t('support.upload_extra_msg')}</p>
                       </label>
 
                       {/* Liste des fichiers uploadés */}
@@ -431,7 +433,7 @@ const Support = () => {
                         className="w-5 h-5 text-green-600 rounded border-gray-300 dark:border-gray-700 focus:ring-green-500/20"
                       />
                       <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                        Joindre les détails de mon dernier trajet
+                        {t('support.attach_last_trip')}
                       </span>
                     </label>
                   </div>
@@ -443,7 +445,7 @@ const Support = () => {
                     loading={isSubmitting}
                     icon={Send}
                   >
-                    Envoyer la demande
+                    {t('support.send_btn')}
                   </Button>
                 </form>
               </CardContent>
@@ -453,9 +455,9 @@ const Support = () => {
             <div className="space-y-8">
               <Card>
                 <CardHeader>
-                  <CardTitle>Autres canaux de contact</CardTitle>
+                  <CardTitle>{t('support.other_channels')}</CardTitle>
                   <p className="text-gray-600 dark:text-gray-400 mt-2">
-                    Contactez-nous via ces canaux alternatifs
+                    {t('support.other_channels_subtitle')}
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -495,9 +497,9 @@ const Support = () => {
               {/* Documentation */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Documentation</CardTitle>
+                  <CardTitle>{t('support.documentation')}</CardTitle>
                   <p className="text-gray-600 dark:text-gray-400 mt-2">
-                    Ressources utiles pour vous aider
+                    {t('support.documentation_subtitle')}
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -545,11 +547,10 @@ const Support = () => {
             <MessageCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
           </div>
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Demande envoyée !
+            {t('support.success_title')}
           </h3>
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Votre demande a été transmise à notre équipe de support.
-            Vous recevrez une réponse dans les plus brefs délais.
+            {t('support.success_msg')}
           </p>
           <div className="space-y-4">
 
@@ -558,7 +559,7 @@ const Support = () => {
               fullWidth
               onClick={() => setShowSuccessModal(false)}
             >
-              D'accord
+              {t('support.ok_btn')}
             </Button>
           </div>
         </div>

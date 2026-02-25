@@ -20,6 +20,7 @@ import ExportDropdown from '../ui/ExportDropdown';
 import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
 import { adminService } from '../../../services/adminService';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -27,6 +28,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 // Remplacer les donnees simulees et les validations locales par des appels backend
 // Exemple: GET /admin/documents, POST /admin/validations/:id
 const Documents = ({ showToast }) => {
+  const { t } = useTranslation();
   // États principaux
   const [documents, setDocuments] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -123,30 +125,30 @@ const Documents = ({ showToast }) => {
   // Stats calculées
   const stats = useMemo(() => [
     {
-      title: 'Chauffeurs',
+      title: t('nav.chauffeurs', 'Chauffeurs'),
       value: drivers.length.toString(),
       icon: Users,
       color: 'blue',
       trend: 'stable',
-      description: `Profils à suivre`,
+      description: t('documents.profiles_to_follow', 'Profils à suivre'),
     },
     {
-      title: 'Documents à vérifier',
+      title: t('documents.documents_to_verify', 'Documents à vérifier'),
       value: statsData.aVerifier.toString(),
       icon: FileText,
       color: 'green',
       trend: 'stable',
-      description: `Actions requises par l'admin`,
+      description: t('documents.actions_required', "Actions requises par l'admin"),
     },
     {
-      title: 'Expirent bientôt',
+      title: t('documents.expiring_soon', 'Expirent bientôt'),
       value: statsData.expirentBientot.toString(),
       icon: Clock,
       color: 'orange',
       trend: statsData.expirentBientot > 0 ? 'up' : 'stable',
-      description: 'Documents à renouveler',
+      description: t('documents.documents_to_renew', 'Documents à renouveler'),
     }
-  ], [drivers, statsData]);
+  ], [drivers, statsData, t]);
 
   // Filtrage et recherche
   useEffect(() => {
@@ -618,8 +620,8 @@ const Documents = ({ showToast }) => {
       {/* Header avec ExportDropdown */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">Documents des Chauffeurs</h1>
-          <p className="text-gray-600 dark:text-gray-300">Gérez et suivez tous les documents de vos chauffeurs</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">{t('nav.documents', 'Documents des Chauffeurs')}</h1>
+          <p className="text-gray-600 dark:text-gray-300">{t('drivers.documents_desc', 'Gérez et suivez tous les documents de vos chauffeurs')}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -659,9 +661,9 @@ const Documents = ({ showToast }) => {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle>Recherche de chauffeurs</CardTitle>
+              <CardTitle>{t('drivers.search_driver', 'Recherche de chauffeurs')}</CardTitle>
               <p className="text-gray-600 dark:text-gray-300 text-sm">
-                {filteredDrivers.length} chauffeur(s) trouvé(s)
+                {filteredDrivers.length} {t('drivers.driver_found', 'chauffeur(s) trouvé(s)')}
               </p>
             </div>
 
@@ -671,7 +673,7 @@ const Documents = ({ showToast }) => {
                 icon={Filter}
                 onClick={() => setShowFilters(!showFilters)}
               >
-                {showFilters ? 'Masquer filtres' : 'Filtres'}
+                {showFilters ? t('common.hide_filters', 'Masquer filtres') : t('common.filters', 'Filtres')}
               </Button>
 
               {(searchTerm || Object.values(selectedFilters).some(v => v && v !== 'all')) && (
@@ -697,7 +699,7 @@ const Documents = ({ showToast }) => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Rechercher un chauffeur ou un document..."
+                placeholder={t('documents.search_placeholder', 'Rechercher un chauffeur ou un document...')}
                 className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition"
                 value={searchTerm}
                 onChange={handleSearch}
@@ -816,7 +818,7 @@ const Documents = ({ showToast }) => {
                           </div>
                           <div>
                             <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg">{driver.name}</h3>
-                            <p className="text-gray-600 dark:text-gray-300 text-sm">Chauffeur</p>
+                            <p className="text-gray-600 dark:text-gray-300 text-sm">{t('users.driver', 'Chauffeur')}</p>
                           </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500" />
@@ -829,12 +831,12 @@ const Documents = ({ showToast }) => {
                           <div className="text-center p-3 bg-green-50 rounded-lg">
                             <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-1" />
                             <p className="text-2xl font-bold text-gray-800 dark:text-gray-900/90 font-bold ">{driver.validCount}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-800/90 font-bold">Valides</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-800/90 font-bold">{t('common.valid', 'Valides')}</p>
                           </div>
                           <div className="text-center p-3 bg-yellow-50 rounded-lg">
                             <Clock className="w-6 h-6 text-yellow-600 mx-auto mb-1" />
                             <p className="text-2xl font-bold text-gray-800 dark:text-gray-900/90 font-bold">{driver.pendingCount}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-800/50 font-bold">En attente</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-800/50 font-bold">{t('trips.status.pending', 'En attente')}</p>
                           </div>
                         </div>
 
@@ -842,7 +844,7 @@ const Documents = ({ showToast }) => {
                         {driver.completeness < 100 && (
                           <div className="mt-4 pt-4 border-t">
                             <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                              Documents requis manquants:
+                              {t('documents.missing_required_docs', 'Documents requis manquants:')}
                             </p>
                             <div className="flex flex-wrap gap-2">
                               {driver.manquants.map((label, idx) => (

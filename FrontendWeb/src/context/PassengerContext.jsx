@@ -4,6 +4,7 @@ import axios from "axios";
 import { toast } from "react-hot-toast";
 import socketService from "../services/socketService";
 import { API_ROUTES } from "../services/apiRoutes";
+import { offlineTripService } from "../services/offlineTripService";
 import { useAuth } from './AuthContext';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from "./NotificationContext";
 
@@ -64,16 +65,44 @@ export const PassengerProvider = ({ children }) => {
   }, [updateAuthUser]);
 
   useEffect(() => {
+    // 🔄 [OFFLINE] Restauration locale immédiate (Même sans attendre l'Auth complet)
+    const localState = offlineTripService.loadState('PASSAGER');
+    if (localState && localState.currentTrip) {
+      console.log("💾 [CONTEXT] Restauration depuis stockage local");
+      setCurrentTrip(localState.currentTrip);
+      setTripStatus(localState.tripStatus);
+      setSelectedDriver(localState.selectedDriver);
+
+      if (localState.currentTrip.reservationId) {
+        socketService.emit("reservation:join", { reservationId: localState.currentTrip.reservationId });
+      }
+    }
+
     if (user) {
       setPassenger(user);
-      if (!user._id && !user.id) { // If user is from local storage and might be incomplete
+      if (!user._id && !user.id) {
         fetchProfile();
       }
-      fetchActiveTrip(); // ✅ Restore active trip on load
+      // 🌍 Synchronisation avec le serveur
+      fetchActiveTrip();
     } else {
       setPassenger(null);
+      offlineTripService.clearState('PASSAGER');
     }
   }, [user, fetchProfile]);
+
+  // 💾 [OFFLINE] Sauvegarde automatique à chaque changement
+  useEffect(() => {
+    if (currentTrip) {
+      offlineTripService.saveState('PASSAGER', {
+        currentTrip,
+        tripStatus,
+        selectedDriver
+      });
+    } else if (tripStatus === 'idle' || !tripStatus) {
+      offlineTripService.clearState('PASSAGER');
+    }
+  }, [currentTrip, tripStatus, selectedDriver]);
 
   // ✅ New function to restore state
   const fetchActiveTrip = async () => {
@@ -268,6 +297,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Chauffeur trouvé ! ✅',
         message: `${chauffeur?.prenom || ""} ${chauffeur?.nom || ""} a accepté votre course.`,
+        id: `accepted-${reservationId}`
       });
       notifiedEvents.current.add(eventKey);
 
@@ -291,6 +321,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Chauffeur en route 🚗',
         message: message || "Votre chauffeur est en route pour vous récupérer.",
+        id: `approaching-${reservationId}`
       });
       notifiedEvents.current.add(eventKey);
 
@@ -330,6 +361,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Chauffeur arrivé ! ✅',
         message: 'Votre chauffeur est arrivé au point de ramassage.',
+        id: `arrived-${reservationId}`
       });
       notifiedEvents.current.add(eventKey);
 
@@ -355,6 +387,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Trajet démarré 🚀',
         message: 'Votre course a commencé. Bon voyage !',
+        id: `started-${reservationId}`
       });
       notifiedEvents.current.add(eventKey);
 
@@ -367,7 +400,7 @@ export const PassengerProvider = ({ children }) => {
       console.log(`📩 [CONTEXT] course:demarre_global reçu for RID=${reservationId}`);
       setTripStatus("en_route");
       setCurrentTrip((prev) => (prev ? { ...prev, status: "en_route" } : prev));
-      toast.success(message || "🚀 Le trajet commence !", { id: "trip-started-global" });
+      toast.success(message || "🚀 Le trajet commence !", { id: "trip-status" });
     };
 
     const onPosition = (data) => {
@@ -400,14 +433,11 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Trajet terminé 🏁',
         message: 'Vous êtes arrivé à destination. Merci d\'avoir choisi TakaTaka !',
+        id: 'trip-completion'
       });
 
-      setTimeout(() => {
-        setCurrentTrip(null);
-        setSelectedDriver(null);
-        setTripStatus(null);
-        notifiedEvents.current.clear();
-      }, 2500);
+      // Note: On ne met PAS currentTrip à null ici, car l'écran de résumé/note en a besoin.
+      // Le nettoyage se fera à la fin du processus d'évaluation.
       notifiedEvents.current.add(eventKey);
     };
 

@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { MapPin, Flag, Radar, Clock, Car, Bike, Package, Check, CreditCard, Calendar, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 
 import Modal from "../admin/ui/Modal";
 import Button from "../admin/ui/Bttn";
@@ -49,6 +50,7 @@ const TripConfirmationModal = ({
   tripDetails = {},
   user,
 }) => {
+  const { t } = useTranslation();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [tripType, setTripType] = useState("now"); // now | schedule
   const [paymentTime, setPaymentTime] = useState("advance"); // advance | end
@@ -81,7 +83,7 @@ const TripConfirmationModal = ({
         })
         .catch((err) => {
           console.error("Erreur chargement services:", err);
-          toast.error("Impossible de charger les services disponibles");
+          toast.error(t('confirmation.error_loading_services'));
         })
         .finally(() => setLoadingServices(false));
     }
@@ -157,12 +159,12 @@ const TripConfirmationModal = ({
 
   const handleConfirm = async () => {
     if (tripType === "schedule" && (!scheduleDate || !scheduleTime)) {
-      toast.error("Veuillez choisir une date et une heure");
+      toast.error(t('confirmation.error_schedule_fields'));
       return;
     }
 
     if (!selectedVehicleData?.enabled) {
-      toast.error("Ce service est actuellement désactivé");
+      toast.error(t('confirmation.service_disabled'));
       return;
     }
 
@@ -184,7 +186,7 @@ const TripConfirmationModal = ({
       const message =
         error?.response?.data?.message ||
         error?.message ||
-        "Erreur lors de la confirmation du trajet";
+        t('confirmation.error_confirming');
       toast.error(message);
     } finally {
       setIsConfirming(false);
@@ -199,9 +201,9 @@ const TripConfirmationModal = ({
       await onConfirm?.(pendingTripData, paymentResult);
 
       if (pendingTripData.tripType === "now") {
-        toast.success("Paiement validé, recherche de chauffeur...");
+        toast.success(t('confirmation.pay_success_searching'));
       } else {
-        toast.success("Paiement validé, course planifiée !");
+        toast.success(t('confirmation.pay_success_scheduled'));
       }
 
       setShowPayment(false);
@@ -211,7 +213,7 @@ const TripConfirmationModal = ({
       const message =
         error?.response?.data?.message ||
         error?.message ||
-        "Paiement OK mais erreur lors de la création de la course";
+        t('confirmation.error_creating');
       toast.error(message);
     } finally {
       setIsConfirming(false);
@@ -233,10 +235,10 @@ const TripConfirmationModal = ({
             <div className="flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  Confirmer votre trajet
+                  {t('confirmation.title')}
                 </h2>
                 <p className="text-gray-500 dark:text-gray-400">
-                  Vérifiez les détails avant de continuer
+                  {t('confirmation.subtitle')}
                 </p>
               </div>
             </div>
@@ -245,7 +247,7 @@ const TripConfirmationModal = ({
           {/* Itinéraire */}
           <Card hoverable={false} className="bg-transparent border-none shadow-none p-0">
             <CardHeader className="p-0">
-              <CardTitle size="md">Itinéraire</CardTitle>
+              <CardTitle size="md">{t('confirmation.itinerary')}</CardTitle>
             </CardHeader>
             <CardContent className="p-0 mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -255,7 +257,7 @@ const TripConfirmationModal = ({
                       <MapPin className="w-5 h-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Départ</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('confirmation.pickup')}</p>
                       <p className="font-medium text-gray-900 dark:text-gray-100">
                         {tripDetails?.pickup || "—"}
                       </p>
@@ -269,7 +271,7 @@ const TripConfirmationModal = ({
                       <Flag className="w-5 h-5 text-red-600 dark:text-red-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Destination</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('confirmation.destination')}</p>
                       <p className="font-medium text-gray-900 dark:text-gray-100">
                         {tripDetails?.destination || "—"}
                       </p>
@@ -283,7 +285,7 @@ const TripConfirmationModal = ({
                       <Radar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Distance</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('confirmation.distance')}</p>
                       <p className="font-medium text-gray-900 dark:text-gray-100">
                         {tripDetails?.estimatedDistance || "—"}
                       </p>
@@ -297,7 +299,7 @@ const TripConfirmationModal = ({
                       <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Durée estimée</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('confirmation.duration')}</p>
                       <p className="font-medium text-gray-900 dark:text-gray-100">
                         {tripDetails?.estimatedDuration || "—"}
                       </p>
@@ -311,7 +313,7 @@ const TripConfirmationModal = ({
           {/* Type de course */}
           <Card hoverable={false} className="bg-transparent border-none shadow-none p-0">
             <CardHeader className="p-0">
-              <CardTitle size="md">Type de course</CardTitle>
+              <CardTitle size="md">{t('confirmation.trip_type')}</CardTitle>
             </CardHeader>
             <CardContent className="p-0 mt-4">
               <div className="grid grid-cols-2 gap-4">
@@ -319,14 +321,14 @@ const TripConfirmationModal = ({
                   type="button"
                   onClick={() => setTripType("now")}
                   className={`p-4 rounded-xl border-2 transition-all ${tripType === "now"
-                      ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
-                      : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
+                    ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
+                    : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
                     }`}
                 >
                   <div className="flex flex-col items-center">
                     <Clock className="w-8 h-8 text-green-600 dark:text-green-400 mb-2" />
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      Maintenant
+                      {t('confirmation.now')}
                     </span>
                   </div>
                 </button>
@@ -335,14 +337,14 @@ const TripConfirmationModal = ({
                   type="button"
                   onClick={() => setTripType("schedule")}
                   className={`p-4 rounded-xl border-2 transition-all ${tripType === "schedule"
-                      ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
-                      : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
+                    ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
+                    : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
                     }`}
                 >
                   <div className="flex flex-col items-center">
                     <Calendar className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-2" />
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      Planifier
+                      {t('confirmation.schedule')}
                     </span>
                   </div>
                 </button>
@@ -357,7 +359,7 @@ const TripConfirmationModal = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Date
+                      {t('confirmation.date')}
                     </label>
                     <input
                       type="date"
@@ -369,7 +371,7 @@ const TripConfirmationModal = ({
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Heure
+                      {t('confirmation.time')}
                     </label>
                     <input
                       type="time"
@@ -386,7 +388,7 @@ const TripConfirmationModal = ({
           {/* Moment du paiement */}
           <Card hoverable={false} className="bg-transparent border-none shadow-none p-0">
             <CardHeader className="p-0">
-              <CardTitle size="md">Moment du paiement</CardTitle>
+              <CardTitle size="md">{t('confirmation.payment_time')}</CardTitle>
             </CardHeader>
             <CardContent className="p-0 mt-4">
               <div className="grid grid-cols-2 gap-4">
@@ -394,17 +396,17 @@ const TripConfirmationModal = ({
                   type="button"
                   onClick={() => setPaymentTime("advance")}
                   className={`p-4 rounded-xl border-2 transition-all ${paymentTime === "advance"
-                      ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
-                      : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
+                    ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
+                    : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
                     }`}
                 >
                   <div className="flex flex-col items-center">
                     <CreditCard className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-2" />
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      Paiement anticipé
+                      Paiement Maintenant
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Payer maintenant
+                      Payez d'avance pour un trajet sans stress
                     </span>
                   </div>
                 </button>
@@ -413,8 +415,8 @@ const TripConfirmationModal = ({
                   type="button"
                   onClick={() => setPaymentTime("end")}
                   className={`p-4 rounded-xl border-2 transition-all ${paymentTime === "end"
-                      ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
-                      : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
+                    ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20"
+                    : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
                     }`}
                 >
                   <div className="flex flex-col items-center">
@@ -423,7 +425,7 @@ const TripConfirmationModal = ({
                       Paiement à la fin
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Payer après le trajet
+                      Payez en espèces ou mobile au chauffeur
                     </span>
                   </div>
                 </button>
@@ -431,7 +433,7 @@ const TripConfirmationModal = ({
 
               {tripType === "schedule" && paymentTime === "advance" && (
                 <div className="mt-3 text-sm text-amber-700 dark:text-amber-300">
-                  ⚠️ Pour une course planifiée, tu peux soit débiter maintenant, soit réserver sans payer.
+                  {t('confirmation.schedule_warning')}
                 </div>
               )}
             </CardContent>
@@ -440,18 +442,18 @@ const TripConfirmationModal = ({
           {/* ═══════ Véhicule — DYNAMIQUE depuis admin ═══════ */}
           <Card hoverable={false} className="bg-transparent border-none shadow-none p-0">
             <CardHeader className="p-0">
-              <CardTitle size="md">Choisissez votre véhicule</CardTitle>
+              <CardTitle size="md">{t('confirmation.choose_vehicle')}</CardTitle>
             </CardHeader>
             <CardContent className="p-0 mt-4">
               {loadingServices ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-                  <span className="ml-3 text-gray-500">Chargement des services...</span>
+                  <span className="ml-3 text-gray-500">{t('confirmation.loading_services')}</span>
                 </div>
               ) : vehicles.length === 0 ? (
                 <div className="text-center py-8">
                   <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">Aucun service disponible pour le moment</p>
+                  <p className="text-gray-500">{t('confirmation.no_services')}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -473,17 +475,17 @@ const TripConfirmationModal = ({
                         }}
                         disabled={isDisabled}
                         className={`relative p-6 rounded-xl border-2 transition-all ${isDisabled
-                            ? "border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 opacity-50 cursor-not-allowed grayscale"
-                            : isSelected
-                              ? "border-green-500 bg-gradient-to-br from-green-50/50 to-blue-50/50 dark:from-green-900/10 dark:to-blue-900/10"
-                              : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
+                          ? "border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 opacity-50 cursor-not-allowed grayscale"
+                          : isSelected
+                            ? "border-green-500 bg-gradient-to-br from-green-50/50 to-blue-50/50 dark:from-green-900/10 dark:to-blue-900/10"
+                            : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
                           }`}
                       >
                         {/* Badge désactivé */}
                         {isDisabled && (
                           <div className="absolute top-2 right-2">
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 uppercase tracking-wider">
-                              Indisponible
+                              {t('confirmation.unavailable')}
                             </span>
                           </div>
                         )}
@@ -491,8 +493,8 @@ const TripConfirmationModal = ({
                         <div className="flex flex-col items-center text-center">
                           <div
                             className={`w-20 h-20 rounded-full ${isDisabled
-                                ? "bg-gray-200 dark:bg-gray-700"
-                                : vehicle.color.bg
+                              ? "bg-gray-200 dark:bg-gray-700"
+                              : vehicle.color.bg
                               } flex items-center justify-center mb-4 ${isSelected && !isDisabled
                                 ? "ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900"
                                 : ""
@@ -500,8 +502,8 @@ const TripConfirmationModal = ({
                           >
                             <Icon
                               className={`w-10 h-10 ${isDisabled
-                                  ? "text-gray-400 dark:text-gray-500"
-                                  : vehicle.color.text
+                                ? "text-gray-400 dark:text-gray-500"
+                                : vehicle.color.text
                                 }`}
                             />
                           </div>
@@ -525,7 +527,7 @@ const TripConfirmationModal = ({
                             <div className="mt-2">
                               <Badge variant="success" size="sm">
                                 <Check className="w-3 h-3 mr-1" />
-                                Sélectionné
+                                {t('confirmation.selected')}
                               </Badge>
                             </div>
                           )}
@@ -541,25 +543,25 @@ const TripConfirmationModal = ({
           {/* Prix */}
           <Card className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20">
             <CardHeader>
-              <CardTitle size="md">Récapitulatif du prix</CardTitle>
-              <p className="text-gray-600 dark:text-gray-400">Prix estimé pour votre trajet</p>
+              <CardTitle size="md">{t('confirmation.price_summary')}</CardTitle>
+              <p className="text-gray-600 dark:text-gray-400">{t('confirmation.price_summary_desc')}</p>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Prix de base</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('confirmation.base_price')}</span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">
                     {basePrice.toLocaleString()} GNF
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Frais de service</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('confirmation.service_fee')}</span>
                   <span className="font-medium text-green-600 dark:text-green-400">
                     + {serviceFee.toLocaleString()} GNF
                   </span>
                 </div>
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between font-bold text-lg">
-                  <span className="text-gray-900 dark:text-gray-100">Total</span>
+                  <span className="text-gray-900 dark:text-gray-100">{t('confirmation.total')}</span>
                   <span className="text-green-700 dark:text-green-500">
                     {totalPrice.toLocaleString()} GNF
                   </span>
@@ -571,7 +573,7 @@ const TripConfirmationModal = ({
           {/* Actions */}
           <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
             <Button variant="secondary" fullWidth onClick={onClose} className="sm:flex-1">
-              Modifier le trajet
+              {t('confirmation.modify_btn')}
             </Button>
             <Button
               variant="primary"
@@ -582,7 +584,7 @@ const TripConfirmationModal = ({
               className="sm:flex-1"
               disabled={!selectedVehicleData?.enabled}
             >
-              {paymentTime === "advance" ? "Continuer vers paiement" : "Confirmer et chercher un chauffeur"}
+              {paymentTime === "advance" ? t('confirmation.confirm_pay_btn') : t('confirmation.confirm_search_btn')}
             </Button>
           </div>
         </div>

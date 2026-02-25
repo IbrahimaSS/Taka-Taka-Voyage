@@ -1,12 +1,24 @@
 // src/components/settings/components/GeneralSettings.jsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Upload, Globe, Clock, MessageSquare, Shield, Building, FileText } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Bttn';
 import Switch from '../ui/Switch';
+import i18n from '../../../i18n/config';
+
+// Liste des langues supportées par la plateforme
+const SUPPORTED_LANGUAGES = [
+  { code: 'fr', translationKey: 'languages.french', flag: '🇫🇷', nativeName: 'Français' },
+  { code: 'en', translationKey: 'languages.english', flag: '🇬🇧', nativeName: 'English' },
+  { code: 'pular', translationKey: 'languages.pular', flag: '🇬🇳', nativeName: 'Pulaar' },
+  { code: 'soussou', translationKey: 'languages.soussou', flag: '🇬🇳', nativeName: 'Susu' },
+  { code: 'malinke', translationKey: 'languages.malinke', flag: '🇬🇳', nativeName: 'Maninka' }
+];
 
 const GeneralSettings = ({ settings, updateSetting, showToast }) => {
+  const { t } = useTranslation();
   const [logoPreview, setLogoPreview] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -14,7 +26,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
     const file = event.target.files[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        showToast('Erreur', 'L\'image ne doit pas dépasser 2MB', 'error');
+        showToast(t('common.error'), t('settings.logo_size_error'), 'error');
         return;
       }
 
@@ -22,7 +34,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
       reader.onload = (e) => {
         setLogoPreview(e.target.result);
         updateSetting('platform.logo', e.target.result);
-        showToast('Succès', 'Logo mis à jour', 'success');
+        showToast(t('common.success'), t('settings.logo_updated'), 'success');
       };
       reader.readAsDataURL(file);
     }
@@ -54,14 +66,14 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
         <CardHeader>
           <CardTitle className="text-blue-800 flex items-center">
             <Building className="w-5 h-5 mr-2" />
-            Informations de la plateforme
+            {t('settings.platform_info')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Nom de la plateforme
+                {t('settings.platform_name')}
               </label>
               <input
                 type="text"
@@ -74,7 +86,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Slogan/Tagline
+                {t('settings.tagline')}
               </label>
               <input
                 type="text"
@@ -87,7 +99,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Devise principale
+                {t('settings.main_currency')}
               </label>
               <select
                 value={settings.platform?.currency || 'GNF'}
@@ -104,7 +116,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Fuseau horaire
+                {t('settings.timezone')}
               </label>
               <div className="relative">
                 <Clock className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500 w-5 h-5" />
@@ -124,7 +136,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
           {/* Logo */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Logo de la plateforme
+              {t('settings.platform_logo')}
             </label>
             <div className="flex items-center space-x-6">
               <div className="relative">
@@ -154,7 +166,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
 
               <div className="flex-1">
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                  Taille recommandée: 512x512 pixels. Formats acceptés: PNG, JPG, SVG (max 2MB)
+                  {t('settings.logo_recommendation') || 'Taille recommandée: 512x512 pixels. Formats acceptés: PNG, JPG, SVG (max 2MB)'}
                 </p>
                 <div className="flex space-x-3">
                   <Button
@@ -163,7 +175,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
                     className="cursor-pointer"
                     onClick={handleImportClick}
                   >
-                    Changer le logo
+                    {t('common.change_logo')}
                   </Button>
                   {(logoPreview || settings.platform?.logo) && (
                     <Button
@@ -173,7 +185,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
                         updateSetting('platform.logo', null);
                       }}
                     >
-                      Supprimer
+                      {t('common.delete')}
                     </Button>
                   )}
                 </div>
@@ -183,11 +195,11 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
 
           {/* Contact Information */}
           <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Coordonnées de contact</h4>
+            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">{t('settings.contact_info')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                  Email de contact
+                  {t('settings.contact_email')}
                 </label>
                 <input
                   type="email"
@@ -199,7 +211,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                  Téléphone de contact
+                  {t('settings.contact_phone')}
                 </label>
                 <input
                   type="tel"
@@ -211,7 +223,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                  Site Web
+                  {t('settings.website')}
                 </label>
                 <input
                   type="url"
@@ -231,7 +243,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
         <CardHeader>
           <CardTitle className="text-red-800 flex items-center">
             <Shield className="w-5 h-5 mr-2" />
-            Mode maintenance
+            {t('settings.maintenance_mode')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -241,9 +253,9 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
                 <Shield className="text-red-600 w-5 h-5" />
               </div>
               <div>
-                <p className="font-medium text-gray-800 dark:text-gray-100">Activer le mode maintenance</p>
+                <p className="font-medium text-gray-800 dark:text-gray-100">{t('settings.activate_maintenance')}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  La plateforme sera inaccessible aux utilisateurs non administrateurs
+                  {t('settings.maintenance_description')}
                 </p>
               </div>
             </div>
@@ -261,7 +273,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
             >
               <div className="space-y-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Message de maintenance
+                  {t('settings.maintenance_message')}
                 </label>
                 <div className="relative">
                   <MessageSquare className="absolute left-3 top-3 text-gray-400 dark:text-gray-500 w-5 h-5" />
@@ -277,7 +289,7 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
                 <div className="flex items-center space-x-3 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
                   <Shield className="w-5 h-5 text-yellow-600 flex-shrink-0" />
                   <p className="text-sm text-yellow-700">
-                    <strong>Note :</strong> Seuls les administrateurs pourront accéder à la plateforme en mode maintenance.
+                    <strong>{t('common.note')} :</strong> {t('settings.maintenance_note')}
                   </p>
                 </div>
               </div>
@@ -291,30 +303,49 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
         <CardHeader>
           <CardTitle className="text-gray-500 dark:text-gray-400 flex items-center">
             <Globe className="w-5 h-5 mr-2" />
-            Localisation et langue
+            {t('settings.localization_title')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Langue par défaut
+                {t('settings.default_language')}
               </label>
               <select
                 value={settings.platform?.language || 'fr'}
-                onChange={(e) => updateSetting('platform.language', e.target.value)}
+                onChange={(e) => {
+                  const newLang = e.target.value;
+                  const langInfo = SUPPORTED_LANGUAGES.find(l => l.code === newLang);
+                  updateSetting('platform.language', newLang);
+                  // Changement immédiat de la langue i18n
+                  i18n.changeLanguage(newLang);
+                  if (showToast && langInfo) {
+                    showToast(
+                      t('common.success'),
+                      t('languages.language_changed', { lang: langInfo.nativeName }),
+                      'success'
+                    );
+                  }
+                }}
                 className="w-full border-2 border-gray-200 dark:bg-gray-900/40 dark:border-gray-900/40 rounded-xl px-4 py-3 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all"
               >
-                <option value="fr">Français</option>
-                <option value="en">English</option>
-                <option value="es">Español</option>
-                <option value="ar">العربية</option>
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.flag} {t(lang.translationKey)} ({lang.nativeName})
+                  </option>
+                ))}
               </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {t('languages.language_change_desc', {
+                  lang: SUPPORTED_LANGUAGES.find(l => l.code === (settings.platform?.language || 'fr'))?.nativeName || 'Français'
+                })}
+              </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Pays d'opération
+                {t('settings.operating_country')}
               </label>
               <select
                 value={settings.platform?.country || 'GN'}
@@ -332,14 +363,14 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Coordonnées de l'entreprise
+              {t('settings.company_address')}
             </label>
             <textarea
               value={settings.platform?.companyAddress || ''}
               onChange={(e) => updateSetting('platform.companyAddress', e.target.value)}
               rows="3"
               className="w-full border-2 border-gray-200 dark:bg-gray-900/40 dark:border-gray-900/40 rounded-xl px-4 py-3 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all"
-              placeholder="Adresse complète de l'entreprise..."
+              placeholder={t('settings.address_placeholder')}
             />
           </div>
         </CardContent>

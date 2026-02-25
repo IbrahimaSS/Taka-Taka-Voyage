@@ -3,11 +3,25 @@
 // quand l'admin active le mode maintenance via Socket.IO
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, RefreshCw, Wifi } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Wifi, Lock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useLocation, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import socketService from '../../services/socketService';
 
 const MaintenanceBanner = () => {
+    const { t } = useTranslation();
+    const location = useLocation();
+    const { user } = useAuth();
     const [maintenanceData, setMaintenanceData] = useState(null); // null = pas de maintenance
+
+    // Chemins autorisés même en maintenance
+    const allowedPaths = ['/connexion', '/login', '/admin/login'];
+    const isAllowedPath = allowedPaths.some(path => location.pathname.startsWith(path));
+    const isAdmin = user?.role === 'ADMIN';
+
+    // On ne montre la bannière QUE si on n'est pas admin et pas sur un chemin autorisé
+    const shouldShowBanner = maintenanceData && !isAdmin && !isAllowedPath;
 
     useEffect(() => {
         const handleOn = (data) => {
@@ -29,7 +43,7 @@ const MaintenanceBanner = () => {
 
     return (
         <AnimatePresence>
-            {maintenanceData && (
+            {shouldShowBanner && (
                 <motion.div
                     key="maintenance-overlay"
                     initial={{ opacity: 0 }}
@@ -94,7 +108,7 @@ const MaintenanceBanner = () => {
                             marginBottom: '12px',
                             letterSpacing: '-0.5px',
                         }}>
-                            Maintenance en cours
+                            {t('maintenance.title')}
                         </h2>
 
                         {/* Logo / nom de la plateforme */}
@@ -140,7 +154,7 @@ const MaintenanceBanner = () => {
                             >
                                 <RefreshCw style={{ width: '16px', height: '16px' }} />
                             </motion.div>
-                            Équipe technique au travail...
+                            {t('maintenance.working_msg')}
                         </div>
 
                         {/* Tip */}
@@ -155,8 +169,27 @@ const MaintenanceBanner = () => {
                         }}>
                             <Wifi style={{ width: '14px', height: '14px', color: '#6b7280', flexShrink: 0 }} />
                             <p style={{ fontSize: '12px', color: '#6b7280', margin: 0, textAlign: 'left' }}>
-                                Vous serez automatiquement redirigé lorsque la plateforme sera de nouveau disponible.
+                                {t('maintenance.eta')}
                             </p>
+                        </div>
+
+                        {/* Lien Admin */}
+                        <div style={{ marginTop: '32px' }}>
+                            <Link
+                                to="/connexion"
+                                style={{
+                                    color: 'rgba(255,255,255,0.25)',
+                                    fontSize: '11px',
+                                    textDecoration: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                <Lock size={12} />
+                                Accès administration
+                            </Link>
                         </div>
                     </motion.div>
                 </motion.div>

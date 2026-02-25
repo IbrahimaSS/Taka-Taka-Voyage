@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Gift, User, MapPin, LogOut, Navigation, Moon, Sun, Car } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
 import { usePassenger } from '../../context/PassengerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotificationCenter } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../common/LanguageSwitcher';
 
 const PassengerNavbar = ({
   activeTab,
@@ -17,6 +19,7 @@ const PassengerNavbar = ({
   isTripInProgress = false,
   onNavigateToTracking
 }) => {
+  const { t, i18n } = useTranslation();
   const { settings } = useSettings();
   const platform = settings?.platform || {};
 
@@ -28,6 +31,8 @@ const PassengerNavbar = ({
   const { passenger } = usePassenger();
   const { theme, toggleTheme, isDark } = useTheme();
   const { logout } = useAuth();
+
+  const dateLocale = i18n.language === 'en' ? enUS : fr;
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -72,7 +77,7 @@ const PassengerNavbar = ({
               <h1 className="text-2xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">
                 {platform.name || 'TakaTaka'}
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{platform.tagline || 'Mobilité intelligente'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{platform.tagline || t('common.welcome')}</p>
             </div>
           </motion.div>
 
@@ -90,7 +95,7 @@ const PassengerNavbar = ({
                     }`}
                 >
                   <Icon className="w-4 h-4 mr-2" />
-                  {tab.label}
+                  {t(`nav.${tab.id}`)}
                 </button>
               );
             })}
@@ -110,7 +115,7 @@ const PassengerNavbar = ({
                   className="bg-gradient-to-r from-green-500 to-blue-600 text-white px-3 py-2 rounded-lg flex items-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
                 >
                   <Navigation className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">Suivi actif</span>
+                  <span className="hidden sm:inline">{t('nav.live_tracking')}</span>
                   <span className="ml-2 px-2 py-1 bg-white/20 rounded-full text-xs animate-pulse">
                     ●
                   </span>
@@ -118,11 +123,14 @@ const PassengerNavbar = ({
               </motion.div>
             )}
 
+            {/* Language Switcher */}
+            <LanguageSwitcher variant="simple" />
+
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
               className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300"
-              title={isDark ? 'Passer au mode clair' : 'Passer au mode sombre'}
+              title={isDark ? t('settings.light_mode') : t('settings.dark_mode')}
             >
               <AnimatePresence mode="wait">
                 <motion.div
@@ -146,7 +154,7 @@ const PassengerNavbar = ({
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative cursor-pointer p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                title="Notifications"
+                title={t('common.notifications') || 'Notifications'}
               >
                 <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                 {unreadCount > 0 && (
@@ -166,13 +174,13 @@ const PassengerNavbar = ({
                     className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden"
                   >
                     <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-                      <h3 className="font-bold text-gray-900 dark:text-white text-sm uppercase tracking-wider">Notifications</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-white text-sm uppercase tracking-wider">{t('notifications.title')}</h3>
                       {unreadCount > 0 && (
                         <button
                           onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}
                           className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
                         >
-                          Tout lire
+                          {t('notifications.mark_all_as_read')}
                         </button>
                       )}
                     </div>
@@ -201,14 +209,14 @@ const PassengerNavbar = ({
                                 </p>
                               </div>
                               <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-                                {formatDistanceToNow(new Date(notification.timestamp), { locale: fr })}
+                                {formatDistanceToNow(new Date(notification.timestamp), { locale: dateLocale })}
                               </span>
                             </div>
                           </div>
                         ))
                       ) : (
                         <div className="p-8 text-center text-gray-500">
-                          Aucune notification
+                          {t('notifications.no_notifications')}
                         </div>
                       )}
                     </div>
@@ -236,9 +244,9 @@ const PassengerNavbar = ({
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {passenger ? `${passenger.prenom || ""} ${passenger.nom || ""}` : "Chargement..."}
+                    {passenger ? `${passenger.prenom || ""} ${passenger.nom || ""}` : t('common.loading')}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Mode Passager</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('nav.mode_passager')}</p>
                 </div>
                 <motion.div
                   animate={{ rotate: showProfileMenu ? 180 : 0 }}
@@ -257,7 +265,7 @@ const PassengerNavbar = ({
                 >
                   <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      {passenger ? `${passenger.prenom} ${passenger.nom}` : "Utilisateur"}
+                      {passenger ? `${passenger.prenom} ${passenger.nom}` : t('common.user_label')}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{passenger?.email || ""}</p>
                   </div>
@@ -274,7 +282,7 @@ const PassengerNavbar = ({
                           className="w-full text-left px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-600 dark:hover:text-green-400 transition-colors flex items-center"
                         >
                           <Icon className="w-4 h-4 mr-3 opacity-70" />
-                          <span className="text-sm font-medium">{tab.label}</span>
+                          <span className="text-sm font-medium">{t(`nav.${tab.id}`)}</span>
                         </button>
                       );
                     })}
@@ -288,7 +296,7 @@ const PassengerNavbar = ({
                       className="w-full text-left px-4 py-2.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center"
                     >
                       <LogOut className="w-4 h-4 mr-3 opacity-70" />
-                      <span className="text-sm font-medium">Déconnexion</span>
+                      <span className="text-sm font-medium">{t('nav.logout')}</span>
                     </button>
                   </div>
                 </motion.div>

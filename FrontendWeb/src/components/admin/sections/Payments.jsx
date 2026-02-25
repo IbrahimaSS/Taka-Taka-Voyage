@@ -39,6 +39,7 @@ import {
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { color } from 'chart.js/helpers';
+import { useTranslation } from 'react-i18next';
 import { adminService } from '../../../services/adminService';
 import PremiumInvoice from '../ui/PremiumInvoice';
 import ExportDropdown from '../ui/ExportDropdown';
@@ -93,9 +94,9 @@ const mapBackendPaymentToFrontend = (p) => {
     _id: p._id,
     transactionId: p.transactionId || `TXN-${p._id.slice(-8).toUpperCase()}`,
     passenger: {
-      name: passager.nom ? `${passager.prenom || ''} ${passager.nom}`.trim() : 'Utilisateur Client',
-      phone: passager.telephone || '-',
-      email: passager.email || '-',
+      name: passager.nomComplet || (passager.nom ? `${passager.prenom || ''} ${passager.nom}`.trim() : 'Utilisateur Client'),
+      phone: passager.telephone || passager.phone || passager.mobile || passager.tel || (passager.utilisateur && (passager.utilisateur.telephone || passager.utilisateur.phone)) || '-',
+      email: passager.email || (passager.utilisateur && passager.utilisateur.email) || '-',
       rating: passager.noteMoyenne ? passager.noteMoyenne.toFixed(1) : '-',
       photo: passager.photoUrl || null
     },
@@ -104,7 +105,11 @@ const mapBackendPaymentToFrontend = (p) => {
       phone: chauffeur.telephone || '-',
       email: chauffeur.email || '-',
       rating: chauffeur.noteMoyenne ? chauffeur.noteMoyenne.toFixed(1) : '-',
-      vehicle: chauffeur.vehicule ? `${chauffeur.vehicule.marque || ''} ${chauffeur.vehicule.modele || ''}`.trim() : '-',
+      vehicle: chauffeur.vehicule
+        ? (typeof chauffeur.vehicule === 'object'
+          ? `${chauffeur.vehicule.marque || ''} ${chauffeur.vehicule.modele || ''}`.trim() || chauffeur.vehicule.marque || chauffeur.vehicule.modele || '-'
+          : chauffeur.vehicule)
+        : '-',
       account: chauffeur.email || chauffeur.telephone || '-',
       photo: chauffeur.photoUrl || null
     },
@@ -147,6 +152,7 @@ const mapBackendPaymentToFrontend = (p) => {
 
 // Composant pour les actions de paiement
 const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => {
+  const { t } = useTranslation();
   const [showActions, setShowActions] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const menuRef = useRef(null);
@@ -184,7 +190,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
                   }}
                   className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                   <FileText className="w-4 h-4 mr-3 text-red-500" />
-                  Export PDF
+                  {t('payments.export_pdf')}
                 </button>
                 <button
                   onClick={() => {
@@ -193,7 +199,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
                   }}
                   className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                   <FileSpreadsheet className="w-4 h-4 mr-3 text-green-500" />
-                  Export CSV
+                  {t('payments.export_csv')}
                 </button>
                 <button
                   onClick={() => {
@@ -252,7 +258,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
                   }}
                   className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                   <RefreshCw className="w-4 h-4 mr-2 text-orange-500" />
-                  Rembourser
+                  {t('payments.refund')}
                 </button>
               )}
               <button
@@ -262,7 +268,7 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
                 }}
                 className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200">
                 <FileText className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
-                Imprimer
+                {t('payments.print')}
               </button>
             </div>
           </motion.div>
@@ -274,12 +280,13 @@ const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => 
 
 // Composant pour la vue mobile
 const MobilePaymentCard = ({ payment, isSelected, onSelect, onAction }) => {
+  const { t } = useTranslation();
   const getMethodBadge = (method) => {
     const config = {
-      'cash': { label: 'Espèces', variant: 'success', icon: DollarSign },
-      'orange': { label: 'Orange Money', variant: 'warning', icon: Smartphone },
-      'mtn': { label: 'MTN Mobile Money', variant: 'primary', icon: CreditCard },
-      'card': { label: 'Carte', variant: 'secondary', icon: CreditCardIcon },
+      'cash': { label: t('payments.cash'), variant: 'success', icon: DollarSign },
+      'orange': { label: t('payments.orange_money'), variant: 'warning', icon: Smartphone },
+      'mtn': { label: t('payments.mobile_money'), variant: 'primary', icon: CreditCard },
+      'card': { label: t('payments.card'), variant: 'secondary', icon: CreditCardIcon },
     };
 
     const { label, variant } = config[method] || config.cash;
@@ -292,10 +299,10 @@ const MobilePaymentCard = ({ payment, isSelected, onSelect, onAction }) => {
 
   const getStatusBadge = (status) => {
     const config = {
-      'paid': { label: 'Payé', variant: 'success', icon: CheckCircle },
-      'pending': { label: 'En attente', variant: 'warning', icon: Hourglass },
-      'failed': { label: 'Échoué', variant: 'danger', icon: XCircle },
-      'refunded': { label: 'Remboursé', variant: 'secondary', icon: RefreshCw }
+      'paid': { label: t('history.status.completed'), variant: 'success', icon: CheckCircle },
+      'pending': { label: t('history.status.pending'), variant: 'warning', icon: Hourglass },
+      'failed': { label: t('history.status.cancelled'), variant: 'danger', icon: XCircle },
+      'refunded': { label: t('payments.refunded_payments'), variant: 'secondary', icon: RefreshCw }
     };
 
     const { label, variant } = config[status] || config.pending;
@@ -390,6 +397,7 @@ const Avatar = ({ name, photoUrl, type = 'passenger', size = 'w-8 h-8', classNam
 // Remplacer les donnees simulees et les actions locales par des appels backend
 // Exemple: GET API_ROUTES.payments.list, POST API_ROUTES.payments.confirm
 const Payments = () => {
+  const { t } = useTranslation();
   // États principaux
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -466,15 +474,15 @@ const Payments = () => {
   // États pour les modales et notifications
   // Configuration des colonnes pour l'exportation
   const exportColumns = useMemo(() => [
-    { header: 'ID Facture', accessor: 'invoiceNumber' },
-    { header: 'Passager', accessor: (p) => p.passenger.name },
-    { header: 'Chauffeur', accessor: (p) => p.driver.name },
-    { header: 'Montant', accessor: 'amount' },
-    { header: 'Méthode', accessor: 'method' },
-    { header: 'Date', accessor: 'date' },
-    { header: 'Statut', accessor: 'status' },
-    { header: 'Transaction ID', accessor: 'transactionId' },
-  ], []);
+    { header: t('payments.invoice_id'), accessor: 'invoiceNumber' },
+    { header: t('trips.passenger'), accessor: (p) => p.passenger.name },
+    { header: t('trips.driver'), accessor: (p) => p.driver.name },
+    { header: t('payments.amount'), accessor: 'amount' },
+    { header: t('payments.method'), accessor: 'method' },
+    { header: t('trips.date'), accessor: 'date' },
+    { header: t('common.status'), accessor: 'status' },
+    { header: t('payments.txn_id'), accessor: 'transactionId' },
+  ], [t]);
 
   const [modalState, setModalState] = useState({
     showDetails: false,
@@ -525,34 +533,34 @@ const Payments = () => {
 
     return [
       {
-        title: "Revenus totaux",
-        value: `${(totalRevenue || 0).toLocaleString('fr-FR')} GNF`,
+        title: t('payments.total_revenue'),
+        value: `${(totalRevenue || 0).toLocaleString()} GNF`,
         icon: DollarSign,
         color: "green",
         trend: "up",
         percentage: payRate,
         progress: payRate,
-        subtitle: `${totalPayes} paiements encaissés`
+        subtitle: `${totalPayes} ${t('payments.settled_payments')}`
       },
       {
-        title: "Total paiements",
+        title: t('payments.total_payments'),
         value: (totalCount || 0).toString(),
         icon: Repeat,
         color: "blue",
         trend: "up",
         percentage: payRate,
         progress: payRate,
-        subtitle: `${totalPayes} payés, ${totalEnAttente} en attente`
+        subtitle: `${totalPayes} ${t('history.status.completed').toLowerCase()}, ${totalEnAttente} ${t('history.status.pending').toLowerCase()}`
       },
       {
-        title: "Commission plateforme",
-        value: `${(totalCommission || 0).toLocaleString('fr-FR')} GNF`,
+        title: t('payments.platform_commission'),
+        value: `${(totalCommission || 0).toLocaleString()} GNF`,
         icon: Percent,
         color: "purple",
         trend: "up",
         percentage: commissionRate,
         progress: commissionRate,
-        subtitle: `~${commissionRate}% des revenus`
+        subtitle: `~${commissionRate}% ${t('payments.of_revenue')}`
       }
     ];
   }, [payments, apiStats]);
@@ -563,16 +571,16 @@ const Payments = () => {
     if (revenueData.length > 0) {
       return {
         revenueChart: {
-          labels: revenueData.map(d => new Date(d.label).toLocaleDateString('fr-FR')),
+          labels: revenueData.map(d => new Date(d.label).toLocaleDateString()),
           datasets: [{
-            label: 'Revenus (GNF)',
+            label: t('payments.total_revenue') + ' (GNF)',
             data: revenueData.map(d => d.revenus),
             borderColor: '#10B981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             tension: 0.4,
             fill: true
           }, {
-            label: 'Commission (GNF)',
+            label: t('payments.platform_commission') + ' (GNF)',
             data: revenueData.map(d => d.commissions),
             borderColor: '#8B5CF6',
             backgroundColor: 'rgba(139, 92, 246, 0.1)',
@@ -1043,10 +1051,10 @@ const Payments = () => {
   // Helper pour afficher le badge de méthode
   const getMethodBadge = (method) => {
     const config = {
-      'cash': { label: 'Espèces', color: 'green', icon: DollarSign },
-      'orange': { label: 'Orange Money', color: 'yellow', icon: Smartphone },
-      'mtn': { label: 'MTN ', color: 'red', icon: CreditCard },
-      'card': { label: 'Carte', color: 'gray', icon: CreditCardIcon },
+      'cash': { label: t('payments.cash'), color: 'green', icon: DollarSign },
+      'orange': { label: t('payments.orange_money'), color: 'yellow', icon: Smartphone },
+      'mtn': { label: t('payments.mobile_money'), color: 'red', icon: CreditCard },
+      'card': { label: t('payments.card'), color: 'gray', icon: CreditCardIcon },
     };
 
     const { label, color, icon: Icon } = config[method] || config.cash;
@@ -1061,10 +1069,10 @@ const Payments = () => {
   // Helper pour afficher le badge de statut
   const getStatusBadge = (status) => {
     const config = {
-      'paid': { label: 'Payé', color: 'green', icon: CheckCircle },
-      'pending': { label: 'En attente', color: 'yellow', icon: Hourglass },
-      'failed': { label: 'Échoué', color: 'red', icon: XCircle },
-      'refunded': { label: 'Remboursé', color: 'gray', icon: RefreshCw }
+      'paid': { label: t('history.status.completed'), color: 'green', icon: CheckCircle },
+      'pending': { label: t('history.status.pending'), color: 'yellow', icon: Hourglass },
+      'failed': { label: t('history.status.cancelled'), color: 'red', icon: XCircle },
+      'refunded': { label: t('payments.refunded_payments'), color: 'gray', icon: RefreshCw }
     };
 
     const { label, color, icon: Icon } = config[status] || config.pending;
@@ -1078,11 +1086,11 @@ const Payments = () => {
 
   // Configuration des tabs
   const tabs = [
-    { id: 'all', label: 'Tous', icon: DollarSign },
-    { id: 'paid', label: 'Payés', icon: CheckCircle },
-    { id: 'pending', label: 'En attente', icon: Hourglass },
-    { id: 'failed', label: 'Échoués', icon: XCircle },
-    { id: 'refunded', label: 'Remboursés', icon: RefreshCw }
+    { id: 'all', label: t('history.status.all'), icon: DollarSign },
+    { id: 'paid', label: t('history.status.completed'), icon: CheckCircle },
+    { id: 'pending', label: t('history.status.pending'), icon: Hourglass },
+    { id: 'failed', label: t('history.status.cancelled'), icon: XCircle },
+    { id: 'refunded', label: t('payments.refunded_payments'), icon: RefreshCw }
   ];
 
   // Modal de détails du paiement
@@ -1094,20 +1102,20 @@ const Payments = () => {
       <Modal
         isOpen={modalState.showDetails}
         onClose={() => setModalState(prev => ({ ...prev, showDetails: false }))}
-        title="Détails du paiement"
+        title={t('payments.details_title')}
         size="lg">
         <div className="space-y-6 scroll-m-t-2 overflow-auto h-[70vh]">
           {/* En-tête */}
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Transaction {payment.id}</h2>
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">{t('payments.id') || 'Transaction'} {payment.id}</h2>
               <p className="text-gray-600 dark:text-gray-300 mt-1">
-                Référence: {payment.reference} • {payment.date} à {payment.time}
+                {t('payments.reference')}: {payment.reference} • {payment.date} {t('common.at') || 'à'} {payment.time}
               </p>
               <div className="flex items-center mt-2 space-x-2">
                 {getStatusBadge(payment.status)}
                 {getMethodBadge(payment.method)}
-                {payment.archived && <Badge variant="secondary">Archivé</Badge>}
+                {payment.archived && <Badge variant="secondary">{t('payments.archived')}</Badge>}
               </div>
             </div>
             <div className="text-right">
@@ -1119,24 +1127,24 @@ const Payments = () => {
           {/* Informations du trajet */}
           <Card>
             <CardHeader>
-              <CardTitle>Informations du trajet</CardTitle>
+              <CardTitle>{t('trips.details_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Trajet ID</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('trips.trip_id')}</p>
                   <p className="font-medium">{payment.trip.id}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Itinéraire</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('trips.route')}</p>
                   <p className="font-medium">{payment.trip.route}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Distance</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('trips.distance')}</p>
                   <p className="font-medium">{payment.trip.distance}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Durée</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('trips.duration')}</p>
                   <p className="font-medium">{payment.trip.duration}</p>
                 </div>
               </div>
@@ -1147,7 +1155,7 @@ const Payments = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle>Passager</CardTitle>
+                <CardTitle>{t('trips.passenger')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -1165,8 +1173,8 @@ const Payments = () => {
                     </div>
                   </div>
                   <div className="text-sm">
-                    <p className="text-gray-500 dark:text-gray-400">Email: {payment.passenger.email}</p>
-                    <p className="text-gray-500 dark:text-gray-400">Note: {payment.passenger.rating}/5</p>
+                    <p className="text-gray-500 dark:text-gray-400">{t('common.email')}: {payment.passenger.email}</p>
+                    <p className="text-gray-500 dark:text-gray-400">{t('common.rating') || 'Note'}: {payment.passenger.rating}/5</p>
                   </div>
                 </div>
               </CardContent>
@@ -1174,7 +1182,7 @@ const Payments = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Chauffeur</CardTitle>
+                <CardTitle>{t('trips.driver')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -1192,8 +1200,8 @@ const Payments = () => {
                     </div>
                   </div>
                   <div className="text-sm">
-                    <p className="text-gray-500 dark:text-gray-400">Véhicule: {payment.driver.vehicle}</p>
-                    <p className="text-gray-500 dark:text-gray-400">Note: {payment.driver.rating !== '-' ? `${payment.driver.rating}/5` : 'Non noté'}</p>
+                    <p className="text-gray-500 dark:text-gray-400">{t('drivers.vehicle')}: {payment.driver.vehicle}</p>
+                    <p className="text-gray-500 dark:text-gray-400">{t('common.rating') || 'Note'}: {payment.driver.rating !== '-' ? `${payment.driver.rating}/5` : t('common.not_rated') || 'Non noté'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1203,31 +1211,31 @@ const Payments = () => {
           {/* Détails financiers */}
           <Card>
             <CardHeader>
-              <CardTitle>Détails financiers</CardTitle>
+              <CardTitle>{t('payments.financial_details')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Montant total:</span>
+                  <span className="text-gray-600 dark:text-gray-300">{t('payments.total_amount')}:</span>
                   <span className="font-medium">{payment.amount}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Commission ({payment.commissionRate || '20%'}):</span>
+                  <span className="text-gray-600 dark:text-gray-300">{t('common.commission')}: ({payment.commissionRate || '20%'}):</span>
                   <span className="font-medium text-red-600">-{payment.commission}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Frais de plateforme:</span>
+                  <span className="text-gray-600 dark:text-gray-300">{t('payments.platform_fees')}:</span>
                   <span className="font-medium">-{payment.fees?.platform || '0 GNF'}</span>
                 </div>
                 {payment.fees?.processing && payment.fees.processing !== '0 GNF' && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">Frais de traitement:</span>
+                    <span className="text-gray-600 dark:text-gray-300">{t('payments.processing_fees')}:</span>
                     <span className="font-medium">-{payment.fees.processing}</span>
                   </div>
                 )}
                 <div className="border-t border-gray-200 dark:border-gray-800 pt-3 mt-3">
                   <div className="flex justify-between font-bold">
-                    <span>Montant net chauffeur:</span>
+                    <span>{t('payments.net_driver_amount')}:</span>
                     <span className="text-green-600">{payment.netAmount}</span>
                   </div>
                 </div>
@@ -1239,21 +1247,21 @@ const Payments = () => {
           <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle>Informations techniques</CardTitle>
+                <CardTitle>{t('payments.technical_info')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">ID Transaction:</span>
+                    <span className="text-gray-600 dark:text-gray-300">{t('payments.txn_id')}:</span>
                     <span className="font-medium">{payment.transactionId}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">Référence:</span>
+                    <span className="text-gray-600 dark:text-gray-300">{t('payments.reference')}:</span>
                     <span className="font-medium">{payment.reference}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-300">Traité le:</span>
-                    <span className="font-medium">{payment.processedAt || 'Non traité'}</span>
+                    <span className="text-gray-600 dark:text-gray-300">{t('payments.processed_at')}:</span>
+                    <span className="font-medium">{payment.processedAt || t('payments.not_processed')}</span>
                   </div>
                   {/* <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-300">Passerelle:</span>
@@ -1269,7 +1277,7 @@ const Payments = () => {
             <Button
               variant="secondary"
               onClick={() => setModalState(prev => ({ ...prev, showDetails: false }))}>
-              Fermer
+              {t('common.close')}
             </Button>
             {payment.invoiceGenerated && (
               <Button
@@ -1279,7 +1287,7 @@ const Payments = () => {
                   handleDownloadInvoice(payment);
                   setModalState(prev => ({ ...prev, showDetails: false }));
                 }}>
-                Télécharger facture
+                {t('payments.download_invoice')}
               </Button>
             )}
             <Button
@@ -1287,9 +1295,9 @@ const Payments = () => {
               icon={Share2}
               onClick={() => {
                 navigator.clipboard.writeText(payment.id);
-                showToast('ID copié', 'L\'ID de la transaction a été copié', 'success');
+                showToast(t('common.saved'), t('payments.id_copied'), 'success');
               }}>
-              Partager
+              {t('common.share')}
             </Button>
           </div>
         </div>
@@ -1307,15 +1315,15 @@ const Payments = () => {
         isOpen={modalState.showRefund}
         onClose={() => setModalState(prev => ({ ...prev, showRefund: false }))}
         onConfirm={() => handleRefundPayment(payment.id)}
-        title="Confirmer le remboursement"
-        message={`Êtes-vous sûr de vouloir rembourser le paiement ${payment.id} d'un montant de ${payment.amount} ?`}
+        title={t('payments.confirm_refund')}
+        message={t('payments.refund_confirm_msg', { id: payment.id, amount: payment.amount })}
         type="warning"
-        confirmText="Rembourser"
-        cancelText="Annuler"
+        confirmText={t('payments.refund')}
+        cancelText={t('common.cancel')}
         loading={modalState.loading}
         showComment={true}
-        commentLabel="Raison du remboursement"
-        commentPlaceholder="Ex: Erreur de paiement, annulation..."
+        commentLabel={t('payments.refund_reason')}
+        commentPlaceholder={t('payments.refund_reason_placeholder')}
       />
     );
   };
@@ -1352,15 +1360,15 @@ const Payments = () => {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">Gestion des Paiements</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">Surveillez et gérez toutes les transactions financières</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">{t('payments.title')}</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">{t('payments.subtitle')}</p>
         </div>
 
         <ExportDropdown
           data={selectedPayments.length > 0 ? payments.filter(p => selectedPayments.includes(p.id)) : payments}
           columns={exportColumns}
           fileName="paiements_taka_taka"
-          title="Historique des Paiements - Taka Taka"
+          title={t('payments.title')}
           showToast={(title, msg, type) => showToast(title, msg, type)}
         />
       </motion.div>
@@ -1387,8 +1395,8 @@ const Payments = () => {
             <CardHeader>
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <CardTitle>Évolution des paiements</CardTitle>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">Revenus et commissions sur 30 jours</p>
+                  <CardTitle>{t('payments.evolution_chart')}</CardTitle>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">{t('payments.evolution_desc')}</p>
                 </div>
                 <div className="flex space-x-2">
                   <Button
@@ -1497,7 +1505,7 @@ const Payments = () => {
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
             <input
               type="text"
-              placeholder="Rechercher une transaction..."
+              placeholder={t('payments.search_placeholder')}
               className="w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-sm md:text-base"
               value={search}
               onChange={(e) => {
@@ -1514,11 +1522,11 @@ const Payments = () => {
               setPaymentFilter(e.target.value);
               setCurrentPage(1);
             }}>
-            <option value="all">Tous les statuts</option>
-            <option value="paid">Payé</option>
-            <option value="pending">En attente</option>
-            <option value="failed">Échoué</option>
-            <option value="refunded">Remboursé</option>
+            <option value="all">{t('common.all_status')}</option>
+            <option value="paid">{t('history.status.completed')}</option>
+            <option value="pending">{t('history.status.pending')}</option>
+            <option value="failed">{t('history.status.cancelled')}</option>
+            <option value="refunded">{t('payments.refunded_payments')}</option>
           </select>
 
           <select
@@ -1528,18 +1536,18 @@ const Payments = () => {
               setMethodFilter(e.target.value);
               setCurrentPage(1);
             }}>
-            <option value="all">Toutes les méthodes</option>
-            <option value="cash">Espèces</option>
-            <option value="orange">Orange Money</option>
-            <option value="mtn">MTN Mobile Money</option>
-            <option value="card">Carte</option>
+            <option value="all">{t('payments.all_methods')}</option>
+            <option value="cash">{t('payments.cash')}</option>
+            <option value="orange">{t('payments.orange_money')}</option>
+            <option value="mtn">{t('payments.mobile_money')}</option>
+            <option value="card">{t('payments.card')}</option>
           </select>
 
 
 
           <div className="col-span-2 grid grid-cols-2 gap-4 ">
             <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">Du</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">{t('common.from') || 'Du'}</label>
               <input
                 type="date"
                 value={dateRange.start}
@@ -1548,7 +1556,7 @@ const Payments = () => {
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">Au</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">{t('common.to') || 'Au'}</label>
               <input
                 type="date"
                 value={dateRange.end}
@@ -1580,15 +1588,15 @@ const Payments = () => {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle>Transactions ({filteredPayments.length})</CardTitle>
+              <CardTitle>{t('payments.transactions')} ({filteredPayments.length})</CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {selectedPayments.length > 0 && `${selectedPayments.length} sélectionné(s) • `}
-                {paginatedPayments.length} affiché(s) sur {filteredPayments.length}
+                {selectedPayments.length > 0 && `${selectedPayments.length} ${t('common.selected') || 'sélectionné(s)'} • `}
+                {t('common.showing_n_of_m', { n: paginatedPayments.length, m: filteredPayments.length }) || `${paginatedPayments.length} affiché(s) sur ${filteredPayments.length}`}
               </p>
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto">
-              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Afficher :</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{t('common.show')}:</span>
               <select
                 className="border border-gray-200 dark:bg-gray-900/40 dark:border-gray-800 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-400 transition w-full md:w-auto"
                 value={pageSize}
@@ -1621,13 +1629,12 @@ const Payments = () => {
           ) : (
             <Table
               headers={[
-
-                'Passager',
-                'Chauffeur',
-                'Trajet',
-                'Montant',
-                'Statut',
-                'Actions'
+                t('trips.passenger'),
+                t('trips.driver'),
+                t('trips.route'),
+                t('trips.amount'),
+                t('common.status'),
+                t('trips.actions')
               ]}>
               {paginatedPayments.map((payment) => (
                 <TableRow key={payment.id}>
@@ -1693,9 +1700,9 @@ const Payments = () => {
           {paginatedPayments.length === 0 && (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">Aucune transaction trouvée</p>
+              <p className="text-gray-500 dark:text-gray-400">{t('payments.no_payment_found') || 'Aucune transaction trouvée'}</p>
               <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-                Essayez de modifier vos filtres ou de rafraîchir la liste
+                {t('common.try_modifying_filters')}
               </p>
             </div>
           )}

@@ -17,12 +17,18 @@ import {
     Navigation,
     ArrowRight,
     CheckCircle2,
-    Hourglass
+    Hourglass,
+    Mail
 } from "lucide-react";
 import { isToday, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { tripService } from "../../services/tripService";
+import { useTranslation } from "react-i18next";
+import { useAuth } from "../../context/AuthContext";
+import { Printer } from "lucide-react";
+import PremiumInvoice from "../admin/ui/PremiumInvoice";
 
-const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, getPaymentIcon, getPaymentLabel }) => {
+const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, getPaymentIcon, getPaymentLabel, onShowReceipt }) => {
+    const { t } = useTranslation();
     if (!isOpen || !ride) return null;
 
     const getImageUrl = (path) => {
@@ -39,7 +45,7 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                 <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-900/50">
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-blue-500" />
-                        Détails de la course
+                        {t('revenues.details_title')}
                     </h3>
                     <button
                         onClick={onClose}
@@ -52,7 +58,7 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                 <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
                     {/* Passager Section */}
                     <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-                        <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">Passager</p>
+                        <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">{t('revenues.passenger')}</p>
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden border-2 border-white dark:border-gray-700 shadow-sm">
                                 {ride.passager?.photo ? (
@@ -62,10 +68,26 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                                 )}
                             </div>
                             <div>
-                                <h4 className="text-lg font-bold text-gray-900 dark:text-white">{ride.passager?.nom || "Passager inconnu"}</h4>
-                                <div className="flex items-center gap-2 text-sm text-gray-500">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    {formatDate(ride.date)}
+                                <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                                    {ride.passager?.name || t('revenues.unknown_passenger')}
+                                </h4>
+                                <div className="space-y-1 mt-1">
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        {formatDate(ride.date)}
+                                    </div>
+                                    {(ride.passager?.telephone || ride.telephonePassager || ride.passager?.phone || ride.passager?.utilisateur?.telephone) && (
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 font-bold">
+                                            <Smartphone className="w-3.5 h-3.5 text-blue-500" />
+                                            {ride.passager?.telephone || ride.telephonePassager || ride.passager?.phone || ride.passager?.utilisateur?.telephone}
+                                        </div>
+                                    )}
+                                    {(ride.passager?.email || ride.emailPassager || ride.passager?.utilisateur?.email) && (
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 font-bold">
+                                            <Mail className="w-3.5 h-3.5 text-blue-500" />
+                                            {ride.passager?.email || ride.emailPassager || ride.passager?.utilisateur?.email}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -85,11 +107,11 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                             </div>
                             <div className="flex-1 space-y-6">
                                 <div>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Point de départ</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t('revenues.pickup')}</p>
                                     <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{ride.depart}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Destination</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{t('revenues.destination')}</p>
                                     <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{ride.destination}</p>
                                 </div>
                             </div>
@@ -99,14 +121,14 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                             <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700">
                                 <Navigation className="w-5 h-5 text-purple-500" />
                                 <div>
-                                    <p className="text-[10px] text-gray-500 uppercase font-bold">Distance</p>
+                                    <p className="text-[10px] text-gray-500 uppercase font-bold">{t('revenues.distance')}</p>
                                     <p className="text-sm font-bold text-gray-900 dark:text-white">{ride.distanceKm} km</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700">
                                 <Clock className="w-5 h-5 text-amber-500" />
                                 <div>
-                                    <p className="text-[10px] text-gray-500 uppercase font-bold">Durée</p>
+                                    <p className="text-[10px] text-gray-500 uppercase font-bold">{t('revenues.duration')}</p>
                                     <p className="text-sm font-bold text-gray-900 dark:text-white">{ride.dureeMin} min</p>
                                 </div>
                             </div>
@@ -118,22 +140,22 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                         <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-gray-700">
                             <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
                                 {getPaymentIcon(ride.paymentMethod)}
-                                Type de paiement
+                                {t('revenues.payment_type')}
                             </span>
                             <span className="font-bold text-gray-900 dark:text-white">{getPaymentLabel(ride.paymentMethod)}</span>
                         </div>
 
                         <div className="space-y-3">
                             <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">Montant total</span>
+                                <span className="text-gray-500">{t('revenues.total_amount')}</span>
                                 <span className="font-semibold text-gray-900 dark:text-white">{formatAmount(ride.montantBrut)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">Commission TakaTaka (10%)</span>
+                                <span className="text-gray-500">{t('revenues.commission_takataka')}</span>
                                 <span className="font-semibold text-red-500">-{formatAmount(ride.commission)}</span>
                             </div>
                             <div className="flex justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
-                                <span className="text-base font-bold text-gray-900 dark:text-white">Votre gain net</span>
+                                <span className="text-base font-bold text-gray-900 dark:text-white">{t('revenues.net_earning')}</span>
                                 <span className="text-xl font-black text-green-600">{formatAmount(ride.net)}</span>
                             </div>
                         </div>
@@ -141,9 +163,10 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
 
                     {/* Statut du versement */}
                     <div className={`rounded-2xl p-4 border ${ride.verse
-                            ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'
-                            : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
+                        ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
                         }`}>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">{t('revenues.payout_status')}</p>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 {ride.verse
@@ -151,10 +174,10 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                                     : <Hourglass className="w-5 h-5 text-amber-600" />
                                 }
                                 <span className={`font-bold ${ride.verse
-                                        ? 'text-emerald-700 dark:text-emerald-400'
-                                        : 'text-amber-700 dark:text-amber-400'
+                                    ? 'text-emerald-700 dark:text-emerald-400'
+                                    : 'text-amber-700 dark:text-amber-400'
                                     }`}>
-                                    {ride.verse ? 'Versé' : 'En attente de versement'}
+                                    {ride.verse ? t('revenues.paid') : t('revenues.pending')}
                                 </span>
                             </div>
                             {ride.verse && ride.verseLe && (
@@ -168,12 +191,19 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                     </div>
                 </div>
 
-                <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
+                <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+                    <button
+                        onClick={onShowReceipt}
+                        className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                    >
+                        <Printer className="w-5 h-5" />
+                        {t('revenues.receipt')}
+                    </button>
                     <button
                         onClick={onClose}
-                        className="w-full py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity"
+                        className="flex-1 py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity"
                     >
-                        Fermer les détails
+                        {t('revenues.close_details')}
                     </button>
                 </div>
             </div>
@@ -182,11 +212,14 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
 };
 
 const Revenues = ({ onToast, onModal }) => {
+    const { t, i18n } = useTranslation();
+    const { user } = useAuth();
     const [selectedPeriod, setSelectedPeriod] = useState("today");
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("all");
     const [loading, setLoading] = useState(true);
     const [selectedRide, setSelectedRide] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showReceipt, setShowReceipt] = useState(false);
 
     // États pour les données
     const [revenueData, setRevenueData] = useState([]);
@@ -197,54 +230,92 @@ const Revenues = ({ onToast, onModal }) => {
         paidRides: 0
     });
 
-    // Fetch data
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const [statsRes, listRes] = await Promise.all([
-                    tripService.getDriverRevenueStats(),
-                    tripService.getDriverRevenueList()
-                ]);
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [statsRes, listRes] = await Promise.all([
+                tripService.getDriverRevenueStats(),
+                tripService.getDriverRevenueList()
+            ]);
 
-                if (statsRes.data && statsRes.data.succes) {
-                    setSummaryData({
-                        daily: statsRes.data.data.revenusJour || 0,
-                        weekly: statsRes.data.data.revenusSemaine || 0,
-                        monthly: statsRes.data.data.revenusMois || 0,
-                        paidRides: statsRes.data.data.coursesPayees || 0
-                    });
-                }
-
-                if (listRes.data && listRes.data.succes) {
-                    // Mapper les données du backend au format attendu par le composant
-                    const formattedData = listRes.data.data.map((item) => ({
-                        id: item.id,
-                        date: item.date,
-                        trajet: item.trajet,
-                        depart: item.depart,
-                        destination: item.destination,
-                        distanceKm: item.distanceKm,
-                        dureeMin: item.dureeMin,
-                        passager: item.passager,
-                        paymentMethod: mapPaymentMethod(item.modePaiement),
-                        montantBrut: item.montantBrut || 0,
-                        commission: item.commission || 0,
-                        net: item.gainNet || 0,
-                        verse: item.verse || false,
-                        verseLe: item.verseLe || null
-                    }));
-                    setRevenueData(formattedData);
-                }
-
-            } catch (error) {
-                console.error("Erreur lors du chargement des revenus", error);
-            } finally {
-                setLoading(false);
+            if (statsRes.data && statsRes.data.succes) {
+                setSummaryData({
+                    daily: statsRes.data.data.revenusJour || 0,
+                    weekly: statsRes.data.data.revenusSemaine || 0,
+                    monthly: statsRes.data.data.revenusMois || 0,
+                    paidRides: statsRes.data.data.coursesPayees || 0
+                });
             }
+
+            // Mapper les données du backend au format attendu par le composant
+            const formattedData = listRes.data.data.map((item) => {
+                // RECHERCHE PASSAGER EXHAUSTIVE
+                const pObj = item.passager || item.reservation?.passager || item.client || item.passenger || {};
+                const uObj = pObj.utilisateur || pObj.user || {};
+
+                // Fallbacks pour le nom
+                const name = pObj.nomComplet ||
+                    (pObj.prenom || pObj.nom ? [pObj.prenom, pObj.nom].filter(Boolean).join(' ') : null) ||
+                    pObj.name || pObj.display_name ||
+                    item.nomPassager || item.passagerName ||
+                    item.reservation?.passager?.nomComplet ||
+                    'Passager TakaTaka';
+
+                // Fallbacks pour le téléphone
+                const phone = pObj.telephone || pObj.phone || pObj.mobile || pObj.tel ||
+                    uObj.telephone || uObj.phone ||
+                    item.telephonePassager || item.telPassager || item.passagerTelephone || item.passengerPhone ||
+                    item.reservation?.passager?.telephone || item.reservation?.passager?.utilisateur?.telephone ||
+                    '-';
+
+                // Fallbacks pour l'email
+                const email = pObj.email || uObj.email ||
+                    item.emailPassager || item.passagerEmail || item.passengerEmail ||
+                    item.reservation?.passager?.email ||
+                    '-';
+
+                return {
+                    id: item.id || item._id,
+                    date: item.date,
+                    trajet: item.trajet,
+                    depart: item.depart,
+                    destination: item.destination,
+                    distanceKm: item.distanceKm,
+                    dureeMin: item.dureeMin,
+                    passager: { ...pObj, name, phone, email }, // On stocke l'objet enrichi
+                    telephonePassager: phone, // Pour compatibilité
+                    emailPassager: email,
+                    paymentMethod: mapPaymentMethod(item.modePaiement),
+                    montantBrut: item.montantBrut || 0,
+                    commission: item.commission || 0,
+                    net: item.gainNet || 0,
+                    verse: item.verse || false,
+                    verseLe: item.verseLe || null,
+                    reservation: item.reservation // On garde la résa pour d'autres besoins
+                };
+            });
+            setRevenueData(formattedData);
+
+        } catch (error) {
+            console.error("Erreur lors du chargement des revenus", error);
+            if (onToast) onToast(t('revenues.loading_error'), "error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Fetch data on mount
+    useEffect(() => {
+        fetchData();
+
+        // ✅ Suggestion 1: Ecouter l'événement global de versement pour refresh sans F5
+        const handleRevenueRefresh = () => {
+            console.log("🔄 [REVENUES] Refreshing due to admin payout event");
+            fetchData();
         };
 
-        fetchData();
+        window.addEventListener('chauffeur:revenu_mis_a_jour', handleRevenueRefresh);
+        return () => window.removeEventListener('chauffeur:revenu_mis_a_jour', handleRevenueRefresh);
     }, []);
 
     // Helper pour mapper les méthodes de paiement du backend
@@ -291,14 +362,14 @@ const Revenues = ({ onToast, onModal }) => {
 
     // Formater les montants
     const formatAmount = (amount) => {
-        return (amount || 0).toLocaleString('fr-FR') + ' FG';
+        return (amount || 0).toLocaleString(i18n.language === 'en' ? 'en-US' : 'fr-FR') + ' FG';
     };
 
     // Formater les dates
     const formatDate = (dateString) => {
         if (!dateString) return "N/A";
         const date = new Date(dateString);
-        return date.toLocaleDateString('fr-FR', {
+        return date.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fr-FR', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
@@ -325,19 +396,20 @@ const Revenues = ({ onToast, onModal }) => {
     const getPaymentLabel = (method) => {
         switch (method) {
             case 'cash':
-                return 'Espèces';
+                return t('revenues.cash');
             case 'mobile':
-                return 'Mobile Money';
+                return t('revenues.mobile');
             case 'card':
-                return 'Carte';
+                return t('revenues.card');
             default:
-                return 'Autre';
+                return t('revenues.other');
         }
     };
 
     const handleViewRide = (ride) => {
         setSelectedRide(ride);
         setShowDetailModal(true);
+        setShowReceipt(false);
     };
 
     return (
@@ -350,22 +422,58 @@ const Revenues = ({ onToast, onModal }) => {
                 formatDate={formatDate}
                 getPaymentIcon={getPaymentIcon}
                 getPaymentLabel={getPaymentLabel}
+                onShowReceipt={() => {
+                    setShowReceipt(true);
+                    setShowDetailModal(false);
+                }}
             />
+
+            {showReceipt && selectedRide && (
+                <PremiumInvoice
+                    payment={{
+                        invoiceNumber: `INV-${selectedRide.id?.substring(0, 8).toUpperCase() || '000'}`,
+                        date: formatDate(selectedRide.date),
+                        transactionId: null,
+                        status: (selectedRide.verse === true || selectedRide.verse === 'true') ? 'paid' : 'pending',
+                        method: selectedRide.paymentMethod || 'cash',
+                        amount: formatAmount(selectedRide.montantBrut),
+                        passenger: {
+                            name: selectedRide.passager?.name || t('revenues.unknown_passenger'),
+                            phone: selectedRide.passager?.phone || '-',
+                            email: selectedRide.passager?.email || '-'
+                        },
+                        driver: {
+                            name: user ? [user.prenom, user.nom].filter(Boolean).join(' ').trim() || (t('common.me') || 'Vous') : (t('common.me') || 'Vous'),
+                            vehicle: user?.vehicule?.modele || user?.vehicule || (t('common.my_vehicle') || 'Votre véhicule'),
+                            phone: user?.telephone || user?.phone || '-'
+                        },
+                        trip: {
+                            route: `${selectedRide.depart} → ${selectedRide.destination}`,
+                            distance: `${selectedRide.distanceKm} km`,
+                            duration: `${selectedRide.dureeMin} min`
+                        },
+                        fees: {
+                            platform: formatAmount(selectedRide.commission)
+                        }
+                    }}
+                    onClose={() => setShowReceipt(false)}
+                />
+            )}
 
             {/* En-tête */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                         <DollarSign className="w-6 h-6 text-green-500" />
-                        Espace Revenus
+                        {t('revenues.title')}
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400">Suivez vos gains et commissions</p>
+                    <p className="text-gray-600 dark:text-gray-400">{t('revenues.subtitle')}</p>
                 </div>
             </div>
 
             {loading ? (
                 <div className="flex justify-center p-8 text-gray-600 dark:text-gray-400 font-medium">
-                    Chargement des revenus...
+                    {t('revenues.loading')}
                 </div>
             ) : (
                 <>
@@ -374,7 +482,7 @@ const Revenues = ({ onToast, onModal }) => {
                         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-xl">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">Revenus du jour</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{t('revenues.daily')}</p>
                                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
                                         {formatAmount(summaryData.daily)}
                                     </h3>
@@ -388,7 +496,7 @@ const Revenues = ({ onToast, onModal }) => {
                         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-xl">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">Revenus de la semaine</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{t('revenues.weekly')}</p>
                                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
                                         {formatAmount(summaryData.weekly)}
                                     </h3>
@@ -402,7 +510,7 @@ const Revenues = ({ onToast, onModal }) => {
                         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-xl">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">Revenus du mois</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{t('revenues.monthly')}</p>
                                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
                                         {formatAmount(summaryData.monthly)}
                                     </h3>
@@ -416,7 +524,7 @@ const Revenues = ({ onToast, onModal }) => {
                         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-xl">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">Courses payées (Auj.)</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{t('revenues.paid_rides')}</p>
                                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
                                         {summaryData.paidRides}
                                     </h3>
@@ -434,13 +542,13 @@ const Revenues = ({ onToast, onModal }) => {
                             <div>
                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                     <DollarSign className="w-5 h-5 text-orange-500" />
-                                    Commission appliquée
+                                    {t('revenues.commission_applied')}
                                 </h3>
                                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                                    Taux : <span className="font-bold text-orange-600 dark:text-orange-400">10%</span> par course
+                                    {t('revenues.rate')} : <span className="font-bold text-orange-600 dark:text-orange-400">10%</span> par course
                                 </p>
                                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                                    Total des commissions (période sélectionnée) :{' '}
+                                    {t('revenues.total_commissions')} :{' '}
                                     <span className="font-bold text-red-600 dark:text-red-400">
                                         {formatAmount(totalCommission)}
                                     </span>
@@ -452,7 +560,7 @@ const Revenues = ({ onToast, onModal }) => {
                                         {formatAmount(totalNet)}
                                     </p>
                                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                        Gain net chauffeur
+                                        {t('revenues.net_gain')}
                                     </p>
                                 </div>
                             </div>
@@ -464,12 +572,12 @@ const Revenues = ({ onToast, onModal }) => {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-center gap-2">
                                 <Filter className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                                <span className="font-medium text-gray-700 dark:text-gray-300">Filtrer par :</span>
+                                <span className="font-medium text-gray-700 dark:text-gray-300">{t('revenues.filters_label')}</span>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm text-gray-600 dark:text-gray-400">Période :</span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">{t('revenues.period')}</span>
                                     <div className="flex gap-1">
                                         {["today", "week", "month"].map((p) => (
                                             <button
@@ -477,14 +585,14 @@ const Revenues = ({ onToast, onModal }) => {
                                                 onClick={() => setSelectedPeriod(p)}
                                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedPeriod === p ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
                                             >
-                                                {p === "today" ? "Aujourd'hui" : p === "week" ? "Cette semaine" : "Ce mois"}
+                                                {p === "today" ? t('revenues.today') : p === "week" ? t('revenues.this_week') : t('revenues.this_month')}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm text-gray-600 dark:text-gray-400">Paiement :</span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">{t('revenues.payment')}</span>
                                     <div className="flex gap-1">
                                         {["all", "cash", "mobile", "card"].map((m) => (
                                             <button
@@ -493,7 +601,7 @@ const Revenues = ({ onToast, onModal }) => {
                                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${selectedPaymentMethod === m ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
                                             >
                                                 {m !== "all" && getPaymentIcon(m)}
-                                                {m === "all" ? "Tous" : getPaymentLabel(m)}
+                                                {m === "all" ? t('revenues.all') : getPaymentLabel(m)}
                                             </button>
                                         ))}
                                     </div>
@@ -506,12 +614,12 @@ const Revenues = ({ onToast, onModal }) => {
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                         <div className="hidden lg:block border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-6 py-4">
                             <div className="grid grid-cols-12 gap-4 text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                <div className="col-span-2">Date</div>
-                                <div className="col-span-3">Trajet</div>
-                                <div className="col-span-2">Paiement</div>
-                                <div className="col-span-2 text-right">Montant</div>
-                                <div className="col-span-2 text-right">Net</div>
-                                <div className="col-span-1 text-center">Actions</div>
+                                <div className="col-span-2">{t('revenues.date')}</div>
+                                <div className="col-span-3">{t('revenues.trip')}</div>
+                                <div className="col-span-2">{t('revenues.payment')}</div>
+                                <div className="col-span-2 text-right">{t('revenues.amount')}</div>
+                                <div className="col-span-2 text-right">{t('revenues.net')}</div>
+                                <div className="col-span-1 text-center">{t('revenues.actions')}</div>
                             </div>
                         </div>
 
@@ -552,8 +660,8 @@ const Revenues = ({ onToast, onModal }) => {
                                                     : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
                                                     }`}>
                                                     {ride.verse
-                                                        ? <><CheckCircle2 className="w-3 h-3" /> Versé</>
-                                                        : <><Hourglass className="w-3 h-3" /> En attente</>
+                                                        ? <><CheckCircle2 className="w-3 h-3" /> {t('revenues.paid')}</>
+                                                        : <><Hourglass className="w-3 h-3" /> {t('revenues.pending')}</>
                                                     }
                                                 </span>
                                             </div>
@@ -572,7 +680,7 @@ const Revenues = ({ onToast, onModal }) => {
                                 ))
                             ) : (
                                 <div className="text-center py-20 text-gray-500 dark:text-gray-400 italic">
-                                    Aucune donnée trouvée pour cette sélection
+                                    {t('revenues.no_data')}
                                 </div>
                             )}
                         </div>

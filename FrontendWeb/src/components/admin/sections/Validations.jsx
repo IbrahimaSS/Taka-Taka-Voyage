@@ -7,6 +7,7 @@ import {
   Phone, FileText, FileSpreadsheet, File, MoreVertical,
   Check, X, ChevronLeft, ChevronRight, RefreshCw
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import StatCard from '../layout/StatCard';
 import { adminService } from '../../../services/adminService';
 import toast from 'react-hot-toast';
@@ -23,13 +24,14 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // Composant réutilisable pour les actions d'export
 const ExportMenu = ({ onExport }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   const exportOptions = [
-    { format: 'pdf', label: 'Exporter en PDF', icon: FileText, color: 'text-red-500' },
-    { format: 'csv', label: 'Exporter en CSV', icon: FileSpreadsheet, color: 'text-green-500' },
-    { format: 'excel', label: 'Exporter en Excel', icon: FileSpreadsheet, color: 'text-green-600' },
-    { format: 'doc', label: 'Exporter en Word', icon: File, color: 'text-blue-500' },
+    { format: 'pdf', label: t('common.export_pdf') || 'Exporter en PDF', icon: FileText, color: 'text-red-500' },
+    { format: 'csv', label: t('common.export_csv') || 'Exporter en CSV', icon: FileSpreadsheet, color: 'text-green-500' },
+    { format: 'excel', label: t('common.export_excel') || 'Exporter en Excel', icon: FileSpreadsheet, color: 'text-green-600' },
+    { format: 'doc', label: t('common.export_word') || 'Exporter en Word', icon: File, color: 'text-blue-500' },
   ];
 
   return (
@@ -39,7 +41,7 @@ const ExportMenu = ({ onExport }) => {
         icon={Download}
         onClick={() => setIsOpen(!isOpen)}
       >
-        Exporter
+        {t('common.export') || 'Exporter'}
       </Button>
 
       <AnimatePresence>
@@ -75,6 +77,7 @@ const ExportMenu = ({ onExport }) => {
 
 // Composant réutilisable pour les confirmations
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, type = 'validate' }) => {
+  const { t } = useTranslation();
   const [comment, setComment] = useState('');
 
   const handleConfirm = () => {
@@ -90,12 +93,12 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, type = 
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            Commentaire (optionnel)
+            {t('validations.comment_label') || 'Commentaire (optionnel)'}
           </label>
           <textarea
             className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             rows="3"
-            placeholder="Ajouter un commentaire..."
+            placeholder={t('validations.comment_placeholder') || 'Ajouter un commentaire...'}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
           />
@@ -103,28 +106,29 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, type = 
 
         <div className="flex justify-end space-x-3 pt-4">
           <Button variant="secondary" onClick={onClose}>
-            Annuler
+            {t('common.cancel') || 'Annuler'}
           </Button>
           <Button
             variant={type === 'validate' ? 'primary' : 'danger'}
             onClick={handleConfirm}
           >
-            {type === 'validate' ? 'Valider' : 'Rejeter'}
+            {type === 'validate' ? (t('common.validate') || 'Valider') : (t('common.reject') || 'Rejeter')}
           </Button>
         </div>
       </div>
-    </Modal>
+    </Modal >
   );
 };
 
 // Composant réutilisable pour les filtres avancés
 const AdvancedFilters = ({ filters, onFilterChange }) => {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
   const filterOptions = {
-    vehicleType: ['Tous', 'Moto-taxi', 'Taxi partagé', 'Voiture privée', 'Camion'],
-    status: ['Tous', 'Nouveau', 'En attente', 'En révision'],
-    dateRange: ['Tous', 'Aujourd\'hui', 'Cette semaine', 'Ce mois', 'Personnalisé'],
+    vehicleType: [t('common.all') || 'Tous', t('services.moto_taxi') || 'Moto-taxi', t('services.taxi_partage') || 'Taxi partagé', t('services.voiture_privee') || 'Voiture privée', t('services.truck') || 'Camion'],
+    status: [t('common.all') || 'Tous', t('common.new') || 'Nouveau', t('common.pending') || 'En attente', t('common.in_review') || 'En révision'],
+    dateRange: [t('common.all') || 'Tous', t('common.today') || "Aujourd'hui", t('common.this_week') || 'Cette semaine', t('common.this_month') || 'Ce mois', t('common.custom') || 'Personnalisé'],
   };
 
   return (
@@ -132,13 +136,13 @@ const AdvancedFilters = ({ filters, onFilterChange }) => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <Filter className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-2" />
-          <span className="font-medium text-gray-700 dark:text-gray-200">Filtres avancés</span>
+          <span className="font-medium text-gray-700 dark:text-gray-200">{t('common.advanced_filters') || 'Filtres avancés'}</span>
         </div>
         <button
           onClick={() => setExpanded(!expanded)}
           className="text-green-600 text-sm font-medium flex items-center"
         >
-          {expanded ? 'Réduire' : 'Développer'}
+          {expanded ? (t('common.collapse') || 'Réduire') : (t('common.expand') || 'Développer')}
           <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </button>
       </div>
@@ -152,7 +156,7 @@ const AdvancedFilters = ({ filters, onFilterChange }) => {
         >
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Type de véhicule
+              {t('drivers.vehicle_type') || 'Type de véhicule'}
             </label>
             <select
               className="w-full border border-gray-300 dark:border-gray-900 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm"
@@ -167,7 +171,7 @@ const AdvancedFilters = ({ filters, onFilterChange }) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Statut
+              {t('common.status') || 'Statut'}
             </label>
             <select
               className="w-full border border-gray-300 dark:border-gray-900 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm"
@@ -182,7 +186,7 @@ const AdvancedFilters = ({ filters, onFilterChange }) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Période
+              {t('common.period') || 'Période'}
             </label>
             <select
               className="w-full border border-gray-300 dark:border-gray-900 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm"
@@ -202,6 +206,7 @@ const AdvancedFilters = ({ filters, onFilterChange }) => {
 
 // Composant pour les actions rapides dans le tableau
 const TableActions = ({ driver, onView, onValidate, onReject }) => {
+  const { t } = useTranslation();
   const [showActions, setShowActions] = useState(false);
 
   return (
@@ -230,7 +235,7 @@ const TableActions = ({ driver, onView, onValidate, onReject }) => {
                 }}
               >
                 <Eye className="w-4 h-4 mr-2 text-blue-500" />
-                Voir détails
+                {t('common.view_details') || 'Voir détails'}
               </button>
               <button
                 className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm"
@@ -240,7 +245,7 @@ const TableActions = ({ driver, onView, onValidate, onReject }) => {
                 }}
               >
                 <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                Valider
+                {t('common.validate') || 'Valider'}
               </button>
               <button
                 className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm"
@@ -250,7 +255,7 @@ const TableActions = ({ driver, onView, onValidate, onReject }) => {
                 }}
               >
                 <XCircle className="w-4 h-4 mr-2 text-red-500" />
-                Rejeter
+                {t('common.reject') || 'Rejeter'}
               </button>
             </div>
           </motion.div>
@@ -266,6 +271,7 @@ const TableActions = ({ driver, onView, onValidate, onReject }) => {
 // Exemple: GET API_ROUTES.admin.validations, POST API_ROUTES.admin.validateDriver(id)
 
 const Validations = () => {
+  const { t, i18n } = useTranslation();
   // États pour la gestion des données
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({
@@ -316,7 +322,7 @@ const Validations = () => {
           type: c.typeVehicule,
           phone: c.utilisateur?.telephone || 'N/A',
           email: c.utilisateur?.email || '',
-          joinDate: new Date(c.createdAt).toLocaleDateString('fr-FR'),
+          joinDate: new Date(c.createdAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US'),
           status: c.statut === 'EN_ATTENTE' ? 'new' : 'pending',
           documents: [], // On les chargera au cas par cas pour les détails
           progress: 0,
@@ -325,7 +331,7 @@ const Validations = () => {
       }
     } catch (error) {
       console.error("Erreur fetch pending:", error);
-      toast.error("Erreur lors du chargement des demandes");
+      toast.error(t('validations.error_loading_requests') || "Erreur lors du chargement des demandes");
     } finally {
       setIsLoading(false);
     }
@@ -353,21 +359,21 @@ const Validations = () => {
   // Statistiques UI
   const stats = useMemo(() => [
     {
-      title: 'En attente',
+      title: t('common.pending') || 'En attente',
       value: statsData.enAttente.toString(),
       icon: Clock,
       color: 'yellow',
       progress: Math.min(100, (statsData.enAttente / 20) * 100)
     },
     {
-      title: 'Validés ce mois',
+      title: t('validations.validated_this_month') || 'Validés ce mois',
       value: statsData.validesCeMois.toString(),
       icon: UserCheck,
       color: 'green',
       progress: 100
     },
     {
-      title: 'Rejetés ce mois',
+      title: t('validations.rejected_this_month') || 'Rejetés ce mois',
       value: statsData.rejetesCeMois.toString(),
       icon: UserX,
       color: 'red',
@@ -401,19 +407,19 @@ const Validations = () => {
       if (type === 'validate') {
         const res = await adminService.validateDriver(driver.id, { commentaire: comment });
         if (res.data?.succes) {
-          toast.success(`Chauffeur ${driver.name} validé !`);
+          toast.success(t('validations.driver_validated', { name: driver.name }) || `Chauffeur ${driver.name} validé !`);
         }
       } else {
         const res = await adminService.rejectDriver(driver.id, { motif: comment });
         if (res.data?.succes) {
-          toast.error(`Candidature de ${driver.name} rejetée.`);
+          toast.error(t('validations.driver_rejected', { name: driver.name }) || `Candidature de ${driver.name} rejetée.`);
         }
       }
       fetchPendingRequests();
       fetchStats();
       fetchHistory();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Une erreur est survenue");
+      toast.error(error.response?.data?.message || t('common.error_occurred') || "Une erreur est survenue");
     }
   };
 
@@ -426,7 +432,7 @@ const Validations = () => {
         setSelectedDriver(response.data.chauffeur);
       }
     } catch (error) {
-      toast.error("Impossible de charger les détails");
+      toast.error(t('common.error_loading_details') || "Impossible de charger les détails");
       setViewModalOpen(false);
     } finally {
       setIsLoadingDetails(false);
@@ -437,14 +443,14 @@ const Validations = () => {
     try {
       const response = await adminService.updateDocumentStatus(docId, newStatus);
       if (response.data?.succes) {
-        toast.success("Statut du document mis à jour");
+        toast.success(t('validations.doc_status_updated') || "Statut du document mis à jour");
         // Rafraîchir les détails du chauffeur pour voir la progression
         if (selectedDriver) {
           handleViewDetails(selectedDriver);
         }
       }
     } catch (error) {
-      toast.error("Erreur lors de la mise à jour du document");
+      toast.error(t('validations.error_updating_doc') || "Erreur lors de la mise à jour du document");
     }
   };
 
@@ -456,18 +462,18 @@ const Validations = () => {
 
   const handleExport = (format) => {
     const columns = [
-      { header: 'Date', accessor: (item) => new Date(item.date || item.joinDate).toLocaleDateString() },
-      { header: 'Chauffeur', accessor: (item) => item.name || item.chauffeur?.nom },
+      { header: t('common.date') || 'Date', accessor: (item) => new Date(item.date || item.joinDate).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') },
+      { header: t('nav.chauffeur') || 'Chauffeur', accessor: (item) => item.name || item.chauffeur?.nom },
       { header: 'Type', accessor: (item) => item.type || item.typeVehicule },
-      { header: 'Action/Statut', accessor: (item) => item.action || item.status },
-      { header: 'Validateur', accessor: (item) => item.validateur || 'N/A' },
+      { header: t('validations.action_status') || 'Action/Statut', accessor: (item) => item.action || item.status },
+      { header: t('validations.validator') || 'Validateur', accessor: (item) => item.validateur || 'N/A' },
     ];
 
     const payload = {
       data: validationHistory.length > 0 ? validationHistory : pendingDrivers,
       columns,
       fileName: `validations_${new Date().toISOString().split('T')[0]}`,
-      title: 'Historique des Validations Chauffeurs',
+      title: t('validations.export_title') || 'Historique des Validations Chauffeurs',
       orientation: 'landscape',
       onToast: (title, msg, type) => toast[type](msg)
     };
@@ -485,16 +491,16 @@ const Validations = () => {
         exportToWord(payload);
         break;
       default:
-        toast.error("Format non supporté");
+        toast.error(t('common.unsupported_format') || "Format non supporté");
     }
   };
 
   const handleValidateAll = () => {
     if (pendingDrivers.length === 0) {
-      toast.error("Aucun chauffeur en attente");
+      toast.error(t('validations.no_pending_drivers') || "Aucun chauffeur en attente");
       return;
     }
-    toast.error("La validation groupée n'est pas recommandée sans vérification individuelle des documents.");
+    toast.error(t('validations.validate_all_warn') || "La validation groupée n'est pas recommandée sans vérification individuelle des documents.");
   };
 
   const handleFilterChange = (key, value) => {
@@ -520,13 +526,13 @@ const Validations = () => {
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
       >
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Validation des chauffeurs</h1>
-          <p className="text-gray-500 dark:text-gray-400">Validez les documents et profils des chauffeurs</p>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">{t('validations.main_title') || 'Validation des chauffeurs'}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{t('validations.main_subtitle') || 'Validez les documents et profils des chauffeurs'}</p>
         </div>
         <div className="flex flex-wrap gap-3 ">
           <ExportMenu onExport={handleExport} />
           <Button variant='perso' icon={CheckCircle} onClick={handleValidateAll}>
-            Tout valider
+            {t('validations.validate_all') || 'Tout valider'}
           </Button>
         </div>
       </motion.div>
@@ -555,7 +561,7 @@ const Validations = () => {
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
             <input
               type="text"
-              placeholder="Rechercher un chauffeur..."
+              placeholder={t('validations.search_placeholder') || "Rechercher un chauffeur..."}
               className="w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -569,14 +575,14 @@ const Validations = () => {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle>Demandes en attente de validation</CardTitle>
+              <CardTitle>{t('validations.pending_requests_title') || 'Demandes en attente de validation'}</CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {filteredDrivers.length} demande{filteredDrivers.length !== 1 ? 's' : ''} nécessitent votre attention
+                {t('validations.pending_count', { count: filteredDrivers.length }) || `${filteredDrivers.length} demande${filteredDrivers.length !== 1 ? 's' : ''} nécessitent votre attention`}
               </p>
             </div>
             <Badge className="text-yellow-500">
               <Clock className="w-3 h-3 mr-1" />
-              En attente
+              {t('common.pending') || 'En attente'}
             </Badge>
           </div>
         </CardHeader>
@@ -659,9 +665,9 @@ const Validations = () => {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle>Historique des validations</CardTitle>
+              <CardTitle>{t('validations.history_title') || 'Historique des validations'}</CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {totalItems} action{totalItems !== 1 ? 's' : ''} de validation
+                {t('validations.action_count', { count: totalItems }) || `${totalItems} action${totalItems !== 1 ? 's' : ''} de validation`}
               </p>
             </div>
           </div>

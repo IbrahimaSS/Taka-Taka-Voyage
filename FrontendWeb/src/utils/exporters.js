@@ -1,5 +1,12 @@
-// src/utils/exporters.js
-const safe = (v, fallback = "") => (v === null || v === undefined ? fallback : v);
+const safe = (v, fallback = "") => {
+  if (v === null || v === undefined) return fallback;
+  if (typeof v === 'string') {
+    // Remplacer les espaces insécables (U+00A0 et U+202F) par des espaces standards
+    // car jsPDF et certains lecteurs PDF ont du mal à les afficher sans fontes spéciales.
+    return v.replace(/[\u00A0\u202F]/g, " ");
+  }
+  return v;
+};
 
 const escapeHtml = (str) =>
   String(str ?? "")

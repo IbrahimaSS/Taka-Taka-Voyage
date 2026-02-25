@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-
+import { useTranslation } from 'react-i18next';
 import {
   Search, Eye, Check, X, AlertTriangle,
   Clock, CheckCircle, Hourglass, XCircle,
@@ -36,6 +36,7 @@ import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } fr
 
 // Composant pour les actions rapides dans le tableau
 const TableActions = ({ dispute, onView, onResolve, onReject, onDelete }) => {
+  const { t } = useTranslation();
   const [showActions, setShowActions] = useState(false);
   const menuRef = useRef(null);
 
@@ -76,7 +77,7 @@ const TableActions = ({ dispute, onView, onResolve, onReject, onDelete }) => {
                 }}
               >
                 <Eye className="w-4 h-4 mr-2 text-blue-500" />
-                Voir détails
+                {t('trips.view_details', 'Voir détails')}
               </button>
               <button
                 className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
@@ -87,7 +88,7 @@ const TableActions = ({ dispute, onView, onResolve, onReject, onDelete }) => {
                 disabled={dispute.status === 'resolved'}
               >
                 <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                Résoudre
+                {t('disputes.resolve', 'Résoudre')}
               </button>
               <button
                 className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 flex items-center text-sm text-gray-700 dark:text-gray-200"
@@ -98,7 +99,7 @@ const TableActions = ({ dispute, onView, onResolve, onReject, onDelete }) => {
                 disabled={dispute.status === 'rejected'}
               >
                 <XCircle className="w-4 h-4 mr-2 text-red-500" />
-                Rejeter
+                {t('disputes.reject', 'Rejeter')}
               </button>
               <div className="border-t border-gray-200 dark:border-gray-800 my-1"></div>
 
@@ -111,6 +112,7 @@ const TableActions = ({ dispute, onView, onResolve, onReject, onDelete }) => {
 };
 
 const Disputes = () => {
+  const { t } = useTranslation();
   // États
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -223,7 +225,7 @@ const Disputes = () => {
   const stats = useMemo(() => {
     return [
       {
-        title: 'Litiges Ouverts',
+        title: t('disputes.active_disputes', 'Litiges Ouverts'),
         value: statsData.ouverts.toString(),
         icon: AlertTriangle,
         color: 'red',
@@ -231,7 +233,7 @@ const Disputes = () => {
         progress: statsData.total > 0 ? (statsData.ouverts / statsData.total) * 100 : 0
       },
       {
-        title: 'En cours',
+        title: t('disputes.in_review', 'En cours'),
         value: statsData.enCours.toString(),
         icon: Hourglass,
         color: 'yellow',
@@ -239,7 +241,7 @@ const Disputes = () => {
         progress: statsData.total > 0 ? (statsData.enCours / statsData.total) * 100 : 0
       },
       {
-        title: 'Résolus',
+        title: t('common.resolved', 'Résolus'),
         value: statsData.resolus.toString(),
         icon: CheckCircle,
         color: 'green',
@@ -492,21 +494,21 @@ const Disputes = () => {
 
   // Configuration des tabs
   const disputeTabs = [
-    { id: 'all', label: 'Tous', icon: AlertTriangle },
-    { id: 'payment', label: 'Paiements', icon: DollarSign },
-    { id: 'driving', label: 'Conduite', icon: Car },
-    { id: 'delay', label: 'Retards', icon: Clock },
-    { id: 'vehicle', label: 'Véhicules', icon: Car },
+    { id: 'all', label: t('common.all', 'Tous'), icon: AlertTriangle },
+    { id: 'payment', label: t('nav.paiements', 'Paiements'), icon: DollarSign },
+    { id: 'driving', label: t('disputes.driving', 'Conduite'), icon: Car },
+    { id: 'delay', label: t('disputes.delay', 'Retards'), icon: Clock },
+    { id: 'vehicle', label: t('drivers.vehicle', 'Véhicules'), icon: Car },
   ];
 
   // Helper pour afficher le statut
   const renderStatus = (status) => {
     const config = {
-      open: { label: 'Ouvert', bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-700 dark:text-green-400', icon: AlertTriangle },
-      in_progress: { label: 'En cours', bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', icon: Hourglass },
-      resolved: { label: 'Résolu', bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', icon: CheckCircle },
-      rejected: { label: 'Rejeté', bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: XCircle },
-      pending: { label: 'En attente', bg: 'bg-slate-200 dark:bg-slate-700', text: 'text-slate-700 dark:text-slate-300', icon: Clock }
+      open: { label: t('disputes.status.open', 'Ouvert'), bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-700 dark:text-green-400', icon: AlertTriangle },
+      in_progress: { label: t('disputes.in_review', 'En cours'), bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', icon: Hourglass },
+      resolved: { label: t('common.resolved', 'Résolu'), bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', icon: CheckCircle },
+      rejected: { label: t('common.rejected', 'Rejeté'), bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: XCircle },
+      pending: { label: t('trips.status.pending', 'En attente'), bg: 'bg-slate-200 dark:bg-slate-700', text: 'text-slate-700 dark:text-slate-300', icon: Clock }
     };
 
     const { label, icon: Icon, bg, text } = config[status] || config.pending;
@@ -637,11 +639,11 @@ const Disputes = () => {
     return (
       <Table
         headers={[
-          'N° / Date',
-          'Utilisateurs',
-          'Type',
-          'Statut',
-          'Actions'
+          t('disputes.id', 'N° / Date'),
+          t('nav.utilisateurs', 'Utilisateurs'),
+          t('transactions.details.type', 'Type'),
+          t('common.status', 'Statut'),
+          t('common.actions', 'Actions')
         ]}
       >
         {disputes.map((dispute, index) => (
@@ -921,8 +923,8 @@ const Disputes = () => {
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
       >
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">Gestion des litiges</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">Résolvez les problèmes signalés par les utilisateurs</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100">{t('disputes.title', 'Gestion des litiges')}</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">{t('disputes.subtitle', 'Résolvez les problèmes signalés par les utilisateurs')}</p>
         </div>
 
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
@@ -974,7 +976,7 @@ const Disputes = () => {
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
             <input
               type="text"
-              placeholder="Rechercher un litige..."
+              placeholder={t('disputes.search_placeholder', 'Rechercher un litige...')}
               className="w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-sm md:text-base"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -989,12 +991,12 @@ const Disputes = () => {
               setCurrentPage(1);
             }}
           >
-            <option value="all">Statuts</option>
-            <option value="open">Ouvert</option>
-            <option value="in_progress">En cours</option>
-            <option value="resolved">Résolu</option>
-            <option value="rejected">Rejeté</option>
-            <option value="pending">En attente</option>
+            <option value="all">{t('common.status', 'Statuts')}</option>
+            <option value="open">{t('disputes.status.open', 'Ouvert')}</option>
+            <option value="in_progress">{t('disputes.in_review', 'En cours')}</option>
+            <option value="resolved">{t('common.resolved', 'Résolu')}</option>
+            <option value="rejected">{t('common.rejected', 'Rejeté')}</option>
+            <option value="pending">{t('trips.status.pending', 'En attente')}</option>
           </select>
 
           <select
@@ -1005,12 +1007,12 @@ const Disputes = () => {
               setCurrentPage(1);
             }}
           >
-            <option value="all">Types</option>
-            <option value="payment">Paiement</option>
-            <option value="driving">Conduite</option>
-            <option value="delay">Retard</option>
-            <option value="vehicle">Véhicule</option>
-            <option value="behavior">Comportement</option>
+            <option value="all">{t('common.categories', 'Types')}</option>
+            <option value="payment">{t('nav.paiements', 'Paiement')}</option>
+            <option value="driving">{t('disputes.driving', 'Conduite')}</option>
+            <option value="delay">{t('disputes.delay', 'Retard')}</option>
+            <option value="vehicle">{t('drivers.vehicle', 'Véhicule')}</option>
+            <option value="behavior">{t('disputes.behavior', 'Comportement')}</option>
           </select>
 
           <select
@@ -1021,11 +1023,11 @@ const Disputes = () => {
               setCurrentPage(1);
             }}
           >
-            <option value="all">Priorités</option>
-            <option value="low">Basse</option>
-            <option value="medium">Moyenne</option>
-            <option value="high">Haute</option>
-            <option value="critical">Critique</option>
+            <option value="all">{t('disputes.priorities', 'Priorités')}</option>
+            <option value="low">{t('disputes.low', 'Basse')}</option>
+            <option value="medium">{t('disputes.medium', 'Moyenne')}</option>
+            <option value="high">{t('disputes.high', 'Haute')}</option>
+            <option value="critical">{t('disputes.critical', 'Critique')}</option>
           </select>
         </div>
       </Card>
@@ -1050,16 +1052,16 @@ const Disputes = () => {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center ">
             <div>
-              <CardTitle>Litiges ({totalItems})</CardTitle>
+              <CardTitle>{t('nav.litiges', 'Litiges')} ({totalItems})</CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {selectedDisputes.length > 0 && `${selectedDisputes.length} sélectionné(s) • `}
-                {disputes.length} affiché(s) sur {totalItems}
+                {selectedDisputes.length > 0 && `${selectedDisputes.length} ${t('common.selected', 'sélectionné(s)')} • `}
+                {t('common.showing_n_of_m', { n: disputes.length, m: totalItems, defaultValue: `${disputes.length} affiché(s) sur ${totalItems}` })}
               </p>
 
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto">
-              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Afficher :</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{t('common.display', 'Afficher :')}</span>
               <select
                 className="border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-400 transition w-full md:w-auto"
                 value={pageSize}

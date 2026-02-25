@@ -3,19 +3,23 @@ import {
     Download, Printer, ZoomIn, ZoomOut,
     Maximize2, X, Check, MapPin, Phone,
     Mail, Globe, Calendar, Hash, User,
-    Car, CreditCard, ShieldCheck
+    Car, CreditCard, ShieldCheck, Hourglass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../../context/SettingsContext';
 
 const PremiumInvoice = ({ payment, onClose }) => {
     const { settings } = useSettings();
-    const [zoom, setZoom] = useState(1);
+    const { t } = useTranslation();
+    const [zoom, setZoom] = useState(0.85); // Légèrement dézoomé par défaut pour tout voir
     const printRef = useRef();
 
-    const platformName = settings?.platform?.name || 'Taka Taka Voyage';
+    const platformName = 'Taka Taka';
     const platformLogo = settings?.platform?.logo;
-    const platformColor = '#10B981'; // Emerald 500
+
+    // Dégradé signature : Bleu doux vers Vert
+    const softGradient = "bg-gradient-to-r from-blue-500 to-emerald-500";
 
     const handlePrint = () => {
         const printContent = printRef.current;
@@ -27,18 +31,32 @@ const PremiumInvoice = ({ payment, onClose }) => {
         printWindow.document.write(`
       <html>
         <head>
-          <title>Facture ${payment.invoiceNumber}</title>
+          <title>Facture ${payment.invoiceNumber || payment.reference || 'TakaTaka'}</title>
           <script src="https://cdn.tailwindcss.com"></script>
+          <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
           <style>
             @media print {
-              body { padding: 0; margin: 0; }
-              .no-print { display: none; }
+              body { padding: 0 !important; margin: 0 !important; }
+              .no-print { display: none !important; }
+               @page { size: A4; margin: 0; }
             }
-            body { font-family: 'Inter', sans-serif; }
+            body { 
+              font-family: 'Montserrat', sans-serif; 
+              background: white;
+            }
+            .invoice-a4 {
+              width: 210mm;
+              height: 297mm;
+              position: relative;
+              background: white;
+              overflow: hidden;
+            }
           </style>
         </head>
-        <body>
-          ${printContent.innerHTML}
+        <body class="m-0 p-0">
+          <div class="invoice-a4">
+            ${printContent.innerHTML}
+          </div>
           <script>
             window.onload = () => {
               window.print();
@@ -56,37 +74,40 @@ const PremiumInvoice = ({ payment, onClose }) => {
     const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.5));
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
             <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white dark:bg-slate-950 w-full max-w-6xl h-[95vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800"
             >
                 {/* Header / Toolbar */}
-                <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
-                    <div className="flex items-center gap-4">
-                        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <span className="p-2 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
-                                <Printer className="w-5 h-5 text-primary-600" />
+                <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 shadow-sm z-10">
+                    <div className="flex items-center gap-4 text-slate-800 dark:text-slate-100">
+                        <div className="flex items-center gap-3">
+                            <span className={`p-2 ${softGradient} rounded-lg shadow-lg`}>
+                                <Printer className="w-5 h-5 text-white" />
                             </span>
-                            Aperçu de la facture
-                        </h2>
-                        <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-2 hidden md:block" />
-                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                            <div className="flex flex-col">
+                                <h2 className="text-base font-bold leading-tight">Facture Premium Taka Taka</h2>
+                                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Format Professionnel A4</span>
+                            </div>
+                        </div>
+                        <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2 hidden md:block" />
+                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1 border border-slate-200/50 dark:border-slate-700/50">
                             <button
                                 onClick={handleZoomOut}
-                                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md transition text-slate-600 dark:text-slate-400"
+                                className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all text-slate-600 dark:text-slate-400"
                                 title="Zoom arrière"
                             >
                                 <ZoomOut className="w-4 h-4" />
                             </button>
-                            <span className="px-3 text-sm font-medium text-slate-700 dark:text-slate-300 min-w-[60px] text-center">
+                            <span className="px-3 text-xs font-black text-slate-700 dark:text-slate-200 min-w-[55px] text-center">
                                 {Math.round(zoom * 100)}%
                             </span>
                             <button
                                 onClick={handleZoomIn}
-                                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-md transition text-slate-600 dark:text-slate-400"
+                                className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all text-slate-600 dark:text-slate-400"
                                 title="Zoom avant"
                             >
                                 <ZoomIn className="w-4 h-4" />
@@ -97,21 +118,21 @@ const PremiumInvoice = ({ payment, onClose }) => {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={handlePrint}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition font-medium"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white hover:bg-black transition-all font-bold text-sm rounded-xl"
                         >
                             <Printer className="w-4 h-4" />
                             <span className="hidden sm:inline">Imprimer</span>
                         </button>
                         <button
-                            onClick={() => {/* Custom PDF logic if needed, otherwise Print to PDF */ handlePrint() }}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition font-medium shadow-lg shadow-primary-500/20"
+                            onClick={handlePrint}
+                            className={`flex items-center gap-2 px-5 py-2.5 ${softGradient} text-white rounded-xl transition-all font-bold text-sm shadow-lg shadow-blue-500/20`}
                         >
                             <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">Exporter PDF</span>
+                            <span className="hidden sm:inline">PDF</span>
                         </button>
                         <button
                             onClick={onClose}
-                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500"
+                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all text-slate-500"
                         >
                             <X className="w-6 h-6" />
                         </button>
@@ -119,200 +140,211 @@ const PremiumInvoice = ({ payment, onClose }) => {
                 </div>
 
                 {/* Invoice Canvas */}
-                <div className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-950 p-8 flex justify-center">
+                <div className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-950/50 p-4 md:p-8 flex justify-center items-start scrollbar-hide">
                     <div
                         ref={printRef}
-                        className="bg-white shadow-xl origin-top transition-transform duration-200"
+                        className="bg-white shadow-[0_0_50px_-12px_rgba(0,0,0,0.15)] origin-top transition-transform duration-300 relative border-box overflow-hidden"
                         style={{
                             width: '210mm',
-                            minHeight: '297mm',
-                            padding: '20mm',
-                            transform: `scale(${zoom})`
+                            height: '297mm',
+                            transform: `scale(${zoom})`,
+                            fontFamily: "'Montserrat', sans-serif"
                         }}
                     >
-                        {/* Invoice Content Start */}
-                        <div className="invoice-container text-slate-800 h-full flex flex-col">
-                            {/* Header Design */}
-                            <div className="flex justify-between items-start mb-12">
+                        {/* 1. Gradient Border Updated */}
+                        <div className="absolute inset-0 pointer-events-none border-[12px] border-white z-50"></div>
+                        <div className={`absolute inset-[12px] pointer-events-none border-2 border-transparent bg-gradient-to-br from-blue-500 to-emerald-500 [mask-image:linear-gradient(white,white),linear-gradient(white,white)] [mask-clip:content-box,border-box] [mask-composite:exclude] z-50`}></div>
+
+                        {/* Main Content Container - Optimized Spacing */}
+                        <div className="p-[20mm] h-full flex flex-col relative z-10 text-slate-900">
+
+                            {/* Header Section */}
+                            <div className="flex justify-between items-center mb-10">
                                 <div className="flex items-center gap-4">
                                     {platformLogo ? (
                                         <img src={platformLogo} alt="Logo" className="w-16 h-16 object-contain" />
                                     ) : (
-                                        <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                                        <div className={`w-16 h-16 ${softGradient} rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-lg`}>
                                             T
                                         </div>
                                     )}
+                                    <div className="space-y-0.5">
+                                        <h1 className="text-2xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-emerald-500">Taka Taka</h1>
+                                        <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-[0.3em]">Plateforme de Voyage</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl shadow-sm">
+                                    <div className={`px-4 py-1.5 ${softGradient} text-white font-black text-[10px] uppercase tracking-widest rounded-lg`}>Facture</div>
+                                    <div className="px-3 py-1.5 text-slate-800 font-extrabold text-xs tracking-tight">{payment.reference || payment.invoiceNumber}</div>
+                                </div>
+                            </div>
+
+                            {/* Info Section - Slightly more compact */}
+                            <div className="grid grid-cols-2 gap-12 mb-8 px-2">
+                                <div className="space-y-4">
                                     <div>
-                                        <h1 className="text-2xl font-black tracking-tight text-slate-900">{platformName}</h1>
-                                        <p className="text-slate-500 font-medium uppercase text-xs tracking-widest px-1">Plateforme de Voyage</p>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="inline-block px-4 py-1 bg-slate-900 text-white font-bold text-sm rounded-lg mb-2">FACTURE</div>
-                                    <p className="text-slate-400 text-xs font-bold uppercase tracking-tighter">Référence</p>
-                                    <p className="text-slate-900 font-bold">{payment.invoiceNumber}</p>
-                                </div>
-                            </div>
-
-                            {/* Info Bar */}
-                            <div className="grid grid-cols-3 gap-8 p-6 bg-slate-50 rounded-2xl mb-10 border border-slate-100">
-                                <div>
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Emetteur</h4>
-                                    <p className="font-bold text-slate-900 text-sm">{platformName}</p>
-                                    <div className="flex items-center gap-2 text-slate-500 text-xs mt-1">
-                                        <MapPin className="w-3 h-3" /> Conakry, Guinée
-                                    </div>
-                                    <div className="flex items-center gap-2 text-slate-500 text-xs mt-1">
-                                        <Mail className="w-3 h-3" /> contact@takataka.com
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Informations</h4>
-                                    <div className="flex items-center gap-2 text-slate-700 text-xs">
-                                        <Calendar className="w-3 h-3 text-slate-400" />
-                                        <span className="font-bold">Date:</span> {payment.date}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-slate-700 text-xs mt-1">
-                                        <Hash className="w-3 h-3 text-slate-400" />
-                                        <span className="font-bold">ID:</span> {payment.transactionId}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-slate-700 text-xs mt-1">
-                                        <CreditCard className="w-3 h-3 text-slate-400" />
-                                        <span className="font-bold">Méthode:</span> {payment.method.toUpperCase()}
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total à payer</h4>
-                                    <p className="text-3xl font-black text-emerald-600">{payment.amount}</p>
-                                    <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold uppercase">
-                                        <Check className="w-3 h-3" /> Paiement Confirmé
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Client & Provider */}
-                            <div className="grid grid-cols-2 gap-12 mb-10 px-4">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                        <User className="w-4 h-4 text-primary-500" />
-                                        <h3 className="font-bold text-slate-900 text-sm">Destinaire (Client)</h3>
-                                    </div>
-                                    <div className="pl-6 space-y-1">
-                                        <p className="text-base font-bold text-slate-800">{payment.passenger.name}</p>
-                                        <p className="text-sm text-slate-500">{payment.passenger.phone}</p>
-                                        <p className="text-sm text-slate-500">{payment.passenger.email || '-'}</p>
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                        <Car className="w-4 h-4 text-primary-500" />
-                                        <h3 className="font-bold text-slate-900 text-sm">Prestataire (Chauffeur)</h3>
-                                    </div>
-                                    <div className="pl-6 space-y-1">
-                                        <p className="text-base font-bold text-slate-800">{payment.driver.name}</p>
-                                        <p className="text-sm text-slate-500">{payment.driver.vehicle}</p>
-                                        <p className="text-sm text-slate-500">{payment.driver.phone}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Course Details Table */}
-                            <div className="mb-10 flex-1">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="bg-slate-900 text-white">
-                                            <th className="px-6 py-4 rounded-tl-xl text-xs font-bold uppercase tracking-widest">Désignation du trajet</th>
-                                            <th className="px-4 py-4 text-xs font-bold uppercase tracking-widest text-center">Distance</th>
-                                            <th className="px-4 py-4 text-xs font-bold uppercase tracking-widest text-center">Durée</th>
-                                            <th className="px-6 py-4 rounded-tr-xl text-xs font-bold uppercase tracking-widest text-right">Montant</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 border-x border-b border-slate-100 rounded-b-xl">
-                                        <tr>
-                                            <td className="px-6 py-8">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-slate-900 text-lg">Course Standard Taka Taka</span>
-                                                    <span className="text-xs text-slate-400 mt-2 font-medium uppercase tracking-tighter">De:</span>
-                                                    <span className="text-sm text-slate-700 font-medium">{payment.trip.route.split('→')[0].trim()}</span>
-                                                    <span className="text-xs text-slate-400 mt-1 font-medium uppercase tracking-tighter">Vers:</span>
-                                                    <span className="text-sm text-slate-700 font-medium">{payment.trip.route.split('→')[1]?.trim() || '-'}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-8 text-center align-top">
-                                                <span className="inline-block px-3 py-1 bg-slate-100 rounded-full font-bold text-slate-700 text-sm">
-                                                    {payment.trip.distance}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-8 text-center align-top">
-                                                <span className="inline-block px-3 py-1 bg-slate-100 rounded-full font-bold text-slate-700 text-sm">
-                                                    {payment.trip.duration}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-8 text-right align-top">
-                                                <span className="text-lg font-black text-slate-900">{payment.amount}</span>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Financial Recap */}
-                            <div className="flex justify-end mb-16">
-                                <div className="w-full max-w-xs space-y-3">
-                                    <div className="flex justify-between items-center text-slate-500 text-sm">
-                                        <span>Sous-total</span>
-                                        <span className="font-bold">{payment.amount}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-slate-500 text-sm">
-                                        <span>Frais de service (Incl.)</span>
-                                        <span className="font-bold">{payment.fees?.platform || '0 GNF'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-slate-500 text-sm">
-                                        <span>TVA (18% Incl.)</span>
-                                        <span className="font-bold">Calculé</span>
-                                    </div>
-                                    <div className="h-px bg-slate-200 mt-4 mb-2"></div>
-                                    <div className="flex justify-between items-center text-slate-900">
-                                        <span className="text-lg font-bold">TOTAL TTC</span>
-                                        <span className="text-2xl font-black">{payment.amount}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Footer Part */}
-                            <div className="mt-auto">
-                                <div className="grid grid-cols-2 items-end">
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-2 text-slate-400">
-                                            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Certifié conforme par Taka Taka</span>
+                                        <h4 className={`text-[8px] font-black text-blue-500 uppercase tracking-[0.2em] mb-2`}>Émetteur du reçu</h4>
+                                        <p className="font-extrabold text-slate-800 text-xs tracking-tight">Taka Taka</p>
+                                        <div className="flex items-center gap-2 text-slate-500 text-[10px] mt-1">
+                                            <MapPin className="w-3 h-3 text-emerald-500" /> Conakry, Guinée
                                         </div>
-                                        <p className="text-[10px] text-slate-400 leading-relaxed max-w-xs italic">
-                                            Cette facture électronique tient lieu de document officiel de paiement pour la prestation de transport effectuée. En cas de litige, veuillez vous munir du numéro de référence en haut de ce document.
+                                    </div>
+
+                                    <div className="flex gap-6 pt-2">
+                                        <div>
+                                            <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Date d'émission</h4>
+                                            <p className="text-[10px] font-bold text-slate-700">{payment.date}</p>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Mode de Paiement</h4>
+                                            <p className="text-[10px] font-bold text-slate-700">{payment.method?.toUpperCase() || 'CASH'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-200 flex flex-col justify-center items-center">
+                                    <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total à Régler</h4>
+                                    <p className="text-3xl font-black tracking-tight text-blue-600 mb-2">{payment.amount}</p>
+                                    <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 ${payment.status === 'confirmed' || payment.status === 'paid' || payment.status === 'completed'
+                                        ? 'bg-emerald-500 text-white'
+                                        : 'bg-amber-500 text-white'
+                                        }`}>
+                                        {payment.status === 'confirmed' || payment.status === 'paid' || payment.status === 'completed' ? <Check className="w-2.5 h-2.5" /> : <Hourglass className="w-2.5 h-2.5" />}
+                                        {payment.status === 'confirmed' || payment.status === 'paid' || payment.status === 'completed' ? 'Paiement Confirmé' : 'Attente'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Client & Driver Mirror Design */}
+                            <div className="grid grid-cols-2 gap-8 mb-8 px-2">
+                                {/* Client - Mirrored from Driver style */}
+                                <div className="p-5 bg-white rounded-2xl border-l-[6px] border-blue-500 shadow-sm border-y border-r border-slate-200">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="p-1.5 bg-blue-50 rounded-lg text-blue-500"><User className="w-3.5 h-3.5" /></div>
+                                        <h3 className="font-black text-slate-800 text-[9px] uppercase tracking-widest">Client (Destinataire)</h3>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-black text-slate-900 tracking-tight truncate">{payment.passenger.name || '-'}</p>
+                                        <div className="text-[10px] text-slate-500 space-y-1">
+                                            <p className="flex items-center gap-2 font-semibold"><Phone className="w-3 h-3 text-blue-400" /> {payment.passenger.phone || '-'}</p>
+                                            <p className="flex items-center gap-2 font-semibold truncate"><Mail className="w-3 h-3 text-blue-400" /> {payment.passenger.email || '-'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Driver style preserved */}
+                                <div className="p-5 bg-white rounded-2xl border-l-[6px] border-emerald-500 shadow-sm border-y border-r border-slate-200">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600"><Car className="w-3.5 h-3.5" /></div>
+                                        <h3 className="font-black text-slate-800 text-[9px] uppercase tracking-widest">Chauffeur (Prestataire)</h3>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-black text-slate-900 tracking-tight truncate">{payment.driver.name || '-'}</p>
+                                        <div className="text-[10px] text-slate-500 space-y-1">
+                                            <p className="flex items-center gap-2 font-semibold"><Car className="w-3 h-3 text-emerald-400" /> {payment.driver.vehicle || 'Véhicule standard'}</p>
+                                            <p className="flex items-center gap-2 font-semibold"><Phone className="w-3 h-3 text-emerald-400" /> {payment.driver.phone || '-'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Gradient Table Header */}
+                            <div className="mb-8 px-2">
+                                <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className={`${softGradient} text-white`}>
+                                                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] w-1/2">Désignation du trajet</th>
+                                                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-center border-l border-white/20">Distance</th>
+                                                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-center border-l border-white/20">Durée</th>
+                                                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-right border-l border-white/20">Montant</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200">
+                                            <tr>
+                                                <td className="px-6 py-6 font-medium">
+                                                    <div className="space-y-3">
+                                                        <span className="block font-black text-slate-900 text-sm leading-tight uppercase">COURSE TAKATAKA PREMIUM</span>
+                                                        <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5 items-start">
+                                                            <div className="w-1 h-1 rounded-full bg-blue-500 mt-1.5"></div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Départ</span>
+                                                                <span className="text-[10px] font-bold text-slate-700">{payment.trip.route.split('→')[0].trim() || 'Région de Mamou'}</span>
+                                                            </div>
+                                                            <div className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5"></div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Arrivée</span>
+                                                                <span className="text-[10px] font-bold text-slate-700">{payment.trip.route.split('→')[1]?.trim() || 'Dalaba'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-6 text-center align-top pt-8 border-l border-slate-100">
+                                                    <span className="text-xs font-black text-slate-800">{payment.trip.distance}</span>
+                                                </td>
+                                                <td className="px-4 py-6 text-center align-top pt-8 border-l border-slate-100">
+                                                    <span className="text-xs font-black text-slate-800">{payment.trip.duration === '-' ? '0 min' : payment.trip.duration}</span>
+                                                </td>
+                                                <td className="px-6 py-6 text-right align-top pt-8 border-l border-slate-100">
+                                                    <span className="text-sm font-black text-slate-950">{payment.amount}</span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Summary & Footer - Consolidated */}
+                            <div className="flex justify-end pr-4 mb-10 mt-auto">
+                                <div className="w-full max-w-xs space-y-2">
+                                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                        <span className="text-slate-400 font-black uppercase tracking-widest text-[8px]">Sous-total</span>
+                                        <span className="text-right font-bold text-slate-700">{payment.amount}</span>
+
+                                        {payment.fees?.platform && (
+                                            <>
+                                                <span className="text-slate-400 font-black uppercase tracking-widest text-[8px]">Commission Plateforme</span>
+                                                <span className="text-right font-bold text-red-500">-{payment.fees.platform}</span>
+                                            </>
+                                        )}
+
+                                        <span className="text-slate-400 font-black uppercase tracking-widest text-[8px]">Taxes Incl.</span>
+                                        <span className="text-right font-bold text-slate-700">18%</span>
+                                    </div>
+                                    <div className="pt-2 border-t border-slate-200 border-dashed flex justify-between items-center">
+                                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Total TTC</span>
+                                        <span className="text-xl font-black tracking-tighter text-blue-600">{payment.amount}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-8">
+                                <div className="flex justify-between items-end px-2">
+                                    <div className="space-y-3 max-w-[250px]">
+                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg w-fit">
+                                            <ShieldCheck className="w-3 h-3" />
+                                            <span className="text-[8px] font-black uppercase tracking-widest">Certifié Taka Taka</span>
+                                        </div>
+                                        <p className="text-[8px] text-slate-400 leading-normal italic">
+                                            Preuve numérique de paiement. Validité juridique pour toutes fins administratives sur la plateforme Taka Taka.
                                         </p>
                                     </div>
-                                    <div className="flex flex-col items-center">
-                                        <div className="mb-2">
-                                            {/* E-Signature Placeholder */}
-                                            <div className="relative">
-                                                <p className="font-signature text-3xl text-blue-600/60 transform -rotate-6 select-none italic font-serif">
-                                                    Admin TakaTaka
-                                                </p>
-                                                <div className="absolute -bottom-2 left-0 right-0 h-px bg-slate-300 transform rotate-1"></div>
-                                            </div>
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="relative">
+                                            <p className="font-signature text-2xl text-blue-500/60 italic font-serif -rotate-6 tracking-tight pr-2">
+                                                Admin TakaTaka
+                                            </p>
+                                            <div className={`absolute -bottom-1.5 left-0 right-0 h-[1.5px] ${softGradient} opacity-30`}></div>
                                         </div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Signature de l'administrateur</p>
+                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Signature Autoritaire</p>
                                     </div>
                                 </div>
 
-                                {/* Bottom Bar Design */}
-                                <div className="mt-12 h-2 w-full flex rounded-full overflow-hidden">
-                                    <div className="h-full w-1/2 bg-blue-600"></div>
-                                    <div className="h-full w-1/2 bg-emerald-500"></div>
+                                <div className={`relative h-1.5 w-full flex rounded-full overflow-hidden shadow-sm shadow-blue-500/10`}>
+                                    <div className={`h-full w-full ${softGradient}`}></div>
                                 </div>
                             </div>
                         </div>
-                        {/* Invoice Content End */}
                     </div>
                 </div>
             </motion.div>

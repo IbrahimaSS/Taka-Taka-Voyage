@@ -14,6 +14,8 @@ import { GeolocationService } from "../services/geolocation";
 import { useAuth } from "./AuthContext";
 import { toast } from "react-hot-toast";
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from "./NotificationContext";
+import { offlineTripService } from "../services/offlineTripService";
+import { tripService } from "../services/tripService";
 
 
 const DriverContext = createContext();
@@ -54,11 +56,31 @@ export const DriverProvider = ({ children }) => {
   // États principaux
   // ────────────────────────────────────────────────
   const { user } = useAuth();
-  const [isOnline, setIsOnline] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [status, setStatus] = useState("offline"); // offline | available | busy
-  const { addNotification } = useNotificationCenter();
 
+  // ✅ Suggestion 2: Initialiser directement depuis le stockage (taka_active_trip_driver)
+  const [isOnline, setIsOnline] = useState(() => {
+    const saved = localStorage.getItem('taka_active_trip_driver');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.state?.isOnline || false;
+      } catch (e) { return false; }
+    }
+    return false;
+  });
+
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [status, setStatus] = useState(() => {
+    const saved = localStorage.getItem('taka_active_trip_driver');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.state?.status || "offline";
+      } catch (e) { return "offline"; }
+    }
+    return "offline";
+  }); // offline | available | busy
+  const { addNotification } = useNotificationCenter();
 
   const geolocationOptions = useMemo(() => ({
     enableHighAccuracy: true,
@@ -99,6 +121,95 @@ export const DriverProvider = ({ children }) => {
     acceptedToday: 0,
     rejectedToday: 0,
   });
+
+  // 🔄 [OFFLINE] Restauration initiale (Déplacé après les déclarations d'état)
+  useEffect(() => {
+    if (user) {
+      const localState = offlineTripService.loadState('CHAUFFEUR');
+      if (localState) {
+        console.log("💾 [DRIVER] Restauration stockage local");
+        setIsOnline(localState.isOnline);
+        setStatus(localState.status);
+        if (localState.acceptedTrips) setAcceptedTrips(localState.acceptedTrips);
+        setCurrentPickupTripId(localState.currentPickupTripId);
+        setTripStep(localState.tripStep || "idle");
+
+        if (localState.currentPickupTripId) {
+          socketService.emit("course:rejoindre", { reservationId: localState.currentPickupTripId });
+        }
+      }
+    }
+  }, [user]);
+
+  // 💾 [OFFLINE] Sauvegarde automatique
+  useEffect(() => {
+    if (user) {
+      offlineTripService.saveState('CHAUFFEUR', {
+        isOnline,
+        status,
+        acceptedTrips,
+        currentPickupTripId,
+        tripStep
+      });
+    }
+  }, [isOnline, status, acceptedTrips, currentPickupTripId, tripStep, user]);
+
+  // 🔄 Synchronisation avec le serveur (Ramassage / En cours)
+  const refreshActiveTrips = useCallback(async () => {
+    if (!user || !isOnline) return;
+    try {
+      const { data } = await tripService.getPickupTrips();
+      if (data?.succes && data?.courses) {
+        // Transformer les données backend au format local context
+        const formatted = data.courses.map(c => ({
+          ...c,
+          id: c._id || c.id,
+          reservationId: c.reservationId || c._id || c.id,
+          passengerName: c.passager ? `${c.passager.prenom} ${c.passager.nom}` : "Passager",
+          passengerPhone: c.passager?.telephone,
+          pickupAddress: c.depart,
+          destinationAddress: c.destination,
+          pickupCoords: c.departLat ? [c.departLat, c.departLng] : null,
+          destinationCoords: c.destinationLat ? [c.destinationLat, c.destinationLng] : null,
+          pickupStatus: c.statut === 'EN_ROUTE' ? 'picked_up' : (c.statut === 'ARRIVE' ? 'arrived' : 'approaching'),
+          estimatedFare: c.prix,
+          momentPaiement: c.momentPaiement || c.paymentMoment,
+          paymentMethod: c.paymentMethod || c.methodePaiement || c.modePaiement,
+          statutPaiement: c.statutPaiement || c.paymentStatus,
+          typeCourse: c.typeCourse
+        }));
+
+        setAcceptedTrips(formatted);
+
+        // Si un trajet est EN_ROUTE, on s'assure que le step est correct
+        const activeOne = formatted.find(f => f.pickupStatus === 'picked_up');
+        if (activeOne) {
+          setTripStep("in_progress");
+          setCurrentPickupTripId(activeOne.id);
+          setStatus("busy");
+        } else {
+          // ✅ Suggestion 2: Si plus de trajet, le chauffeur redeviens "En ligne" (available)
+          setStatus("available");
+          setTripStep("idle");
+          setCurrentPickupTripId(null);
+        }
+      } else {
+        // Pas de courses du tout
+        setStatus("available");
+        setTripStep("idle");
+        setCurrentPickupTripId(null);
+      }
+    } catch (error) {
+      console.error("[DriverContext] Error refreshing trips:", error);
+    }
+  }, [user, isOnline]);
+
+  // Sync au passage en ligne
+  useEffect(() => {
+    if (isOnline) {
+      refreshActiveTrips();
+    }
+  }, [isOnline, refreshActiveTrips]);
 
 
   // Anti doublon
@@ -289,12 +400,11 @@ export const DriverProvider = ({ children }) => {
     socketService.on("trip_cancelled", onTripCancelled);
     socketService.on("course:annulee", onTripCancelled);
 
-    // ✅ NOUVEAU: Notification versement admin
+    // ✅ Suggestion 1: Notification versement admin + Refresh automatique
     socketService.on("paiement:verse", (data) => {
       console.log("💰 [DRIVER] Versement admin reçu:", data);
       const montant = (data.montant || 0).toLocaleString('fr-FR');
 
-      // Add to Notification Center (History + Bell Icon + Toast)
       addNotification({
         type: NOTIFICATION_TYPES.SUCCESS,
         category: NOTIFICATION_CATEGORIES.FINANCIAL,
@@ -302,8 +412,24 @@ export const DriverProvider = ({ children }) => {
         message: `L'administration a versé ${montant} GNF sur votre compte.`,
         priority: 'high'
       });
+
+      // Déclencher un événement global pour que Revenues.jsx se rafraîchisse
+      window.dispatchEvent(new CustomEvent('chauffeur:revenu_mis_a_jour'));
     });
 
+    // ✅ Suggestion 2: Libérer le chauffeur quand le trajet se termine (via socket)
+    const onTripFinished = (data) => {
+      console.log("🏁 [DRIVER] Trajet terminé reçu par socket, libération du statut");
+      // On ne vide plus brutalement setAcceptedTrips([]) ici pour ne pas casser l'UI
+      setCurrentPickupTripId(null);
+      setTripStep("idle");
+      setStatus("available");
+      // refreshActiveTrips() est commenté car il viderait acceptedTrips si le trajet n'est plus actif
+    };
+
+    socketService.on("course:terminee", onTripFinished);
+    socketService.on("course:finit_avec_paiement", onTripFinished);
+    socketService.on("paiement:confirme", onTripFinished);
 
     setIsConnecting(false);
 
@@ -315,8 +441,11 @@ export const DriverProvider = ({ children }) => {
       socketService.off("trip_cancelled", onTripCancelled);
       socketService.off("course:annulee", onTripCancelled);
       socketService.off("paiement:verse");
+      socketService.off("course:terminee", onTripFinished);
+      socketService.off("course:finit_avec_paiement", onTripFinished);
+      socketService.off("paiement:confirme", onTripFinished);
     };
-  }, [isOnline, DRIVER, handleNewTripRequest]);
+  }, [isOnline, DRIVER, handleNewTripRequest, refreshActiveTrips]);
 
   // ────────────────────────────────────────────────
   // 3) GPS en continu (uniquement si course active)
@@ -415,13 +544,13 @@ export const DriverProvider = ({ children }) => {
             return prev;
           }
 
-          // Avancer de ~50m par seconde (environ 0.0005 degrés)
+          // Avancer beaucoup plus vite pour les tests/juges (~8x plus vite)
           return {
-            lat: prev.lat + (latDiff / dist) * 0.0005,
-            lng: prev.lng + (lngDiff / dist) * 0.0005
+            lat: prev.lat + (latDiff / dist) * 0.004,
+            lng: prev.lng + (lngDiff / dist) * 0.004
           };
         });
-      }, 1000);
+      }, 250); // Intervalle plus court pour plus de nervosité (250ms au lieu de 1000ms)
 
       return () => clearInterval(simulationIntervalRef.current);
     } else {
@@ -477,6 +606,51 @@ export const DriverProvider = ({ children }) => {
     setTripStep("to_pickup");
     setStatus("busy");
   };
+
+  const startPlannedTrip = useCallback((reservationRaw) => {
+    if (!reservationRaw?._id) return;
+    const reservationId = reservationRaw._id;
+
+    // 1. Informer le serveur via Socket qu'on rejoint ce passager
+    socketService.emit("course:rejoindre", { reservationId });
+
+    // 2. Préparer l'objet pour le tracking local
+    // Support des formats GeoJSON (pickupCoords) et champs individuels (departLat)
+    const pickup = reservationRaw.pickupCoords ? normalizeCoords(reservationRaw.pickupCoords) :
+      (reservationRaw.departLat ? { lat: reservationRaw.departLat, lng: reservationRaw.departLng } : null);
+
+    const dest = reservationRaw.destinationCoords ? normalizeCoords(reservationRaw.destinationCoords) :
+      (reservationRaw.destinationLat ? { lat: reservationRaw.destinationLat, lng: reservationRaw.destinationLng } : null);
+
+    const formattedTrip = {
+      ...reservationRaw, // ✅ PRÉSERVER TOUS LES CHAMPS
+      id: reservationId,
+      reservationId,
+      passengerName: reservationRaw.passager ? `${reservationRaw.passager.prenom} ${reservationRaw.passager.nom}` : "Passager",
+      passengerPhone: reservationRaw.passager?.telephone,
+      pickupAddress: reservationRaw.depart,
+      destinationAddress: reservationRaw.destination,
+      pickupCoords: pickup ? [pickup.lat, pickup.lng] : null,
+      destinationCoords: dest ? [dest.lat, dest.lng] : null,
+      pickupStatus: 'approaching',
+      estimatedFare: reservationRaw.prix,
+      typeCourse: reservationRaw.typeCourse,
+      raw: reservationRaw
+    };
+
+    // 3. Mettre à jour les listes
+    setAcceptedTrips(prev => {
+      if (prev.some(t => t.id === reservationId)) return prev;
+      return [formattedTrip, ...prev];
+    });
+
+    // 4. Activer le mode tracking
+    setCurrentPickupTripId(reservationId);
+    setTripStep("to_pickup");
+    setStatus("busy");
+
+    return { succes: true };
+  }, []);
 
   const signalArrival = () => {
     if (!currentPickupTripId) return;
@@ -561,6 +735,8 @@ export const DriverProvider = ({ children }) => {
       maxDistanceKm: MAX_DISTANCE_KM,
       isSimulating,
       setIsSimulating,
+      refreshActiveTrips,
+      startPlannedTrip,
     }),
     [
       isOnline,
@@ -574,6 +750,8 @@ export const DriverProvider = ({ children }) => {
       stats,
       calculateDistance,
       isSimulating,
+      refreshActiveTrips,
+      startPlannedTrip,
     ]
   );
 
