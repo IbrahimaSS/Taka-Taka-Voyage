@@ -11,7 +11,21 @@ const { verifierToken } = require("../../middlewares/authMiddlewares");
 const { verifierStatutActif } = require("../../middlewares/statutMiddlewares");
 const uploadPhoto = require("../../middlewares/uploadPhoto");
 
-// Mon profil
+/**
+ * @swagger
+ * /api/passagers/profil:
+ *   get:
+ *     summary: Récupérer le profil du passager
+ *     description: Renvoie les détails du profil du passager actuellement connecté.
+ *     tags: [3 - Passagers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profil récupéré.
+ *       401:
+ *         description: Non autorisé.
+ */
 router.get(
     "/profil",
     verifierToken,
@@ -19,7 +33,34 @@ router.get(
     getProfil
 );
 
-// Modifier mon profil (SANS validerInscription)
+/**
+ * @swagger
+ * /api/passagers/profil:
+ *   put:
+ *     summary: Modifier le profil du passager
+ *     description: Permet au passager de modifier ses informations de profil, incluant sa photo.
+ *     tags: [3 - Passagers]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               photoUrl:
+ *                 type: string
+ *                 format: binary
+ *               nom:
+ *                 type: string
+ *               prenom:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profil mis à jour.
+ *       401:
+ *         description: Non autorisé.
+ */
 router.put(
     "/profil",
     verifierToken,
@@ -28,7 +69,32 @@ router.put(
     updateProfil
 );
 
-// Préférences
+/**
+ * @swagger
+ * /api/passagers/preferences:
+ *   put:
+ *     summary: Modifier les préférences
+ *     description: Mettre à jour les préférences de l'utilisateur passager.
+ *     tags: [3 - Passagers]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               langue:
+ *                 type: string
+ *               notifications:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Préférences mises à jour avec succès.
+ *       401:
+ *         description: Non autorisé.
+ */
 router.put(
     "/preferences",
     verifierToken,

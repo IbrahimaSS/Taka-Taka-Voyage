@@ -257,8 +257,9 @@ const Revenues = ({ onToast, onModal }) => {
                 const name = pObj.nomComplet ||
                     (pObj.prenom || pObj.nom ? [pObj.prenom, pObj.nom].filter(Boolean).join(' ') : null) ||
                     pObj.name || pObj.display_name ||
-                    item.nomPassager || item.passagerName ||
+                    item.nomPassager || item.passagerName || item.passengerName ||
                     item.reservation?.passager?.nomComplet ||
+                    (item.reservation?.passager?.prenom ? `${item.reservation.passager.prenom} ${item.reservation.passager.nom}` : null) ||
                     'Passager TakaTaka';
 
                 // Fallbacks pour le téléphone
@@ -266,18 +267,20 @@ const Revenues = ({ onToast, onModal }) => {
                     uObj.telephone || uObj.phone ||
                     item.telephonePassager || item.telPassager || item.passagerTelephone || item.passengerPhone ||
                     item.reservation?.passager?.telephone || item.reservation?.passager?.utilisateur?.telephone ||
+                    item.reservation?.telephonePassager || item.reservation?.passagerPhone ||
                     '-';
 
                 // Fallbacks pour l'email
                 const email = pObj.email || uObj.email ||
                     item.emailPassager || item.passagerEmail || item.passengerEmail ||
-                    item.reservation?.passager?.email ||
+                    item.reservation?.passager?.email || item.reservation?.passager?.utilisateur?.email ||
+                    item.reservation?.emailPassager ||
                     '-';
 
                 return {
                     id: item.id || item._id,
-                    date: item.date,
-                    trajet: item.trajet,
+                    date: item.date || item.createdAt,
+                    trajet: item.trajet || `${item.depart} - ${item.destination}`,
                     depart: item.depart,
                     destination: item.destination,
                     distanceKm: item.distanceKm,
@@ -285,10 +288,10 @@ const Revenues = ({ onToast, onModal }) => {
                     passager: { ...pObj, name, phone, email }, // On stocke l'objet enrichi
                     telephonePassager: phone, // Pour compatibilité
                     emailPassager: email,
-                    paymentMethod: mapPaymentMethod(item.modePaiement),
-                    montantBrut: item.montantBrut || 0,
+                    paymentMethod: mapPaymentMethod(item.modePaiement || item.paiement?.methode),
+                    montantBrut: item.montantBrut || item.prix || item.montant || 0,
                     commission: item.commission || 0,
-                    net: item.gainNet || 0,
+                    net: item.gainNet || (item.prix ? item.prix * 0.9 : 0) || 0,
                     verse: item.verse || false,
                     verseLe: item.verseLe || null,
                     reservation: item.reservation // On garde la résa pour d'autres besoins
@@ -431,7 +434,7 @@ const Revenues = ({ onToast, onModal }) => {
             {showReceipt && selectedRide && (
                 <PremiumInvoice
                     payment={{
-                        invoiceNumber: `INV-${selectedRide.id?.substring(0, 8).toUpperCase() || '000'}`,
+                        invoiceNumber: `INV-${(selectedRide.id || '').substring(0, 8).toUpperCase() || '000'}`,
                         date: formatDate(selectedRide.date),
                         transactionId: null,
                         status: (selectedRide.verse === true || selectedRide.verse === 'true') ? 'paid' : 'pending',
@@ -439,18 +442,19 @@ const Revenues = ({ onToast, onModal }) => {
                         amount: formatAmount(selectedRide.montantBrut),
                         passenger: {
                             name: selectedRide.passager?.name || t('revenues.unknown_passenger'),
-                            phone: selectedRide.passager?.phone || '-',
-                            email: selectedRide.passager?.email || '-'
+                            phone: selectedRide.passager?.phone || selectedRide.telephonePassager || '-',
+                            email: selectedRide.passager?.email || selectedRide.emailPassager || '-'
                         },
                         driver: {
                             name: user ? [user.prenom, user.nom].filter(Boolean).join(' ').trim() || (t('common.me') || 'Vous') : (t('common.me') || 'Vous'),
-                            vehicle: user?.vehicule?.modele || user?.vehicule || (t('common.my_vehicle') || 'Votre véhicule'),
-                            phone: user?.telephone || user?.phone || '-'
+                            vehicle: user?.vehicule?.modele || user?.vehicule?.marque || user?.vehicule || (t('common.my_vehicle') || 'Votre véhicule'),
+                            phone: user?.telephone || user?.phone || '-',
+                            email: user?.email || '-'
                         },
                         trip: {
                             route: `${selectedRide.depart} → ${selectedRide.destination}`,
-                            distance: `${selectedRide.distanceKm} km`,
-                            duration: `${selectedRide.dureeMin} min`
+                            distance: `${selectedRide.distanceKm || '-'} km`,
+                            duration: `${selectedRide.dureeMin || '-'} min`
                         },
                         fees: {
                             platform: formatAmount(selectedRide.commission)
