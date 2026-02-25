@@ -1,10 +1,31 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Clock, User, Car, MapPin, AlertCircle, CheckCircle, XCircle, RefreshCw, MoreVertical } from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from "react-router-dom";
+import { apiClient } from "../../services/apiClient";
+import { useTranslation } from "react-i18next";
+import { toast } from "react-hot-toast";
+import {
+  Car as CarIcon,
+  Phone,
+  Play,
+  Calendar,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  User as UserIcon,
+  Clock,
+  MapPin,
+  MoreVertical,
+  CheckCircle,
+  XCircle
+} from "lucide-react";
 import { tripService } from "../../services/tripService";
 import { socketService } from "../../services/socketService";
-import { toast } from "react-hot-toast";
+import { useDriverContext } from "../../context/DriverContext";
 
 const Planning = () => {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const { refreshActiveTrips, startPlannedTrip } = useDriverContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [editingReservation, setEditingReservation] = useState(null);
@@ -26,11 +47,13 @@ const Planning = () => {
 
           formatted[dateStr].push({
             id: res._id,
-            client: res.passager ? `${res.passager.nom} ${res.passager.prenom}` : "Passager inconnu",
-            time: new Date(res.datePlanifiee).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            client: res.passager ? `${res.passager.nom} ${res.passager.prenom}` : t('planning.unknown_passenger'),
+            phone: res.passager?.telephone,
+            time: new Date(res.datePlanifiee).toLocaleTimeString(i18n.language === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' }),
             from: res.depart,
             to: res.destination,
-            status: res.statut === 'ACCEPTEE' ? 'confirmée' : res.statut.toLowerCase()
+            status: res.statut === 'ACCEPTEE' ? 'confirmée' : res.statut.toLowerCase(),
+            raw: res
           });
         });
         setReservationsData(formatted);
@@ -84,12 +107,80 @@ const Planning = () => {
     setEditingReservation(reservationId);
   };
 
-  const updateReservationStatus = async (reservationId, newStatus) => {
-    // Note: Pour l'instant on simule si c'est une action locale, 
-    // mais idéalement on appellerait un endpoint spécifique.
-    // L'acceptation réelle se fait via la liste des demandes.
+  const handleCall = (phone) => {
+    if (phone) {
+      window.open(`tel:${phone}`);
+    } else {
+      toast.error(t('common.phone_not_available'));
+    }
     setEditingReservation(null);
-    toast.info("Action effectuée localement");
+  };
+
+  const handleStartTrip = async (reservationId) => {
+    // 🔍 Vérification de l'heure avant de démarrer
+    const allRes = Object.values(reservationsData).flat();
+    const reservation = allRes.find(r => r.id === reservationId);
+
+    if (reservation && reservation.raw) {
+      const scheduledTime = new Date(reservation.raw.datePlanifiee);
+      const now = new Date();
+
+      // Marge d'avance autorisée : 15 minutes
+      const EARLY_MARGIN_MS = 15 * 60 * 1000;
+
+      if (scheduledTime - now > EARLY_MARGIN_MS) {
+        toast.error(`Trop tôt ! Ce trajet est prévu à ${reservation.time}. Vous pourrez le démarrer 15 min avant l'heure.`);
+        setEditingReservation(null);
+        return;
+      }
+    }
+
+    try {
+      setLoading(true);
+
+      // ✅ Utiliser la logique Socket pour activer le trajet planifié
+      const result = startPlannedTrip(reservation.raw);
+
+      if (result && result.succes) {
+        toast.success(t('planning.trip_started_success'));
+
+        // Redirection après un court délai pour charger le tracking
+        setTimeout(() => {
+          navigate('/chauffeur/tracking');
+        }, 500);
+      }
+    } catch (error) {
+      console.error("Erreur start trip:", error);
+      toast.error(t('planning.error_starting_trip'));
+    } finally {
+      setLoading(false);
+      setEditingReservation(null);
+    }
+  };
+
+  const updateReservationStatus = async (reservationId, newStatus) => {
+    try {
+      setLoading(true);
+      let response;
+      if (newStatus === 'confirmée') {
+        response = await tripService.accept(reservationId);
+      } else {
+        response = await tripService.cancel(reservationId, { reason: "Annulé par le chauffeur" });
+      }
+
+      if (response.data.succes) {
+        toast.success(t('common.save_success'));
+        fetchPlannings();
+      } else {
+        toast.error(response.data.message || t('common.error'));
+      }
+    } catch (error) {
+      console.error("Erreur update status:", error);
+      toast.error(t('common.error'));
+    } finally {
+      setLoading(false);
+      setEditingReservation(null);
+    }
   };
 
   const formatDateKey = (date) => {
@@ -100,7 +191,7 @@ const Planning = () => {
   };
 
   const formatDisplayDate = (date) => {
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fr-FR', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -109,7 +200,7 @@ const Planning = () => {
   };
 
   const formatMonthYear = (date) => {
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'fr-FR', {
       month: 'long',
       year: 'numeric'
     });
@@ -165,7 +256,9 @@ const Planning = () => {
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
   const daysGrid = getMonthDays(currentYear, currentMonth);
-  const weekDays = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+  const weekDays = i18n.language === 'en'
+    ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    : ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
   const prevMonth = () => setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
@@ -185,9 +278,9 @@ const Planning = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Calendar className="w-6 h-6 text-blue-500" />
-            Planning des Réservations
+            {t('planning.title')}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">Gérez vos trajets planifiés</p>
+          <p className="text-gray-600 dark:text-gray-400">{t('planning.subtitle')}</p>
         </div>
         {loading && <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />}
       </div>
@@ -219,7 +312,7 @@ const Planning = () => {
             onClick={goToToday}
             className="w-full mb-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
           >
-            Aujourd'hui
+            {t('planning.today')}
           </button>
 
           <div className="grid grid-cols-7 gap-1 mb-2">
@@ -277,15 +370,15 @@ const Planning = () => {
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                <span className="text-gray-600 dark:text-gray-400">Aujourd'hui</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('planning.today')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span className="text-gray-600 dark:text-gray-400">Confirmé</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('planning.confirmed')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                <span className="text-gray-600 dark:text-gray-400">En attente</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('planning.pending')}</span>
               </div>
             </div>
           </div>
@@ -304,17 +397,17 @@ const Planning = () => {
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
                     <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {selectedReservations.filter(r => r.status === 'confirmée').length} confirmées
+                      {selectedReservations.filter(r => r.status === 'confirmée').length} {t('planning.confirmed')}
                     </span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  {selectedReservations.length} réservation{selectedReservations.length > 1 ? 's' : ''}
+                  {selectedReservations.length} {t('planning.trips_found')}
                 </span>
                 <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center">
-                  <Car className="w-4 h-4 text-blue-500" />
+                  <CarIcon className="w-4 h-4 text-blue-500" />
                 </div>
               </div>
             </div>
@@ -323,10 +416,10 @@ const Planning = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-6 py-3">
               <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-3 font-medium text-gray-700 dark:text-gray-300">Client</div>
-                <div className="col-span-2 font-medium text-gray-700 dark:text-gray-300">Heure</div>
-                <div className="col-span-4 font-medium text-gray-700 dark:text-gray-300">Trajet</div>
-                <div className="col-span-2 font-medium text-gray-700 dark:text-gray-300">Statut</div>
+                <div className="col-span-3 font-medium text-gray-700 dark:text-gray-300">{t('planning.passenger')}</div>
+                <div className="col-span-2 font-medium text-gray-700 dark:text-gray-300">{t('planning.time')}</div>
+                <div className="col-span-4 font-medium text-gray-700 dark:text-gray-300">{t('planning.trip')}</div>
+                <div className="col-span-2 font-medium text-gray-700 dark:text-gray-300">{t('planning.status')}</div>
                 <div className="col-span-1 font-medium text-gray-700 dark:text-gray-300"></div>
               </div>
             </div>
@@ -338,7 +431,7 @@ const Planning = () => {
                     <div className="grid grid-cols-12 gap-4 items-center">
                       <div className="col-span-3 flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center">
-                          <User className="w-5 h-5 text-blue-500" />
+                          <UserIcon className="w-5 h-5 text-blue-500" />
                         </div>
                         <div className="overflow-hidden">
                           <p className="font-medium text-gray-900 dark:text-white truncate">{reservation.client}</p>
@@ -378,11 +471,17 @@ const Planning = () => {
                             className="absolute z-10 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl w-36 overflow-hidden"
                             style={{ position: 'fixed', left: `${actionPosition.x}px`, top: `${actionPosition.y}px` }}
                           >
-                            <button onClick={() => updateReservationStatus(reservation.id, 'confirmée')} className="flex items-center w-full px-3 py-2 text-xs text-green-600 hover:bg-green-50">
-                              <CheckCircle className="w-3.5 h-3.5 mr-2" /> Confirmer
+                            <button onClick={() => handleCall(reservation.phone)} className="flex items-center w-full px-3 py-2 text-xs text-blue-600 hover:bg-blue-50">
+                              <Phone className="w-3.5 h-3.5 mr-2" /> {t('planning.call')}
+                            </button>
+                            <button onClick={() => handleStartTrip(reservation.id)} className="flex items-center w-full px-3 py-2 text-xs text-green-600 hover:bg-green-50">
+                              <Play className="w-3.5 h-3.5 mr-2" /> {t('planning.start')}
+                            </button>
+                            <button onClick={() => updateReservationStatus(reservation.id, 'confirmée')} className="flex items-center w-full px-3 py-2 text-xs text-emerald-600 hover:bg-emerald-50">
+                              <CheckCircle className="w-3.5 h-3.5 mr-2" /> {t('common.confirm')}
                             </button>
                             <button onClick={() => updateReservationStatus(reservation.id, 'annulée')} className="flex items-center w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50">
-                              <XCircle className="w-3.5 h-3.5 mr-2" /> Annuler
+                              <XCircle className="w-3.5 h-3.5 mr-2" /> {t('common.cancel')}
                             </button>
                           </div>
                         )}
@@ -393,7 +492,7 @@ const Planning = () => {
               ) : (
                 <div className="text-center py-16">
                   <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400">Aucun planning pour ce jour</p>
+                  <p className="text-gray-500 dark:text-gray-400">{t('planning.no_trips_found_title')}</p>
                 </div>
               )}
             </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { Star, Filter, Award, Clock, MessageSquare, Handshake, CheckCircle, Crown, Users, User, Car, Calendar } from 'lucide-react';
 
@@ -12,6 +13,7 @@ import Pagination from '../admin/ui/Pagination';
 import evaluationService from '../../services/evaluationService';
 
 const Evaluations = () => {
+  const { t } = useTranslation();
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -84,11 +86,11 @@ const Evaluations = () => {
         const formatted = listRes.evaluations.map(e => ({
           id: e._id,
           driver: {
-            name: `${e.chauffeur?.prenom || ''} ${e.chauffeur?.nom || 'Chauffeur'}`,
-            vehicle: 'Véhicule',
+            name: `${e.chauffeur?.prenom || ''} ${e.chauffeur?.nom || t('evaluations.driver')}`,
+            vehicle: t('evaluations.vehicle'),
             avatar: getImageUrl(e.chauffeur?.photoUrl),
           },
-          date: new Date(e.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+          date: new Date(e.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }),
           rating: e.noteGlobale,
           comment: e.commentaire,
           tags: mapPointsForts(e.pointsForts),
@@ -118,28 +120,28 @@ const Evaluations = () => {
   // Helper mapping tags
   const mapPointsForts = (points) => {
     const labels = {
-      'CONDUITE_FLUIDE': 'Conduite fluide',
-      'VEHICULE_PROPRE': 'Véhicule propre',
-      'TRES_PONCTUEL': 'Très ponctuel',
-      'SERVICE_COURTOIS': 'Service courtois',
-      'PRIX_JUSTE': 'Prix juste'
+      'CONDUITE_FLUIDE': t('evaluations.tags.CONDUITE_FLUIDE'),
+      'VEHICULE_PROPRE': t('evaluations.tags.VEHICULE_PROPRE'),
+      'TRES_PONCTUEL': t('evaluations.tags.TRES_PONCTUEL'),
+      'SERVICE_COURTOIS': t('evaluations.tags.SERVICE_COURTOIS'),
+      'PRIX_JUSTE': t('evaluations.tags.PRIX_JUSTE')
     };
     return (points || []).map(p => labels[p] || p);
   };
 
   // Conseils pour de meilleures évaluations (Statique)
   const tips = [
-    { icon: Clock, title: 'Soyez ponctuel', description: 'Arrivez au point de rendez-vous à l\'heure' },
-    { icon: MessageSquare, title: 'Communiquez clairement', description: 'Informez le chauffeur de vos préférences' },
-    { icon: Handshake, title: 'Soyez respectueux', description: 'Un comportement courtois est toujours apprécié' },
-    { icon: Star, title: 'Évaluez objectivement', description: 'Notez en fonction de l\'expérience globale' }
+    { icon: Clock, title: t('evaluations.tips.punctual_title'), description: t('evaluations.tips.punctual_desc') },
+    { icon: MessageSquare, title: t('evaluations.tips.communication_title'), description: t('evaluations.tips.communication_desc') },
+    { icon: Handshake, title: t('evaluations.tips.respectful_title'), description: t('evaluations.tips.respectful_desc') },
+    { icon: Star, title: t('evaluations.tips.objective_title'), description: t('evaluations.tips.objective_desc') }
   ];
 
   const filters = [
-    { id: 'all', label: 'Toutes' },
-    { id: '5', label: '5 étoiles' },
-    { id: '4', label: '4 étoiles' },
-    { id: '3', label: '3 étoiles' }
+    { id: 'all', label: t('evaluations.all') },
+    { id: '5', label: t('evaluations.stars', { count: 5 }) },
+    { id: '4', label: t('evaluations.stars', { count: 4 }) },
+    { id: '3', label: t('evaluations.stars', { count: 3 }) }
   ];
 
   // Générer les étoiles
@@ -176,19 +178,19 @@ const Evaluations = () => {
         <Card className="dark:bg-gray-900 border-none shadow-none">
           <CardHeader className="px-0">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-              <CardTitle className="text-gray-900 dark:text-gray-100">Mes évaluations</CardTitle>
+              <CardTitle className="text-gray-900 dark:text-gray-100">{t('evaluations.title')}</CardTitle>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setActiveTab('given')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'given' ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
                 >
-                  Données ({stats.total})
+                  {t('evaluations.given')} ({stats.total})
                 </button>
                 <button
                   onClick={() => setActiveTab('received')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'received' ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
                 >
-                  Reçues (0)
+                  {t('evaluations.received')} (0)
                 </button>
               </div>
             </div>
@@ -212,7 +214,7 @@ const Evaluations = () => {
 
                 <div className="space-y-6">
                   {loading ? (
-                    <div className="text-center py-12 text-gray-500">Chargement...</div>
+                    <div className="text-center py-12 text-gray-500">{t('evaluations.loading')}</div>
                   ) : givenEvaluations.length > 0 ? (
                     givenEvaluations.map((evaluation, index) => (
                       <motion.div key={evaluation.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
@@ -236,7 +238,7 @@ const Evaluations = () => {
                               </div>
                               <div>{renderStars(evaluation.rating)}</div>
                             </div>
-                            <p className="text-gray-700 dark:text-gray-300 mb-4">{evaluation.comment || "Aucun commentaire laissé."}</p>
+                            <p className="text-gray-700 dark:text-gray-300 mb-4">{evaluation.comment || t('evaluations.no_comment')}</p>
                             {evaluation.tags && evaluation.tags.length > 0 && (
                               <div className="flex flex-wrap gap-2">
                                 {evaluation.tags.map((tag, i) => (
@@ -249,7 +251,7 @@ const Evaluations = () => {
                       </motion.div>
                     ))
                   ) : (
-                    <Card><CardContent className="text-center py-12"><Star className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Aucune évaluation trouvée</h3></CardContent></Card>
+                    <Card><CardContent className="text-center py-12"><Star className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('evaluations.no_evaluations')}</h3></CardContent></Card>
                   )}
                 </div>
 
@@ -270,7 +272,7 @@ const Evaluations = () => {
             )}
 
             {activeTab === 'received' && (
-              <Card className="mt-4"><CardContent className="text-center py-12"><Award className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Bientôt disponible</h3><p className="text-gray-500">Ici s'afficheront les notes que les chauffeurs vous donneront.</p></CardContent></Card>
+              <Card className="mt-4"><CardContent className="text-center py-12"><Award className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('evaluations.soon_available')}</h3><p className="text-gray-500">{t('evaluations.soon_available_desc')}</p></CardContent></Card>
             )}
           </CardContent>
         </Card>
@@ -279,7 +281,7 @@ const Evaluations = () => {
       {/* Colonne droite - Statistiques et conseils */}
       <div className="space-y-6">
         <Card>
-          <CardHeader><CardTitle>Statistiques globales</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('evaluations.global_stats')}</CardTitle></CardHeader>
           <CardContent>
             <div className="flex flex-col items-center mb-6">
               <div className="text-5xl font-bold text-green-700 dark:text-green-500 mb-2">{stats.average}</div>
@@ -288,13 +290,17 @@ const Evaluations = () => {
                   <Star key={i} className={`w-8 h-8 ${i < Math.floor(stats.average) ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
                 ))}
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Basée sur {stats.total} évaluations</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('evaluations.based_on', { count: stats.total })}</p>
             </div>
             <div className="space-y-4">
               {stats.repartition.map((stat) => (
                 <div key={stat.stars} className="space-y-1">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-700 dark:text-gray-300">{stat.stars} étoile{stat.stars > 1 ? 's' : ''}</span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {stat.stars === 1
+                        ? t('evaluations.stars_single', { count: 1 })
+                        : t('evaluations.stars', { count: stat.stars })}
+                    </span>
                     <span className="font-semibold text-gray-900 dark:text-gray-100">{stat.count}</span>
                   </div>
                   <Progress value={stat.percentage} color={stat.stars >= 4 ? 'green' : stat.stars === 3 ? 'yellow' : 'red'} showLabel={false} size="sm" className="dark:bg-gray-700" />
@@ -305,7 +311,7 @@ const Evaluations = () => {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Conseils de voyage</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('evaluations.travel_tips')}</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-4">
               {tips.map((tip, index) => {

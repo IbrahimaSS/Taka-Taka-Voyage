@@ -4,6 +4,7 @@ import axios from "axios";
 import { toast } from "react-hot-toast";
 import socketService from "../services/socketService";
 import { API_ROUTES } from "../services/apiRoutes";
+import { offlineTripService } from "../services/offlineTripService";
 import { useAuth } from './AuthContext';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from "./NotificationContext";
 
@@ -64,16 +65,44 @@ export const PassengerProvider = ({ children }) => {
   }, [updateAuthUser]);
 
   useEffect(() => {
+    // 🔄 [OFFLINE] Restauration locale immédiate (Même sans attendre l'Auth complet)
+    const localState = offlineTripService.loadState('PASSAGER');
+    if (localState && localState.currentTrip) {
+      console.log("💾 [CONTEXT] Restauration depuis stockage local");
+      setCurrentTrip(localState.currentTrip);
+      setTripStatus(localState.tripStatus);
+      setSelectedDriver(localState.selectedDriver);
+
+      if (localState.currentTrip.reservationId) {
+        socketService.emit("reservation:join", { reservationId: localState.currentTrip.reservationId });
+      }
+    }
+
     if (user) {
       setPassenger(user);
-      if (!user._id && !user.id) { // If user is from local storage and might be incomplete
+      if (!user._id && !user.id) {
         fetchProfile();
       }
-      fetchActiveTrip(); // ✅ Restore active trip on load
+      // 🌍 Synchronisation avec le serveur
+      fetchActiveTrip();
     } else {
       setPassenger(null);
+      offlineTripService.clearState('PASSAGER');
     }
   }, [user, fetchProfile]);
+
+  // 💾 [OFFLINE] Sauvegarde automatique à chaque changement
+  useEffect(() => {
+    if (currentTrip) {
+      offlineTripService.saveState('PASSAGER', {
+        currentTrip,
+        tripStatus,
+        selectedDriver
+      });
+    } else if (tripStatus === 'idle' || !tripStatus) {
+      offlineTripService.clearState('PASSAGER');
+    }
+  }, [currentTrip, tripStatus, selectedDriver]);
 
   // ✅ New function to restore state
   const fetchActiveTrip = async () => {
@@ -402,12 +431,8 @@ export const PassengerProvider = ({ children }) => {
         message: 'Vous êtes arrivé à destination. Merci d\'avoir choisi TakaTaka !',
       });
 
-      setTimeout(() => {
-        setCurrentTrip(null);
-        setSelectedDriver(null);
-        setTripStatus(null);
-        notifiedEvents.current.clear();
-      }, 2500);
+      // Note: On ne met PAS currentTrip à null ici, car l'écran de résumé/note en a besoin.
+      // Le nettoyage se fera à la fin du processus d'évaluation.
       notifiedEvents.current.add(eventKey);
     };
 

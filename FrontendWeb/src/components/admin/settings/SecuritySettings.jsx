@@ -1,9 +1,9 @@
-// src/components/settings/components/SecuritySettings.jsx
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { 
-  Shield, Lock, Eye, EyeOff, Globe, UserCheck, 
-  AlertTriangle, Clock, Users, Key, Filter, 
+import {
+  Shield, Lock, Eye, EyeOff, Globe, UserCheck,
+  AlertTriangle, Clock, Users, Key, Filter,
   RefreshCw, Ban, CheckCircle, XCircle,
   Hash, Server, Database, Cpu, Network
 } from 'lucide-react';
@@ -14,15 +14,16 @@ import Badge from '../ui/Badge';
 import Slider from '../ui/Slider';
 
 const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
+  const { t } = useTranslation();
   const [showSecret, setShowSecret] = useState({});
   const [activeTab, setActiveTab] = useState('authentication');
 
   const securityTabs = [
-    { id: 'authentication', label: 'Authentification', icon: Lock },
-    { id: 'access', label: 'Contrôle d\'accès', icon: Users },
-    { id: 'network', label: 'Sécurité réseau', icon: Network },
-    { id: 'monitoring', label: 'Monitoring', icon: Shield },
-    { id: 'encryption', label: 'Chiffrement', icon: Key }
+    { id: 'authentication', label: t('security.authentication'), icon: Lock },
+    { id: 'access', label: t('security.access_control'), icon: Users },
+    { id: 'network', label: t('security.network_security'), icon: Network },
+    { id: 'monitoring', label: t('security.monitoring'), icon: Shield },
+    { id: 'encryption', label: t('security.encryption'), icon: Key }
   ];
 
   const toggleKeyVisibility = (key) => {
@@ -30,38 +31,38 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
   };
 
   const handleTestSecurity = async (testType) => {
-    showToast('Test de sécurité', `Lancement du test ${testType}...`, 'info');
-    
+    showToast(t('security.test_title'), `${t('security.test_launching')} ${testType}...`, 'info');
+
     // Simulation de test
     setTimeout(() => {
-      showToast('Test réussi', `Le test ${testType} s'est terminé sans problème`, 'success');
+      showToast(t('security.test_success'), `${t('security.test_finished')} ${testType} ${t('security.test_no_issue')}`, 'success');
     }, 2000);
   };
 
   const generateSecurityReport = () => {
     const issues = [];
     const strengths = [];
-    
+
     // Analyse de sécurité
     if (!settings.security?.authentication?.twoFactorEnabled) {
-      issues.push('Authentification à deux facteurs désactivée');
+      issues.push(t('security.alert_2fa_disabled'));
     } else {
-      strengths.push('2FA activée');
+      strengths.push(t('security.2fa_enabled'));
     }
-    
+
     if (!settings.security?.rateLimiting?.enabled) {
-      issues.push('Limitation de requêtes désactivée');
+      issues.push(t('security.alert_rate_limit_disabled'));
     } else {
-      strengths.push('Rate limiting activé');
+      strengths.push(t('security.rate_limiting_enabled'));
     }
-    
+
     if (settings.security?.cors?.allowedOrigins?.includes('*')) {
-      issues.push('CORS trop permissif (*)');
+      issues.push(t('security.alert_cors_permissive'));
     }
-    
+
     showToast(
-      'Rapport de sécurité',
-      `${strengths.length} points forts, ${issues.length} points à améliorer`,
+      t('security.report_title'),
+      `${strengths.length} ${t('security.strengths')}, ${issues.length} ${t('security.to_improve')}`,
       issues.length > 2 ? 'warning' : 'success'
     );
   };
@@ -79,15 +80,15 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                       <UserCheck className="text-blue-600 w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-gray-800 dark:text-gray-100">Vérification par téléphone</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Exiger la vérification du numéro</p>
+                      <h4 className="font-bold text-gray-800 dark:text-gray-100">{t('security.phone_verification')}</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.phone_verification_desc')}</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-300">
-                      {settings.security?.authentication?.requirePhoneVerification 
-                        ? 'Obligatoire pour tous les utilisateurs' 
-                        : 'Optionnelle'}
+                      {settings.security?.authentication?.requirePhoneVerification
+                        ? t('security.mandatory_all')
+                        : t('common.optional')}
                     </span>
                     <Switch
                       checked={settings.security?.authentication?.requirePhoneVerification || false}
@@ -106,15 +107,15 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                       <Lock className="text-green-600 w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-gray-800 dark:text-gray-100">2FA pour administrateurs</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Authentification à deux facteurs</p>
+                      <h4 className="font-bold text-gray-800 dark:text-gray-100">{t('security.admin_2fa')}</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.admin_2fa_desc')}</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-300">
-                      {settings.security?.authentication?.twoFactorEnabled 
-                        ? 'Activée pour les admins' 
-                        : 'Désactivée'}
+                      {settings.security?.authentication?.twoFactorEnabled
+                        ? t('security._2fa_enabled_admin')
+                        : t('common.disabled')}
                     </span>
                     <Switch
                       checked={settings.security?.authentication?.twoFactorEnabled || false}
@@ -131,16 +132,16 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h4 className="font-bold text-gray-800 dark:text-gray-100">Configuration des sessions</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Paramètres de sécurité des sessions</p>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100">{t('security.session_config')}</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.session_config_desc')}</p>
                   </div>
                   <Clock className="text-purple-600 w-5 h-5" />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Délai d'expiration
+                      {t('security.session_timeout')}
                     </label>
                     <div className="flex items-center space-x-3">
                       <Slider
@@ -154,39 +155,39 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                         {settings.security?.authentication?.sessionTimeout || 30} min
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Après inactivité</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{t('security.after_inactivity')}</p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Sessions simultanées
+                      {t('security.concurrent_sessions')}
                     </label>
                     <select
                       value={settings.security?.authentication?.maxConcurrentSessions || 'unlimited'}
                       onChange={(e) => updateNestedSetting('security', 'authentication', 'maxConcurrentSessions', e.target.value)}
                       className="w-full border-2 border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 outline-none focus:border-purple-500"
                     >
-                      <option value="1">1 appareil</option>
-                      <option value="3">3 appareils max</option>
-                      <option value="5">5 appareils max</option>
-                      <option value="unlimited">Illimité</option>
+                      <option value="1">1 {t('common.device')}</option>
+                      <option value="3">3 {t('common.devices_max')}</option>
+                      <option value="5">5 {t('common.devices_max')}</option>
+                      <option value="unlimited">{t('common.unlimited')}</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Mot de passe expire après
+                      {t('security.pwd_expiry')}
                     </label>
                     <select
                       value={settings.security?.authentication?.passwordExpiry || 'never'}
                       onChange={(e) => updateNestedSetting('security', 'authentication', 'passwordExpiry', e.target.value)}
                       className="w-full border-2 border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 outline-none focus:border-purple-500"
                     >
-                      <option value="30">30 jours</option>
-                      <option value="60">60 jours</option>
-                      <option value="90">90 jours</option>
-                      <option value="180">6 mois</option>
-                      <option value="never">Jamais</option>
+                      <option value="30">30 {t('common.days')}</option>
+                      <option value="60">60 {t('common.days')}</option>
+                      <option value="90">90 {t('common.days')}</option>
+                      <option value="180">6 {t('common.months')}</option>
+                      <option value="never">{t('common.never')}</option>
                     </select>
                   </div>
                 </div>
@@ -197,8 +198,8 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h4 className="font-bold text-gray-800 dark:text-gray-100">Complexité des mots de passe</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Exigences pour les nouveaux mots de passe</p>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100">{t('security.pwd_complexity')}</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.pwd_complexity_desc')}</p>
                   </div>
                   <Shield className="text-yellow-600 w-5 h-5" />
                 </div>
@@ -206,16 +207,16 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-800 dark:text-gray-100">Longueur minimale : 8 caractères</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Au moins une lettre majuscule, une minuscule et un chiffre</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.min_length_8')}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.min_length_desc')}</p>
                     </div>
-                    <Badge variant="success">Activé</Badge>
+                    <Badge variant="success">{t('common.active')}</Badge>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-800 dark:text-gray-100">Vérification contre les fuites</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Comparer avec les mots de passe compromis</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.breach_check')}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.breach_check_desc')}</p>
                     </div>
                     <Switch
                       checked={settings.security?.authentication?.checkBreachedPasswords || true}
@@ -227,8 +228,8 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-800 dark:text-gray-100">Historique des mots de passe</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Empêcher la réutilisation des 5 derniers</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.pwd_history')}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.pwd_history_desc')}</p>
                     </div>
                     <Switch
                       checked={settings.security?.authentication?.passwordHistory || true}
@@ -250,7 +251,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardHeader>
                 <CardTitle className="text-blue-800 flex items-center">
                   <Users className="w-5 h-5 mr-2" />
-                  Gestion des rôles et permissions
+                  {t('security.role_management')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -258,10 +259,10 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-blue-200">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-blue-800">Rôle</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-blue-800">Description</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-blue-800">Permissions</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-blue-800">Actions</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-blue-800">{t('common.role')}</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-blue-800">{t('common.description')}</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-blue-800">{t('common.permissions')}</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-blue-800">{t('common.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -325,9 +326,9 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                             <Button
                               variant="ghost"
                               size="xs"
-                              onClick={() => showToast('Modification', `Modification des permissions ${roleItem.name}`, 'info')}
+                              onClick={() => showToast(t('common.edit'), `${t('security.edit_perm')} ${roleItem.name}`, 'info')}
                             >
-                              Modifier
+                              {t('common.edit')}
                             </Button>
                           </td>
                         </tr>
@@ -339,9 +340,9 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 <div className="mt-6 flex justify-end">
                   <Button
                     variant="outline"
-                    onClick={() => showToast('Nouveau rôle', 'Création d\'un nouveau rôle', 'info')}
+                    onClick={() => showToast(t('security.new_role'), t('security.new_role_msg'), 'info')}
                   >
-                    + Ajouter un rôle
+                    + {t('security.add_role')}
                   </Button>
                 </div>
               </CardContent>
@@ -351,15 +352,15 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardHeader>
                 <CardTitle className="text-purple-800 flex items-center">
                   <Filter className="w-5 h-5 mr-2" />
-                  Contrôle d'accès IP
+                  {t('security.ip_access_control')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-800 dark:text-gray-100">Liste blanche IP</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Restreindre l'accès admin à certaines IP</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.ip_whitelist')}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.ip_whitelist_desc')}</p>
                     </div>
                     <Switch
                       checked={settings.security?.ipWhitelist?.enabled || false}
@@ -372,7 +373,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                   {settings.security?.ipWhitelist?.enabled && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        IPs autorisées (une par ligne)
+                        {t('security.allowed_ips_label')}
                       </label>
                       <textarea
                         value={(settings.security.ipWhitelist.ips || []).join('\n')}
@@ -385,15 +386,15 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                         placeholder="192.168.1.1\n10.0.0.0/24"
                       />
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                        Formats acceptés : IP simple (192.168.1.1) ou plage CIDR (10.0.0.0/24)
+                        {t('security.ip_format_tip')}
                       </p>
                     </div>
                   )}
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-800 dark:text-gray-100">Géorestriction</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Limiter l'accès par pays</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.georestriction')}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.georestriction_desc')}</p>
                     </div>
                     <Switch
                       checked={settings.security?.geoRestriction?.enabled || false}
@@ -406,7 +407,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                   {settings.security?.geoRestriction?.enabled && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        Pays autorisés
+                        {t('security.allowed_countries')}
                       </label>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         {['GN', 'CI', 'SN', 'ML', 'BF', 'TG', 'BJ', 'NE'].map(country => (
@@ -442,14 +443,14 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardHeader>
                 <CardTitle className="text-blue-800 flex items-center">
                   <Globe className="w-5 h-5 mr-2" />
-                  Configuration CORS
+                  {t('security.cors_config')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-100">Restreindre les origines</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Autoriser uniquement certains domaines</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.restrict_origins')}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.restrict_origins_desc')}</p>
                   </div>
                   <Switch
                     checked={settings.security?.cors?.enabled || false}
@@ -462,7 +463,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 {settings.security?.cors?.enabled && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Origines autorisées
+                      {t('security.allowed_origins')}
                     </label>
                     <textarea
                       value={(settings.security.cors.allowedOrigins || []).join('\n')}
@@ -488,7 +489,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Headers autorisés
+                      {t('security.allowed_headers')}
                     </label>
                     <input
                       type="text"
@@ -500,7 +501,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Méthodes autorisées
+                      {t('security.allowed_methods')}
                     </label>
                     <input
                       type="text"
@@ -517,14 +518,14 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardHeader>
                 <CardTitle className="text-orange-800 flex items-center">
                   <AlertTriangle className="w-5 h-5 mr-2" />
-                  Limitation de requêtes (Rate Limiting)
+                  {t('security.rate_limiting')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-100">Activer la limitation</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Protège contre les attaques par force brute</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.activate_limiting')}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.activate_limiting_desc')}</p>
                   </div>
                   <Switch
                     checked={settings.security?.rateLimiting?.enabled || false}
@@ -538,7 +539,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        Requêtes par minute (API publique)
+                        {t('security.public_api_limit')}
                       </label>
                       <div className="flex items-center space-x-4">
                         <Slider
@@ -552,12 +553,12 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                           {settings.security.rateLimiting.publicRequestsPerMinute || 100}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Pour les endpoints publics (login, inscription)</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{t('security.public_api_tip')}</p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        Requêtes par minute (API privée)
+                        {t('security.private_api_limit')}
                       </label>
                       <div className="flex items-center space-x-4">
                         <Slider
@@ -571,12 +572,12 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                           {settings.security.rateLimiting.privateRequestsPerMinute || 300}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Pour les endpoints authentifiés</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{t('security.private_api_tip')}</p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        Durée de blocage
+                        {t('security.block_duration')}
                       </label>
                       <div className="flex items-center space-x-4">
                         <Slider
@@ -590,12 +591,12 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                         </span>
                       </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                        Durée pendant laquelle l'IP est bloquée après dépassement
+                        {t('security.block_duration_desc')}
                       </p>
                     </div>
 
                     <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border border-orange-200">
-                      <h4 className="font-medium text-gray-800 dark:text-gray-100 mb-2">Exclusions</h4>
+                      <h4 className="font-medium text-gray-800 dark:text-gray-100 mb-2">{t('common.exclusions')}</h4>
                       <div className="space-y-2">
                         <label className="flex items-center space-x-2">
                           <input
@@ -604,7 +605,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                             onChange={(e) => updateNestedSetting('security', 'rateLimiting', 'excludeWebhooks', e.target.checked)}
                             className="rounded text-orange-600"
                           />
-                          <span className="text-sm text-gray-700 dark:text-gray-200">Exclure les webhooks</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-200">{t('security.exclude_webhooks') || 'Exclure les webhooks'}</span>
                         </label>
                         <label className="flex items-center space-x-2">
                           <input
@@ -613,7 +614,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                             onChange={(e) => updateNestedSetting('security', 'rateLimiting', 'excludeHealthCheck', e.target.checked)}
                             className="rounded text-orange-600"
                           />
-                          <span className="text-sm text-gray-700 dark:text-gray-200">Exclure les checks de santé</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-200">{t('security.exclude_health') || 'Exclure les checks de santé'}</span>
                         </label>
                       </div>
                     </div>
@@ -631,11 +632,11 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                     <p className="text-sm text-gray-500 dark:text-gray-400">Protection contre les attaques par déni de service</p>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Seuil de requêtes (par seconde)
+                      {t('security.req_threshold_sec') || 'Seuil de requêtes (par seconde)'}
                     </label>
                     <div className="flex items-center">
                       <input
@@ -654,7 +655,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Durée de blocage DDoS
+                      {t('security.ddos_block_duration') || 'Durée de blocage DDoS'}
                     </label>
                     <div className="flex items-center">
                       <input
@@ -681,7 +682,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                     className="rounded text-red-600"
                   />
                   <label htmlFor="enable_ddos" className="text-sm text-gray-700 dark:text-gray-200">
-                    Activer la protection DDoS automatique
+                    {t('security.activate_auto_ddos') || 'Activer la protection DDoS automatique'}
                   </label>
                 </div>
               </CardContent>
@@ -702,28 +703,28 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardContent className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Niveau de journalisation
+                    {t('security.logging_level') || 'Niveau de journalisation'}
                   </label>
                   <select
                     value={settings.security?.logging?.level || 'info'}
                     onChange={(e) => updateNestedSetting('security', 'logging', 'level', e.target.value)}
                     className="w-full border-2 border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 outline-none focus:border-blue-500"
                   >
-                    <option value="error">Erreurs seulement</option>
-                    <option value="warn">Avertissements et erreurs</option>
-                    <option value="info">Informations (recommandé)</option>
-                    <option value="debug">Débogage (détaillé)</option>
-                    <option value="trace">Trace (très détaillé)</option>
+                    <option value="error">{t('security.log_error') || 'Erreurs seulement'}</option>
+                    <option value="warn">{t('security.log_warn') || 'Avertissements et erreurs'}</option>
+                    <option value="info">{t('security.log_info') || 'Informations (recommandé)'}</option>
+                    <option value="debug">{t('security.log_debug') || 'Débogage (détaillé)'}</option>
+                    <option value="trace">{t('security.log_trace') || 'Trace (très détaillé)'}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Conservation des logs
+                    {t('security.log_retention') || 'Conservation des logs'}
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">Logs d'application</label>
+                      <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">{t('security.app_logs') || "Logs d'application"}</label>
                       <div className="flex items-center">
                         <input
                           type="number"
@@ -740,7 +741,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                     </div>
 
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">Logs d'audit</label>
+                      <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">{t('security.audit_logs') || "Logs d'audit"}</label>
                       <div className="flex items-center">
                         <input
                           type="number"
@@ -757,7 +758,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                     </div>
 
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">Logs de sécurité</label>
+                      <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">{t('security.security_logs') || 'Logs de sécurité'}</label>
                       <div className="flex items-center">
                         <input
                           type="number"
@@ -778,8 +779,8 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-800 dark:text-gray-100">Journaliser les tentatives de connexion</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Suivre toutes les tentatives (réussies et échouées)</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.log_login_attempts') || 'Journaliser les tentatives de connexion'}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.log_login_attempts_desc') || "Suivre toutes les tentatives (réussies et échouées)"}</p>
                     </div>
                     <Switch
                       checked={settings.security?.logging?.logLoginAttempts || true}
@@ -791,8 +792,8 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-800 dark:text-gray-100">Journaliser les modifications sensibles</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Changements de paramètres, permissions, etc.</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.log_sensitive_changes') || 'Journaliser les modifications sensibles'}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.log_sensitive_changes_desc') || 'Changements de paramètres, permissions, etc.'}</p>
                     </div>
                     <Switch
                       checked={settings.security?.logging?.logSensitiveChanges || true}
@@ -804,8 +805,8 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-800 dark:text-gray-100">Alertes en temps réel</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Notifications pour événements de sécurité</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.real_time_alerts') || 'Alertes en temps réel'}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.real_time_alerts_desc') || 'Notifications pour événements de sécurité'}</p>
                     </div>
                     <Switch
                       checked={settings.security?.monitoring?.realTimeAlerts || false}
@@ -828,7 +829,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-4">Vérifications automatiques</h4>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-4">{t('security.auto_checks') || 'Vérifications automatiques'}</h4>
                     <div className="space-y-3">
                       {[
                         { id: 'ssl', label: 'Certificat SSL', enabled: true },
@@ -839,17 +840,17 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                         { id: 'intrusion', label: 'Détection d\'intrusion', enabled: false }
                       ].map(check => (
                         <div key={check.id} className="flex items-center justify-between">
-                          <span className="text-sm text-gray-700 dark:text-gray-200">{check.label}</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-200">{t(`security.check_${check.id}`) || check.label}</span>
                           <div className="flex items-center space-x-2">
                             {check.enabled ? (
                               <>
                                 <CheckCircle className="w-4 h-4 text-green-500" />
-                                <span className="text-xs text-green-600">Activé</span>
+                                <span className="text-xs text-green-600">{t('common.active') || 'Activé'}</span>
                               </>
                             ) : (
                               <>
                                 <XCircle className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                                <span className="text-xs text-gray-500 dark:text-gray-400">Désactivé</span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{t('common.inactive') || 'Désactivé'}</span>
                               </>
                             )}
                           </div>
@@ -859,7 +860,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                   </div>
 
                   <div>
-                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-4">Actions de monitoring</h4>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-4">{t('security.monitoring_actions') || 'Actions de monitoring'}</h4>
                     <div className="space-y-3">
                       <Button
                         variant="outline"
@@ -904,12 +905,12 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                   <div className="flex items-center">
                     <Shield className="w-5 h-5 text-green-600 mr-3 flex-shrink-0" />
                     <div>
-                      <p className="font-medium text-green-700">Recommandations de sécurité</p>
+                      <p className="font-medium text-green-700">{t('security.recommendations_title') || 'Recommandations de sécurité'}</p>
                       <ul className="text-sm text-green-600 mt-2 space-y-1">
-                        <li>• Effectuez des scans de sécurité hebdomadaires</li>
-                        <li>• Maintenez les dépendances à jour</li>
-                        <li>• Surveillez les tentatives de connexion suspectes</li>
-                        <li>• Configurez des alertes pour les événements critiques</li>
+                        <li>• {t('security.rec_weekly_scans') || 'Effectuez des scans de sécurité hebdomadaires'}</li>
+                        <li>• {t('security.rec_update_deps') || 'Maintenez les dépendances à jour'}</li>
+                        <li>• {t('security.rec_monitor_login') || 'Surveillez les tentatives de connexion suspectes'}</li>
+                        <li>• {t('security.rec_critical_alerts') || 'Configurez des alertes pour les événements critiques'}</li>
                       </ul>
                     </div>
                   </div>
@@ -932,8 +933,8 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-100">Chiffrement au repos</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Chiffrer les données sensibles dans la base de données</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.encryption_at_rest') || 'Chiffrement au repos'}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.encryption_at_rest_desc') || 'Chiffrer les données sensibles dans la base de données'}</p>
                   </div>
                   <Switch
                     checked={settings.security?.encryption?.atRest || true}
@@ -945,16 +946,16 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-100">Chiffrement en transit</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Forcer HTTPS/TLS pour toutes les communications</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.encryption_in_transit') || 'Chiffrement en transit'}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.encryption_in_transit_desc') || 'Forcer HTTPS/TLS pour toutes les communications'}</p>
                   </div>
-                  <Badge variant="success">Toujours activé</Badge>
+                  <Badge variant="success">{t('security.always_enabled') || 'Toujours activé'}</Badge>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Algorithme de chiffrement
+                      {t('security.encryption_algorithm') || 'Algorithme de chiffrement'}
                     </label>
                     <select
                       value={settings.security?.encryption?.algorithm || 'aes-256-gcm'}
@@ -969,7 +970,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Rotation des clés
+                      {t('security.key_rotation') || 'Rotation des clés'}
                     </label>
                     <select
                       value={settings.security?.encryption?.keyRotation || '90'}
@@ -987,7 +988,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Données sensibles à chiffrer
+                    {t('security.sensitive_data_encrypt') || 'Données sensibles à chiffrer'}
                   </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {[
@@ -1012,14 +1013,14 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                           }}
                           className="rounded text-purple-600 focus:ring-purple-500"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-200">{item.label}</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-200">{t(`security.data_${item.id}`) || item.label}</span>
                       </label>
                     ))}
                   </div>
                 </div>
 
                 <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
-                  <h4 className="font-medium text-purple-800 mb-2">Clé de chiffrement principale</h4>
+                  <h4 className="font-medium text-purple-800 mb-2">{t('security.master_encryption_key') || 'Clé de chiffrement principale'}</h4>
                   <div className="flex items-center space-x-3">
                     <div className="flex-1 bg-white dark:bg-gray-900 border-2 border-purple-200 rounded-xl px-4 py-3">
                       <code className="text-gray-800 dark:text-gray-100 font-mono text-sm truncate">
@@ -1030,18 +1031,18 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                       onClick={() => toggleKeyVisibility('masterKey')}
                       className="px-3 py-2 border-2 border-purple-300 rounded-xl text-purple-700 hover:bg-purple-50"
                     >
-                      {showSecret.masterKey ? 'Masquer' : 'Afficher'}
+                      {showSecret.masterKey ? t('common.hide') || 'Masquer' : t('common.view') || 'Afficher'}
                     </button>
                     <Button
                       variant="danger"
                       size="sm"
                       onClick={() => showToast('Alerte', 'Regénération de la clé principale', 'warning')}
                     >
-                      Regénérer
+                      {t('common.regenerate') || 'Regénérer'}
                     </Button>
                   </div>
                   <p className="text-sm text-purple-600 mt-2">
-                    ⚠️ La regénération de cette clé rendra toutes les données chiffrées illisibles sans backup
+                    ⚠️ {t('security.master_key_warn') || 'La regénération de cette clé rendra toutes les données chiffrées illisibles sans backup'}
                   </p>
                 </div>
               </CardContent>
@@ -1051,20 +1052,20 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <CardHeader>
                 <CardTitle className="text-blue-800 flex items-center">
                   <Hash className="w-5 h-5 mr-2" />
-                  Hashing des mots de passe
+                  {t('security.pwd_hashing_title') || 'Hashing des mots de passe'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Algorithme de hachage
+                    {t('security.hashing_algorithm') || 'Algorithme de hachage'}
                   </label>
                   <select
                     value={settings.security?.hashing?.algorithm || 'bcrypt'}
                     onChange={(e) => updateNestedSetting('security', 'hashing', 'algorithm', e.target.value)}
                     className="w-full border-2 border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 outline-none focus:border-blue-500"
                   >
-                    <option value="bcrypt">BCrypt (recommandé)</option>
+                    <option value="bcrypt">BCrypt ({t('common.recommended') || 'recommandé'})</option>
                     <option value="argon2">Argon2</option>
                     <option value="pbkdf2">PBKDF2</option>
                     <option value="scrypt">Scrypt</option>
@@ -1074,7 +1075,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 {settings.security?.hashing?.algorithm === 'bcrypt' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                      Coût de hachage (rounds)
+                      {t('security.hashing_cost') || 'Coût de hachage (rounds)'}
                     </label>
                     <div className="flex items-center space-x-4">
                       <Slider
@@ -1096,22 +1097,22 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-100">Sel unique par utilisateur</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Générer un sel différent pour chaque mot de passe</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.unique_salt') || 'Sel unique par utilisateur'}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('security.unique_salt_desc') || 'Générer un sel différent pour chaque mot de passe'}</p>
                   </div>
-                  <Badge variant="success">Toujours activé</Badge>
+                  <Badge variant="success">{t('security.always_enabled') || 'Toujours activé'}</Badge>
                 </div>
 
                 <div className="p-4 bg-gradient-to-r from-blue-50 to-teal-50 rounded-xl border border-blue-200">
                   <div className="flex items-center">
                     <Key className="w-5 h-5 text-blue-600 mr-3 flex-shrink-0" />
                     <div>
-                      <p className="font-medium text-blue-700">Bonnes pratiques de hachage</p>
+                      <p className="font-medium text-blue-700">{t('security.hashing_best_practices') || 'Bonnes pratiques de hachage'}</p>
                       <ul className="text-sm text-blue-600 mt-2 space-y-1">
-                        <li>• Utilisez BCrypt avec un coût d'au moins 12</li>
-                        <li>• Ne stockez jamais les mots de passe en clair</li>
-                        <li>• Utilisez des sels uniques pour chaque utilisateur</li>
-                        <li>• Mettez à jour les algorithmes obsolètes régulièrement</li>
+                        <li>• {t('security.rec_bcrypt_12') || "Utilisez BCrypt avec un coût d'au moins 12"}</li>
+                        <li>• {t('security.rec_no_plaintext') || 'Ne stockez jamais les mots de passe en clair'}</li>
+                        <li>• {t('security.rec_unique_salts') || 'Utilisez des sels uniques pour chaque utilisateur'}</li>
+                        <li>• {t('security.rec_update_algos') || 'Mettez à jour les algorithmes obsolètes régulièrement'}</li>
                       </ul>
                     </div>
                   </div>
@@ -1147,14 +1148,14 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Centre de sécurité</h2>
-              <p className="text-gray-600 dark:text-gray-300">Configurez et surveillez la sécurité de votre plateforme</p>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t('security.security_center') || 'Centre de sécurité'}</h2>
+              <p className="text-gray-600 dark:text-gray-300">{t('security.security_center_desc') || 'Configurez et surveillez la sécurité de votre plateforme'}</p>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <div className="text-center">
                 <div className="text-3xl font-bold text-green-600">87%</div>
-                <div className="text-sm text-gray-600 dark:text-gray-300">Score de sécurité</div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">{t('security.security_score') || 'Score de sécurité'}</div>
               </div>
               <Button
                 variant="primary"
@@ -1162,7 +1163,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 icon={Shield}
                 onClick={generateSecurityReport}
               >
-                Vérifier la sécurité
+                {t('security.check_security') || 'Vérifier la sécurité'}
               </Button>
             </div>
           </div>
@@ -1176,11 +1177,10 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-3 rounded-xl transition-all whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-blue-600 to-teal-600 text-white shadow-lg'
-                  : 'bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-200 hover:border-gray-300 dark:border-gray-700'
-              }`}
+              className={`flex items-center space-x-2 px-4 py-3 rounded-xl transition-all whitespace-nowrap ${activeTab === tab.id
+                ? 'bg-gradient-to-r from-blue-600 to-teal-600 text-white shadow-lg'
+                : 'bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-200 hover:border-gray-300 dark:border-gray-700'
+                }`}
             >
               <tab.icon className="w-4 h-4" />
               <span className="font-medium">{tab.label}</span>
@@ -1207,7 +1207,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
         <CardHeader>
           <CardTitle className="text-red-800 flex items-center">
             <AlertTriangle className="w-5 h-5 mr-2" />
-            Alertes de sécurité
+            {t('security.security_alerts_title') || 'Alertes de sécurité'}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1216,8 +1216,8 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <div className="flex items-center space-x-3">
                 <AlertTriangle className="w-5 h-5 text-red-500" />
                 <div>
-                  <p className="font-medium text-gray-800 dark:text-gray-100">Authentification à deux facteurs désactivée</p>
-                  <p className="text-sm text-red-600">Activez la 2FA pour les comptes administrateurs</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.alert_2fa_disabled') || 'Authentification à deux facteurs désactivée'}</p>
+                  <p className="text-sm text-red-600">{t('security.alert_2fa_desc') || 'Activez la 2FA pour les comptes administrateurs'}</p>
                 </div>
               </div>
               <Button
@@ -1225,7 +1225,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 size="sm"
                 onClick={() => updateNestedSetting('security', 'authentication', 'twoFactorEnabled', true)}
               >
-                Activer
+                {t('common.activate') || 'Activer'}
               </Button>
             </div>
 
@@ -1234,8 +1234,8 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 <div className="flex items-center space-x-3">
                   <AlertTriangle className="w-5 h-5 text-red-500" />
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-100">Limitation de requêtes désactivée</p>
-                    <p className="text-sm text-red-600">Votre API est vulnérable aux attaques par force brute</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.alert_rate_limit_disabled') || 'Limitation de requêtes désactivée'}</p>
+                    <p className="text-sm text-red-600">{t('security.alert_rate_limit_desc') || 'Votre API est vulnérable aux attaques par force brute'}</p>
                   </div>
                 </div>
                 <Button
@@ -1243,7 +1243,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                   size="sm"
                   onClick={() => updateNestedSetting('security', 'rateLimiting', 'enabled', true)}
                 >
-                  Activer
+                  {t('common.activate') || 'Activer'}
                 </Button>
               </div>
             )}
@@ -1252,8 +1252,8 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
               <div className="flex items-center space-x-3">
                 <AlertTriangle className="w-5 h-5 text-yellow-500" />
                 <div>
-                  <p className="font-medium text-gray-800 dark:text-gray-100">Dernier audit de sécurité : il y a 30 jours</p>
-                  <p className="text-sm text-yellow-600">Effectuez un audit complet chaque semaine</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-100">{t('security.alert_old_audit') || 'Dernier audit de sécurité : il y a 30 jours'}</p>
+                  <p className="text-sm text-yellow-600">{t('security.alert_audit_rec') || 'Effectuez un audit complet chaque semaine'}</p>
                 </div>
               </div>
               <Button
@@ -1261,7 +1261,7 @@ const SecuritySettings = ({ settings, updateNestedSetting, showToast }) => {
                 size="sm"
                 onClick={() => handleTestSecurity('audit complet')}
               >
-                Lancer un audit
+                {t('security.launch_audit_btn') || 'Lancer un audit'}
               </Button>
             </div>
           </div>

@@ -1,8 +1,11 @@
-import React from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 const MaintenanceOverlay = ({ isVisible, message }) => {
+    const { t } = useTranslation();
+
     return (
         <AnimatePresence>
             {isVisible && (
@@ -27,7 +30,7 @@ const MaintenanceOverlay = ({ isVisible, message }) => {
                             transition={{ delay: 0.2 }}
                             className="text-3xl font-bold text-white mb-4 tracking-tight"
                         >
-                            Maintenance en cours
+                            {t('maintenance.title')}
                         </motion.h1>
 
                         <motion.p
@@ -36,7 +39,7 @@ const MaintenanceOverlay = ({ isVisible, message }) => {
                             transition={{ delay: 0.3 }}
                             className="text-slate-300 text-lg mb-8 leading-relaxed"
                         >
-                            {message || "La plateforme Taka Taka est momentanément indisponible pour des travaux de maintenance."}
+                            {message || t('maintenance.subtitle')}
                         </motion.p>
 
                         <motion.div
@@ -50,8 +53,23 @@ const MaintenanceOverlay = ({ isVisible, message }) => {
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
                                 </span>
-                                Récupération automatique dès que possible
+                                {t('maintenance.eta')}
                             </div>
+                        </motion.div>
+
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 1 }}
+                            className="mt-12"
+                        >
+                            <Link
+                                to="/connexion"
+                                className="text-slate-500 hover:text-slate-400 text-xs flex items-center justify-center gap-1.5 transition-colors"
+                            >
+                                <Lock className="w-3 h-3" />
+                                Accès administration
+                            </Link>
                         </motion.div>
                     </div>
                 </motion.div>

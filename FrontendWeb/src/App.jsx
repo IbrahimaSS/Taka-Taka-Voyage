@@ -20,7 +20,9 @@ import NotFound from './pages/NotFound';
 import { AuthProvider } from './context/AuthContext';
 import AuthGuard from './components/auth/AuthGuard';
 import PlatformMonitor from './components/notifications/PlatformMonitor';
+import ReservationReminder from './components/notifications/ReservationReminder';
 import AssistantIA from './components/assistant/AssistantIA';
+import OfflineBanner from './components/common/OfflineBanner';
 
 
 
@@ -46,7 +48,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <PlatformMonitor />
+        <ReservationReminder />
         <AssistantIA />
+        <OfflineBanner />
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             {/* PUBLIC */}

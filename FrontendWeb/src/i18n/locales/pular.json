@@ -1,0 +1,81 @@
+{
+    "common": {
+        "welcome": "Bantange e Taka-Taka",
+        "loading": "Huunde ndee no arude...",
+        "error": "Mboofotere waɗii",
+        "retry": "Fuɗɗitoo",
+        "save": "Danndude",
+        "cancel": "Woppude",
+        "confirm": "Jaɓude",
+        "delete": "Momtude",
+        "edit": "Waylude",
+        "search": "Ɗabbude",
+        "no_data": "Hay huunde alaa"
+    },
+    "nav": {
+        "home": "Jaɓɓorgal",
+        "history": "Yontaaji pawaaɗi",
+        "payments": "Njobdiiji",
+        "planning": "Pebbugal",
+        "profile": "Profil mon",
+        "evaluations": "Teddungal",
+        "settings": "Keeɓe",
+        "support": "Ballal",
+        "logout": "Yaltude",
+        "tableau_de_bord": "Taabal laamu",
+        "trajets": "Laawol",
+        "utilisateurs": "Huutortooɓe",
+        "passagers": "Yahatooɓe",
+        "chauffeurs": "Ñeñooji",
+        "finances": "Kaalis",
+        "commissions": "Komisionji",
+        "validations": "Jaɓgol",
+        "documents": "Ɗereeji",
+        "litiges": "Caɗeele",
+        "rapports": "Kabaaru",
+        "mes_trajets": "Laawol am",
+        "historique": "Yontaaji",
+        "revenus": "Heɓal",
+        "mes_course": "Yahdu am",
+        "historique_des_trajets": "Yontaaji yahdu am",
+        "mes_revenus": "Heɓal am",
+        "mes_évaluations": "Teddungal am",
+        "centre_d'aide": "Ballal",
+        "mon_profil_professionnel": "Profil golloowo",
+        "parametres": "Keeɓe",
+        "admin": "Laamu",
+        "taka_taka": "Taka Taka",
+        "taka_taka_chauffeur": "Nokku Ñeñoojo",
+        "choisir_la_langue": "Suɓude ɗemngal",
+        "mode_passager": "Yahatago",
+        "mode_chauffeur": "Ñeñagol"
+    },
+    "assistant": {
+        "title": "Taka-Assistant",
+        "welcome_msg": "Tanaa! Ko miin woni Taka-Assistant. Ko honno mballirmami hannde?",
+        "placeholder": "Lanndii mi...",
+        "voice_start": "Haala e dow windude",
+        "voice_listening": "Mi no hettude...",
+        "voice_unsupported": "Navigateur mon oo jaɓataa haala.",
+        "listen_msg": "Hettoo nulal ngal",
+        "error_msg": "Accee mi heɓii caɗeele techne."
+    },
+    "notifications": {
+        "title": "Nulal",
+        "clear_all": "Jangude fow",
+        "no_notifications": "Hay nulal alaa"
+    },
+    "languages": {
+        "french": "Faransiire",
+        "english": "Engeleere",
+        "pular": "Pulaar",
+        "soussou": "Susuure",
+        "malinke": "Maninkakan",
+        "language_changed": "Ɗemngal waylaama e {{lang}}",
+        "language_change_desc": "Yeewtere ndee ko e {{lang}} woni jooni"
+    },
+    "settings": {
+        "localization_title": "Nokku e ɗemngal",
+        "default_language": "Ɗemngal arannde"
+    }
+}

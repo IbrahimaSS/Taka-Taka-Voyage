@@ -1,5 +1,5 @@
-// src/pages/Profile.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { User, Camera, Calendar, Phone, Mail, MapPin, Shield, Award, Crown, CheckCircle, Clock, Star, CreditCard, Users, Lock, LogOut, Radar, Eye, EyeOff, X, Key } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +17,7 @@ import Badge from '../admin/ui/Badge';
 import Switch from '../admin/ui/Switch';
 
 const Profile = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { passenger, isLoadingProfile, updatePassenger: updateContextPassenger } = usePassenger();
   const { user, updateUser, logout } = useAuth();
@@ -75,19 +76,19 @@ const Profile = () => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const badges = [
-    { id: 1, name: 'Membre Gold', icon: Crown, color: 'text-yellow-600', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', earned: true },
-    { id: 2, name: '10 trajets', icon: Award, color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/30', earned: true },
-    { id: 3, name: 'Note 5★', icon: Star, color: 'text-blue-600', bgColor: 'bg-blue-100 dark:bg-blue-900/30', earned: true },
-    { id: 4, name: 'Rapide', icon: Clock, color: 'text-red-600', bgColor: 'bg-red-100 dark:bg-red-900/30', earned: true },
-    { id: 5, name: 'Fidèle', icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-100 dark:bg-purple-900/30', earned: false },
-    { id: 6, name: 'VIP', icon: Award, color: 'text-pink-600', bgColor: 'bg-pink-100 dark:bg-pink-900/30', earned: false },
+    { id: 1, name: t('profile.badges.gold_member'), icon: Crown, color: 'text-yellow-600', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', earned: true },
+    { id: 2, name: t('profile.badges.trips_10'), icon: Award, color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/30', earned: true },
+    { id: 3, name: t('profile.badges.rating_5'), icon: Star, color: 'text-blue-600', bgColor: 'bg-blue-100 dark:bg-blue-900/30', earned: true },
+    { id: 4, name: t('profile.badges.fast'), icon: Clock, color: 'text-red-600', bgColor: 'bg-green-100 dark:bg-green-900/30', earned: true },
+    { id: 5, name: t('profile.badges.loyal'), icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-100 dark:bg-purple-900/30', earned: false },
+    { id: 6, name: t('profile.badges.vip'), icon: Award, color: 'text-pink-600', bgColor: 'bg-pink-100 dark:bg-pink-900/30', earned: false },
   ];
 
   const stats = [
-    { label: 'Trajets effectués', value: '24', icon: Radar, color: 'green', progress: 80 },
-    { label: 'Dépenses totales', value: '245 000 GNF', icon: CreditCard, color: 'blue', progress: 60 },
-    { label: 'Note moyenne', value: '4.8', icon: Star, color: 'yellow', progress: 90 },
-    { label: 'Temps total', value: '18h 30min', icon: Clock, color: 'purple', progress: 75 },
+    { label: t('profile.stats.trips'), value: '24', icon: Radar, color: 'green', progress: 80 },
+    { label: t('profile.stats.spending'), value: '245 000 GNF', icon: CreditCard, color: 'blue', progress: 60 },
+    { label: t('profile.stats.average_rating'), value: '4.8', icon: Star, color: 'yellow', progress: 90 },
+    { label: t('profile.stats.total_time'), value: '18h 30min', icon: Clock, color: 'purple', progress: 75 },
   ];
 
   // Gestion de l'upload de photo
@@ -98,12 +99,12 @@ const Profile = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image');
+      toast.error(t('profile.messages.image_type_error'));
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('L\'image ne doit pas dépasser 5MB');
+      toast.error(t('profile.messages.image_size_error'));
       return;
     }
 
@@ -111,7 +112,7 @@ const Profile = () => {
     reader.onloadend = () => {
       setProfileData(prev => ({ ...prev, avatar: reader.result }));
       setAvatarFile(file);
-      toast.success('Image prête à être enregistrée !');
+      toast.success(t('profile.messages.image_ready'));
     };
     reader.readAsDataURL(file);
   };
@@ -158,7 +159,7 @@ const Profile = () => {
         }
 
         setAvatarFile(null);
-        toast.success('Profil mis à jour avec succès !');
+        toast.success(t('profile.messages.update_success'));
         setIsEditing(false);
       } else {
         toast.error(response.data?.message || 'Erreur lors de la mise à jour');
@@ -205,7 +206,7 @@ const Profile = () => {
       });
 
       if (response.data?.succes) {
-        toast.success(response.data.message || 'Mot de passe modifié avec succès !');
+        toast.success(t('profile.messages.password_success'));
         setPasswordData({
           currentPassword: '',
           newPassword: '',
@@ -214,7 +215,7 @@ const Profile = () => {
         setShowPasswordModal(false);
 
         if (response.data.forceLogout && logout) {
-          toast.loading('Déconnexion en cours...');
+          toast.loading(t('profile.password.logout_msg'));
           setTimeout(async () => {
             await logout();
             navigate('/connexion');
@@ -244,7 +245,7 @@ const Profile = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
         <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 animate-pulse">Chargement de votre profil...</p>
+        <p className="text-gray-500 animate-pulse">{t('profile.messages.loading')}</p>
       </div>
     );
   }
@@ -252,8 +253,8 @@ const Profile = () => {
   if (!passenger) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <p className="text-gray-500">Erreur lors du chargement du profil.</p>
-        <button onClick={() => window.location.reload()} className="text-green-600 font-bold underline">Réessayer</button>
+        <p className="text-gray-500">{t('profile.messages.error_loading')}</p>
+        <button onClick={() => window.location.reload()} className="text-green-600 font-bold underline">{t('profile.messages.retry')}</button>
       </div>
     );
   }
@@ -264,10 +265,10 @@ const Profile = () => {
         {/* Informations principales */}
         <div className="lg:col-span-2 passenger-glass dark:bg-gray-800/80 rounded-2xl p-8 shadow-xl border border-white/20 dark:border-gray-700/50">
           <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Mon profil</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('profile.title')}</h2>
             <Badge className="bg-gradient-to-r from-yellow-100 to-amber-100 text-amber-800" size="sm">
               <Crown className="w-4 h-4 mr-1" />
-              Membre Premium
+              {t('profile.membership.premium')}
             </Badge>
           </div>
 
@@ -293,7 +294,7 @@ const Profile = () => {
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="absolute bottom-2 right-2 w-10 h-10 bg-green-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-green-700 transition-colors"
-                    title="Changer la photo de profil"
+                    title={t('common.change_logo')}
                   >
                     < Camera className="w-5 h-5" />
                   </button>
@@ -316,11 +317,11 @@ const Profile = () => {
                 <div className="flex items-center space-x-2">
                   <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400" size="xs">
                     <CheckCircle className="w-3 h-3 mr-1" />
-                    Email vérifié
+                    {t('profile.verification.email')}
                   </Badge>
                   <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400" size="xs">
                     <CheckCircle className="w-3 h-3 mr-1" />
-                    Téléphone vérifié
+                    {t('profile.verification.phone')}
                   </Badge>
                 </div>
               </div>
@@ -328,11 +329,11 @@ const Profile = () => {
               <div className="space-y-2">
                 <div className="flex items-center text-gray-600 dark:text-gray-300">
                   <Calendar className="w-4 h-4 mr-2 text-green-600" />
-                  Passager depuis Janvier 2025
+                  {t('profile.info.since', { date: 'Janvier 2025' })}
                 </div>
                 <div className="flex items-center text-gray-600 dark:text-gray-300">
                   <Star className="w-4 h-4 mr-2 text-amber-600" />
-                  Note moyenne: {profileData.rating} sur 5
+                  {t('profile.info.rating', { rating: profileData.rating })}
                 </div>
               </div>
             </div>
@@ -343,12 +344,12 @@ const Profile = () => {
             {/* Informations personnelles */}
             <Card hoverable={false} className="bg-transparent border-none shadow-none">
               <CardHeader>
-                <CardTitle size="lg">Informations personnelles</CardTitle>
+                <CardTitle size="lg">{t('profile.personal_info.title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Prénom</label>
+                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">{t('profile.personal_info.firstname')}</label>
                     {isEditing ? (
                       <input
                         type="text"
@@ -364,7 +365,7 @@ const Profile = () => {
                   </div>
 
                   <div>
-                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Nom</label>
+                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">{t('profile.personal_info.lastname')}</label>
                     {isEditing ? (
                       <input
                         type="text"
@@ -380,7 +381,7 @@ const Profile = () => {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Téléphone</label>
+                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">{t('profile.personal_info.phone')}</label>
                     <div className="relative">
                       {isEditing ? (
                         <input
@@ -399,7 +400,7 @@ const Profile = () => {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Email</label>
+                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">{t('profile.personal_info.email')}</label>
                     <div className="relative">
                       {isEditing ? (
                         <input
@@ -418,7 +419,7 @@ const Profile = () => {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Adresse / Localisation</label>
+                    <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">{t('profile.personal_info.location')}</label>
                     <div className="relative">
                       {isEditing ? (
                         <input
@@ -426,11 +427,11 @@ const Profile = () => {
                           value={profileData.localisation || ''}
                           onChange={(e) => setProfileData({ ...profileData, localisation: e.target.value })}
                           className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition pl-12"
-                          placeholder="Votre localisation"
+                          placeholder={t('profile.personal_info.location_placeholder')}
                         />
                       ) : (
                         <div className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-gray-100 font-medium pl-12">
-                          {profileData.localisation || 'Non renseignée'}
+                          {profileData.localisation || t('profile.personal_info.no_location')}
                         </div>
                       )}
                       <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -443,7 +444,7 @@ const Profile = () => {
             {/* Préférences */}
             <Card hoverable={false} className="bg-transparent border-none shadow-none">
               <CardHeader>
-                <CardTitle size="lg">Préférences</CardTitle>
+                <CardTitle size="lg">{t('profile.preferences.title')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <label className="flex items-center p-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-green-500 transition-colors cursor-pointer">
@@ -455,8 +456,8 @@ const Profile = () => {
                     })}
                   />
                   <div className="ml-4">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">Trajet silencieux</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Je préfère voyager en silence</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{t('profile.preferences.silent_ride')}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('profile.preferences.silent_ride_desc')}</p>
                   </div>
                 </label>
 
@@ -469,8 +470,8 @@ const Profile = () => {
                     })}
                   />
                   <div className="ml-4">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">Assistance aux bagages</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">J'ai souvent des bagages</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{t('profile.preferences.luggage_help')}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('profile.preferences.luggage_help_desc')}</p>
                   </div>
                 </label>
 
@@ -483,8 +484,8 @@ const Profile = () => {
                     })}
                   />
                   <div className="ml-4">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">Chauffeur expérimenté</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Préférer les chauffeurs avec plus d'expérience</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{t('profile.preferences.experienced_driver')}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('profile.preferences.experienced_driver_desc')}</p>
                   </div>
                 </label>
               </CardContent>
@@ -498,7 +499,7 @@ const Profile = () => {
                 onClick={() => setShowPasswordModal(true)}
                 className="border-blue-300 text-blue-700 dark:text-blue-400 dark:border-blue-600"
               >
-                Changer le mot de passe
+                {t('profile.password.change_btn')}
               </Button>
 
               <div className="flex space-x-4">
@@ -511,14 +512,14 @@ const Profile = () => {
                         setIsEditing(false);
                       }}
                     >
-                      Annuler
+                      {t('profile.actions.cancel')}
                     </Button>
                     <Button
                       variant="primary"
                       onClick={handleSave}
                       loading={isSaving}
                     >
-                      Enregistrer
+                      {t('profile.actions.save')}
                     </Button>
                   </>
                 ) : (
@@ -526,7 +527,7 @@ const Profile = () => {
                     variant="primary"
                     onClick={() => setIsEditing(true)}
                   >
-                    Modifier le profil
+                    {t('profile.actions.edit')}
                   </Button>
                 )}
               </div>
@@ -539,7 +540,7 @@ const Profile = () => {
           {/* Statistiques */}
           <Card>
             <CardHeader>
-              <CardTitle>Mes statistiques</CardTitle>
+              <CardTitle>{t('profile.stats.title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
@@ -573,9 +574,9 @@ const Profile = () => {
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center w-full">
-                <CardTitle>Mes badges</CardTitle>
+                <CardTitle>{t('profile.badges.title')}</CardTitle>
                 <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400" size="sm">
-                  4/10 obtenus
+                  {t('profile.badges.obtained', { count: 4, total: 10 })}
                 </Badge>
               </div>
             </CardHeader>
@@ -592,7 +593,7 @@ const Profile = () => {
                         <Icon className={`w-8 h-8 ${badge.color}`} />
                       </div>
                       <p className="text-xs font-medium text-gray-900 dark:text-gray-100">{badge.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{badge.earned ? 'Obtenu' : 'À gagner'}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{badge.earned ? t('profile.badges.status_obtained') : t('profile.badges.status_to_earn')}</p>
                     </div>
                   );
                 })}
@@ -600,7 +601,7 @@ const Profile = () => {
             </CardContent>
             <CardFooter>
               <Button variant="outline" fullWidth>
-                Voir tous les badges
+                {t('profile.badges.view_all')}
               </Button>
             </CardFooter>
           </Card>
@@ -614,8 +615,8 @@ const Profile = () => {
             <Lock className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Changer le mot de passe</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Sécurisez votre compte</p>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('profile.password.title')}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('profile.password.subtitle')}</p>
           </div>
         </div>
 
@@ -623,7 +624,7 @@ const Profile = () => {
           {/* Mot de passe actuel */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Mot de passe actuel
+              {t('profile.password.current')}
             </label>
             <div className="relative">
               <input
@@ -631,7 +632,7 @@ const Profile = () => {
                 value={passwordData.currentPassword}
                 onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition pr-12"
-                placeholder="Entrez votre mot de passe actuel"
+                placeholder={t('profile.password.current_placeholder')}
               />
               <button
                 type="button"
@@ -646,7 +647,7 @@ const Profile = () => {
           {/* Nouveau mot de passe */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Nouveau mot de passe
+              {t('profile.password.new')}
             </label>
             <div className="relative">
               <input
@@ -654,7 +655,7 @@ const Profile = () => {
                 value={passwordData.newPassword}
                 onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition pr-12"
-                placeholder="Minimum 8 caractères"
+                placeholder={t('profile.password.new_placeholder')}
               />
               <button
                 type="button"
@@ -665,14 +666,14 @@ const Profile = () => {
               </button>
             </div>
             {passwordData.newPassword && passwordData.newPassword.length < 8 && (
-              <p className="text-xs text-red-500 mt-1">Le mot de passe doit contenir au moins 8 caractères</p>
+              <p className="text-xs text-red-500 mt-1">{t('profile.password.error_length')}</p>
             )}
           </div>
 
           {/* Confirmer le mot de passe */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Confirmer le nouveau mot de passe
+              {t('profile.password.confirm')}
             </label>
             <div className="relative">
               <input
@@ -680,7 +681,7 @@ const Profile = () => {
                 value={passwordData.confirmPassword}
                 onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition pr-12"
-                placeholder="Confirmez votre nouveau mot de passe"
+                placeholder={t('profile.password.confirm_placeholder')}
               />
               <button
                 type="button"
@@ -691,7 +692,7 @@ const Profile = () => {
               </button>
             </div>
             {passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (
-              <p className="text-xs text-red-500 mt-1">Les mots de passe ne correspondent pas</p>
+              <p className="text-xs text-red-500 mt-1">{t('profile.password.error_mismatch')}</p>
             )}
           </div>
         </div>
@@ -705,7 +706,7 @@ const Profile = () => {
               setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
             }}
           >
-            Annuler
+            {t('profile.actions.cancel')}
           </Button>
           <Button
             variant="primary"
@@ -714,7 +715,7 @@ const Profile = () => {
             loading={isChangingPassword}
             disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
           >
-            Confirmer
+            {t('common.confirm')}
           </Button>
         </div>
       </Modal>

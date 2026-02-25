@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, Smartphone, Mail, Bell, Globe } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
@@ -6,34 +7,35 @@ import Switch from '../ui/Switch';
 import Button from '../ui/Bttn';
 
 const NotificationsSettings = ({ settings, updateSetting, updateNestedSetting, showToast }) => {
+  const { t } = useTranslation();
   const notificationChannels = [
     {
       id: 'whatsapp',
       name: 'WhatsApp',
       icon: MessageCircle,
       color: 'green',
-      description: 'Envoyer des notifications via WhatsApp'
+      description: t('settings.whatsapp_notif')
     },
     {
       id: 'sms',
       name: 'SMS',
       icon: Smartphone,
       color: 'blue',
-      description: 'Envoyer des notifications par SMS'
+      description: t('settings.sms_notif')
     },
     {
       id: 'email',
       name: 'Email',
       icon: Mail,
       color: 'purple',
-      description: 'Envoyer des notifications par email'
+      description: t('settings.email_notif')
     },
     {
       id: 'push',
-      name: 'Notification Push',
+      name: t('common.push_notification'),
       icon: Bell,
       color: 'orange',
-      description: 'Envoyer des notifications push dans l\'application'
+      description: t('settings.push_notif')
     }
   ];
 
@@ -44,7 +46,7 @@ const NotificationsSettings = ({ settings, updateSetting, updateNestedSetting, s
         <CardHeader>
           <CardTitle className="text-blue-800 flex items-center">
             <Bell className="w-5 h-5 mr-2" />
-            Canaux de notification
+            {t('settings.notification_channels')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -80,18 +82,18 @@ const NotificationsSettings = ({ settings, updateSetting, updateNestedSetting, s
         <CardHeader>
           <CardTitle className="text-blue-800 flex items-center">
             <Bell className="w-5 h-5 mr-2" />
-            Types de notifications
+            {t('settings.notification_types')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {[
-              { id: 'ride_created', label: 'Nouvelle course', description: 'Notifier lors d\'une nouvelle course' },
-              { id: 'ride_accepted', label: 'Course acceptée', description: 'Notifier quand un chauffeur accepte une course' },
-              { id: 'ride_completed', label: 'Course terminée', description: 'Notifier quand une course est terminée' },
-              { id: 'payment_received', label: 'Paiement reçu', description: 'Notifier lors d\'un paiement reçu' },
-              { id: 'promotion', label: 'Promotions', description: 'Envoyer des notifications promotionnelles' },
-              { id: 'system', label: 'Système', description: 'Notifications système et de maintenance' },
+              { id: 'ride_created', label: t('notif.ride_created'), description: t('notif.ride_created_desc') },
+              { id: 'ride_accepted', label: t('notif.ride_accepted'), description: t('notif.ride_accepted_desc') },
+              { id: 'ride_completed', label: t('notif.ride_completed'), description: t('notif.ride_completed_desc') },
+              { id: 'payment_received', label: t('notif.payment_received'), description: t('notif.payment_received_desc') },
+              { id: 'promotion', label: t('notif.promotion'), description: t('notif.promotion_desc') },
+              { id: 'system', label: t('notif.system'), description: t('notif.system_desc') },
             ].map((type, index) => (
               <div key={index} className="flex items-center justify-between p-4 border-2 border-gray-200 dark:border-gray-800 rounded-xl hover:border-teal-300 transition-all">
                 <div>

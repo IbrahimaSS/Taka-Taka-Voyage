@@ -17,9 +17,9 @@ export const tripService = {
 
   accept: (id) => apiClient.post(`/reservations/${id}/accept`),
   reject: (id, payload) => apiClient.post(`/reservations/${id}/reject`, payload),
-  arrive: (id) => apiClient.post(API_ROUTES.chauffeur.profile.get + `/mes-courses/${id}/signaler-arrivee`), // Note: status modal uses specific paths, but let's keep it safe.
-  start: (id) => apiClient.post(API_ROUTES.chauffeur.profile.get + `/mes-courses/${id}/demarrer`),
-  complete: (id) => apiClient.post(API_ROUTES.chauffeur.profile.get + `/mes-courses/${id}/terminer`),
+  arrive: (id) => apiClient.post(`/chauffeur/mes-courses/${id}/signaler-arrivee`),
+  start: (id) => apiClient.post(`/chauffeur/mes-courses/${id}/demarrer`),
+  complete: (id) => apiClient.post(`/chauffeur/mes-courses/${id}/terminer`),
   cancel: (id, payload) => apiClient.post(API_ROUTES.passager.reservationsPlanifiees.annuler(id), payload),
   rate: (id, payload) => apiClient.post(API_ROUTES.passager.trajets.details(id) + '/rate', payload),
 

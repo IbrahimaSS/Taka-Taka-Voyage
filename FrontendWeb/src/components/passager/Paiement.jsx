@@ -11,6 +11,7 @@ import {
   Bell, MessageCircle, Link, Copy, Grid,
   Loader, User
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Composants UI réutilisables
 import Button from '../admin/ui/Bttn';
@@ -62,21 +63,22 @@ const FilterChip = ({ active, onClick, icon: Icon, label }) => (
 );
 
 const TransactionStatusBadge = ({ status }) => {
+  const { t } = useTranslation();
   const config = {
     completed: {
       variant: 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-700 dark:text-green-400',
       icon: CheckCircle,
-      label: 'Complété'
+      label: t('transactions.status.completed')
     },
     pending: {
       variant: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-700 dark:text-amber-400',
       icon: Clock,
-      label: 'En attente'
+      label: t('transactions.status.pending')
     },
     failed: {
       variant: 'bg-gradient-to-r from-red-500/20 to-pink-500/20 text-red-700 dark:text-red-400',
       icon: AlertCircle,
-      label: 'Échoué'
+      label: t('transactions.status.failed')
     }
   };
 
@@ -91,136 +93,152 @@ const TransactionStatusBadge = ({ status }) => {
 };
 
 const TransactionTypeBadge = ({ type, amount }) => {
+  const { t } = useTranslation();
   const isIncome = amount > 0;
 
   const config = {
     'Paiement trajet': {
+      label: t('transactions.types.trip_payment'),
       color: 'text-rose-600',
       bgColor: 'bg-gradient-to-r from-rose-500/20 to-pink-500/20'
     },
     'Remboursement': {
+      label: t('transactions.types.refund'),
       color: 'text-emerald-600',
       bgColor: 'bg-gradient-to-r from-emerald-500/20 to-green-500/20'
     },
     'Cashback': {
+      label: t('transactions.types.cashback'),
       color: 'text-amber-600',
       bgColor: 'bg-gradient-to-r from-amber-500/20 to-orange-500/20'
     },
     'Recharge': {
+      label: t('transactions.types.topup'),
       color: 'text-blue-600',
       bgColor: 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20'
     }
   };
 
   const typeConfig = config[type] || {
+    label: type === 'Autre' ? t('transactions.types.other') : type,
     color: isIncome ? 'text-emerald-600' : 'text-rose-600',
     bgColor: isIncome ? 'bg-gradient-to-r from-emerald-500/20 to-green-500/20' : 'bg-gradient-to-r from-rose-500/20 to-pink-500/20'
   };
 
   return (
     <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${typeConfig.bgColor} ${typeConfig.color}`}>
-      {type}
+      {typeConfig.label}
     </span>
   );
 };
 
-const TransactionDetailsModal = ({ transaction, isOpen, onClose, onShare, onShowInvoice }) => (
-  <Modal
-    isOpen={isOpen}
-    onClose={onClose}
-    title="Détails de la transaction"
-    size="md"
-  >
-    {transaction && (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-primary-50 to-emerald-50 dark:from-gray-700 dark:to-gray-700/50 p-6 rounded-xl flex justify-between items-center shadow-sm">
-          <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Transaction #{transaction.reference}</p>
-            <p className={`text-3xl font-bold mt-1 ${transaction.amount > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
-              {transaction.amount > 0 ? '+' : ''}{transaction.amount.toLocaleString()} GNF
-            </p>
+const TransactionDetailsModal = ({ transaction, isOpen, onClose, onShare, onShowInvoice }) => {
+  const { t } = useTranslation();
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={t('transactions.details.title')}
+      size="md"
+    >
+      {transaction && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-primary-50 to-emerald-50 dark:from-gray-700 dark:to-gray-700/50 p-6 rounded-xl flex justify-between items-center shadow-sm">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('transactions.details.transaction_number')}{transaction.reference}</p>
+              <p className={`text-3xl font-bold mt-1 ${transaction.amount > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
+                {transaction.amount > 0 ? '+' : ''}{transaction.amount.toLocaleString()} GNF
+              </p>
+            </div>
+            <TransactionStatusBadge status={transaction.status} />
           </div>
-          <TransactionStatusBadge status={transaction.status} />
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Date et heure</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{transaction.date} {transaction.time ? `- ${transaction.time}` : ''}</p>
-          </div>
-          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Type</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{transaction.type}</p>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
-          <p className="text-sm text-gray-600 dark:text-gray-400">Méthode de paiement</p>
-          <p className="font-semibold text-gray-900 dark:text-white">{transaction.method}</p>
-        </div>
-
-        {transaction.details && (
-          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Chauffeur & Véhicule</p>
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mr-3 ring-2 ring-white dark:ring-gray-600 shadow-sm overflow-hidden">
-                <User className="w-5 h-5 text-primary-600" />
-              </div>
-              <div>
-                <p className="font-bold text-gray-900 dark:text-white">{transaction.details.driverName}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{transaction.details.vehicleInfo}</p>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('transactions.details.date_time')}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{transaction.date} {transaction.time ? `- ${transaction.time}` : ''}</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('transactions.details.type')}</p>
+              <p className="font-semibold text-gray-900 dark:text-white">{transaction.type}</p>
             </div>
           </div>
-        )}
 
-        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
-          <p className="text-sm text-gray-600 dark:text-gray-400">Référence</p>
-          <div className="flex items-center justify-between mt-2">
-            <code className="text-sm bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded font-mono text-gray-800 dark:text-gray-200">{transaction.reference}</code>
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('transactions.details.method')}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{transaction.method}</p>
+          </div>
+
+          {transaction.details && (
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{t('transactions.details.driver_vehicle')}</p>
+              <div className="flex items-center">
+                <div className="w-12 h-12 rounded-xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mr-4 ring-2 ring-white dark:ring-gray-600 shadow-sm overflow-hidden">
+                  {transaction.details.driverPhoto ? (
+                    <img src={transaction.details.driverPhoto} alt={transaction.details.driverName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                      {transaction.details.driverName?.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white text-base">{transaction.details.driverName}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{transaction.details.vehicleInfo}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-sm">
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('transactions.details.reference')}</p>
+            <div className="flex items-center justify-between mt-2">
+              <code className="text-sm bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded font-mono text-gray-800 dark:text-gray-200">{transaction.reference}</code>
+              <Button
+                variant="ghost"
+                size="small"
+                icon={Copy}
+                onClick={() => {
+                  navigator.clipboard.writeText(transaction.reference);
+                  toast.success(t('transactions.messages.ref_copied'));
+                }}
+              >
+                {t('transactions.details.copy')}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Button variant="secondary" onClick={onClose} className="flex-1">
+              {t('transactions.details.close')}
+            </Button>
             <Button
-              variant="ghost"
-              size="small"
-              icon={Copy}
-              onClick={() => {
-                navigator.clipboard.writeText(transaction.reference);
-                toast.success('Référence copiée');
-              }}
+              variant="warning"
+              onClick={() => onShowInvoice(transaction)}
+              icon={Receipt}
+              className="flex-1"
             >
-              Copier
+              {t('transactions.details.receipt')}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={onShare}
+              icon={Share2}
+              className="flex-1"
+            >
+              {t('transactions.details.share')}
             </Button>
           </div>
         </div>
-
-        <div className="flex space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button variant="secondary" onClick={onClose} className="flex-1">
-            Fermer
-          </Button>
-          <Button
-            variant="warning"
-            onClick={() => onShowInvoice(transaction)}
-            icon={Receipt}
-            className="flex-1"
-          >
-            Reçu
-          </Button>
-          <Button
-            variant="primary"
-            onClick={onShare}
-            icon={Share2}
-            className="flex-1"
-          >
-            Partager
-          </Button>
-        </div>
-      </div>
-    )}
-  </Modal>
-);
+      )}
+    </Modal>
+  );
+}
 
 // --- Composant Principal ---
 
 const Transactions = () => {
+  const { t, i18n } = useTranslation();
   const { passenger } = usePassenger();
   // ... rest of the component
 
@@ -240,51 +258,143 @@ const Transactions = () => {
     const fetchPayments = async () => {
       try {
         setLoading(true);
-        // We can pass filters to backend here if needed, but keeping client-side filtering 
-        // consistent with current UI for now (fetching all or large limit)
-        const { data } = await tripService.getPayments({ limit: 100 });
+        // On récupère les paiements ET l'historique pour croiser les données (stratégie ultime)
+        const [paymentsRes, historyRes] = await Promise.all([
+          tripService.getPayments({ limit: 100 }),
+          tripService.getPassengerHistory({ limit: 100 })
+        ]);
 
-        if (data.succes) {
-          const formattedTransactions = data.paiements.map(p => ({
-            id: p._id,
-            date: new Date(p.createdAt).toLocaleDateString('fr-FR'),
-            time: new Date(p.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-            type: p.type === 'PAIEMENT_TRAJET' ? 'Paiement trajet' : 'Autre', // Map backend types
-            amount: -(p.montantTotal || p.montant || 0), // Payments are expenses (negative)
-            method: p.methode,
-            status: p.statut === 'PAYE' ? 'completed' : p.statut === 'ECHEC' ? 'failed' : 'pending',
-            reference: p.reference || `REF-${p._id.substring(0, 8)}`,
-            details: p.reservation ? {
-              driverName: p.reservation.chauffeur ? `${p.reservation.chauffeur.prenom || ''} ${p.reservation.chauffeur.nom || ''}`.trim() : 'N/A',
-              vehicleInfo: p.reservation.chauffeur?.vehicule
-                ? `${p.reservation.chauffeur.vehicule.marque || ''} ${p.reservation.chauffeur.vehicule.modele || ''}`.trim()
-                : (p.reservation.chauffeur?.marque ? `${p.reservation.chauffeur.marque || ''} ${p.reservation.chauffeur.modele || ''}`.trim() : 'Véhicule standard'),
-              driverPhone: p.reservation.chauffeur?.telephone || '-',
-              route: (p.reservation.depart && p.reservation.destination) ? `${p.reservation.depart} → ${p.reservation.destination}` : 'Trajet TakaTaka',
-              distance: `${p.reservation.distanceKm || '0'} km`,
-              duration: `${p.reservation.dureeMin || '0'} min`
-            } : null
-          }));
+        if (paymentsRes.data.succes) {
+          const trips = historyRes.data.trajets || [];
+          const formattedTransactions = paymentsRes.data.paiements.map(p => {
+            // On cherche le trajet correspondant dans l'historique pour avoir les infos complètes
+            const relatedTrip = trips.find(t =>
+              t._id === p.reservation ||
+              t._id === p.trajet ||
+              (p.reservation && t._id === p.reservation._id) ||
+              (p.trajet && t._id === p.trajet._id)
+            );
+
+            return {
+              id: p._id,
+              date: new Date(p.createdAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US'),
+              time: new Date(p.createdAt).toLocaleTimeString(i18n.language === 'fr' ? 'fr-FR' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
+              type: (p.type === 'PAIEMENT_TRAJET' || p.reservation || p.trajet) ? 'Paiement trajet' : (p.type === 'RECHARGE' ? 'Recharge' : 'Autre'),
+              amount: -(p.montantTotal || p.montant || 0),
+              method: p.methode,
+              status: p.statut === 'PAYE' ? 'completed' : p.statut === 'ECHEC' ? 'failed' : 'pending',
+              reference: p.reference || `REF-${p._id.substring(0, 8)}`,
+              details: (() => {
+                const resObj = (p.reservation && typeof p.reservation === 'object') ? p.reservation : (p.trajet && typeof p.trajet === 'object' ? p.trajet : (relatedTrip || {}));
+
+                // RECHERCHE ULTIME DU CHAUFFEUR
+                const candidates = [
+                  relatedTrip?.chauffeur,
+                  relatedTrip?.reservation?.chauffeur,
+                  p.chauffeur,
+                  resObj.chauffeur,
+                  p.driver,
+                  resObj.driver,
+                  p.conducteur,
+                  p.userChauffeur,
+                  resObj.userChauffeur
+                ].filter(c => c && typeof c === 'object');
+
+                // On cherche l'objet qui a le plus d'infos (nom ou utilisateur)
+                const chObj = candidates.find(c => {
+                  const u = c.utilisateur || c.user || c;
+                  return u.nom || u.prenom || u.name || u.nomComplet || u.firstName || u.lastName || u.display_name;
+                }) || candidates[0] || {};
+
+                const getName = (o) => {
+                  if (!o || typeof o !== 'object') return null;
+                  const getParts = (x) => [x.prenom, x.nom, x.name, x.nomComplet, x.firstName, x.lastName, x.display_name]
+                    .map(s => String(s || '').trim())
+                    .filter(s => s && !['N/A', '-', 'UNDEFINED', 'NULL', 'CHAUFFEUR'].includes(s.toUpperCase()));
+
+                  let pList = getParts(o);
+                  if (pList.length > 0) {
+                    // Si on a nomComplet/name, on le prend direct s'il a au moins 2 mots
+                    const full = o.nomComplet || o.name || o.display_name;
+                    if (full && String(full).trim().split(' ').length >= 2) return String(full).trim();
+                    return pList.join(' ');
+                  }
+
+                  const subUser = o.utilisateur || o.user;
+                  if (subUser && typeof subUser === 'object') {
+                    pList = getParts(subUser);
+                    if (pList.length > 0) {
+                      const fullSub = subUser.nomComplet || subUser.name || subUser.display_name;
+                      if (fullSub && String(fullSub).trim().split(' ').length >= 2) return String(fullSub).trim();
+                      return pList.join(' ');
+                    }
+                  }
+                  return null;
+                };
+
+                // Priorités de secours si l'objet chObj échoue encore
+                let driverName = getName(chObj) ||
+                  p.chauffeur_name || p.nom_chauffeur || p.driver_name || p.conducteur_name ||
+                  p.driverName || p.nomChauffeur || p.chauffeurNom ||
+                  relatedTrip?.driverName || resObj.driverName ||
+                  'Chauffeur';
+
+                if (!driverName || ['N/A', '-', 'UNDEFINED', 'NULL', 'CHAUFFEUR'].includes(String(driverName).toUpperCase().trim())) {
+                  driverName = 'Chauffeur TakaTaka';
+                }
+
+                let phone = chObj.telephone || chObj.phone || chObj.tel ||
+                  chObj.utilisateur?.telephone || chObj.utilisateur?.phone ||
+                  p.driverPhone || p.chauffeur_phone || resObj.driverPhone || '-';
+                if (!phone || ['N/A', '-', 'UNDEFINED', 'NULL'].includes(String(phone).toUpperCase().trim())) phone = '-';
+
+                const veh = chObj.vehicule || chObj.vehicle || {};
+                let vehicle = (typeof veh === 'object')
+                  ? `${veh.marque || ''} ${veh.modele || ''}`.trim() || veh.marque || veh.modele
+                  : veh;
+
+                if (!vehicle || ['N/A', '-', 'UNDEFINED', 'NULL'].includes(String(vehicle).toUpperCase().trim())) {
+                  vehicle = p.vehicule_info || p.vehicle_name || (chObj.marque ? `${chObj.marque || ''} ${chObj.modele || ''}`.trim() : 'Véhicule standard');
+                }
+
+                if (!vehicle || ['N/A', '-', 'UNDEFINED', 'NULL'].includes(String(vehicle).toUpperCase().trim())) {
+                  vehicle = 'Véhicule standard';
+                }
+
+                if (!resObj.depart && !resObj.destination && !p.chauffeur && !p.reservation && !p.trajet && !relatedTrip) return null;
+
+                return {
+                  driverName,
+                  vehicleInfo: vehicle,
+                  driverPhone: phone,
+                  route: (resObj.depart || resObj.pointDepart?.adresse)
+                    ? `${resObj.depart || resObj.pointDepart?.adresse} → ${resObj.destination || resObj.pointDestination?.adresse}`
+                    : 'Trajet TakaTaka',
+                  distance: `${resObj.distanceKm || '0'} km`,
+                  duration: `${resObj.dureeMin || '0'} min`
+                };
+              })()
+            };
+          });
           setTransactions(formattedTransactions);
         }
       } catch (err) {
         console.error("Error fetching payments:", err);
-        // toast.error("Impossible de charger les transactions"); // Optional: don't annoy if just empty
       } finally {
         setLoading(false);
       }
     };
 
     fetchPayments();
-  }, []);
+  }, [i18n.language]);
 
   const filters = [
-    { id: 'all', label: 'Toutes', icon: BarChart3 },
-    { id: 'payment', label: 'Paiements', icon: CreditCard },
-    { id: 'refund', label: 'Remboursements', icon: RefreshCw },
-    { id: 'cashback', label: 'Cashback', icon: Gift },
-    { id: 'failed', label: 'Échouées', icon: AlertCircle },
-    { id: 'pending', label: 'En attente', icon: Clock },
+    { id: 'all', label: t('transactions.filters.all'), icon: BarChart3 },
+    { id: 'payment', label: t('transactions.filters.payments'), icon: CreditCard },
+    { id: 'refund', label: t('transactions.filters.refunds'), icon: RefreshCw },
+    { id: 'cashback', label: t('transactions.filters.cashback'), icon: Gift },
+    { id: 'failed', label: t('transactions.filters.failed'), icon: AlertCircle },
+    { id: 'pending', label: t('transactions.filters.pending'), icon: Clock },
   ];
 
   const filteredTransactions = useMemo(() => {
@@ -340,7 +450,11 @@ const Transactions = () => {
   };
 
   const handleShareReceipt = (transaction) => {
-    const shareText = `Reçu TakaTaka : ${transaction.type} de ${Math.abs(transaction.amount).toLocaleString()} GNF le ${transaction.date}`;
+    const shareText = t('transactions.messages.share_text', {
+      type: transaction.type,
+      amount: Math.abs(transaction.amount).toLocaleString(),
+      date: transaction.date
+    });
 
     if (navigator.share) {
       navigator.share({
@@ -349,19 +463,19 @@ const Transactions = () => {
       });
     } else {
       navigator.clipboard.writeText(shareText);
-      toast.success('Reçu copié dans le presse-papier');
+      toast.success(t('transactions.messages.receipt_copied'));
     }
   };
 
   const clearFilters = () => {
     setActiveFilter('all');
     setSearchTerm('');
-    toast.success('Filtres réinitialisés');
+    toast.success(t('transactions.messages.filters_reset'));
   };
 
   const handleCopyReference = (reference) => {
     navigator.clipboard.writeText(reference);
-    toast.success('Référence copiée');
+    toast.success(t('transactions.messages.ref_copied'));
   };
 
   const handleShowInvoice = (transaction) => {
@@ -373,6 +487,7 @@ const Transactions = () => {
       invoiceNumber: transaction.reference,
       date: transaction.date,
       transactionId: transaction.id,
+      status: transaction.status === 'completed' ? 'paid' : 'pending',
       method: transaction.method,
       amount: `${Math.abs(transaction.amount).toLocaleString()} GNF`,
       passenger: {
@@ -413,22 +528,22 @@ const Transactions = () => {
         <CardHeader align="start" className="mb-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
             <div>
-              <CardTitle size="xl" className="text-gray-900 dark:text-white">Historique des transactions</CardTitle>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">Suivez tous vos paiements et recharges</p>
+              <CardTitle size="xl" className="text-gray-900 dark:text-white">{t('transactions.title')}</CardTitle>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">{t('transactions.subtitle')}</p>
             </div>
             <div className="flex items-center space-x-3">
               <ExportDropdown
                 data={filteredTransactions}
                 columns={[
-                  { accessor: 'date', header: 'Date' },
-                  { accessor: 'type', header: 'Type' },
-                  { accessor: 'amount', header: 'Montant' },
-                  { accessor: 'method', header: 'Méthode' },
-                  { accessor: 'status', header: 'Statut' },
-                  { accessor: 'reference', header: 'Référence' }
+                  { accessor: 'date', header: t('transactions.table.date') },
+                  { accessor: 'type', header: t('transactions.table.type') },
+                  { accessor: 'amount', header: t('transactions.table.amount') },
+                  { accessor: 'method', header: t('transactions.table.method') },
+                  { accessor: 'status', header: t('transactions.table.status') },
+                  { accessor: 'reference', header: t('transactions.table.reference') }
                 ]}
                 fileName="transactions_takataka"
-                title="Historique des transactions"
+                title={t('transactions.title')}
                 className="mr-2"
               />
               <Button
@@ -436,7 +551,7 @@ const Transactions = () => {
                 onClick={clearFilters}
                 icon={RefreshCw}
               >
-                Actualiser
+                {t('history.refresh')}
               </Button>
             </div>
           </div>
@@ -445,28 +560,28 @@ const Transactions = () => {
         {/* Statistiques */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
-            label="Transactions"
+            label={t('transactions.stats.total_transactions')}
             value={stats.total}
             icon={BarChart3}
             colorClass="bg-gradient-to-r from-primary-500 to-secondary-600"
 
           />
           <StatCard
-            label="Revenus"
+            label={t('transactions.stats.income')}
             value={`${stats.totalIncome.toLocaleString()} GNF`}
             icon={ArrowUpRight}
             colorClass="bg-gradient-to-r from-primary-500 to-secondary-600"
 
           />
           <StatCard
-            label="En attente"
+            label={t('transactions.stats.pending')}
             value={stats.pendingTransactions}
             icon={Clock}
             colorClass="bg-gradient-to-r from-primary-500 to-secondary-600"
 
           />
           <StatCard
-            label="Dépenses totales"
+            label={t('transactions.stats.expenses')}
             // Changed label from "Solde net" to "Dépenses totales" as it makes more sense for passenger
             value={`${stats.totalExpenses.toLocaleString()} GNF`}
             icon={Wallet}
@@ -481,7 +596,7 @@ const Transactions = () => {
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  placeholder="Rechercher par type, référence ou méthode..."
+                  placeholder={t('transactions.filters.search_placeholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 text-sm transition-all"
@@ -521,43 +636,43 @@ const Transactions = () => {
                           <TableHeader>
                             <div className="flex items-center">
                               <Calendar className="w-4 h-4 mr-2" />
-                              DATE
+                              {t('transactions.table.date')}
                             </div>
                           </TableHeader>
                           <TableHeader>
                             <div className="flex items-center">
                               <CreditCard className="w-4 h-4 mr-2" />
-                              TYPE
+                              {t('transactions.table.type')}
                             </div>
                           </TableHeader>
                           <TableHeader>
                             <div className="flex items-center">
                               <Coins className="w-4 h-4 mr-2" />
-                              MONTANT
+                              {t('transactions.table.amount')}
                             </div>
                           </TableHeader>
                           <TableHeader>
                             <div className="flex items-center">
                               <Smartphone className="w-4 h-4 mr-2" />
-                              MÉTHODE
+                              {t('transactions.table.method')}
                             </div>
                           </TableHeader>
                           <TableHeader>
                             <div className="flex items-center">
                               <CheckCircle className="w-4 h-4 mr-2" />
-                              STATUT
+                              {t('transactions.table.status')}
                             </div>
                           </TableHeader>
                           <TableHeader>
                             <div className="flex items-center">
                               <FileText className="w-4 h-4 mr-2" />
-                              RÉFÉRENCE
+                              {t('transactions.table.reference')}
                             </div>
                           </TableHeader>
                           <TableHeader>
                             <div className="flex items-center">
                               <MoreVertical className="w-4 h-4 mr-2" />
-                              ACTIONS
+                              {t('transactions.table.actions')}
                             </div>
                           </TableHeader>
                         </tr>
@@ -606,7 +721,7 @@ const Transactions = () => {
                                     icon={Copy}
                                     onClick={() => handleCopyReference(transaction.reference)}
                                     className="ml-2"
-                                    tooltip="Copier la référence"
+                                    tooltip={t('transactions.details.copy')}
                                   />
                                 </div>
                               </TableCell>
@@ -617,14 +732,14 @@ const Transactions = () => {
                                     size="small"
                                     icon={Eye}
                                     onClick={() => handleViewDetails(transaction)}
-                                    tooltip="Voir les détails"
+                                    tooltip={t('transactions.details.title')}
                                   />
                                   <Button
                                     variant="ghost"
                                     size="small"
                                     icon={Share2}
                                     onClick={() => handleShareReceipt(transaction)}
-                                    tooltip="Partager le reçu"
+                                    tooltip={t('transactions.details.share')}
                                   />
                                 </div>
                               </TableCell>
@@ -638,9 +753,9 @@ const Transactions = () => {
 
                 <CardFooter align="between" className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Affichage de <span className="font-bold text-gray-900 dark:text-white">{startIndex + 1}</span> à{' '}
-                    <span className="font-bold text-gray-900 dark:text-white">{Math.min(endIndex, filteredTransactions.length)}</span> sur{' '}
-                    <span className="font-bold text-gray-900 dark:text-white">{filteredTransactions.length}</span> transactions
+                    {t('transactions.pagination.showing')} <span className="font-bold text-gray-900 dark:text-white">{startIndex + 1}</span> {t('transactions.pagination.to')}{' '}
+                    <span className="font-bold text-gray-900 dark:text-white">{Math.min(endIndex, filteredTransactions.length)}</span> {t('transactions.pagination.of')}{' '}
+                    <span className="font-bold text-gray-900 dark:text-white">{filteredTransactions.length}</span> {t('transactions.pagination.results')}
                   </div>
 
                   <Pagination
@@ -660,10 +775,10 @@ const Transactions = () => {
                     }}
                     className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl px-4 py-2 text-sm focus:border-primary-500 outline-none transition-all"
                   >
-                    <option value={10}>10 par page</option>
-                    <option value={25}>25 par page</option>
-                    <option value={50}>50 par page</option>
-                    <option value={100}>100 par page</option>
+                    <option value={10}>10 {t('transactions.pagination.per_page')}</option>
+                    <option value={25}>25 {t('transactions.pagination.per_page')}</option>
+                    <option value={50}>50 {t('transactions.pagination.per_page')}</option>
+                    <option value={100}>100 {t('transactions.pagination.per_page')}</option>
                   </select>
                 </CardFooter>
               </Card>
@@ -674,14 +789,14 @@ const Transactions = () => {
                 <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                   <CreditCard className="w-10 h-10 text-gray-400 dark:text-gray-500" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Aucune transaction trouvée</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-8">Essayez de modifier vos critères de recherche</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('transactions.messages.no_transactions')}</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-8">{t('transactions.messages.no_transactions_desc')}</p>
                 <Button
                   variant="primary"
                   onClick={clearFilters}
                   icon={RefreshCw}
                 >
-                  Réinitialiser les filtres
+                  {t('transactions.messages.reset_filters')}
                 </Button>
               </CardContent>
             </Card>

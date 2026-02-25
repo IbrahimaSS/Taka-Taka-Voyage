@@ -1,14 +1,16 @@
 // src/components/settings/components/ApiSettings.jsx
 // pour les paramètres des API et intégrations.
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Key, Globe, Shield, Zap, Cpu, Webhook, Eye, EyeOff, Copy, Check, DollarSign, MessageCircle, FileText } from 'lucide-react';
-import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
+import { Key, Globe, Shield, Zap, Cpu, Webhook, Eye, EyeOff, Copy, Check, DollarSign, MessageCircle, FileText, ExternalLink } from 'lucide-react';
+import Card, { CardHeader, CardTitle, CardContent, CardDescription } from '../ui/Card';
 import Button from '../ui/Bttn';
 import Switch from '../ui/Switch';
 import Badge from '../ui/Badge';
 
 const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
+    const { t } = useTranslation();
     const [showApiKeys, setShowApiKeys] = useState({});
     const [copiedKey, setCopiedKey] = useState(null);
 
@@ -16,7 +18,7 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
         {
             id: 'googleMaps',
             name: 'Google Maps',
-            description: 'Service de cartographie et calcul d\'itinéraires',
+            description: t('api.google_maps_desc'),
             icon: Globe,
             color: 'blue',
             gradient: 'from-blue-100 to-blue-200',
@@ -28,7 +30,7 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
         {
             id: 'africastalking',
             name: 'Africa\'s Talking',
-            description: 'Service de SMS et USSD',
+            description: t('api.africastalking_desc'),
             icon: Zap,
             color: 'orange',
             gradient: 'from-orange-100 to-orange-200',
@@ -40,7 +42,7 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
         {
             id: 'stripe',
             name: 'Stripe',
-            description: 'Paiements en ligne par carte',
+            description: t('api.stripe_desc'),
             icon: DollarSign,
             color: 'purple',
             gradient: 'from-purple-100 to-purple-200',
@@ -52,7 +54,7 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
         {
             id: 'twilio',
             name: 'Twilio',
-            description: 'Service de communication (SMS, voix)',
+            description: t('api.twilio_desc'),
             icon: MessageCircle,
             color: 'green',
             gradient: 'from-green-100 to-green-200',
@@ -74,12 +76,12 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
 
     const handleCopyApiKey = (key, value) => {
         if (!value) {
-            showToast('Erreur', 'Aucune clé API à copier', 'error');
+            showToast(t('common.error'), t('api.copy_error'), 'error');
             return;
         }
         navigator.clipboard.writeText(value);
         setCopiedKey(key);
-        showToast('Succès', 'Clé API copiée dans le presse-papier', 'success');
+        showToast(t('common.success'), t('api.copy_success'), 'success');
         setTimeout(() => setCopiedKey(null), 2000);
     };
 
@@ -88,7 +90,7 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
             Math.random().toString(36)[2]
         ).join('')}`;
         updateNestedSetting('api', 'takataka', 'apiKey', key);
-        showToast('Succès', 'Nouvelle clé API générée', 'success');
+        showToast(t('common.success'), t('api.key_generated'), 'success');
     };
 
     const toggleKeyVisibility = (key) => {
@@ -105,16 +107,16 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
                 <CardHeader>
                     <CardTitle className="text-blue-800 flex items-center">
                         <Key className="w-5 h-5 mr-2" />
-                        Clé API principale
+                        {t('api.main_key')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="p-6 bg-gradient-to-r from-blue-50 to-teal-50 rounded-xl border-2 border-blue-200">
+                    <div className="p-6 bg-gradient-to-r from-blue-50 to-teal-50 dark:from-blue-900/20 dark:to-teal-900/20 rounded-xl border-2 border-blue-200 dark:border-blue-800">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
-                                <h4 className="font-bold text-gray-800 dark:text-gray-100">Clé API Taka Taka</h4>
+                                <h4 className="font-bold text-gray-800 dark:text-gray-100">{t('api.platform_key')}</h4>
                                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                    Utilisez cette clé pour intégrer votre application
+                                    {t('api.platform_key_desc')}
                                 </p>
                             </div>
 
@@ -150,51 +152,46 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
                                     className="bg-gradient-to-r from-blue-700 to-teal-700"
                                     onClick={generateApiKey}
                                 >
-                                    Générer
+                                    {t('common.generate')}
                                 </Button>
                             </div>
                         </div>
 
                         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Limite de requêtes</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t('api.rate_limit')}</p>
                                 <div className="flex items-center">
                                     <input
                                         type="number"
                                         min="1"
-                                        value={settings.api?.rateLimit || 100}
-                                        onChange={(e) => updateNestedSetting('api', 'takataka', 'rateLimit', parseInt(e.target.value))}
-                                        className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg pl-2 py-2 outline-none focus:border-blue-500"
+                                        value={settings.api?.takataka?.rateLimit || 100}
+                                        onChange={(e) => updateNestedSetting('api', 'takataka', 'rateLimit', e.target.value)}
+                                        className="w-full bg-transparent border-none outline-none font-bold text-lg text-blue-600"
                                     />
-                                    <span className="ml-2 text-gray-600 dark:text-gray-300">/min</span>
+                                    <span className="text-xs text-gray-400 ml-2">req/min</span>
                                 </div>
                             </div>
-
                             <div className="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Expiration du token</p>
-                                <div className="flex items-center">
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        value={settings.api?.tokenExpiry || 24}
-                                        onChange={(e) => updateNestedSetting('api', 'takataka', 'tokenExpiry', parseInt(e.target.value))}
-                                        className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 outline-none focus:border-blue-500"
-                                    />
-                                    <span className="ml-2 text-gray-600 dark:text-gray-300">heures</span>
-                                </div>
-                            </div>
-
-                            <div className="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Version API</p>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t('api.token_expiry')}</p>
                                 <div className="flex items-center">
                                     <select
-                                        value={settings.api?.version || 'v1'}
-                                        onChange={(e) => updateNestedSetting('api', 'takataka', 'version', e.target.value)}
-                                        className="flex-1 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+                                        value={settings.api?.takataka?.tokenExpiry || '24h'}
+                                        onChange={(e) => updateNestedSetting('api', 'takataka', 'tokenExpiry', e.target.value)}
+                                        className="w-full bg-transparent border-none outline-none font-bold text-lg text-teal-600"
                                     >
-                                        <option value="v1">v1.0 (Stable)</option>
-                                        <option value="v2">v2.0 (Beta)</option>
+                                        <option value="1h">1 {t('common.hours')}</option>
+                                        <option value="24h">24 {t('common.hours')}</option>
+                                        <option value="7d">7 {t('common.days')}</option>
+                                        <option value="30d">30 {t('common.days')}</option>
+                                        <option value="never">{t('common.never')}</option>
                                     </select>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t('api.version')}</p>
+                                <div className="flex items-center">
+                                    <span className="font-bold text-lg text-gray-800 dark:text-gray-100">v2.1.0</span>
+                                    <Badge variant="outline" className="ml-auto text-[10px] py-0">{t('common.stable')}</Badge>
                                 </div>
                             </div>
                         </div>
@@ -203,118 +200,112 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
             </Card>
 
             {/* Intégrations externes */}
-            <Card hoverable className="border-2 border-gray-100 dark:border-gray-800 hover:border-purple-100 transition-all duration-300">
+            <Card hoverable className="border-2 border-gray-100 dark:border-gray-800">
                 <CardHeader>
-                    <CardTitle className="text-purple-800 flex items-center">
+                    <CardTitle className="text-blue-800 flex items-center">
                         <Cpu className="w-5 h-5 mr-2" />
-                        Intégrations externes
+                        {t('api.external_integrations')}
                     </CardTitle>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm">
-                        Configurez les services tiers utilisés par la plateforme
-                    </p>
+                    <CardDescription>
+                        {t('api.external_integrations_desc')}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {apiServices.map((service) => {
                             const Icon = service.icon;
-                            const apiConfig = settings.api?.[service.id] || {};
+                            const isEnabled = settings.api?.[service.id]?.enabled || false;
 
                             return (
-                                <div key={service.id} className="border-2 border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-                                    <div className={`p-5 ${apiConfig.enabled ? `bg-gradient-to-r ${service.gradient}` : 'bg-gray-50 dark:bg-gray-950'}`}>
-                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                            <div className="flex items-center space-x-4">
-                                                <div className={`w-12 h-12 rounded-xl ${service.gradient} flex items-center justify-center`}>
-                                                    <Icon className={`${service.textColor} w-6 h-6`} />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-gray-800 dark:text-gray-100">{service.name}</h4>
-                                                    <p className="text-sm text-gray-600 dark:text-gray-300">{service.description}</p>
-                                                    <div className="flex items-center space-x-3 mt-2">
-                                                        <Badge variant={apiConfig.enabled ? 'success' : 'default'} size="sm">
-                                                            {apiConfig.enabled ? 'Connecté' : 'Désactivé'}
-                                                        </Badge>
-                                                        <a
-                                                            href={service.docsUrl}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                                                        >
-                                                            <FileText className="w-3 h-3 mr-1" />
-                                                            Documentation
-                                                        </a>
-                                                    </div>
-                                                </div>
+                                <div
+                                    key={service.id}
+                                    className={`relative p-5 rounded-2xl border-2 transition-all duration-300 ${isEnabled ? 'border-teal-100 bg-teal-50/10 dark:bg-teal-900/10' : 'border-gray-100 bg-gray-50/50 dark:bg-gray-900/50'}`}
+                                >
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center space-x-3">
+                                            <div className={`p-3 rounded-xl ${isEnabled ? service.bgColor : 'bg-gray-200'} ${isEnabled ? service.textColor : 'text-gray-400'} transition-colors`}>
+                                                <Icon className="w-6 h-6" />
                                             </div>
-
+                                            <div>
+                                                <h4 className="font-bold text-gray-800 dark:text-gray-100">{service.name}</h4>
+                                                {isEnabled ? (
+                                                    <Badge variant="success" size="sm" className="mt-1">
+                                                        {t('common.connected')}
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" size="sm" className="mt-1 text-gray-500">
+                                                        {t('common.disabled')}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-full"
+                                                onClick={() => window.open(service.docsUrl, '_blank')}
+                                                title={t('common.documentation')}
+                                            >
+                                                <ExternalLink className="w-4 h-4 text-gray-400" />
+                                            </Button>
                                             <Switch
-                                                checked={apiConfig.enabled || false}
+                                                checked={isEnabled}
                                                 onChange={() => handleToggleApi(service.id)}
                                             />
                                         </div>
-
-                                        {/* Champs de configuration */}
-                                        {apiConfig.enabled && (
-                                            <motion.div
-                                                initial={{ opacity: 0, height: 0 }}
-                                                animate={{ opacity: 1, height: 'auto' }}
-                                                className="mt-6 space-y-4"
-                                            >
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {service.requiredFields.map((field) => (
-                                                        <div key={field}>
-                                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2 capitalize">
-                                                                {field.replace(/([A-Z])/g, ' $1').toLowerCase()}
-                                                            </label>
-                                                            <div className="relative">
-                                                                <input
-                                                                    type={showApiKeys[`${service.id}_${field}`] ? 'text' : 'password'}
-                                                                    value={apiConfig[field] || ''}
-                                                                    onChange={(e) => handleApiKeyChange(service.id, field, e.target.value)}
-                                                                    className="w-full border-2 border-gray-200 dark:border-gray-800 rounded-xl pl-4 pr-10 py-3 outline-none focus:border-blue-500 transition-all"
-                                                                    placeholder={`Entrez votre ${field}...`}
-                                                                />
-                                                                <div className="absolute right-3 top-3 flex items-center space-x-2">
-                                                                    <button
-                                                                        onClick={() => toggleKeyVisibility(`${service.id}_${field}`)}
-                                                                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300"
-                                                                        aria-label="Afficher/Masquer"
-                                                                    >
-                                                                        {showApiKeys[`${service.id}_${field}`] ? (
-                                                                            <EyeOff className="w-4 h-4" />
-                                                                        ) : (
-                                                                            <Eye className="w-4 h-4" />
-                                                                        )}
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleCopyApiKey(`${service.id}_${field}`, apiConfig[field])}
-                                                                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-300"
-                                                                        aria-label="Copier"
-                                                                    >
-                                                                        {copiedKey === `${service.id}_${field}` ? (
-                                                                            <Check className="w-4 h-4 text-green-500" />
-                                                                        ) : (
-                                                                            <Copy className="w-4 h-4" />
-                                                                        )}
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-
-                                                {/* Bouton de test */}
-                                                <div className="flex justify-end">
-                                                    <Button
-                                                        variant="outline"
-                                                        onClick={() => showToast('Test', `Test de connexion à ${service.name}`, 'info')}
-                                                    >
-                                                        Tester la connexion
-                                                    </Button>
-                                                </div>
-                                            </motion.div>
-                                        )}
                                     </div>
+
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 line-clamp-1">
+                                        {service.description}
+                                    </p>
+
+                                    {isEnabled && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            className="space-y-3 pt-3 border-t border-gray-100 dark:border-gray-800"
+                                        >
+                                            {service.requiredFields.map(field => (
+                                                <div key={field}>
+                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                                                        {field === 'apiKey' || field === 'publicKey' || field === 'secretKey' ? t('api.main_key') : field}
+                                                    </label>
+                                                    <div className="relative">
+                                                        <input
+                                                            type={showApiKeys[`${service.id}_${field}`] ? "text" : "password"}
+                                                            value={settings.api?.[service.id]?.[field] || ''}
+                                                            onChange={(e) => handleApiKeyChange(service.id, field, e.target.value)}
+                                                            className="w-full pl-3 pr-10 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none transition-all"
+                                                            placeholder={`Enter ${field}...`}
+                                                        />
+                                                        <div className="absolute right-2 top-2 flex items-center space-x-1">
+                                                            <button
+                                                                onClick={() => toggleKeyVisibility(`${service.id}_${field}`)}
+                                                                className="p-1 text-gray-400 hover:text-gray-600"
+                                                            >
+                                                                {showApiKeys[`${service.id}_${field}`] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleCopyApiKey(`${service.id}_${field}`, settings.api?.[service.id]?.[field])}
+                                                                className="p-1 text-gray-400 hover:text-gray-600"
+                                                            >
+                                                                {copiedKey === `${service.id}_${field}` ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="w-full h-8 text-xs border-dashed border-gray-300 hover:border-teal-500 hover:text-teal-600 transition-all font-medium"
+                                                onClick={() => showToast(t('common.info'), `${t('api.test_conn')} ${service.name}...`, 'info')}
+                                            >
+                                                {t('api.test_conn_btn')}
+                                            </Button>
+                                        </motion.div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -322,134 +313,108 @@ const ApiSettings = ({ settings, updateNestedSetting, showToast }) => {
                 </CardContent>
             </Card>
 
-            {/* Webhooks */}
-            <Card hoverable className="border-2 border-gray-100 dark:border-gray-800 hover:border-teal-100 transition-all duration-300">
-                <CardHeader>
-                    <CardTitle className="text-teal-800 flex items-center">
-                        <Webhook className="w-5 h-5 mr-2" />
-                        Webhooks
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                            URL de webhook
-                        </label>
-                        <div className="relative">
-                            <Globe className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500 w-5 h-5" />
+            {/* Webhooks et Sécurité API */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Webhooks */}
+                <Card hoverable className="border-2 border-gray-100 dark:border-gray-800">
+                    <CardHeader>
+                        <CardTitle className="text-blue-800 flex items-center">
+                            <Webhook className="w-5 h-5 mr-2" />
+                            {t('api.webhooks')}
+                        </CardTitle>
+                        <CardDescription>
+                            {t('api.webhook_desc')}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                                {t('api.webhook_url')}
+                            </label>
                             <input
                                 type="url"
-                                value={settings.api?.webhookUrl || ''}
-                                onChange={(e) => updateNestedSetting('api', 'takataka', 'webhookUrl', e.target.value)}
-                                className="w-full border-2 border-gray-200 dark:border-gray-800 rounded-xl pl-10 pr-4 py-3 outline-none focus:border-teal-500 transition-all"
-                                placeholder="https://votre-domaine.com/webhook"
+                                value={settings.api?.webhooks?.url || ''}
+                                onChange={(e) => updateNestedSetting('api', 'webhooks', 'url', e.target.value)}
+                                className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                                placeholder="https://votre-serveur.com/webhook"
                             />
-                        </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                            URL pour recevoir les notifications en temps réel (nouvelles courses, paiements, etc.)
-                        </p>
-                    </div>
-
-                    <div>
-                        <h4 className="font-medium text-gray-800 dark:text-gray-100 mb-3">Événements à notifier</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                            {[
-                                { id: 'ride_created', label: 'Nouvelle course', default: true },
-                                { id: 'ride_accepted', label: 'Course acceptée', default: true },
-                                { id: 'ride_completed', label: 'Course terminée', default: true },
-                                { id: 'payment_received', label: 'Paiement reçu', default: true },
-                                { id: 'driver_online', label: 'Chauffeur en ligne', default: false },
-                                { id: 'driver_offline', label: 'Chauffeur hors ligne', default: false },
-                                { id: 'user_registered', label: 'Nouvel utilisateur', default: true },
-                                { id: 'review_submitted', label: 'Avis soumis', default: false }
-                            ].map(event => (
-                                <label key={event.id} className="flex items-center space-x-2 p-3 border-2 border-gray-200 dark:border-gray-800 rounded-xl cursor-pointer hover:border-teal-300 transition-all">
-                                    <input
-                                        type="checkbox"
-                                        checked={settings.api?.webhookEvents?.includes(event.id) || event.default}
-                                        onChange={(e) => {
-                                            const events = settings.api?.webhookEvents || [];
-                                            if (e.target.checked) {
-                                                updateNestedSetting('api', 'takataka', 'webhookEvents', [...events, event.id]);
-                                            } else {
-                                                updateNestedSetting('api', 'takataka', 'webhookEvents', events.filter(id => id !== event.id));
-                                            }
-                                        }}
-                                        className="rounded text-teal-600 focus:ring-teal-500"
-                                    />
-                                    <span className="text-sm text-gray-700 dark:text-gray-200">{event.label}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Sécurité API */}
-            <Card hoverable className="border-2 border-gray-100 dark:border-gray-800 hover:border-red-100 transition-all duration-300">
-                <CardHeader>
-                    <CardTitle className="text-red-800 flex items-center">
-                        <Shield className="w-5 h-5 mr-2" />
-                        Sécurité API
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                                Domaines autorisés (CORS)
-                            </label>
-                            <textarea
-                                value={(settings.api?.corsDomains || []).join('\n')}
-                                onChange={(e) => {
-                                    const domains = e.target.value.split('\n').filter(d => d.trim());
-                                    updateNestedSetting('api', 'takataka', 'corsDomains', domains);
-                                }}
-                                rows="4"
-                                className="w-full border-2 border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition-all"
-                                placeholder="https://votre-domaine.com"
-                            />
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                                Un domaine par ligne. Laissez vide pour autoriser tous les domaines (déconseillé).
-                            </p>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                                IPs autorisées
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-4">
+                                {t('api.events_to_notify')}
                             </label>
-                            <textarea
-                                value={(settings.security?.ipWhitelist || []).join('\n')}
-                                onChange={(e) => {
-                                    const ips = e.target.value.split('\n').filter(ip => ip.trim());
-                                    updateNestedSetting('security', 'takataka', 'ipWhitelist', ips);
-                                }}
-                                rows="4"
-                                className="w-full border-2 border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition-all"
-                                placeholder="192.168.1.1"
-                            />
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                                Une IP ou plage CIDR par ligne. Laissez vide pour toutes les IPs.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border-2 border-red-200">
-                        <div className="flex items-center">
-                            <Shield className="w-5 h-5 text-red-600 mr-3 flex-shrink-0" />
-                            <div>
-                                <p className="font-medium text-red-700">Recommandations de sécurité</p>
-                                <ul className="text-sm text-red-600 mt-2 space-y-1">
-                                    <li>• Régénérez vos clés API régulièrement (tous les 3 mois)</li>
-                                    <li>• Utilisez des clés d'environnement, jamais en clair dans le code</li>
-                                    <li>• Limitez les domaines CORS au strict nécessaire</li>
-                                    <li>• Activez l'authentification à deux facteurs pour l'accès aux paramètres API</li>
-                                </ul>
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { id: 'ride.created', label: t('notif.ride_created') },
+                                    { id: 'payment.received', label: t('notif.payment_received') },
+                                    { id: 'driver.online', label: t('api.driver_online') },
+                                    { id: 'driver.offline', label: t('api.driver_offline') },
+                                    { id: 'user.registered', label: t('api.user_registered') },
+                                    { id: 'review.submitted', label: t('api.review_submitted') },
+                                ].map((event) => (
+                                    <div key={event.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg">
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{event.label}</span>
+                                        <Switch
+                                            size="sm"
+                                            checked={settings.api?.webhooks?.events?.[event.id] || false}
+                                            onChange={() => updateNestedSetting('api', 'webhooks', 'events', {
+                                                ...settings.api?.webhooks?.events,
+                                                [event.id]: !settings.api?.webhooks?.events?.[event.id]
+                                            })}
+                                        />
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+
+                {/* Sécurité API */}
+                <Card hoverable className="border-2 border-gray-100 dark:border-gray-800">
+                    <CardHeader>
+                        <CardTitle className="text-gray-800 flex items-center">
+                            <Shield className="w-5 h-5 mr-2" />
+                            {t('api.api_security')}
+                        </CardTitle>
+                        <CardDescription>
+                            {t('api.security_recommendations')}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                                {t('api.cors_domains')}
+                            </label>
+                            <p className="text-xs text-gray-500 mb-2">{t('api.cors_domains_desc')}</p>
+                            <textarea
+                                value={settings.api?.security?.corsDomains || ''}
+                                onChange={(e) => updateNestedSetting('api', 'security', 'corsDomains', e.target.value)}
+                                className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all font-mono text-xs"
+                                rows="3"
+                                placeholder="https://votre-app.com"
+                            />
+                        </div>
+
+                        <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+                            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">{t('api.security_recommendations')}</h4>
+                            <ul className="space-y-3">
+                                {[
+                                    t('api.rec_regen_keys'),
+                                    t('api.rec_env_vars'),
+                                    t('api.rec_limit_cors'),
+                                    t('api.rec_2fa'),
+                                ].map((rec, i) => (
+                                    <li key={i} className="flex items-start space-x-2 text-xs text-gray-600 dark:text-gray-300">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1 flex-shrink-0" />
+                                        <span>{rec}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 };

@@ -2,6 +2,7 @@ import { Car, Motorbike, Store } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { adminService } from '../services/adminService';
 import { socketService } from '../services/socketService';
+import i18n from '../i18n/config';
 
 export const useSettings = (initialSettings = {}) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -277,6 +278,15 @@ export const useSettings = (initialSettings = {}) => {
     const platformName = settings?.platform?.name || 'Taka Taka';
     document.title = platformName;
   }, [settings?.platform?.name]);
+
+  // ✅ Synchronisation automatique de la langue avec le choix de l'admin
+  useEffect(() => {
+    const defaultLang = settings?.platform?.language;
+    if (defaultLang && i18n.language !== defaultLang) {
+      console.log(`🌍 [LANG] Adaptation automatique vers : ${defaultLang}`);
+      i18n.changeLanguage(defaultLang);
+    }
+  }, [settings?.platform?.language]);
 
   // Fonction de mise à jour profonde immutable
   const setDeep = (obj, path, value) => {

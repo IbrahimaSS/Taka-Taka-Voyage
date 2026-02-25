@@ -5,6 +5,7 @@ import {
   LogOut,
   ChevronLeft,
   Star,
+  User,
 } from 'lucide-react';
 import MenuItem from './MenuItem';
 import { cn } from '../../../utils/cn';
@@ -13,6 +14,7 @@ import { NAV_CONFIG, ROLES } from '../../../config/navConfig';
 import { useUserStore } from '../../../data/userStore';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const Sidebar = ({
   collapsed,
@@ -21,6 +23,7 @@ const Sidebar = ({
   onCloseMobile,
   role = ROLES.ADMIN
 }) => {
+  const { t } = useTranslation();
   const [activeSubMenu, setActiveSubMenu] = useState(null);
   const { settings } = useSettings();
   const { user, logout } = useAuth();
@@ -52,7 +55,7 @@ const Sidebar = ({
             {platform.name || 'Taka Taka'}
           </div>
           <div className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200 uppercase">
-            {config.title}
+            {t(`nav.${config.title.toLowerCase()}`, config.title)}
           </div>
         </div>
       )}
@@ -149,7 +152,7 @@ const Sidebar = ({
                     "text-xs text-slate-500 dark:text-slate-400 truncate",
                     role === ROLES.ADMIN ? "text-gray-500 dark:text-slate-400" : "text-gray-600 dark:text-emerald-400"
                   )}>
-                    {profile.role || (role === ROLES.ADMIN ? "Administrateur" : "Chauffeur")}
+                    {profile.role ? t(`nav.${profile.role.toLowerCase()}`, profile.role) : (role === ROLES.ADMIN ? t('nav.admin') : t('nav.chauffeur'))}
                   </span>
                 </div>
               </div>
@@ -169,7 +172,7 @@ const Sidebar = ({
                     : "bg-white dark:bg-gray-800 text-rose-500 border-emerald-100 dark:border-emerald-900/50 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                 )
               )}
-              aria-label="Déconnexion"
+              aria-label={t('nav.logout')}
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -234,7 +237,7 @@ const Sidebar = ({
                     className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 surface text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
                   >
                     <LogOut className="h-4 w-4" />
-                    Déconnexion
+                    {t('nav.logout')}
                   </button>
                 </div>
               </div>

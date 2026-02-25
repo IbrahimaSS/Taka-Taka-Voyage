@@ -30,6 +30,7 @@ import {
 import LiveTripMap from '../../maps/LiveTripMap';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { leafletIcons } from '../../maps/leafletIcons';
+import { useTranslation } from 'react-i18next';
 import { adminService } from '../../../services/adminService';
 import { socketService } from '../../../services/socketService';
 import { GeolocationService } from '../../../services/geolocation';
@@ -39,6 +40,7 @@ import ExportDropdown from '../ui/ExportDropdown';
 // Remplacer les donnees simulees et les actions locales par des appels backend
 // Exemple: GET API_ROUTES.trips.list, PATCH /trips/:id (status), etc.
 const Trips = ({ showToast }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('all');
   const [timeFilter, setTimeFilter] = useState('today');
   const [filters, setFilters] = useState({
@@ -69,16 +71,16 @@ const Trips = ({ showToast }) => {
 
   // Configuration des colonnes pour l'exportation
   const exportColumns = useMemo(() => [
-    { header: 'ID Trajet', accessor: 'id' },
-    { header: 'Date', accessor: 'date' },
-    { header: 'Passager', accessor: (t) => t.passenger.name },
-    { header: 'Chauffeur', accessor: (t) => t.driver.name },
-    { header: 'Itinéraire', accessor: 'route' },
-    { header: 'Distance', accessor: 'distance' },
-    { header: 'Durée', accessor: 'duration' },
-    { header: 'Montant', accessor: 'amount' },
-    { header: 'Statut', accessor: 'status' },
-  ], []);
+    { header: t('trips.trip_id'), accessor: 'id' },
+    { header: t('trips.date'), accessor: 'date' },
+    { header: t('trips.passenger'), accessor: (t) => t.passenger.name },
+    { header: t('trips.driver'), accessor: (t) => t.driver.name },
+    { header: t('trips.route'), accessor: 'route' },
+    { header: t('trips.distance'), accessor: 'distance' },
+    { header: t('trips.duration'), accessor: 'duration' },
+    { header: t('trips.amount'), accessor: 'amount' },
+    { header: t('common.status'), accessor: 'status' },
+  ], [t]);
 
   const exportMenuRef = useRef(null);
 
@@ -271,35 +273,35 @@ const Trips = ({ showToast }) => {
   const tabs = [
     {
       id: 'all',
-      label: 'Tous les trajets',
+      label: t('history.status.all'),
       icon: Layers,
       count: tripsData.length,
       color: 'from-gray-500 to-gray-600'
     },
     {
       id: 'in-progress',
-      label: 'En cours',
+      label: t('history.status.in_progress'),
       icon: PlayCircle,
       count: tripsData.filter(t => t.status === 'in-progress').length,
       color: 'from-blue-500 to-cyan-600'
     },
     {
       id: 'completed',
-      label: 'Terminés',
+      label: t('history.status.completed'),
       icon: CheckCircle,
       count: tripsData.filter(t => t.status === 'completed').length,
       color: 'from-emerald-500 to-teal-600'
     },
     {
       id: 'pending',
-      label: 'En attente',
+      label: t('history.status.pending'),
       icon: Clock,
       count: tripsData.filter(t => t.status === 'pending').length,
       color: 'from-amber-500 to-yellow-600'
     },
     {
       id: 'cancelled',
-      label: 'Annulés',
+      label: t('history.status.cancelled'),
       icon: XCircle,
       count: tripsData.filter(t => t.status === 'cancelled').length,
       color: 'from-rose-500 to-pink-600'
@@ -309,7 +311,7 @@ const Trips = ({ showToast }) => {
   // Statistiques
   const stats = useMemo(() => [
     {
-      title: "Trajets actifs",
+      title: t('trips.active_trips'),
       value: apiStats ? apiStats.trajetsEnCours.toString() : tripsData.filter(t => t.status === 'in-progress').length.toString(),
       icon: Activity,
       color: "blue",
@@ -319,7 +321,7 @@ const Trips = ({ showToast }) => {
       iconBg: 'from-blue-500/20 to-blue-600/10'
     },
     {
-      title: "Revenus aujourd'hui",
+      title: t('trips.today_revenue'),
       value: apiStats ? `${apiStats.revenusJournaliers.toLocaleString()} GNF` : '0 GNF',
       icon: TrendingUp,
       color: "emerald",
@@ -329,7 +331,7 @@ const Trips = ({ showToast }) => {
       iconBg: 'from-emerald-500/20 to-emerald-600/10'
     },
     {
-      title: "Distance totale",
+      title: t('trips.total_distance'),
       value: apiStats && apiStats.distanceTotale ? `${apiStats.distanceTotale.toFixed(1)} km` : '0.0 km',
       icon: Navigation,
       color: "purple",
@@ -338,7 +340,7 @@ const Trips = ({ showToast }) => {
       progress: 78,
       iconBg: 'from-purple-500/20 to-purple-600/10'
     }
-  ], [tripsData, apiStats]);
+  ], [tripsData, apiStats, t]);
 
   // Filtrer les données
   const filteredTrips = useMemo(() => {
@@ -380,10 +382,10 @@ const Trips = ({ showToast }) => {
   // Fonctions utilitaires
   const getStatusBadge = (status) => {
     const config = {
-      completed: { label: 'Terminé', color: 'emerald', icon: CheckCircle },
-      'in-progress': { label: 'En cours', color: 'blue', icon: PlayCircle },
-      pending: { label: 'En attente', color: 'amber', icon: Clock },
-      cancelled: { label: 'Annulé', color: 'rose', icon: XCircle }
+      completed: { label: t('trips.status.completed'), color: 'emerald', icon: CheckCircle },
+      'in-progress': { label: t('trips.status.in_progress'), color: 'blue', icon: PlayCircle },
+      pending: { label: t('trips.status.pending'), color: 'amber', icon: Clock },
+      cancelled: { label: t('trips.status.cancelled'), color: 'rose', icon: XCircle }
     };
 
     const { label, color, icon: Icon } = config[status] || config.pending;
@@ -397,10 +399,10 @@ const Trips = ({ showToast }) => {
 
   const getPaymentBadge = (method) => {
     const config = {
-      'Espèces': { label: 'Espèces', color: 'emerald', icon: DollarSign },
-      'Mobile Money': { label: 'Mobile Money', color: 'blue', icon: Smartphone },
-      'Orange Money': { label: 'Orange Money', color: 'orange', icon: Phone },
-      'Wave': { label: 'Wave', color: 'purple', icon: Zap },
+      'Espèces': { label: t('payments.cash'), color: 'emerald', icon: DollarSign },
+      'Mobile Money': { label: t('payments.mobile_money'), color: 'blue', icon: Smartphone },
+      'Orange Money': { label: t('payments.orange_money'), color: 'orange', icon: Phone },
+      'Wave': { label: t('payments.wave'), color: 'purple', icon: Zap },
     };
 
     const { label, color, icon: Icon } = config[method] || { label: method, color: 'gray', icon: DollarSign };
@@ -487,7 +489,7 @@ const Trips = ({ showToast }) => {
                   }}
                 >
                   <Eye className="w-4 h-4 mr-3 text-blue-500" />
-                  Voir détails
+                  {t('trips.view_details')}
                 </button>
 
                 {trip.status === 'in-progress' && (
@@ -499,7 +501,7 @@ const Trips = ({ showToast }) => {
                     }}
                   >
                     <PlayCircle className="w-4 h-4 mr-3 text-green-500" />
-                    Suivre en direct
+                    {t('trips.follow_live')}
                   </button>
                 )}
 
@@ -508,14 +510,14 @@ const Trips = ({ showToast }) => {
                   onClick={() => {
                     showToast({
                       type: 'info',
-                      title: 'Appel',
+                      title: t('booking.call_driver'),
                       message: `Appel vers ${trip.driver.phone}...`
                     });
                     setShowActions(false);
                   }}
                 >
                   <Phone className="w-4 h-4 mr-3 text-emerald-500" />
-                  Appeler le chauffeur
+                  {t('trips.call_driver')}
                 </button>
 
                 <div className="border-t border-gray-100 dark:border-gray-900/40 my-1"></div>
@@ -526,14 +528,14 @@ const Trips = ({ showToast }) => {
                     navigator.clipboard.writeText(trip.id);
                     showToast({
                       type: 'success',
-                      title: 'Copié',
-                      message: 'ID du trajet copié dans le presse-papier'
+                      title: t('common.saved'),
+                      message: t('trips.copy_id')
                     });
                     setShowActions(false);
                   }}
                 >
                   <Copy className="w-4 h-4 mr-3 text-gray-500 dark:text-gray-400" />
-                  Copier l'ID
+                  {t('trips.copy_id')}
                 </button>
               </div>
             </motion.div>
@@ -690,8 +692,8 @@ const Trips = ({ showToast }) => {
               <Route className="text-white w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Détails du trajet</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Informations complètes et suivi</p>
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">{t('trips.details_title')}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('trips.details_subtitle')}</p>
             </div>
           </div>
         }
@@ -722,19 +724,19 @@ const Trips = ({ showToast }) => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
               <div className="text-center">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Distance</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('trips.distance')}</div>
                 <div className="font-bold text-gray-800 dark:text-gray-100">{selectedTrip.distance}</div>
               </div>
               <div className="text-center">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Durée</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('trips.duration')}</div>
                 <div className="font-bold text-gray-800 dark:text-gray-100">{selectedTrip.duration}</div>
               </div>
               <div className="text-center">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Date</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('trips.date')}</div>
                 <div className="font-bold text-gray-800 dark:text-gray-100">{selectedTrip.date}</div>
               </div>
               <div className="text-center">
-                <div className="text-sm text-gray-500 dark:text-gray-400">Heure</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('trips.start_time')}</div>
                 <div className="font-bold text-gray-800 dark:text-gray-100">{selectedTrip.time}</div>
               </div>
             </div>
@@ -746,7 +748,7 @@ const Trips = ({ showToast }) => {
               <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center">
                   <MapIcon className="w-5 h-5 mr-2 text-emerald-600" />
-                  Itinéraire et suivi
+                  {t('trips.route_and_follow')}
                 </CardTitle>
                 {selectedTrip.status === 'in-progress' && (
                   <Button
@@ -755,7 +757,7 @@ const Trips = ({ showToast }) => {
                     icon={PlayCircle}
                     onClick={() => handleStartFollow(selectedTrip)}
                   >
-                    Suivre en direct
+                    {t('trips.follow_live')}
                   </Button>
                 )}
               </div>
@@ -767,7 +769,7 @@ const Trips = ({ showToast }) => {
                   <div className="flex items-center">
                     <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
                     <div className="ml-2">
-                      <p className="text-sm font-medium text-white">Départ</p>
+                      <p className="text-sm font-medium text-white">{t('trips.depart')}</p>
                       <p className="text-xs text-gray-300">{selectedTrip.startLocation.address}</p>
                     </div>
                   </div>
@@ -775,7 +777,7 @@ const Trips = ({ showToast }) => {
                 <div className="absolute bottom-6 right-6">
                   <div className="flex items-center">
                     <div className="mr-2 text-right">
-                      <p className="text-sm font-medium text-white">Arrivée</p>
+                      <p className="text-sm font-medium text-white">{t('trips.arrival')}</p>
                       <p className="text-xs text-gray-300">{selectedTrip.endLocation.address}</p>
                     </div>
                     <div className="w-3 h-3 rounded-full bg-rose-500"></div>
@@ -805,7 +807,7 @@ const Trips = ({ showToast }) => {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <User className="w-5 h-5 mr-2 text-emerald-600" />
-                  Informations du passager
+                  {t('commissions.passenger_info')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -861,7 +863,7 @@ const Trips = ({ showToast }) => {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Car className="w-5 h-5 mr-2 text-blue-600" />
-                  Informations du chauffeur
+                  {t('commissions.driver_info')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -982,20 +984,20 @@ const Trips = ({ showToast }) => {
                   </div>
                   <div className="border-t border-gray-200 dark:border-gray-900/40 pt-3 mt-3">
                     <div className="flex justify-between font-bold">
-                      <span>Total passager:</span>
+                      <span>{t('trips.total_fare')}:</span>
                       <span className="text-green-600">{selectedTrip.fareBreakdown.total} GNF</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-2">
-                      <span>Commission (15%):</span>
+                      <span>{t('trips.platform_commission')} (15%):</span>
                       <span className="text-rose-600">-{selectedTrip.fareBreakdown.commission} GNF</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
-                      <span>Frais plateforme:</span>
+                      <span>{t('payments.processing_fees')}:</span>
                       <span>-{selectedTrip.fareBreakdown.platformFee} GNF</span>
                     </div>
                     <div className="border-t border-gray-200 dark:border-gray-900/40 pt-3 mt-3">
                       <div className="flex justify-between font-bold">
-                        <span>Gains chauffeur:</span>
+                        <span>{t('trips.driver_earnings')}:</span>
                         <span className="text-blue-600">{selectedTrip.fareBreakdown.driverEarnings} GNF</span>
                       </div>
                     </div>
@@ -1044,8 +1046,8 @@ const Trips = ({ showToast }) => {
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
       >
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Gestion des trajets</h1>
-          <p className="text-gray-500 dark:text-gray-400">Surveillez et gérez tous les trajets en temps réel</p>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">{t('trips.title')}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{t('trips.subtitle')}</p>
         </div>
 
       </motion.div>
@@ -1165,7 +1167,7 @@ const Trips = ({ showToast }) => {
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse"></div>
                 <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
-                  {tripsData.filter(t => t.status === 'in-progress').length} véhicules en circulation
+                  {tripsData.filter(t => t.status === 'in-progress').length} {t('trips.active_trips')}
                 </span>
               </div>
             </div>
@@ -1188,7 +1190,7 @@ const Trips = ({ showToast }) => {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Rechercher un trajet par ID, passager, chauffeur ou itinéraire..."
+                placeholder={t('trips.search_placeholder')}
                 className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-gray-800 dark:border-gray-900/40 border-2 border-gray-200 dark:border-gray-900/40 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all"
                 value={search}
                 onChange={(e) => {
@@ -1213,13 +1215,13 @@ const Trips = ({ showToast }) => {
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className='text-sm'
             >
-              Filtres
+              {t('trips.advanced_filters')}
             </Button>
             <ExportDropdown
               data={selectedTrips.length > 0 ? tripsData.filter(t => selectedTrips.includes(t.id)) : filteredTrips}
               columns={exportColumns}
               fileName="trajets_taka_taka"
-              title="Historique des Trajets - Taka Taka"
+              title={t('trips.title')}
               showToast={(title, msg, type) => showToast(title, msg, type)}
             />
           </div>
@@ -1251,11 +1253,11 @@ const Trips = ({ showToast }) => {
                     value={filters.status}
                     onChange={(e) => handleFilterChange('status', e.target.value)}
                   >
-                    <option value="all">Tous les statuts</option>
-                    <option value="pending">En attente</option>
-                    <option value="in-progress">En cours</option>
-                    <option value="completed">Terminé</option>
-                    <option value="cancelled">Annulé</option>
+                    <option value="all">{t('common.all_status')}</option>
+                    <option value="pending">{t('trips.status.pending')}</option>
+                    <option value="in-progress">{t('trips.status.in_progress')}</option>
+                    <option value="completed">{t('trips.status.completed')}</option>
+                    <option value="cancelled">{t('trips.status.cancelled')}</option>
                   </select>
                 </div>
                 <div>
@@ -1351,7 +1353,7 @@ const Trips = ({ showToast }) => {
                 icon={viewMode === 'table' ? Grid : List}
                 onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
               >
-                {viewMode === 'table' ? 'Grille' : 'Tableau'}
+                {viewMode === 'table' ? t('trips.grid_view') : t('trips.table_view')}
               </Button>
             </div>
           </div>
@@ -1370,7 +1372,7 @@ const Trips = ({ showToast }) => {
           <div className="p-6 border-b border-gray-100 dark:border-gray-900/40">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Historique des trajets</h3>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">{t('trips.title')}</h3>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
                   {selectedTrips.length > 0 && `${selectedTrips.length} sélectionné(s) • `}
                   {paginatedTrips.length} affiché(s) sur {filteredTrips.length}
@@ -1400,12 +1402,12 @@ const Trips = ({ showToast }) => {
               <thead className="border-gray-900/20 dark:border-gray-900">
                 <tr className="text-left text-sm text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-900/40">
                   <th className="pb-4 pl-6 font-semibold">N°</th>
-                  <th className="pb-4 font-semibold">Itinéraire</th>
-                  <th className="pb-4 font-semibold">Passager</th>
-                  <th className="pb-4 font-semibold">Chauffeur</th>
-                  <th className="pb-4 font-semibold">Montant</th>
-                  <th className="pb-4 font-semibold">Statut</th>
-                  <th className="pb-4 pr-6 font-semibold text-right">Actions</th>
+                  <th className="pb-4 font-semibold">{t('trips.route')}</th>
+                  <th className="pb-4 font-semibold">{t('trips.passenger')}</th>
+                  <th className="pb-4 font-semibold">{t('trips.driver')}</th>
+                  <th className="pb-4 font-semibold">{t('trips.amount')}</th>
+                  <th className="pb-4 font-semibold">{t('common.status')}</th>
+                  <th className="pb-4 pr-6 font-semibold text-right">{t('trips.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1421,7 +1423,7 @@ const Trips = ({ showToast }) => {
                       <div className="font-medium text-gray-800 dark:text-gray-100">{(currentPage - 1) * pageSize + index + 1}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                         <Calendar className="w-3 h-3" />
-                        {trip.date} à {trip.time}
+                        {trip.date} {t('common.at') || 'à'} {trip.time}
                       </div>
                     </td>
                     <td className="py-4">
@@ -1432,7 +1434,7 @@ const Trips = ({ showToast }) => {
                         </p>
                         <div className="flex items-center mt-1">
                           <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">Direct</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{t('common.direct') || 'Direct'}</span>
                         </div>
                       </div>
                     </td>
@@ -1485,7 +1487,7 @@ const Trips = ({ showToast }) => {
                     <td className="py-4">
                       {getStatusBadge(trip.status)}
                       {trip.efficiency > 0 && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{trip.efficiency}% efficacité</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{trip.efficiency}% {t('trips.efficiency')}</div>
                       )}
                     </td>
                     <td className="py-4 pr-6 text-right">
@@ -1516,9 +1518,9 @@ const Trips = ({ showToast }) => {
               <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
                 <Route className="w-10 h-10 text-gray-400 dark:text-gray-500" />
               </div>
-              <p className="text-gray-500 dark:text-gray-400 text-lg font-medium mb-2">Aucun trajet trouvé</p>
+              <p className="text-gray-500 dark:text-gray-400 text-lg font-medium mb-2">{t('trips.no_trips_found')}</p>
               <p className="text-gray-400 dark:text-gray-500">
-                Essayez de modifier vos filtres ou de rafraîchir la liste
+                {t('common.try_modifying_filters')}
               </p>
               <Button
                 variant="outline"
@@ -1536,7 +1538,7 @@ const Trips = ({ showToast }) => {
                   });
                 }}
               >
-                Réinitialiser les filtres
+                {t('common.reset_filters') || 'Réinitialiser les filtres'}
               </Button>
             </div>
           )}
@@ -1554,8 +1556,8 @@ const Trips = ({ showToast }) => {
         onFinish={() => {
           showToast({
             type: 'success',
-            title: 'Trajet terminé',
-            message: 'Le trajet a été marqué comme terminé'
+            title: t('trips.trip_ended'),
+            message: t('trips.trip_ended_msg')
           });
           handleStopFollow();
         }}
@@ -1567,6 +1569,7 @@ const Trips = ({ showToast }) => {
 
 // Extracted Modals to prevent re-renders inside main component
 const FollowModal = ({ trip, isOpen, onClose, onFinish, showToast }) => {
+  const { t } = useTranslation();
   const [realTimeProgress, setRealTimeProgress] = useState(0);
   const [driverPosition, setDriverPosition] = useState(null);
   const [metrics, setMetrics] = useState({ distanceTraveled: 0, distanceRemaining: 0, durationElapsed: 0 });
@@ -1585,7 +1588,7 @@ const FollowModal = ({ trip, isOpen, onClose, onFinish, showToast }) => {
 
       const onJoinRefused = (data) => {
         setTrackingStatus('error');
-        showToast({ type: 'error', title: 'Erreur Suivi', message: data.message || 'Accès refusé' });
+        showToast({ type: 'error', title: t('trips.tracking_error_title'), message: data.message || t('trips.access_denied') });
       };
 
       const onJoinOk = (data) => {
@@ -1663,14 +1666,14 @@ const FollowModal = ({ trip, isOpen, onClose, onFinish, showToast }) => {
             <Satellite className="text-white w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Suivi en direct (Admin)</h3>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">{t('trips.live_tracking_admin')}</h3>
             <div className="flex items-center gap-2">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Trajet {trip.id}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('trips.trip')} {trip.id}</p>
               <span className={`w-2 h-2 rounded-full ${trackingStatus === 'receiving' ? 'bg-emerald-500 animate-pulse' :
                 trackingStatus === 'connected' ? 'bg-blue-500' :
                   trackingStatus === 'error' ? 'bg-rose-500' : 'bg-gray-400'
                 }`} />
-              <span className="text-[10px] uppercase font-bold text-gray-400">{trackingStatus}</span>
+              <span className="text-[10px] uppercase font-bold text-gray-400">{t(`trips.tracking_${trackingStatus}`) || trackingStatus}</span>
             </div>
           </div>
         </div>
@@ -1690,26 +1693,26 @@ const FollowModal = ({ trip, isOpen, onClose, onFinish, showToast }) => {
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
             <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">{realTimeProgress}%</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Progression</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{t('trips.progression')}</div>
           </div>
           <div className="text-center p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800">
             <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
               {metrics.distanceTraveled} km
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Parcourus</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{t('trips.traveled')}</div>
           </div>
           <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-100 dark:border-purple-800">
             <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
               {metrics.durationElapsed} min
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Ecoulés (est.)</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{t('trips.elapsed')}</div>
           </div>
         </div>
 
         {/* Debug Info (Collapsible or just small text for now) */}
         <div className="p-3 bg-gray-50 dark:bg-gray-800/80 rounded-lg border border-gray-200 dark:border-gray-900 mt-4">
           <div className="flex justify-between items-center text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-2">
-            <span>Diagnostic temps réel</span>
+            <span>{t('trips.diagnostic')}</span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -1718,9 +1721,9 @@ const FollowModal = ({ trip, isOpen, onClose, onFinish, showToast }) => {
                 }}
                 className="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-[9px]"
               >
-                Rejoindre
+                {t('trips.rejoin')}
               </button>
-              <span className={trackingStatus === 'receiving' ? 'text-emerald-500' : 'text-amber-500'}>{trackingStatus}</span>
+              <span className={trackingStatus === 'receiving' ? 'text-emerald-500' : 'text-amber-500'}>{t(`trips.tracking_${trackingStatus}`) || trackingStatus}</span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] font-mono">
@@ -1734,7 +1737,7 @@ const FollowModal = ({ trip, isOpen, onClose, onFinish, showToast }) => {
         {/* Barre de progression */}
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Progression du trajet</span>
+            <span className="text-gray-600 dark:text-gray-400">{t('trips.progression')}</span>
             <span className="font-medium text-gray-800 dark:text-gray-200">{realTimeProgress}%</span>
           </div>
           <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -1754,7 +1757,7 @@ const FollowModal = ({ trip, isOpen, onClose, onFinish, showToast }) => {
               </div>
               <div>
                 <p className="font-medium text-gray-800 dark:text-gray-100">{trip.passenger.name}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Passager</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('trips.passenger')}</p>
               </div>
             </div>
             <Button
@@ -1788,8 +1791,8 @@ const FollowModal = ({ trip, isOpen, onClose, onFinish, showToast }) => {
               onClick={() => {
                 showToast({
                   type: 'info',
-                  title: 'Appel',
-                  message: `Appel vers ${trip.driver.phone}...`
+                  title: t('common.call') || 'Appel',
+                  message: t('common.calling_phone', { phone: trip.driver.phone }) || `Appel vers ${trip.driver.phone}...`
                 });
               }}
             />

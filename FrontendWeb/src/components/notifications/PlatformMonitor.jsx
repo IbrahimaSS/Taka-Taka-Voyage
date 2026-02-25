@@ -3,8 +3,9 @@ import { socketService } from '../../services/socketService';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../../context/NotificationContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import MaintenanceOverlay from './MaintenanceOverlay';
-import { toast } from 'react-hot-toast';
 
 /**
  * PlatformMonitor
@@ -12,6 +13,8 @@ import { toast } from 'react-hot-toast';
  * Notifie les utilisateurs des changements de services, de prix et du mode maintenance.
  */
 const PlatformMonitor = () => {
+    const { t } = useTranslation();
+    const location = useLocation();
     const { addNotification } = useNotificationCenter();
     const { settings, isLoading } = useSettings();
     const { user } = useAuth();
@@ -20,18 +23,23 @@ const PlatformMonitor = () => {
         message: ''
     });
 
-    // On ne bloque QUE si l'utilisateur n'est pas un admin
+    // Chemins autorisés même en maintenance (pour permettre à l'admin de se connecter)
+    const allowedPaths = ['/connexion', '/login', '/admin/login'];
+    const isAllowedPath = allowedPaths.some(path => location.pathname.startsWith(path));
+
+    // On ne bloque QUE si l'utilisateur n'est pas un admin ET qu'on n'est pas sur une page autorisée
     const isAdmin = user?.role === 'ADMIN';
+    const shouldShowOverlay = maintenance.isActive && !isAdmin && !isAllowedPath;
 
     // ── État initial depuis les paramètres chargés ──
     useEffect(() => {
         if (!isLoading && settings?.platform?.maintenanceMode) {
             setMaintenance({
                 isActive: true,
-                message: settings.platform.maintenanceMessage || 'La plateforme est momentanément indisponible.'
+                message: settings.platform.maintenanceMessage || t('notifications.platform_notifications.maintenance_on_msg')
             });
         }
-    }, [isLoading, settings?.platform?.maintenanceMode, settings?.platform?.maintenanceMessage]);
+    }, [isLoading, settings?.platform?.maintenanceMode, settings?.platform?.maintenanceMessage, t]);
 
     useEffect(() => {
         // ── 1. Mode Maintenance ──
@@ -45,8 +53,8 @@ const PlatformMonitor = () => {
             addNotification({
                 type: NOTIFICATION_TYPES.URGENT,
                 category: NOTIFICATION_CATEGORIES.SYSTEM,
-                title: '⚠️ Maintenance en cours',
-                message: data.message || 'La plateforme est momentanément indisponible.',
+                title: t('notifications.platform_notifications.maintenance_on_title'),
+                message: data.message || t('notifications.platform_notifications.maintenance_on_msg'),
                 priority: 'high'
             });
         };
@@ -58,8 +66,8 @@ const PlatformMonitor = () => {
             addNotification({
                 type: NOTIFICATION_TYPES.SUCCESS,
                 category: NOTIFICATION_CATEGORIES.SYSTEM,
-                title: '✅ Plateforme disponible',
-                message: data.message || 'La maintenance est terminée. Merci de votre patience !',
+                title: t('notifications.platform_notifications.maintenance_off_title'),
+                message: data.message || t('notifications.platform_notifications.maintenance_off_msg'),
                 priority: 'high'
             });
         };
@@ -70,7 +78,7 @@ const PlatformMonitor = () => {
             addNotification({
                 type: NOTIFICATION_TYPES.WARNING,
                 category: NOTIFICATION_CATEGORIES.SYSTEM,
-                title: `Service ${data.nom} suspendu`,
+                title: t('notifications.platform_notifications.service_suspended_title', { name: data.nom }),
                 message: data.message,
                 priority: 'high'
             });
@@ -81,7 +89,7 @@ const PlatformMonitor = () => {
             addNotification({
                 type: NOTIFICATION_TYPES.SUCCESS,
                 category: NOTIFICATION_CATEGORIES.SYSTEM,
-                title: `Service ${data.nom} disponible`,
+                title: t('notifications.platform_notifications.service_available_title', { name: data.nom }),
                 message: data.message,
             });
         };
@@ -92,7 +100,7 @@ const PlatformMonitor = () => {
             addNotification({
                 type: NOTIFICATION_TYPES.INFO,
                 category: NOTIFICATION_CATEGORIES.SYSTEM,
-                title: 'Mise à jour des tarifs 💰',
+                title: t('notifications.platform_notifications.price_updated_title'),
                 message: data.message,
             });
         };
@@ -103,7 +111,7 @@ const PlatformMonitor = () => {
             addNotification({
                 type: NOTIFICATION_TYPES.WARNING,
                 category: NOTIFICATION_CATEGORIES.SYSTEM,
-                title: `Paiement ${data.nom} suspendu`,
+                title: t('notifications.platform_notifications.payment_suspended_title', { name: data.nom }),
                 message: data.message,
                 priority: 'high'
             });
@@ -114,7 +122,7 @@ const PlatformMonitor = () => {
             addNotification({
                 type: NOTIFICATION_TYPES.SUCCESS,
                 category: NOTIFICATION_CATEGORIES.SYSTEM,
-                title: `Paiement ${data.nom} disponible`,
+                title: t('notifications.platform_notifications.payment_available_title', { name: data.nom }),
                 message: data.message,
             });
         };
@@ -125,8 +133,8 @@ const PlatformMonitor = () => {
             addNotification({
                 type: NOTIFICATION_TYPES.INFO,
                 category: NOTIFICATION_CATEGORIES.SYSTEM,
-                title: 'Mise à jour système',
-                message: data.message || 'Les paramètres de la plateforme ont été mis à jour.',
+                title: t('notifications.platform_notifications.settings_updated_title'),
+                message: data.message || t('notifications.platform_notifications.settings_updated_msg'),
             });
         };
 
@@ -151,11 +159,11 @@ const PlatformMonitor = () => {
             socketService.off('platform:payment:active', onPaymentActive);
             socketService.off('platform:settings:updated', onSettingsUpdated);
         };
-    }, [addNotification]);
+    }, [addNotification, t]);
 
     return (
         <MaintenanceOverlay
-            isVisible={maintenance.isActive && !isAdmin}
+            isVisible={shouldShowOverlay}
             message={maintenance.message}
         />
     );

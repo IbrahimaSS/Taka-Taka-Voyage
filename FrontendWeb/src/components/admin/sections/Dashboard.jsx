@@ -1,5 +1,6 @@
 // src/components/sections/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   Users, Car, Route, Wallet,
@@ -15,6 +16,7 @@ import { adminService } from '../../../services/adminService';
 import { useAuth } from '../../../context/AuthContext';
 
 const Dashboard = ({ showToast }) => {
+  const { t, i18n } = useTranslation();
   const [timeRange, setTimeRange] = useState('month');
   const [dashboardData, setDashboardData] = useState(null);
   const [trips, setTrips] = useState([]);
@@ -34,7 +36,7 @@ const Dashboard = ({ showToast }) => {
         if (statsRes.data.succes) setDashboardData(statsRes.data.stats);
         if (tripsRes.data.succes) setTrips(tripsRes.data.trajets || []);
       } catch (error) {
-        showToast('Erreur', 'Impossible de charger les données du tableau de bord', 'error');
+        showToast(t('common.error') || 'Erreur', t('dashboard.error_loading') || 'Impossible de charger les données du tableau de bord', 'error');
         console.error(error);
       } finally {
         setLoading(false);
@@ -46,47 +48,47 @@ const Dashboard = ({ showToast }) => {
 
   const stats = [
     {
-      title: 'Passagers Inscrits',
+      title: t('dashboard.registered_passengers') || 'Passagers Inscrits',
       value: dashboardData?.passagersTotal?.toLocaleString() || '0',
       icon: Users,
       color: 'green',
       trend: 'up',
       percentage: 12,
       progress: 78,
-      description: `Comptes passagers actifs`,
+      description: t('dashboard.active_passengers_desc') || `Comptes passagers actifs`,
       iconBg: 'from-emerald-500/20 to-emerald-600/10'
     },
     {
-      title: 'Chauffeurs Actifs',
+      title: t('dashboard.active_drivers') || 'Chauffeurs Actifs',
       value: dashboardData?.chauffeursActifs?.toLocaleString() || '0',
       icon: Car,
       color: 'blue',
       trend: 'up',
       percentage: 8,
       progress: 65,
-      description: `Chauffeurs en ligne/validés`,
+      description: t('dashboard.online_drivers_desc') || `Chauffeurs en ligne/validés`,
       iconBg: 'from-blue-500/20 to-blue-600/10'
     },
     {
-      title: 'Trajets Effectués',
+      title: t('dashboard.trips_completed') || 'Trajets Effectués',
       value: dashboardData?.trajetsEffectues?.toLocaleString() || '0',
       icon: Route,
       color: 'purple',
       trend: 'up',
       percentage: 15,
       progress: 45,
-      description: `Historique complet`,
+      description: t('dashboard.full_history_desc') || `Historique complet`,
       iconBg: 'from-purple-500/20 to-purple-600/10'
     },
     {
-      title: 'Revenus Totaux',
-      value: dashboardData?.revenusTotal ? (dashboardData.revenusTotal).toLocaleString() + ' GNF' : '0 GNF',
+      title: t('dashboard.total_revenue') || 'Revenus Totaux',
+      value: dashboardData?.revenusTotal ? (dashboardData.revenusTotal).toLocaleString() + ` ${t('common.currency_symbol') || 'GNF'}` : `0 ${t('common.currency_symbol') || 'GNF'}`,
       icon: Wallet,
       color: 'amber',
       trend: 'up',
       percentage: 5,
       progress: 85,
-      description: `Revenus encaissés`,
+      description: t('dashboard.collected_revenue_desc') || `Revenus encaissés`,
       iconBg: 'from-amber-500/20 to-amber-600/10'
     },
   ];
@@ -98,37 +100,37 @@ const Dashboard = ({ showToast }) => {
       case 'TERMINEE':
         return (
           <span className={`${baseClasses} bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700`}>
-            <CheckCircle className="w-3 h-3 mr-1" /> Terminé
+            <CheckCircle className="w-3 h-3 mr-1" /> {t('trips.status.completed') || 'Terminé'}
           </span>
         );
       case 'EN_COURS':
         return (
           <span className={`${baseClasses} bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800`}>
-            <Route className="w-3 h-3 mr-1" /> En cours
+            <Route className="w-3 h-3 mr-1" /> {t('trips.status.in_progress') || 'En cours'}
           </span>
         );
       case 'EN_ATTENTE':
         return (
           <span className={`${baseClasses} bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800`}>
-            <Clock className="w-3 h-3 mr-1" /> En attente
+            <Clock className="w-3 h-3 mr-1" /> {t('trips.status.pending') || 'En attente'}
           </span>
         );
       case 'ACCEPTEE':
         return (
           <span className={`${baseClasses} bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800`}>
-            Accepté
+            {t('trips.status.accepted') || 'Accepté'}
           </span>
         );
       case 'ARRIVEE':
         return (
           <span className={`${baseClasses} bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-400 dark:border-teal-800`}>
-            Arrivé
+            {t('trips.status.arrived') || 'Arrivé'}
           </span>
         );
       case 'ANNULEE':
         return (
           <span className={`${baseClasses} bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800`}>
-            <XCircle className="w-3 h-3 mr-1" /> Annulé
+            <XCircle className="w-3 h-3 mr-1" /> {t('trips.status.cancelled') || 'Annulé'}
           </span>
         );
       default:
@@ -165,7 +167,7 @@ const Dashboard = ({ showToast }) => {
     }
 
     // 3. En dernier recours, utiliser le type de véhicule demandé lors de la réservation
-    return requestedType || 'Véhicule non renseigné';
+    return requestedType || t('dashboard.vehicle_not_specified') || 'Véhicule non renseigné';
   };
 
   return (
@@ -181,20 +183,20 @@ const Dashboard = ({ showToast }) => {
           <div className="max-w-2xl">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>
-              <span className="text-sm font-medium opacity-90 tracking-wide uppercase">Tableau de Bord Live</span>
+              <span className="text-sm font-medium opacity-90 tracking-wide uppercase">{t('dashboard.live_dashboard') || 'Tableau de Bord Live'}</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight">
-              Bonjour, <span className="text-amber-200">{user?.prenom || 'Admin'}</span>
+              {t('dashboard.greeting') || 'Bonjour'}, <span className="text-amber-200">{user?.prenom || 'Admin'}</span>
             </h1>
             <p className="text-lg opacity-90 max-w-xl">
-              Voici ce qui se passe sur votre plateforme aujourd'hui.
+              {t('dashboard.welcome_msg') || "Voici ce qui se passe sur votre plateforme aujourd'hui."}
             </p>
           </div>
           <div className="hidden lg:block text-right">
             <div className="flex items-center justify-end gap-2 mb-2 opacity-80">
               <Calendar className="w-5 h-5" />
               <span className="text-sm font-medium">
-                {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {new Date().toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </span>
             </div>
           </div>
@@ -227,8 +229,8 @@ const Dashboard = ({ showToast }) => {
         className="grid grid-cols-1 lg:grid-cols-2 gap-6"
       >
         <ChartCard
-          title="Revenus Mensuels"
-          subtitle={`Évolution sur ${timeRange === 'month' ? 'le mois' : "l'année"}`}
+          title={t('dashboard.monthly_revenue') || 'Revenus Mensuels'}
+          subtitle={`${t('dashboard.evolution_on') || 'Évolution sur'} ${timeRange === 'month' ? (t('dashboard.the_month') || 'le mois') : (t('dashboard.the_year') || "l'année")}`}
           chartConfig={chartConfigs.monthlyRevenue}
           height="320px"
           action={
@@ -239,8 +241,8 @@ const Dashboard = ({ showToast }) => {
           }
         />
         <ChartCard
-          title="Répartition des Services"
-          subtitle="Par type de véhicule et zone"
+          title={t('dashboard.service_distribution') || 'Répartition des Services'}
+          subtitle={t('dashboard.by_vehicle_and_zone') || 'Par type de véhicule et zone'}
           chartConfig={chartConfigs.revenueDistribution}
           height="320px"
         />
@@ -257,15 +259,15 @@ const Dashboard = ({ showToast }) => {
           <div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Route className="w-5 h-5 text-emerald-600" />
-              Trajets Récents
+              {t('dashboard.recent_trips') || 'Trajets Récents'}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-              Les 5 dernières courses effectuées sur la plateforme
+              {t('dashboard.last_5_rides') || 'Les 5 dernières courses effectuées sur la plateforme'}
             </p>
           </div>
           <Link to="/admin/trajets">
             <Button variant="ghost" size="sm" icon={ArrowRight} iconPosition="right">
-              Voir tout l'historique
+              {t('dashboard.view_full_history') || "Voir tout l'historique"}
             </Button>
           </Link>
         </div>
@@ -274,19 +276,19 @@ const Dashboard = ({ showToast }) => {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50/50 dark:bg-gray-800/50 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                <th className="px-6 py-4">Trajet</th>
-                <th className="px-6 py-4">Passager</th>
-                <th className="px-6 py-4">Chauffeur</th>
-                <th className="px-6 py-4">Détails</th>
-                <th className="px-6 py-4">Statut</th>
+                <th className="px-6 py-4">{t('dashboard.trip') || 'Trajet'}</th>
+                <th className="px-6 py-4">{t('nav.passagers') || 'Passager'}</th>
+                <th className="px-6 py-4">{t('nav.chauffeurs') || 'Chauffeur'}</th>
+                <th className="px-6 py-4">{t('dashboard.details') || 'Détails'}</th>
+                <th className="px-6 py-4">{t('dashboard.status') || 'Statut'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {trips.length > 0 ? (
                 trips.map((trip, index) => {
-                  const passengerName = trip.passager ? `${trip.passager.prenom} ${trip.passager.nom}` : 'Utilisateur supprimé';
+                  const passengerName = trip.passager ? `${trip.passager.prenom} ${trip.passager.nom}` : (t('dashboard.deleted_user') || 'Utilisateur supprimé');
                   const driverName = trip.chauffeur ? `${trip.chauffeur.prenom} ${trip.chauffeur.nom}` : null;
-                  const dateFormatted = new Date(trip.createdAt).toLocaleString('fr-FR', {
+                  const dateFormatted = new Date(trip.createdAt).toLocaleString(i18n.language === 'fr' ? 'fr-FR' : 'en-US', {
                     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                   });
 
@@ -361,7 +363,7 @@ const Dashboard = ({ showToast }) => {
                                 <Car className="w-4 h-4 text-gray-400" />
                               </div>
                               <span className="text-xs text-gray-500 italic">
-                                {trip.statut === 'ANNULEE' ? '-' : 'En recherche...'}
+                                {trip.statut === 'ANNULEE' ? '-' : (t('dashboard.searching') || 'En recherche...')}
                               </span>
                             </div>
                           )}
@@ -370,7 +372,7 @@ const Dashboard = ({ showToast }) => {
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
                           <div className="font-bold text-gray-900 dark:text-white text-sm">
-                            {(trip.prix || 0).toLocaleString()} GNF
+                            {(trip.prix || 0).toLocaleString()} {t('common.currency_symbol') || 'GNF'}
                           </div>
                           <div className="text-xs text-gray-500 flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
@@ -389,8 +391,8 @@ const Dashboard = ({ showToast }) => {
                   <td colSpan="5" className="px-6 py-12 text-center text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/50">
                     <div className="flex flex-col items-center justify-center">
                       <Route className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" />
-                      <p className="text-lg font-medium">Aucun trajet récent</p>
-                      <p className="text-sm opacity-80">Les nouvelles courses apparaîtront ici.</p>
+                      <p className="text-lg font-medium">{t('dashboard.no_recent_trips') || 'Aucun trajet récent'}</p>
+                      <p className="text-sm opacity-80">{t('dashboard.new_rides_msg') || 'Les nouvelles courses apparaîtront ici.'}</p>
                     </div>
                   </td>
                 </tr>

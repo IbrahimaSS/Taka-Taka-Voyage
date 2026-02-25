@@ -15,6 +15,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useDriverContext } from '../../context/DriverContext';
 import Badge from '../../ui/Badge';
 import { tripService } from '../../services/tripService';
@@ -23,7 +24,8 @@ import { toast } from 'react-hot-toast';
 
 const SERVER_URL = "http://localhost:5000";
 
-function Trajets() {
+const Trajets = () => {
+  const { t, i18n } = useTranslation();
   const { isOnline, activeTrip, setActiveTrip } = useDriverContext();
   const navigate = useNavigate();
 
@@ -31,7 +33,6 @@ function Trajets() {
   const [backendTrips, setBackendTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
 
   // États pour les filtres
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -56,21 +57,25 @@ function Trajets() {
 
       // 1. Traiter les réservations "EN_ATTENTE" (disponibles)
       if (availableRes.data && availableRes.data.succes) {
-        const available = availableRes.data.courses.map(c => ({
-          id: c._id,
-          passengerName: c.passager ? `${c.passager.prenom} ${c.passager.nom}` : "Anonyme",
-          passengerRating: c.passager?.noteMoyenne || 5,
-          passengerPhoto: formatPhotoUrl(c.passager?.photoUrl),
-          pickupAddress: c.depart,
-          destinationAddress: c.destination,
-          distance: `${c.distanceKm} km`,
-          estimatedTime: `${c.dureeMin} min`,
-          estimatedFare: c.prix,
-          status: 'pending', // On mappe vers le format interne
-          requestedTime: new Date(c.createdAt),
-          typeVehicule: c.typeVehicule,
-          priority: c.typeCourse === 'IMMEDIATE' ? 'high' : 'medium'
-        }));
+        const available = availableRes.data.courses
+          // FILTRE: Ne pas afficher les réservations prévues dans la file d'attente
+          .filter(c => c.typeCourse !== 'PREVUE')
+          .map(c => ({
+            id: c._id,
+            passengerName: c.passager ? `${c.passager.prenom} ${c.passager.nom}` : t('common.anonymous'),
+            passengerRating: c.passager?.noteMoyenne || 5,
+            passengerPhoto: formatPhotoUrl(c.passager?.photoUrl),
+            pickupAddress: c.depart,
+            destinationAddress: c.destination,
+            distance: `${c.distanceKm} km`,
+            estimatedTime: `${c.dureeMin} min`,
+            estimatedFare: c.prix,
+            status: 'pending',
+            requestedTime: new Date(c.createdAt),
+            typeVehicule: c.typeVehicule,
+            typeCourse: c.typeCourse,
+            priority: c.typeCourse === 'IMMEDIATE' ? 'high' : 'medium'
+          }));
         allTrips = [...allTrips, ...available];
       }
 
@@ -78,7 +83,7 @@ function Trajets() {
       if (pickupRes.data && pickupRes.data.succes) {
         const pickup = pickupRes.data.courses.map(c => ({
           id: c._id,
-          passengerName: c.passager ? `${c.passager.prenom} ${c.passager.nom}` : "Anonyme",
+          passengerName: c.passager ? `${c.passager.prenom} ${c.passager.nom}` : t('common.anonymous'),
           passengerRating: c.passager?.noteMoyenne || 5,
           passengerPhoto: formatPhotoUrl(c.passager?.photoUrl),
           pickupAddress: c.depart,
@@ -89,6 +94,7 @@ function Trajets() {
           status: mapBackendStatus(c.statut),
           requestedTime: new Date(c.createdAt),
           typeVehicule: c.typeVehicule,
+          typeCourse: c.typeCourse,
           priority: c.typeCourse === 'IMMEDIATE' ? 'high' : 'medium'
         }));
         allTrips = [...allTrips, ...pickup];
@@ -97,12 +103,12 @@ function Trajets() {
       setBackendTrips(allTrips);
     } catch (error) {
       console.error("Erreur lors de la récupération des trajets", error);
-      toast.error("Impossible de charger les trajets");
+      toast.error(t('trips.error_loading'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchTrips();
@@ -228,24 +234,24 @@ function Trajets() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            Mes Trajets
+            {t('nav.mes_trajets')}
             {refreshing && <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">Gérez vos demandes et courses actives</p>
+          <p className="text-gray-600 dark:text-gray-400">{t('trips.subtitle')}</p>
         </div>
         <button
           onClick={() => fetchTrips(true)}
           className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 transition-colors text-sm font-bold"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Rafraîchir
+          {t('common.refresh')}
         </button>
       </div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <RefreshCw className="w-10 h-10 animate-spin text-blue-500" />
-          <p className="text-gray-500 font-medium font-bold">Récupération des courses...</p>
+          <p className="text-gray-500 font-medium font-bold">{t('trips.loading_trips')}</p>
         </div>
       ) : (
         <>
@@ -254,7 +260,7 @@ function Trajets() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Demandes</p>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('trips.requests')}</p>
                   <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{stats.pending}</p>
                 </div>
                 <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center">
@@ -266,7 +272,7 @@ function Trajets() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actifs</p>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('trips.active')}</p>
                   <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{stats.active}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center">
@@ -278,8 +284,8 @@ function Trajets() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gain Auj.</p>
-                  <p className="text-2xl font-black text-green-600 mt-1">{stats.totalEarnings.toLocaleString()} FG</p>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('trips.earning_today')}</p>
+                  <p className="text-2xl font-black text-green-600 mt-1">{(stats.totalEarnings || 0).toLocaleString(i18n.language === 'en' ? 'en-US' : 'fr-FR')} {t('common.currency_symbol_short')}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-500/10 rounded-2xl flex items-center justify-center">
                   <DollarSign className="w-6 h-6 text-green-500" />
@@ -290,11 +296,11 @@ function Trajets() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Statut</p>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.status')}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <div className={`w-3 h-3 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'} rounded-full`} />
                     <span className={`text-sm font-bold ${isOnline ? 'text-green-600' : 'text-gray-500'}`}>
-                      {isOnline ? 'En ligne' : 'Hors ligne'}
+                      {isOnline ? t('common.online') : t('common.offline')}
                     </span>
                   </div>
                 </div>
@@ -315,7 +321,7 @@ function Trajets() {
                 : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700 hover:bg-gray-50'
                 }`}
             >
-              Tous ({stats.total})
+              {t('common.all')} ({stats.total})
             </button>
             {Object.entries(statusConfig).map(([status, config]) => (
               <button
@@ -327,7 +333,7 @@ function Trajets() {
                   }`}
               >
                 {config.icon}
-                {config.label}
+                {t(`trips.status.${status}`)}
                 <span className={`px-1.5 py-0.5 rounded-lg text-[10px] ${selectedStatus === status ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-700'}`}>
                   {backendTrips.filter(t => t.status === status).length}
                 </span>
@@ -352,11 +358,11 @@ function Trajets() {
                         {config.icon}
                       </div>
                       <span className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        COURSE EN COURS
+                        {t('trips.active_trip_label')}
                       </span>
                     </div>
                     <div className="text-lg font-black text-blue-600">
-                      {trip.estimatedFare.toLocaleString()} FG
+                      {trip.estimatedFare.toLocaleString(i18n.language === 'en' ? 'en-US' : 'fr-FR')} {t('common.currency_symbol_short')}
                     </div>
                   </div>
 
@@ -388,9 +394,9 @@ function Trajets() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">Heure demande</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">{t('trips.request_time')}</p>
                         <p className="text-sm font-black text-gray-700 dark:text-gray-300">
-                          {trip.requestedTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          {trip.requestedTime.toLocaleTimeString(i18n.language === 'en' ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
@@ -405,11 +411,11 @@ function Trajets() {
                         </div>
                         <div className="flex-1 space-y-5">
                           <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ramassage</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('trips.pickup')}</p>
                             <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1">{trip.pickupAddress}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Destination</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('trips.destination')}</p>
                             <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1">{trip.destinationAddress}</p>
                           </div>
                         </div>
@@ -421,14 +427,14 @@ function Trajets() {
                       <div className="bg-gray-50 dark:bg-gray-900/40 p-3 rounded-2xl flex items-center gap-3">
                         <Navigation className="w-4 h-4 text-purple-500" />
                         <div>
-                          <p className="text-[9px] font-bold text-gray-400 uppercase">Distance</p>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase">{t('trips.distance')}</p>
                           <p className="text-xs font-black text-gray-900 dark:text-white">{trip.distance}</p>
                         </div>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-900/40 p-3 rounded-2xl flex items-center gap-3">
                         <Clock className="w-4 h-4 text-emerald-500" />
                         <div>
-                          <p className="text-[9px] font-bold text-gray-400 uppercase">Durée</p>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase">{t('trips.duration')}</p>
                           <p className="text-xs font-black text-gray-900 dark:text-white">{trip.estimatedTime}</p>
                         </div>
                       </div>
@@ -442,13 +448,13 @@ function Trajets() {
                             onClick={() => handleAccept(trip.id)}
                             className="flex-1 py-3.5 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-500/30 hover:opacity-90 transition-all active:scale-95"
                           >
-                            ACCEPTER LA COURSE
+                            {t('trips.accept_trip')}
                           </button>
                           <button
                             onClick={() => handleRefuse(trip.id)}
                             className="px-6 py-3.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded-2xl font-black text-sm hover:bg-gray-200 transition-all"
                           >
-                            REFUSER
+                            {t('common.reject')}
                           </button>
                         </>
                       ) : (
@@ -457,7 +463,7 @@ function Trajets() {
                           className="flex-1 py-3.5 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-2xl font-black text-sm shadow-xl hover:opacity-90 transition-all flex items-center justify-center gap-3"
                         >
                           <Navigation className="w-5 h-5" />
-                          CONTINUER LE TRAJET
+                          {t('trips.continue_trip')}
                         </button>
                       )}
                     </div>
@@ -472,15 +478,15 @@ function Trajets() {
               <div className="w-20 h-20 bg-gray-100 dark:bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Car className="w-10 h-10 text-gray-400" />
               </div>
-              <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Aucun trajet pour le moment</h3>
+              <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">{t('trips.no_trips_found_title')}</h3>
               <p className="text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
-                Dès qu'un passager lance une demande, elle apparaîtra ici en temps réel.
+                {t('trips.no_trips_found_desc')}
               </p>
               <button
                 onClick={() => fetchTrips(true)}
                 className="mt-8 px-8 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-500/30 hover:opacity-90 transition-all"
               >
-                RAFFRAICHIR LA RECHERCHE
+                {t('trips.refresh_search')}
               </button>
             </div>
           )}

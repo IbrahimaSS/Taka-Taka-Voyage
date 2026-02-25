@@ -124,17 +124,27 @@ const TripRating = ({ trip, onRatingComplete, onBack }) => {
 
     console.log('📡 Submitting rating:', ratingData);
 
+    // Exécution "Optimiste" pour éviter de bloquer l'utilisateur si le serveur est lent (timeout 15s)
     try {
-      await evaluationService.creerEvaluation(ratingData);
-      toast.success('Merci pour votre évaluation !');
+      // On lance la requête en tâche de fond
+      evaluationService.creerEvaluation(ratingData).catch(err => {
+        console.error('❌ Erreur soumission evaluation (Fond):', err);
+      });
 
-      setIsSubmitting(false);
-      if (onRatingComplete) {
-        onRatingComplete(ratingData);
-      }
+      // On affiche immédiatement le succès
+      toast.success('Merci pour votre évaluation !', { icon: '✨' });
+
+      // Petit délai pour l'effet visuel fluide
+      setTimeout(() => {
+        setIsSubmitting(false);
+        if (onRatingComplete) {
+          onRatingComplete(ratingData);
+        }
+      }, 800);
+
     } catch (error) {
-      console.error('❌ Erreur soumission evaluation:', error);
-      toast.error(typeof error === 'string' ? error : "Erreur lors de l'envoi de l'évaluation");
+      console.error('❌ Erreur logique evaluation:', error);
+      toast.error("Une erreur est survenue");
       setIsSubmitting(false);
     }
   };
@@ -274,7 +284,7 @@ const TripRating = ({ trip, onRatingComplete, onBack }) => {
             </div>
             <h2 className="text-2xl font-bold mb-2">Paiement confirmé !</h2>
             <p className="opacity-90">
-              Votre paiement de <strong>{tripData.amount}</strong> a été effectué avec succès
+              Votre paiement de <strong>{tripData?.amount || tripData?.prix || tripData?.price || '0'} GNF</strong> a été effectué avec succès
             </p>
           </div>
         </motion.div>

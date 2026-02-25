@@ -18,6 +18,7 @@ import {
   BadgePercent,
   Flag,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import Modal from "../admin/ui/Modal";
 import Button from "../admin/ui/Bttn";
@@ -26,15 +27,6 @@ import Badge from "../admin/ui/Badge";
 import Progress from "../admin/ui/Progress";
 import ConfirmModal from "../admin/ui/ConfirmModal";
 
-/**
- * TripStatusModal
- * - AUCUNE simulation ici.
- * - Le parent doit mettre à jour:
- *    status: 'searching' | 'driver_found' | 'arrived' | 'en_route' | 'completed' | 'cancelled' | 'scheduled'
- *    driver: objet chauffeur reçu via socket "course:acceptee"
- *    tripDetails: détails réservation
- *    arrivalSecondsRemaining: optionnel (si tu le calcules ailleurs)
- */
 const TripStatusModal = ({
   isOpen,
   onClose,
@@ -42,26 +34,27 @@ const TripStatusModal = ({
   driver,
   tripDetails,
   onCancel,
-  onContact,
-  onTrack,
+  onTripComplete,
   onStartTrip,
   onViewPlanning,
   onSearchAgain,
   onRateTrip,
-  onTripComplete,
   arrivalSecondsRemaining,
+  onContact,
+  onTrack,
 }) => {
+  const { t } = useTranslation();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
 
   const cancelReasons = [
-    "Temps d'attente trop long",
-    "Changement de plans",
-    "Prix trop élevé",
-    "Chauffeur en retard",
-    "Problème avec le véhicule",
-    "Autre raison",
+    t('status.cancel_confirm.reasons.too_long'),
+    t('status.cancel_confirm.reasons.change_plans'),
+    t('status.cancel_confirm.reasons.too_expensive'),
+    t('status.cancel_confirm.reasons.driver_late'),
+    t('status.cancel_confirm.reasons.vehicle_problem'),
+    t('status.cancel_confirm.reasons.other'),
   ];
 
   const formatPrice = (price) => {
@@ -81,44 +74,44 @@ const TripStatusModal = ({
   const statusConfig = useMemo(() => {
     const map = {
       searching: {
-        title: "🔍 Recherche en cours",
-        description: "Nous cherchons le meilleur chauffeur pour vous...",
+        title: t('status.searching.title'),
+        description: t('status.searching.description'),
         icon: Loader,
         color: "green",
       },
       driver_found: {
-        title: "✅ Chauffeur trouvé",
-        description: "Votre chauffeur arrive bientôt.",
+        title: t('status.driver_found.title'),
+        description: t('status.driver_found.description'),
         icon: Car,
         color: "green",
       },
       arrived: {
-        title: "🚗 Arrivée confirmée",
-        description: "Votre chauffeur vous attend au point de départ",
+        title: t('status.arrived.title'),
+        description: t('status.arrived.description'),
         icon: Check,
         color: "green",
       },
       en_route: {
-        title: "🚗 Trajet en cours",
-        description: "Vous êtes en route vers votre destination",
+        title: t('status.en_route.title'),
+        description: t('status.en_route.description'),
         icon: Navigation,
         color: "green",
       },
       cancelled: {
-        title: "❌ Course annulée",
-        description: "La course a été annulée",
+        title: t('status.cancelled.title'),
+        description: t('status.cancelled.description'),
         icon: X,
         color: "red",
       },
       scheduled: {
-        title: "📅 Course planifiée",
-        description: "Votre course est programmée pour plus tard",
+        title: t('status.scheduled.title'),
+        description: t('status.scheduled.description'),
         icon: Calendar,
         color: "blue",
       },
       completed: {
-        title: "🏁 Trajet terminé",
-        description: "Merci d'avoir voyagé avec TakaTaka",
+        title: t('status.completed.title'),
+        description: t('status.completed.description'),
         icon: Check,
         color: "green",
       },
@@ -161,7 +154,7 @@ const TripStatusModal = ({
                 <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <div>
                   <p className="text-lg font-bold text-blue-700 dark:text-blue-400">—</p>
-                  <p className="text-xs text-blue-600 dark:text-blue-300">Chauffeurs contactés</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-300">{t('status.searching.drivers_contacted')}</p>
                 </div>
               </div>
             </div>
@@ -170,7 +163,7 @@ const TripStatusModal = ({
                 <Clock className="w-5 h-5 text-green-600 dark:text-green-400" />
                 <div>
                   <p className="text-lg font-bold text-green-700 dark:text-green-400">—</p>
-                  <p className="text-xs text-green-600 dark:text-green-300">Temps estimé</p>
+                  <p className="text-xs text-green-600 dark:text-green-300">{t('status.searching.estimated_time')}</p>
                 </div>
               </div>
             </div>
@@ -180,14 +173,14 @@ const TripStatusModal = ({
             <div className="flex items-center">
               <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mr-2" />
               <p className="text-sm text-amber-800 dark:text-amber-300">
-                Vous pouvez annuler gratuitement avant l'arrivée du chauffeur
+                {t('status.searching.cancel_info')}
               </p>
             </div>
           </div>
         </div>
 
         <Button variant="danger" fullWidth onClick={() => setShowCancelConfirm(true)}>
-          Annuler la recherche
+          {t('status.searching.cancel_btn')}
         </Button>
       </CardContent>
     </Card>
@@ -200,7 +193,7 @@ const TripStatusModal = ({
           <CardContent>
             <div className="flex items-center justify-center py-8 text-gray-600 dark:text-gray-400">
               <Loader className="w-5 h-5 mr-2 animate-spin" />
-              En attente des infos chauffeur...
+              {t('status.driver_found.waiting_driver')}
             </div>
           </CardContent>
         </Card>
@@ -216,8 +209,14 @@ const TripStatusModal = ({
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center mr-4 relative shadow-lg">
-                  <span className="text-2xl font-bold text-white">{name.charAt(0)}</span>
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center mr-4 relative shadow-lg overflow-hidden border-2 border-white dark:border-gray-800">
+                  {driver.photo ? (
+                    <img src={driver.photo} alt={name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl font-bold text-white">
+                      {name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                    </span>
+                  )}
                   {driver.verified && (
                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center">
                       <Shield className="w-3 h-3 text-white" />
@@ -230,7 +229,7 @@ const TripStatusModal = ({
                     <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg">{name}</h3>
                     {driver.verified && (
                       <Badge variant="info" size="xs" className="ml-2">
-                        Vérifié
+                        {t('status.driver_found.verified')}
                       </Badge>
                     )}
                   </div>
@@ -239,11 +238,10 @@ const TripStatusModal = ({
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
-                        className={`w-4 h-4 ${
-                          i < Math.floor(rating)
-                            ? "text-amber-400 dark:text-amber-500 fill-amber-400 dark:fill-amber-500"
-                            : "text-gray-300 dark:text-gray-600"
-                        }`}
+                        className={`w-4 h-4 ${i < Math.floor(rating)
+                          ? "text-amber-400 dark:text-amber-500 fill-amber-400 dark:fill-amber-500"
+                          : "text-gray-300 dark:text-gray-600"
+                          }`}
                       />
                     ))}
                     <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">{rating}</span>
@@ -270,7 +268,7 @@ const TripStatusModal = ({
                   <Clock className="w-5 h-5 text-gray-500 dark:text-gray-400 mr-3" />
                   <div className="text-gray-700 dark:text-gray-300">
                     <div>
-                      Arrivée prévue • <span className="font-medium">{driver.eta || "—"}</span>
+                      {t('status.driver_found.arrival_scheduled')} • <span className="font-medium">{driver.eta || "—"}</span>
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">{driver.distance || "—"}</div>
                   </div>
@@ -291,14 +289,14 @@ const TripStatusModal = ({
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle size="sm">Détails du trajet</CardTitle>
+            <CardTitle size="sm">{t('status.trip_details')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <MapPin className="w-5 h-5 text-green-600 dark:text-green-400 mr-2" />
-                  <span className="text-gray-700 dark:text-gray-300">Départ</span>
+                  <span className="text-gray-700 dark:text-gray-300">{t('status.pickup')}</span>
                 </div>
                 <span className="text-gray-900 dark:text-gray-100 font-medium text-right">{tripDetails?.pickup}</span>
               </div>
@@ -306,7 +304,7 @@ const TripStatusModal = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <MapPin className="w-5 h-5 text-red-600 dark:text-red-400 mr-2" />
-                  <span className="text-gray-700 dark:text-gray-300">Destination</span>
+                  <span className="text-gray-700 dark:text-gray-300">{t('status.destination')}</span>
                 </div>
                 <span className="text-gray-900 dark:text-gray-100 font-medium text-right">{tripDetails?.destination}</span>
               </div>
@@ -314,7 +312,7 @@ const TripStatusModal = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <BadgePercent className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-2" />
-                  <span className="text-gray-700 dark:text-gray-300">Prix</span>
+                  <span className="text-gray-700 dark:text-gray-300">{t('status.price')}</span>
                 </div>
                 <span className="text-green-700 dark:text-green-400 font-bold">
                   {formatPrice(tripDetails?.estimatedPrice)}
@@ -326,10 +324,10 @@ const TripStatusModal = ({
 
         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
           <Button variant="primary" fullWidth icon={Map} onClick={onTrack}>
-            Suivre sur la carte
+            {t('status.driver_found.track_on_map')}
           </Button>
           <Button variant="danger" onClick={() => setShowCancelConfirm(true)} className="sm:w-auto">
-            Annuler
+            {t('status.driver_found.cancel_btn')}
           </Button>
         </div>
       </>
@@ -347,13 +345,13 @@ const TripStatusModal = ({
                   <Check className="w-12 h-12 text-green-600 dark:text-green-400" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                  Votre chauffeur est arrivé !
+                  {t('status.arrived.title_full')}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">Montez à bord pour commencer votre trajet</p>
+                <p className="text-gray-600 dark:text-gray-400">{t('status.arrived.subtitle')}</p>
               </div>
 
               <Button variant="primary" fullWidth icon={Navigation} onClick={handleStartTrip}>
-                Démarrer le trajet
+                {t('status.arrived.start_trip')}
               </Button>
             </CardContent>
           </Card>
@@ -367,12 +365,12 @@ const TripStatusModal = ({
                 <div className="w-24 h-24 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
                   <Navigation className="w-12 h-12 text-green-600 dark:text-green-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Trajet en cours</h3>
-                <p className="text-gray-600 dark:text-gray-400">Vous êtes en route vers votre destination</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('status.en_route.title')}</h3>
+                <p className="text-gray-600 dark:text-gray-400">{t('status.en_route.description')}</p>
               </div>
 
               <Button variant="primary" fullWidth icon={Flag} onClick={onTripComplete}>
-                Arriver à destination
+                {t('status.en_route.finish_trip')}
               </Button>
             </CardContent>
           </Card>
@@ -386,12 +384,12 @@ const TripStatusModal = ({
                 <div className="w-24 h-24 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-4">
                   <Calendar className="w-12 h-12 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Course planifiée !</h3>
-                <p className="text-gray-600 dark:text-gray-400">Votre course a été planifiée avec succès.</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('status.scheduled.title_full')}</h3>
+                <p className="text-gray-600 dark:text-gray-400">{t('status.scheduled.subtitle')}</p>
               </div>
 
               <Button variant="primary" fullWidth icon={ChevronRight} onClick={onViewPlanning}>
-                Voir votre planning
+                {t('status.scheduled.view_planning')}
               </Button>
             </CardContent>
           </Card>
@@ -405,16 +403,16 @@ const TripStatusModal = ({
                 <div className="w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
                   <X className="w-12 h-12 text-gray-600 dark:text-gray-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Course annulée !</h3>
-                <p className="text-gray-600 dark:text-gray-400">Votre course a été annulée avec succès.</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('status.cancelled.title_full')}</h3>
+                <p className="text-gray-600 dark:text-gray-400">{t('status.cancelled.subtitle')}</p>
               </div>
 
               <div className="space-y-3">
                 <Button variant="primary" fullWidth onClick={onSearchAgain}>
-                  Rechercher un nouveau trajet
+                  {t('status.cancelled.search_again')}
                 </Button>
                 <Button variant="secondary" fullWidth onClick={onClose}>
-                  Retour à l'accueil
+                  {t('status.cancelled.back_home')}
                 </Button>
               </div>
             </CardContent>
@@ -429,20 +427,20 @@ const TripStatusModal = ({
                 <div className="w-24 h-24 rounded-full bg-gradient-to-r from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 flex items-center justify-center mx-auto mb-4">
                   <Check className="w-12 h-12 text-green-600 dark:text-green-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Trajet terminé !</h3>
-                <p className="text-gray-600 dark:text-gray-400">Merci d'avoir voyagé avec TakaTaka</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('status.completed.title_full')}</h3>
+                <p className="text-gray-600 dark:text-gray-400">{t('status.completed.subtitle')}</p>
               </div>
 
               <Button variant="primary" fullWidth icon={Star} onClick={onRateTrip}>
-                Évaluer le trajet
+                {t('status.completed.rate_trip')}
               </Button>
 
               <div className="grid grid-cols-2 gap-3 mt-4">
                 <Button variant="info" fullWidth onClick={onSearchAgain}>
-                  Nouveau trajet
+                  {t('status.completed.new_trip')}
                 </Button>
                 <Button variant="secondary" fullWidth onClick={onClose}>
-                  Retour
+                  {t('status.completed.back')}
                 </Button>
               </div>
             </CardContent>
@@ -476,16 +474,16 @@ const TripStatusModal = ({
           setCancelReason("");
         }}
         onConfirm={handleCancel}
-        title="Confirmer l'annulation"
-        message="Êtes-vous sûr de vouloir annuler cette course ? Des frais d'annulation peuvent s'appliquer."
+        title={t('status.cancel_confirm.title')}
+        message={t('status.cancel_confirm.message')}
         type="warning"
-        confirmText="Confirmer l'annulation"
-        cancelText="Retour"
+        confirmText={t('status.cancel_confirm.confirm_btn')}
+        cancelText={t('status.cancel_confirm.cancel_btn')}
         confirmVariant="danger"
         loading={isCancelling}
         showComment={true}
-        commentLabel="Raison de l'annulation (facultatif)"
-        commentPlaceholder="Sélectionnez une raison ou écrivez votre propre raison"
+        commentLabel={t('status.cancel_confirm.reason_label')}
+        commentPlaceholder={t('status.cancel_confirm.reason_placeholder')}
         commentValue={cancelReason}
         onCommentChange={setCancelReason}
         destructive={true}
@@ -495,11 +493,10 @@ const TripStatusModal = ({
             <button
               key={index}
               onClick={() => setCancelReason(reason)}
-              className={`w-full text-left px-4 py-2 rounded-lg border text-sm ${
-                cancelReason === reason
-                  ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
-                  : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-              }`}
+              className={`w-full text-left px-4 py-2 rounded-lg border text-sm ${cancelReason === reason
+                ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+                : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                }`}
             >
               {reason}
             </button>
@@ -508,7 +505,7 @@ const TripStatusModal = ({
 
         <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
           <p className="text-sm text-amber-800 dark:text-amber-300">
-            ⚠️ Annulation tardive : des frais de 1 000 GNF peuvent s'appliquer si le chauffeur est déjà en route.
+            {t('status.cancel_confirm.late_cancel_warning')}
           </p>
         </div>
       </ConfirmModal>

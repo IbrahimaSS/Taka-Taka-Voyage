@@ -16,7 +16,10 @@ import Pagination from '../ui/Pagination';
 import ExportDropdown from '../ui/ExportDropdown';
 import { adminService } from '../../../services/adminService';
 
+import { useTranslation } from 'react-i18next';
+
 const Users = ({ showToast }) => {
+  const { t, i18n } = useTranslation();
   // États principaux
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -37,7 +40,7 @@ const Users = ({ showToast }) => {
     message: '',
     type: 'info',
     onConfirm: null,
-    confirmText: 'Confirmer',
+    confirmText: t('common.confirm') || 'Confirmer',
     destructive: false,
   });
   const [confirmLoading, setConfirmLoading] = useState(false);
@@ -95,7 +98,7 @@ const Users = ({ showToast }) => {
       }
     } catch (error) {
       console.error('Erreur chargement passagers:', error);
-      showToast('Erreur', 'Impossible de charger les passagers', 'error');
+      showToast(t('common.error') || 'Erreur', t('passengers.error_loading') || 'Impossible de charger les passagers', 'error');
     } finally {
       setLoading(false);
     }
@@ -113,38 +116,35 @@ const Users = ({ showToast }) => {
   };
 
   const exportColumns = useMemo(() => [
-    { header: 'Nom', accessor: (u) => `${u.prenom} ${u.nom}` },
+    { header: t('common.name') || 'Nom', accessor: (u) => `${u.prenom} ${u.nom}` },
     { header: 'Email', accessor: 'email' },
-    { header: 'Téléphone', accessor: 'telephone' },
-    { header: 'Ville', accessor: (u) => u.localisation?.adresse || 'N/A' },
-    { header: 'Statut', accessor: 'statut' },
-    { header: 'Trajets', accessor: (u) => u.nombreTrajets || 0 },
-    { header: 'Note', accessor: (u) => u.noteMoyenne || '-' },
-    { header: 'Inscription', accessor: (u) => new Date(u.createdAt).toLocaleDateString() },
-  ], []);
+    { header: t('common.phone') || 'Téléphone', accessor: 'telephone' },
+    { header: t('common.city') || 'Ville', accessor: (u) => u.localisation?.adresse || 'N/A' },
+    { header: t('common.status') || 'Statut', accessor: 'statut' },
+    { header: t('nav.trajets') || 'Trajets', accessor: (u) => u.nombreTrajets || 0 },
+    { header: t('common.note') || 'Note', accessor: (u) => u.noteMoyenne || '-' },
+    { header: t('common.registration') || 'Inscription', accessor: (u) => new Date(u.createdAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') },
+  ], [t, i18n.language]);
 
   // Statistiques
   const stats = [
     {
-      title: 'Utilisateurs actifs',
+      title: t('passengers.active_users') || 'Utilisateurs actifs',
       value: statsData?.utilisateursActifs?.toLocaleString() || '0',
       icon: UserCheck,
       color: 'green',
-
     },
     {
-      title: 'Nouveaux ce mois',
+      title: t('passengers.new_this_month') || 'Nouveaux ce mois',
       value: statsData?.nouveauxCeMois?.toLocaleString() || '0',
       icon: Activity,
       color: 'blue',
-
     },
     {
-      title: 'Note moyenne',
+      title: t('passengers.average_rating') || 'Note moyenne',
       value: statsData?.noteMoyenneGlobale ? `${statsData.noteMoyenneGlobale}/5` : '0',
       icon: Star,
       color: 'purple',
-
     }
   ];
 
@@ -165,7 +165,7 @@ const Users = ({ showToast }) => {
         setOpenMenuId(null);
       }
     } catch (error) {
-      showToast('Erreur', 'Impossible de charger les détails', 'error');
+      showToast(t('common.error') || 'Erreur', t('common.error_loading_details') || 'Impossible de charger les détails', 'error');
     }
   };
 
@@ -174,22 +174,22 @@ const Users = ({ showToast }) => {
     setIsDetailModalOpen(false);
     setConfirmModal({
       isOpen: true,
-      title: user.statut === 'ACTIF' ? 'Désactiver l\'utilisateur' : 'Activer l\'utilisateur',
-      message: `Êtes-vous sûr de vouloir ${user.statut === 'ACTIF' ? 'désactiver' : 'activer'} ${user.prenom} ${user.nom} ?`,
+      title: user.statut === 'ACTIF' ? (t('passengers.deactivate_user') || "Désactiver l'utilisateur") : (t('passengers.activate_user') || "Activer l'utilisateur"),
+      message: t('passengers.confirm_status_change', { action: user.statut === 'ACTIF' ? (t('common.deactivate') || 'désactiver') : (t('common.activate') || 'activer'), name: `${user.prenom} ${user.nom}` }) || `Êtes-vous sûr de vouloir ${user.statut === 'ACTIF' ? 'désactiver' : 'activer'} ${user.prenom} ${user.nom} ?`,
       type: user.statut === 'ACTIF' ? 'warning' : 'validate',
-      confirmText: user.statut === 'ACTIF' ? 'Désactiver' : 'Activer',
+      confirmText: user.statut === 'ACTIF' ? (t('common.deactivate') || 'Désactiver') : (t('common.activate') || 'Activer'),
       destructive: user.statut === 'ACTIF',
       onConfirm: async () => {
         try {
           setConfirmLoading(true);
           await adminService.updatePassengerStatus(user._id, newStatus);
-          showToast('Succès', `Utilisateur ${newStatus === 'ACTIF' ? 'activé' : 'désactivé'}`, 'success');
+          showToast(t('common.success') || 'Succès', t('passengers.status_updated', { status: newStatus === 'ACTIF' ? (t('common.activated') || 'activé') : (t('common.deactivated') || 'désactivé') }) || `Utilisateur ${newStatus === 'ACTIF' ? 'activé' : 'désactivé'}`, 'success');
           fetchUsers(); // Rafraichir la liste
           if (selectedUser && selectedUser._id === user._id) {
             setSelectedUser(prev => ({ ...prev, statut: newStatus }));
           }
         } catch (error) {
-          showToast('Erreur', 'Impossible de modifier le statut', 'error');
+          showToast(t('common.error') || 'Erreur', t('common.error_update_status') || 'Impossible de modifier le statut', 'error');
         } finally {
           setConfirmLoading(false);
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
@@ -209,7 +209,7 @@ const Users = ({ showToast }) => {
 
   const handlePrint = () => {
     window.print();
-    showToast('Impression', 'Préparation de l\'impression...', 'info');
+    showToast(t('common.print') || 'Impression', t('common.preparing_print') || "Préparation de l'impression...", 'info');
   };
 
   const handleShare = () => {
@@ -220,7 +220,7 @@ const Users = ({ showToast }) => {
         url: window.location.href
       });
     } else {
-      showToast('Partage', 'URL copiée dans le presse-papier', 'info');
+      showToast(t('common.share') || 'Partage', t('common.url_copied') || 'URL copiée dans le presse-papier', 'info');
       navigator.clipboard.writeText(window.location.href);
     }
   };
@@ -228,9 +228,9 @@ const Users = ({ showToast }) => {
   // Fonctions utilitaires
   const getStatusBadge = (status) => {
     const config = {
-      'ACTIF': { label: 'Actif', bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-700 dark:text-green-300', dot: 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' },
-      'INACTIF': { label: 'Inactif', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-500 dark:text-red-400', dot: 'bg-red-400' },
-      'SUSPENDU': { label: 'Suspendu', bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', dot: 'bg-red-500' }
+      'ACTIF': { label: t('common.active') || 'Actif', bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-700 dark:text-green-300', dot: 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' },
+      'INACTIF': { label: t('common.inactive') || 'Inactif', bg: 'bg-red-50 dark:bg-red-900/20', text: 'text-red-500 dark:text-red-400', dot: 'bg-red-400' },
+      'SUSPENDU': { label: t('common.suspended') || 'Suspendu', bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', dot: 'bg-red-500' }
     };
     const { label, bg, text, dot } = config[status] || config.INACTIF;
     return (
@@ -242,17 +242,17 @@ const Users = ({ showToast }) => {
   };
 
   const getTimeAgo = (dateString) => {
-    if (!dateString) return 'Jamais';
+    if (!dateString) return t('common.never') || 'Jamais';
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now - date;
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return "Aujourd'hui";
-    if (diffDays === 1) return 'Hier';
-    if (diffDays < 7) return `Il y a ${diffDays} jours`;
-    if (diffDays < 30) return `Il y a ${Math.floor(diffDays / 7)} semaines`;
-    return `Il y a ${Math.floor(diffDays / 30)} mois`;
+    if (diffDays === 0) return t('common.today') || "Aujourd'hui";
+    if (diffDays === 1) return t('common.yesterday') || 'Hier';
+    if (diffDays < 7) return t('common.days_ago', { count: diffDays }) || `Il y a ${diffDays} jours`;
+    if (diffDays < 30) return t('common.weeks_ago', { count: Math.floor(diffDays / 7) }) || `Il y a ${Math.floor(diffDays / 7)} semaines`;
+    return t('common.months_ago', { count: Math.floor(diffDays / 30) }) || `Il y a ${Math.floor(diffDays / 30)} mois`;
   };
 
   return (
@@ -264,8 +264,8 @@ const Users = ({ showToast }) => {
         className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Gestion des passagers</h1>
-          <p className="text-gray-500 dark:text-gray-400">Gérez les utilisateurs de la plateforme Taka Taka</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">{t('passengers.title') || 'Gestion des passagers'}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{t('passengers.subtitle') || 'Gérez les utilisateurs de la plateforme Taka Taka'}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -274,7 +274,7 @@ const Users = ({ showToast }) => {
             onClick={handlePrint}
             size="small"
           >
-            Imprimer
+            {t('common.print') || 'Imprimer'}
           </Button>
           <Button
             variant="secondary"
@@ -282,7 +282,7 @@ const Users = ({ showToast }) => {
             onClick={handleShare}
             size="small"
           >
-            Partager
+            {t('common.share') || 'Partager'}
           </Button>
         </div>
       </motion.div>
@@ -311,7 +311,7 @@ const Users = ({ showToast }) => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400  w-5 h-5 " />
                 <input
                   type="text"
-                  placeholder="Rechercher..."
+                  placeholder={`${t('common.search') || 'Rechercher'}...`}
                   className="form-input pl-10 dark:bg-gray-800"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -329,9 +329,9 @@ const Users = ({ showToast }) => {
                   setCurrentPage(1);
                 }}
               >
-                <option value="all">Statuts</option>
-                <option value="ACTIF">Actif</option>
-                <option value="INACTIF">Inactif</option>
+                <option value="all">{t('common.status') || 'Statuts'}</option>
+                <option value="ACTIF">{t('common.active') || 'Actif'}</option>
+                <option value="INACTIF">{t('common.inactive') || 'Inactif'}</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5 pointer-events-none" />
             </div>
@@ -347,11 +347,11 @@ const Users = ({ showToast }) => {
                   setCurrentPage(1);
                 }}
               >
-                <option value="all">Dates</option>
-                <option value="today">Aujourd'hui</option>
-                <option value="7days">7 derniers jours</option>
-                <option value="30days">30 derniers jours</option>
-                <option value="3months">3 derniers mois</option>
+                <option value="all">{t('common.dates') || 'Dates'}</option>
+                <option value="today">{t('common.today') || "Aujourd'hui"}</option>
+                <option value="7days">{t('common.last_7_days') || '7 derniers jours'}</option>
+                <option value="30days">{t('common.last_30_days') || '30 derniers jours'}</option>
+                <option value="3months">{t('common.last_3_months') || '3 derniers mois'}</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5 pointer-events-none" />
             </div>
@@ -361,7 +361,7 @@ const Users = ({ showToast }) => {
               data={users}
               columns={exportColumns}
               fileName="utilisateurs_taka_taka"
-              title="Liste des utilisateurs - Taka Taka"
+              title={t('passengers.export_title') || 'Liste des utilisateurs - Taka Taka'}
               showToast={showToast}
               onPrint={handlePrint}
               onShare={handleShare}
@@ -376,13 +376,13 @@ const Users = ({ showToast }) => {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <CardTitle>Liste des utilisateurs</CardTitle>
+              <CardTitle>{t('passengers.list_title') || 'Liste des utilisateurs'}</CardTitle>
               <CardDescription>
-                {totalItems} utilisateur{totalItems > 1 ? 's' : ''} trouvé{totalItems > 1 ? 's' : ''}
+                {t('passengers.found_count', { count: totalItems }) || `${totalItems} utilisateur${totalItems > 1 ? 's' : ''} trouvé${totalItems > 1 ? 's' : ''}`}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Affichage:</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{t('common.display') || 'Affichage'}:</span>
               <select
                 className="form-input text-sm py-1 dark:bg-gray-800"
                 value={pageSize}
@@ -391,16 +391,16 @@ const Users = ({ showToast }) => {
                   setCurrentPage(1);
                 }}
               >
-                <option value={5}>5 par page</option>
-                <option value={10}>10 par page</option>
-                <option value={25}>25 par page</option>
+                <option value={5}>{t('common.per_page', { count: 5 }) || '5 par page'}</option>
+                <option value={10}>{t('common.per_page', { count: 10 }) || '10 par page'}</option>
+                <option value={25}>{t('common.per_page', { count: 25 }) || '25 par page'}</option>
               </select>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           {/* Tableau */}
-          <Table headers={['Utilisateur', 'Trajets', 'Inscription', 'Statut', 'Actions']}>
+          <Table headers={[t('common.user') || 'Utilisateur', t('nav.trajets') || 'Trajets', t('common.registration') || 'Inscription', t('common.status') || 'Statut', 'Actions']}>
             {users.map((user) => (
               <TableRow key={user._id}>
                 <TableCell>
@@ -436,7 +436,7 @@ const Users = ({ showToast }) => {
                   <div className="font-bold text-gray-800 dark:text-gray-100">{user.nombreTrajets || 0}</div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-gray-800 dark:text-gray-100">{new Date(user.createdAt).toLocaleDateString()}</div>
+                  <div className="text-gray-800 dark:text-gray-100">{new Date(user.createdAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US')}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     {getTimeAgo(user.createdAt)}
                   </div>
@@ -467,7 +467,7 @@ const Users = ({ showToast }) => {
                                 className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800"
                               >
                                 <Eye className="w-4 h-4 mr-3 text-blue-500" />
-                                Voir les détails
+                                {t('common.view_details') || 'Voir les détails'}
                               </button>
                               <button
                                 onClick={() => handleToggleStatus(user)}
@@ -478,14 +478,14 @@ const Users = ({ showToast }) => {
                                 ) : (
                                   <UserCheck className="w-4 h-4 mr-3 text-emerald-500" />
                                 )}
-                                {user.statut === 'ACTIF' ? 'Désactiver' : 'Activer'}
+                                {user.statut === 'ACTIF' ? (t('common.deactivate') || 'Désactiver') : (t('common.activate') || 'Activer')}
                               </button>
                               <button
                                 onClick={() => handleSendEmail(user)}
                                 className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800"
                               >
                                 <Mail className="w-4 h-4 mr-3 text-purple-500" />
-                                Envoyer un email
+                                {t('common.send_email') || 'Envoyer un email'}
                               </button>
                             </div>
                           </motion.div>
@@ -515,8 +515,8 @@ const Users = ({ showToast }) => {
           {users.length === 0 && !loading && (
             <div className="text-center py-12">
               <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Aucun utilisateur trouvé</h3>
-              <p className="text-gray-500 dark:text-gray-400">Aucun utilisateur ne correspond à vos critères de recherche.</p>
+              <h3 className="text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">{t('common.no_user_found') || 'Aucun utilisateur trouvé'}</h3>
+              <p className="text-gray-500 dark:text-gray-400">{t('common.no_user_match') || 'Aucun utilisateur ne correspond à vos critères de recherche.'}</p>
             </div>
           )}
         </CardContent>
@@ -526,7 +526,7 @@ const Users = ({ showToast }) => {
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
-        title={selectedUser ? `Détails de ${selectedUser.prenom} ${selectedUser.nom}` : ''}
+        title={selectedUser ? (t('passengers.details_title', { name: `${selectedUser.prenom} ${selectedUser.nom}` }) || `Détails de ${selectedUser.prenom} ${selectedUser.nom}`) : ''}
         size="lg"
       >
         {selectedUser && (
@@ -552,40 +552,40 @@ const Users = ({ showToast }) => {
                 icon={Mail}
                 onClick={() => handleSendEmail(selectedUser)}
               >
-                Contacter
+                {t('common.contact') || 'Contacter'}
               </Button>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:bg-gray-900 rounded-xl p-4 text-center">
                 <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">{selectedUser.nombreTrajets || 0}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Trajets effectués</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('nav.trajets') || 'Trajets effectués'}</div>
               </div>
               <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:bg-gray-900 rounded-xl p-4 text-center">
                 <div className="flex items-center justify-center">
                   <Star className="w-5 h-5 text-amber-400 fill-current mr-1" />
                   <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">{selectedUser.noteMoyenne || '-'}</span>
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Note moyenne</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('passengers.average_rating') || 'Note moyenne'}</div>
               </div>
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:bg-gray-900 rounded-xl p-4 text-center">
                 <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                  {selectedUser.totalDepense ? `${selectedUser.totalDepense.toLocaleString()} GNF` : '-'}
+                  {selectedUser.totalDepense ? `${selectedUser.totalDepense.toLocaleString()} ${t('common.currency_symbol') || 'GNF'}` : '-'}
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Total dépensé</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{t('passengers.total_spent') || 'Total dépensé'}</div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <h4 className="font-bold text-gray-700 dark:text-gray-200 mb-3">Informations personnelles</h4>
+                <h4 className="font-bold text-gray-700 dark:text-gray-200 mb-3">{t('common.personal_info') || 'Informations personnelles'}</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Date d'inscription:</span>
-                    <span className="font-medium">{new Date(selectedUser.createdAt).toLocaleDateString()}</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('common.registration_date') || "Date d'inscription"}:</span>
+                    <span className="font-medium">{new Date(selectedUser.createdAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Dernière activité:</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('common.last_activity') || 'Dernière activité'}:</span>
                     <span className="font-medium">{getTimeAgo(selectedUser.updatedAt)}</span>
                   </div>
 
@@ -599,7 +599,7 @@ const Users = ({ showToast }) => {
                 icon={selectedUser.statut === 'ACTIF' ? Ban : UserCheck}
                 onClick={() => handleToggleStatus(selectedUser)}
               >
-                {selectedUser.statut === 'ACTIF' ? 'Désactiver' : 'Activer'}
+                {selectedUser.statut === 'ACTIF' ? (t('common.deactivate') || 'Désactiver') : (t('common.activate') || 'Activer')}
               </Button>
             </div>
           </div>
@@ -615,7 +615,7 @@ const Users = ({ showToast }) => {
         message={confirmModal.message}
         type={confirmModal.type}
         confirmText={confirmModal.confirmText}
-        cancelText="Annuler"
+        cancelText={t('common.cancel') || 'Annuler'}
         destructive={confirmModal.destructive}
         loading={confirmLoading}
       />

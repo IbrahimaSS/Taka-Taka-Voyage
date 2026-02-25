@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Route
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Composants UI réutilisables (si disponibles dans le projet)
 import Button from '../admin/ui/Bttn';
@@ -24,6 +25,7 @@ import Badge from '../admin/ui/Badge';
 import { adminService } from '../../services/adminService';
 
 function HistoriqueTrajet({ chauffeurId = null }) {
+  const { t, i18n } = useTranslation();
   const [historyTrips, setHistoryTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -148,7 +150,7 @@ function HistoriqueTrajet({ chauffeurId = null }) {
     return (
       <div className="flex flex-col items-center justify-center p-20 space-y-4">
         <Loader2 className="w-10 h-10 animate-spin text-emerald-600" />
-        <p className="text-gray-500 font-medium animate-pulse">Chargement de votre historique...</p>
+        <p className="text-gray-500 font-medium animate-pulse">{t('history.loading_history_msg')}</p>
       </div>
     );
   }
@@ -159,16 +161,17 @@ function HistoriqueTrajet({ chauffeurId = null }) {
         <div>
           <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight flex items-center gap-3">
             <Route className="w-8 h-8 text-emerald-600" />
-            Historique des trajets
+            {t('history.title')}
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium">
-            Vous avez effectué <span className="text-emerald-600 dark:text-emerald-400 font-bold">{totalTrips}</span> trajets au total
-          </p>
+          <p
+            className="text-gray-500 dark:text-gray-400 mt-1 font-medium"
+            dangerouslySetInnerHTML={{ __html: t('history.total_trips_msg', { count: totalTrips }) }}
+          />
         </div>
 
         <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-full border border-emerald-100 dark:border-emerald-800/30">
           <CheckCircle className="w-4 h-4 text-emerald-600" />
-          <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Services terminés</span>
+          <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{t('history.finished_services')}</span>
         </div>
       </div>
 
@@ -181,8 +184,8 @@ function HistoriqueTrajet({ chauffeurId = null }) {
           <div className="w-20 h-20 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
             <Navigation className="w-10 h-10 text-gray-300" />
           </div>
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Aucun trajet à afficher</h3>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">Vos trajets terminés ou annulés apparaîtront ici.</p>
+          <h3 className="text-xl font-bold text-gray-800 dark:text-white">{t('history.no_trips_found')}</h3>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">{t('history.no_trips_found_desc')}</p>
         </motion.div>
       ) : (
         <>
@@ -217,7 +220,7 @@ function HistoriqueTrajet({ chauffeurId = null }) {
                           ? 'text-emerald-600 dark:text-emerald-400'
                           : 'text-red-500 dark:text-red-400'
                           }`}>
-                          {trip.status === 'completed' ? 'Succès' : 'Annulé'}
+                          {trip.status === 'completed' ? t('history.success') : t('history.cancelled_label')}
                         </span>
                       </div>
                       <div className="flex items-center text-[11px] font-bold text-gray-400 dark:text-gray-500 ml-0.5">
@@ -227,10 +230,10 @@ function HistoriqueTrajet({ chauffeurId = null }) {
                     </div>
 
                     <div className="text-right">
-                      <div className="text-sm font-medium text-gray-400 mb-1">Total Course</div>
+                      <div className="text-sm font-medium text-gray-400 mb-1">{t('history.total_fare')}</div>
                       <div className="text-xl font-black text-gray-800 dark:text-white flex items-center justify-end gap-1">
-                        {trip.estimatedFare?.toLocaleString('fr-FR')}
-                        <span className="text-[10px] text-emerald-600 ml-0.5">FG</span>
+                        {trip.estimatedFare?.toLocaleString(i18n.language === 'en' ? 'en-US' : 'fr-FR')}
+                        <span className="text-[10px] text-emerald-600 ml-0.5">{t('common.currency_symbol_short')}</span>
                       </div>
                     </div>
                   </div>
@@ -264,7 +267,7 @@ function HistoriqueTrajet({ chauffeurId = null }) {
                           </span>
                         </div>
                       </div>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">Passager validé</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">{t('history.validated_passenger')}</p>
                     </div>
                   </div>
 
@@ -276,7 +279,7 @@ function HistoriqueTrajet({ chauffeurId = null }) {
                     <div className="flex items-start gap-4">
                       <div className="relative z-10 w-3 h-3 rounded-full bg-emerald-500 mt-1 ring-4 ring-emerald-500/20" />
                       <div className="flex-1">
-                        <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-0.5">DÉPART</p>
+                        <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-0.5">{t('history.depart')}</p>
                         <p className="text-sm font-bold text-gray-700 dark:text-gray-300 line-clamp-1 leading-relaxed">
                           {trip.pickupAddress}
                         </p>
@@ -286,7 +289,7 @@ function HistoriqueTrajet({ chauffeurId = null }) {
                     <div className="flex items-start gap-4">
                       <div className="relative z-10 w-3 h-3 rounded-full bg-blue-500 mt-1 ring-4 ring-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
                       <div className="flex-1 text-right md:text-left">
-                        <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-0.5">ARRIVÉE</p>
+                        <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-0.5">{t('history.arrival')}</p>
                         <p className="text-sm font-bold text-gray-700 dark:text-gray-300 line-clamp-1 leading-relaxed">
                           {trip.destinationAddress}
                         </p>
@@ -297,16 +300,16 @@ function HistoriqueTrajet({ chauffeurId = null }) {
                   {/* METRICS - ULTRA-LIGHT MINIMALIST STYLE */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-blue-50/20 dark:bg-blue-900/10 rounded-2xl p-3 flex flex-col items-center justify-center border border-blue-100/30 dark:border-blue-800/20 transition-all duration-300 group-hover:bg-blue-50/40">
-                      <span className="text-[9px] font-black text-blue-500/80 dark:text-blue-400/80 uppercase tracking-tighter mb-0.5">Distance</span>
+                      <span className="text-[9px] font-black text-blue-500/80 dark:text-blue-400/80 uppercase tracking-tighter mb-0.5">{t('history.distance_label')}</span>
                       <span className="text-sm font-black text-blue-900/90 dark:text-blue-100">{trip.distance}</span>
                     </div>
                     <div className="bg-indigo-50/20 dark:bg-indigo-900/10 rounded-2xl p-3 flex flex-col items-center justify-center border border-indigo-100/30 dark:border-indigo-800/20 transition-all duration-300 group-hover:bg-indigo-50/40">
-                      <span className="text-[9px] font-black text-indigo-500/80 dark:text-indigo-400/80 uppercase tracking-tighter mb-0.5">Durée</span>
+                      <span className="text-[9px] font-black text-indigo-500/80 dark:text-indigo-400/80 uppercase tracking-tighter mb-0.5">{t('history.duration_label')}</span>
                       <span className="text-sm font-black text-indigo-900/90 dark:text-indigo-100">{trip.estimatedTime}</span>
                     </div>
                     <div className="bg-emerald-50/30 dark:bg-emerald-900/10 rounded-2xl p-3 flex flex-col items-center justify-center border border-emerald-100/40 dark:border-emerald-800/20 transition-all duration-300 group-hover:bg-emerald-50/50">
-                      <span className="text-[9px] font-black text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-tighter mb-0.5">Gain Net</span>
-                      <span className="text-sm font-black text-emerald-900/90 dark:text-emerald-50">{(trip.estimatedFare * 0.8)?.toLocaleString('fr-FR')}</span>
+                      <span className="text-[9px] font-black text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-tighter mb-0.5">{t('history.net_gain')}</span>
+                      <span className="text-sm font-black text-emerald-900/90 dark:text-emerald-50">{(trip.estimatedFare * 0.8)?.toLocaleString(i18n.language === 'en' ? 'en-US' : 'fr-FR')}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -327,7 +330,7 @@ function HistoriqueTrajet({ chauffeurId = null }) {
                   <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                 ) : (
                   <span className="flex items-center gap-2">
-                    Charger plus de trajets
+                    {t('history.load_more')}
                     <ChevronDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
                   </span>
                 )}
@@ -336,7 +339,7 @@ function HistoriqueTrajet({ chauffeurId = null }) {
               <div className="flex flex-col items-center gap-2 py-4">
                 <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full" />
                 <p className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                  Fin de l'historique
+                  {t('history.end_of_history')}
                 </p>
               </div>
             )}

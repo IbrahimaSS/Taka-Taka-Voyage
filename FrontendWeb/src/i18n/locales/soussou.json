@@ -1,0 +1,49 @@
+{
+    "common": {
+        "welcome": "Tante Taka-Taka ma",
+        "loading": "A rafe...",
+        "error": "Fe gbɛtɛ fan fe",
+        "retry": "A fala katan",
+        "save": "A ragata",
+        "cancel": "A lu",
+        "confirm": "Namu",
+        "delete": "A bɛ",
+        "edit": "A masara",
+        "search": "Fen fe",
+        "no_data": "Fe yo mu na"
+    },
+    "nav": {
+        "home": "Yire singe",
+        "history": "Dangi fe",
+        "payments": "Sare",
+        "planning": "Pewnugol",
+        "profile": "Innde",
+        "evaluations": "Teddungal",
+        "settings": "Pewnugol",
+        "support": "Mali",
+        "logout": "Mini"
+    },
+    "assistant": {
+        "title": "Taka-Mali",
+        "welcome_msg": "I n'se! Ntan nan findi Taka-Mali ra. N gbe mɛli i ma mun na to?",
+        "placeholder": "I ma maxandi fala...",
+        "voice_start": "I ma fala ni ra",
+        "voice_listening": "N na mɛ ra...",
+        "voice_unsupported": "I xa navigateur mu wama fala ra.",
+        "listen_msg": "A mɛ",
+        "error_msg": "A lu n fan mu fe fan ye."
+    },
+    "languages": {
+        "french": "Faransi xui",
+        "english": "Angilɛ xui",
+        "pular": "Fulbe xui",
+        "soussou": "Susu xui",
+        "malinke": "Maninka xui",
+        "language_changed": "Xui masaraxixi {{lang}} ma",
+        "language_change_desc": "Interface a fa {{lang}} ra yati"
+    },
+    "settings": {
+        "localization_title": "Yire nun xui",
+        "default_language": "Xui singe"
+    }
+}

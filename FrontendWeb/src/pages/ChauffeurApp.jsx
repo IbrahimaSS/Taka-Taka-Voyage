@@ -23,6 +23,7 @@ import ChauffeurEvaluations from "../components/chauffeur/shared/ChauffeurEvalua
 import ChauffeurTracking from "../components/chauffeur/ChauffeurTracking";
 import TrajetEnTempReel from "../components/suivisTrajet/TrajetEnTempReel";
 import TrajetComplete from "../components/suivisTrajet/TrajetComplete";
+import { tripService } from "../services/tripService";
 import TripNotificationToast from "../components/chauffeur/TripNotificationToast";
 
 import { DriverProvider, useDriverContext } from '../context/DriverContext';
@@ -68,7 +69,19 @@ const LiveTrackingWrapper = () => {
         vehicle: { brand: "Toyota", model: "Van", plate: "TK-001-GK" },
       }}
       onBack={() => navigate("/chauffeur/tracking")}
-      onEndTrip={() => {
+      onEndTrip={async () => {
+        // ✅ Utilisation de plusieurs fallbacks d'identifiants pour éviter le 400 (Bad Request)
+        const tripId = mainTrip?.id || mainTrip?._id || mainTrip?.reservationId;
+
+        if (tripId) {
+          try {
+            console.log("🏁 [ChauffeurApp] Tentative de clôture du trajet:", tripId);
+            await tripService.complete(tripId);
+          } catch (err) {
+            console.error("❌ Erreur lors de la completion du trajet:", err);
+            // On continue quand même vers l'écran de résumé pour ne pas bloquer l'UI
+          }
+        }
         setShowComplete(true);
       }}
     />
@@ -122,7 +135,13 @@ function ChauffeurApp() {
     setTimeout(() => setToast(null), duration);
   };
 
-  const showModal = (content, onClose) => setModal({ content, onClose });
+  const showModal = (content, onClose) => {
+    if (!content) {
+      setModal(null);
+    } else {
+      setModal({ content, onClose });
+    }
+  };
   const closeModal = () => {
     if (modal?.onClose) modal.onClose();
     setModal(null);
@@ -217,7 +236,7 @@ function ChauffeurApp() {
 
         {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
-        <Modal isOpen={!!modal} onClose={closeModal} title={modal?.title || "Information"}>
+        <Modal isOpen={!!modal} onClose={closeModal} title={modal?.title}>
           {modal?.content}
         </Modal>
 

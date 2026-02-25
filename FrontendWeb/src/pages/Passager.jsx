@@ -1,5 +1,5 @@
 // Passenger.jsx — VERSION FINALE COMPLETE (searching OK + stop searching on accept)
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PassengerNavbar from '../components/passager/PassengerNavbar';
 import BookingSection from '../components/passager/BookingSection';
@@ -16,6 +16,7 @@ import { usePassenger } from '../context/PassengerContext';
 import toast, { Toaster } from 'react-hot-toast';
 import { tripService } from '../services/tripService';
 import socketService from '../services/socketService';
+import { useTranslation } from 'react-i18next';
 
 import {
   Home,
@@ -52,6 +53,7 @@ const getStoredUser = () => {
 };
 
 const Passenger = () => {
+  const { t } = useTranslation();
   const { settings } = useSettings();
   const platform = settings?.platform || {};
   const [activeTab, setActiveTab] = useState('home');
@@ -106,14 +108,14 @@ const Passenger = () => {
   }, [tripStatus, showTripComplete, showTripRating]);
 
   const tabs = [
-    { id: 'home', label: 'Accueil', icon: Home },
-    { id: 'history', label: 'Historique', icon: History },
-    { id: 'payments', label: 'Paiements', icon: CreditCard },
-    { id: 'planning', label: 'Planning ', icon: Calendar },
-    { id: 'profile', label: 'Profil', icon: User },
-    { id: 'evaluations', label: 'Évaluations', icon: Star },
-    { id: 'settings', label: 'Paramètres', icon: SettingsIcon },
-    { id: 'support', label: 'Support', icon: Headphones },
+    { id: 'home', label: t('nav.home'), icon: Home },
+    { id: 'history', label: t('nav.history'), icon: History },
+    { id: 'payments', label: t('nav.payments'), icon: CreditCard },
+    { id: 'planning', label: t('nav.planning'), icon: Calendar },
+    { id: 'profile', label: t('nav.profile'), icon: User },
+    { id: 'evaluations', label: t('nav.evaluations'), icon: Star },
+    { id: 'settings', label: t('nav.settings'), icon: SettingsIcon },
+    { id: 'support', label: t('nav.support'), icon: Headphones },
   ];
 
   const shouldShowSearchIndicator = useMemo(() => {
@@ -361,7 +363,7 @@ const Passenger = () => {
       <div className="flex flex-col items-center justify-center min-h-screen bg-transparent">
         <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p className="text-gray-600 dark:text-gray-400 font-medium animate-pulse">
-          Chargement de votre session...
+          {t('common.session_loading')}
         </p>
       </div>
     );
@@ -388,7 +390,7 @@ const Passenger = () => {
     toast.success('Trajet terminé avec succès !');
   };
 
-  const handlePostTripPaymentSuccess = (paymentData) => {
+  const handlePostTripPaymentSuccess = useCallback((paymentData) => {
     setShowTripComplete(false);
 
     const updatedTrip = {
@@ -404,7 +406,7 @@ const Passenger = () => {
     setCurrentTrip(updatedTrip);
     setShowTripRating(true);
     toast.success('Paiement effectué avec succès !');
-  };
+  }, [currentTrip, setCurrentTrip]);
 
   const handleRatingComplete = () => {
     setShowTripRating(false);
@@ -471,7 +473,7 @@ const Passenger = () => {
     }
   };
 
-  const isFullScreenViewActive = isOnTrackingView || showTripComplete || showTripRating;
+  const isFullScreenViewActive = (isOnTrackingView || showTripComplete || showTripRating) && currentTrip;
   const isTripInProgress = tripStatus === 'en_route';
 
 
@@ -516,6 +518,7 @@ const Passenger = () => {
             className="fixed inset-0 z-50 bg-gradient-to-br from-gray-50 to-gray-100 overflow-y-auto"
           >
             <TrajetComplete
+              role="passenger"
               trip={currentTrip}
               driver={currentDriver}
               onPaymentSuccess={handlePostTripPaymentSuccess}
@@ -568,8 +571,8 @@ const Passenger = () => {
       )}
 
       <div
-        className={`min-h-screen bg-gray-100 bg-gradient-to-br from-primary-50 to-secondary-100 dark:from-gray-800 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300 ${isFullScreenViewActive ? 'hidden' : ''
-          }`}
+        className={`min-h-screen bg-gray-100 bg-gradient-to-br from-primary-50 to-secondary-100 dark:from-gray-800 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-all duration-300 ${isFullScreenViewActive ? 'hidden' : ''
+          } ${!navigator.onLine ? 'pt-10' : ''}`}
       >
         <PassengerNavbar
           activeTab={activeTab}
@@ -643,22 +646,22 @@ const Passenger = () => {
                     <h2 className="text-2xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">
                       {platform.name || 'TakaTaka'}
                     </h2>
-                    <p className="text-gray-400 text-sm dark:text-gray-100">{platform.tagline || 'Mobilité intelligente'}</p>
+                    <p className="text-gray-400 text-sm dark:text-gray-100">{platform.tagline || t('common.welcome')}</p>
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-8 justify-center">
-                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">À propos</a>
-                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">Aide</a>
-                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">Confidentialité</a>
-                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">Conditions</a>
+                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">{t('common.about')}</a>
+                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">{t('common.help')}</a>
+                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">{t('common.privacy')}</a>
+                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">{t('common.terms')}</a>
               </div>
             </div>
 
             <div className="mt-12 pt-8 border-t border-gray-800 dark:border-gray-800/50 text-center">
-              <p className="text-gray-500">© {new Date().getFullYear()} {platform.name || 'Taka Taka'}. Tous droits réservés.</p>
-              <p className="text-gray-600 text-xs mt-2 uppercase tracking-widest">Service disponible 24h/24, 7j/7</p>
+              <p className="text-gray-500">© {new Date().getFullYear()} {platform.name || 'Taka Taka'}. {t('common.all_rights_reserved')}</p>
+              <p className="text-gray-600 text-xs mt-2 uppercase tracking-widest">{t('common.availability')}</p>
             </div>
           </div>
         </footer>

@@ -41,26 +41,48 @@ export default function LiveTripMap({ trip, progress = 0, height = 260, currentL
     : null;
 
   const current = useMemo(() => {
-    if (currentLocation) return [currentLocation.lat, currentLocation.lng];
+    if (currentLocation && currentLocation.lat != null && currentLocation.lng != null && !isNaN(currentLocation.lat) && !isNaN(currentLocation.lng)) {
+      return [currentLocation.lat, currentLocation.lng];
+    }
     if (!start || !end) return null;
+    if (isNaN(start[0]) || isNaN(start[1]) || isNaN(end[0]) || isNaN(end[1])) return null;
     const t = Math.max(0, Math.min(1, progress / 100));
     return [lerp(start[0], end[0], t), lerp(start[1], end[1], t)];
   }, [start, end, progress, currentLocation]);
 
   const polyline = useMemo(() => {
-    if (!start || !end) return [];
+    if (!start || !end || isNaN(start[0]) || isNaN(end[0])) return [];
     return [start, end];
   }, [start, end]);
 
   const points = useMemo(() => {
     const pts = [];
-    if (start) pts.push(start);
-    if (end) pts.push(end);
+    if (start && !isNaN(start[0])) pts.push(start);
+    if (end && !isNaN(end[0])) pts.push(end);
     // On ne change pas les bounds avec 'current' pour éviter que la carte ne "saute" ou re-zoom constamment
     return pts;
   }, [start, end]);
 
-  if (!start || !end) {
+  // Handle own admin location
+  const AdminLocationMarker = () => {
+    const [position, setPosition] = React.useState(null);
+    const map = useMap();
+
+    React.useEffect(() => {
+      map.locate().on("locationfound", function (e) {
+        setPosition(e.latlng);
+        // Optionally map.flyTo(e.latlng, map.getZoom());
+      });
+    }, [map]);
+
+    return position === null ? null : (
+      <Marker position={position} icon={leafletIcons.user}>
+        {/* Admin Location */}
+      </Marker>
+    );
+  };
+
+  if (!start || !end || isNaN(start[0]) || isNaN(end[0])) {
     return (
       <div
         className="w-full rounded-xl bg-gray-100 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 flex items-center justify-center"
@@ -88,9 +110,10 @@ export default function LiveTripMap({ trip, progress = 0, height = 260, currentL
 
         <Marker position={start} icon={leafletIcons.start} />
         <Marker position={end} icon={leafletIcons.end} />
-        {current && <Marker position={current} icon={leafletIcons.driver} />}
+        {current && !isNaN(current[0]) && <Marker position={current} icon={leafletIcons.driver} />}
 
         <FitBounds points={points} />
+        <AdminLocationMarker />
       </MapContainer>
     </div>
   );
