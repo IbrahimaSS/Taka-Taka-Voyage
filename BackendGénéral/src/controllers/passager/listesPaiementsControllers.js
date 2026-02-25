@@ -29,6 +29,10 @@ exports.listerPaiementsPassager = async (req, res) => {
                 path: "reservation",
                 select: "depart destination",
             })
+            .populate({
+                path: "chauffeur",
+                select: "nom prenom telephone email vehicule marque modele plaque noteMoyenne photoUrl",
+            })
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -68,6 +72,10 @@ exports.detailPaiementPassager = async (req, res) => {
             .populate({
                 path: "reservation",
                 select: "depart destination",
+            })
+            .populate({
+                path: "chauffeur",
+                select: "nom prenom telephone email vehicule marque modele plaque noteMoyenne photoUrl",
             });
 
         if (!paiement) {

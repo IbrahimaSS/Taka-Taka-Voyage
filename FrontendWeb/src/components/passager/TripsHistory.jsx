@@ -299,52 +299,96 @@ const TripsHistory = () => {
             departure: t_raw.depart || (t_raw.pointDepart && t_raw.pointDepart.adresse) || (t_raw.reservation && t_raw.reservation.depart) || 'Non défini',
             destination: t_raw.destination || (t_raw.pointDestination && t_raw.pointDestination.adresse) || (t_raw.reservation && t_raw.reservation.destination) || 'Non défini',
             price: `${(t_raw.prix || t_raw.montantTotal || 0).toLocaleString()} GNF`,
-            distance: `${t_raw.distanceKm || 0} km`,
+            distance: String(t_raw.distanceKm || t_raw.distance || 0).includes('km') ? (t_raw.distanceKm || t_raw.distance || '0 km') : `${t_raw.distanceKm || t_raw.distance || 0} km`,
             rating: t_raw.note || 0,
             driver: (() => {
-              const ch = t_raw.chauffeur || t_raw.reservation?.chauffeur || {};
-              // Si ch n'est pas un objet (ex: chaine "N/A"), on prend un objet vide
-              const chObj = (ch && typeof ch === 'object') ? ch : {};
+              const driverCandidates = [t_raw.chauffeur, t_raw.driver, t_raw.reservation?.chauffeur, t_raw.reservation?.driver].filter(c => c && typeof c === 'object');
 
-              const nameParts = [
-                chObj.prenom,
-                chObj.nom,
-                chObj.utilisateur?.prenom,
-                chObj.utilisateur?.nom,
-                chObj.user?.prenom,
-                chObj.user?.nom
-              ].map(s => String(s || '').trim()).filter(s => s && !['N/A', '-', 'undefined', 'null'].includes(s.toUpperCase()));
+              // 1. NOM COMPLET (Fusion intelligente Prénom + Nom)
+              let dName = '';
+              let fName = '';
+              let lName = '';
+              let fullN = '';
 
-              let name = nameParts.length > 0 ? nameParts.join(' ') : (chObj.nomComplet || chObj.name || chObj.utilisateur?.nomComplet || 'Chauffeur');
-              if (!name || ['N/A', '-', 'UNDEFINED', 'NULL'].includes(String(name).toUpperCase().trim())) {
-                name = 'Chauffeur TakaTaka';
+              driverCandidates.forEach(c => {
+                const u = c.utilisateur || c.user || c;
+                if (u.prenom && !fName) fName = String(u.prenom).trim();
+                if (u.nom && !lName) lName = String(u.nom).trim();
+                if ((u.nomComplet || u.name || u.display_name) && !fullN) fullN = String(u.nomComplet || u.name || u.display_name).trim();
+              });
+
+              if (fullN && fullN.includes(' ')) dName = fullN;
+              else if (fName && lName) dName = `${fName} ${lName}`;
+              else dName = fullN || fName || lName || '';
+
+              if (!dName || dName.length < 3) dName = t_raw.driverName || t_raw.chauffeurName || 'Chauffeur TakaTaka';
+
+              // 2. TÉLÉPHONE (Scanner Nucléaire)
+              let dPhone = '-';
+              const pKeys = [
+                'telephone', 'phone', 'tel', 'mobile', 'phoneNumber', 'num_tel',
+                'driverPhone', 'chauffeurPhone', 'tel_chauffeur', 'driver_phone',
+                'chauffeur_phone', 'whatsapp'
+              ];
+
+              const sObjects = [
+                ...driverCandidates,
+                ...driverCandidates.map(c => c.utilisateur || c.user),
+                t_raw,
+                t_raw.reservation,
+                t_raw.reservation?.chauffeur,
+                t_raw.reservation?.driver
+              ].filter(o => o && typeof o === 'object');
+
+              for (const obj of sObjects) {
+                for (const k of pKeys) {
+                  const val = obj[k];
+                  if (val && String(val).trim().length > 3 && !['N/A', '-', 'NULL', 'UNDEFINED'].includes(String(val).toUpperCase().trim())) {
+                    dPhone = String(val).trim();
+                    break;
+                  }
+                }
+                if (dPhone !== '-') break;
               }
 
-              let phone = chObj.telephone || chObj.phone || chObj.tel || chObj.utilisateur?.telephone || chObj.utilisateur?.phone || '-';
-              if (!phone || ['N/A', '-', 'UNDEFINED', 'NULL'].includes(String(phone).toUpperCase().trim())) phone = '-';
-
-              const veh = chObj.vehicule || chObj.vehicle || {};
-              let vehicle = (typeof veh === 'object')
-                ? `${veh.marque || ''} ${veh.modele || ''}`.trim() || veh.marque || veh.modele
-                : veh;
-
-              if (!vehicle) {
-                vehicle = (chObj.marque ? `${chObj.marque || ''} ${chObj.modele || ''}`.trim() : 'Véhicule standard');
+              // 3. VÉHICULE
+              let dVeh = 'Véhicule standard';
+              for (const c of driverCandidates) {
+                const v = c.vehicule || c.vehicle || t_raw.vehicule || t_raw.vehicle;
+                if (v && typeof v === 'object') {
+                  const vStr = [v.marque, v.modele, v.immatriculation || v.plaque].filter(Boolean).join(' ').trim();
+                  if (vStr.length > 1) { dVeh = vStr; break; }
+                  else if (v.type && typeof v.type === 'string') { dVeh = v.type; break; }
+                } else if (typeof v === 'string' && v.trim().length > 2) {
+                  dVeh = v.trim(); break;
+                }
               }
 
-              if (!vehicle || ['N/A', '-', 'UNDEFINED', 'NULL'].includes(String(vehicle).toUpperCase().trim())) {
-                vehicle = 'Véhicule standard';
+              // 4. EMAIL
+              let dEmail = '-';
+              const eKeys = ['email', 'mail', 'courriel'];
+              for (const obj of sObjects) {
+                for (const k of eKeys) {
+                  const val = obj[k];
+                  if (val && typeof val === 'string' && val.includes('@')) {
+                    dEmail = val.trim();
+                    break;
+                  }
+                }
+                if (dEmail !== '-') break;
               }
 
               return {
-                name,
-                vehicle,
-                rating: chObj.noteMoyenne || 5,
-                phone,
-                photo: chObj.photoUrl || chObj.photoProfil || chObj.utilisateur?.photoUrl
+                name: dName,
+                vehicle: dVeh,
+                rating: 5,
+                phone: dPhone,
+                email: dEmail,
+                photo: driverCandidates[0]?.photoUrl || driverCandidates[0]?.utilisateur?.photoUrl
               };
             })(),
-            payment: 'Espèces',
+            payment: t_raw.paiement_methode || t_raw.paymentMethod || 'Espèces',
+            duration: String(t_raw.dureeMin || t_raw.duree || t_raw.duration || 0).includes('min') ? (t_raw.dureeMin || t_raw.duree || t_raw.duration || '0 min') : `${t_raw.dureeMin || t_raw.duree || t_raw.duration || 0} min`,
             rawDate: t_raw.createdAt
           }));
           setTrips(formattedTrips);
@@ -502,12 +546,13 @@ const TripsHistory = () => {
       driver: {
         name: trip.driver?.name || 'Chauffeur TakaTaka',
         vehicle: trip.driver?.vehicle || 'Véhicule standard',
-        phone: trip.driver?.phone || '-'
+        phone: trip.driver?.phone || '-',
+        email: trip.driver?.email || '-'
       },
       trip: {
         route: `${trip.departure} → ${trip.destination}`,
-        distance: trip.distance ? `${trip.distance} km` : '-',
-        duration: '-'
+        distance: trip.distance ? (trip.distance.includes('km') ? trip.distance : `${trip.distance} km`) : '-',
+        duration: trip.duration || '0 min'
       },
       fees: {
         platform: 'Incl.'

@@ -27,7 +27,7 @@ exports.listerTrajetsPassager = async (req, res) => {
         const total = await Trajet.countDocuments(filtre);
 
         const trajets = await Trajet.find(filtre)
-            .populate("chauffeur", "nom prenom vehicule marque modele plaque noteMoyenne photoUrl")
+            .populate("chauffeur", "nom prenom telephone email vehicule marque modele plaque noteMoyenne photoUrl")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
@@ -61,7 +61,7 @@ exports.detailTrajetPassager = async (req, res) => {
             _id: trajetId,
             passager: passagerId,
         })
-            .populate("chauffeur", "nom prenom telephone")
+            .populate("chauffeur", "nom prenom telephone email vehicule marque modele plaque noteMoyenne photoUrl")
             .populate("reservation", "typeVehicule");
 
         if (!trajet) {

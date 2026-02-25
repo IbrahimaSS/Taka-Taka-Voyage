@@ -243,6 +243,7 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                         <div className="text-[10px] text-slate-500 space-y-1">
                                             <p className="flex items-center gap-2 font-semibold"><Car className="w-3 h-3 text-emerald-400" /> {payment.driver.vehicle || 'Véhicule standard'}</p>
                                             <p className="flex items-center gap-2 font-semibold"><Phone className="w-3 h-3 text-emerald-400" /> {payment.driver.phone || '-'}</p>
+                                            <p className="flex items-center gap-2 font-semibold truncate"><Mail className="w-3 h-3 text-emerald-400" /> {payment.driver.email || '-'}</p>
                                         </div>
                                     </div>
                                 </div>
