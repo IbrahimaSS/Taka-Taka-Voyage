@@ -341,9 +341,11 @@ const BookingSection = ({
     };
 
     const rates = dynamicRates || fallbackRates;
-    const rate = rates[formData.vehicleType] || rates.taxi;
+    const rate = rates[formData.vehicleType] || rates.taxi || fallbackRates.taxi;
 
-    let price = (rate.basePrice || 0) + distance * rate.perKm + duration * (rate.perMinute || 0);
+    if (!rate) return null;
+
+    let price = (rate.basePrice || 0) + distance * (rate.perKm || 0) + duration * (rate.perMinute || 0);
     price = Math.max(Math.round(price), rate.min || 0);
 
     return {

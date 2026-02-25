@@ -180,8 +180,17 @@ const RealTimeTracking = ({
   }, []);
 
 
-  // Fonction pour afficher des notifications
+  // Fonction pour afficher des notifications harmonisée avec le reste de l'app
   const showToast = (message, type = 'info') => {
+    const isEndTrip = message.toLowerCase().includes('terminé') || message.toLowerCase().includes('atteinte');
+    const toastId = isEndTrip ? 'trip-completion' : undefined;
+
+    if (type === 'success') toast.success(message, { id: toastId });
+    else if (type === 'danger' || type === 'error') toast.error(message, { id: toastId });
+    else if (type === 'warning') toast.error(message, { id: toastId });
+    else toast(message, { id: toastId });
+
+    // On garde l'état local au cas où certains composants map-overlay en dépendent encore pour l'instant
     setNotification({ message, type });
     setShowNotification(true);
     setTimeout(() => setShowNotification(false), 3000);
@@ -450,10 +459,14 @@ const RealTimeTracking = ({
     };
 
     socketService.on('course:finit_avec_paiement', handleTripFinished);
+    socketService.on('course:terminee', handleTripFinished);
+    socketService.on('paiement:confirme', handleTripFinished);
     socketService.on('course:arrive_destination', handleTripFinished);
 
     return () => {
       socketService.off('course:finit_avec_paiement', handleTripFinished);
+      socketService.off('course:terminee', handleTripFinished);
+      socketService.off('paiement:confirme', handleTripFinished);
       socketService.off('course:arrive_destination', handleTripFinished);
     };
   }, [trip?.reservationId, trip?.id, onEndTrip]);

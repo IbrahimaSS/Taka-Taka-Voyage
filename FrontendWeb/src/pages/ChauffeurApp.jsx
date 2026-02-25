@@ -34,24 +34,39 @@ import { useSettings } from '../context/SettingsContext';
 
 
 const LiveTrackingWrapper = () => {
-  const { acceptedTrips, driverLocation } = useDriverContext();
+  const {
+    acceptedTrips,
+    driverLocation,
+    setCurrentPickupTripId,
+    setTripStep,
+    setStatus
+  } = useDriverContext();
   const navigate = useNavigate();
   const [showComplete, setShowComplete] = useState(false);
+  const [completedTripData, setCompletedTripData] = useState(null);
 
   const mainTrip = acceptedTrips?.length > 0 ? acceptedTrips[0] : null;
 
-  if (!mainTrip) return <Navigate to="/chauffeur/tracking" replace />;
+  // S'il n'y a plus de trajet actif et qu'on n'est pas en train de voir l'écran de fin
+  if (!mainTrip && !showComplete) return <Navigate to="/chauffeur/tracking" replace />;
 
   if (showComplete) {
     return (
       <TrajetComplete
         role="driver"
-        trip={mainTrip}
+        trip={completedTripData || mainTrip}
         driver={{ name: "Vous", location: driverLocation }}
         onBack={() => setShowComplete(false)}
         onPaymentSuccess={() => {
           // Une fois payé, le chauffeur peut retourner au dashboard
           navigate("/chauffeur");
+          // ✅ Suggestion 2: Libérer le chauffeur quand le trajet se termine (via socket)
+          // This logic should ideally be in DriverContext or triggered by a context method
+          // For now, we'll simulate the effect here if it's not handled by a socket event
+          console.log("🏁 [ChauffeurApp] Trajet terminé, libération du statut (simulé)");
+          setCurrentPickupTripId(null);
+          setTripStep("idle");
+          setStatus("available");
         }}
       />
     );
@@ -74,12 +89,14 @@ const LiveTrackingWrapper = () => {
         const tripId = mainTrip?.id || mainTrip?._id || mainTrip?.reservationId;
 
         if (tripId) {
+          // Verrouiller les données avant de terminer pour éviter le flash blanc (race condition)
+          setCompletedTripData(mainTrip);
+
           try {
             console.log("🏁 [ChauffeurApp] Tentative de clôture du trajet:", tripId);
             await tripService.complete(tripId);
           } catch (err) {
             console.error("❌ Erreur lors de la completion du trajet:", err);
-            // On continue quand même vers l'écran de résumé pour ne pas bloquer l'UI
           }
         }
         setShowComplete(true);

@@ -239,25 +239,25 @@ const TripComplete = ({
   }, [trip]);
 
   // ✅ [NOUVEAU] Fonction de rafraîchissement manuel pour le chauffeur
-  const refreshTripData = async () => {
+  const refreshTripData = async (silent = false) => {
     const targetId = localTrip?.reservationId || localTrip?.id || trip?.reservationId || trip?.id;
     if (!targetId || isRefreshing) return;
 
     setIsRefreshing(true);
-    const refreshToast = toast.loading("Actualisation des données...");
+    const refreshToast = silent ? null : toast.loading("Actualisation des données...");
 
     try {
       const { data } = await tripService.details(targetId);
       if (data?.succes && data?.reservation) {
         console.log("🔄 [TrajetComplete] Trip data refreshed from server:", data.reservation);
         setLocalTrip(data.reservation);
-        toast.success("Données actualisées", { id: refreshToast });
+        if (!silent) toast.success("Données actualisées", { id: refreshToast });
       } else {
-        toast.error("Impossible de rafraîchir les données", { id: refreshToast });
+        if (!silent) toast.error("Impossible de rafraîchir les données", { id: refreshToast });
       }
     } catch (error) {
       console.error("❌ [TrajetComplete] Error refreshing trip:", error);
-      toast.error("Erreur réseau lors du rafraîchissement", { id: refreshToast });
+      if (!silent) toast.error("Erreur réseau lors du rafraîchissement", { id: refreshToast });
     } finally {
       setIsRefreshing(false);
     }
@@ -378,13 +378,13 @@ const TripComplete = ({
         setPaymentStatus('PAYE');
         setIsProcessing(false);
         setWaitingForDriverConfirmation(false);
-        toast.success("✅ Paiement confirmé !");
+        toast.success("✅ Paiement confirmé !", { id: 'payment-status' });
 
         // Suggestion 3: Auto-refresh data to ensure everything is in sync
         if (data.trip || data.reservation) {
           setLocalTrip(data.trip || data.reservation);
         } else {
-          refreshTripData();
+          refreshTripData(true);
         }
 
         if (role === 'passenger' && onPaymentSuccess) {
@@ -399,7 +399,7 @@ const TripComplete = ({
       if (receivedId && (targetId.includes(receivedId) || receivedId.includes(targetId))) {
         console.log("🔄 [TrajetComplete] Auto-syncing trip data via socket");
         if (data.trip || data.reservation) setLocalTrip(data.trip || data.reservation);
-        else refreshTripData();
+        else refreshTripData(true);
       }
     };
 
@@ -431,7 +431,7 @@ const TripComplete = ({
 
       if (selectedPayment === 'cash') {
         socketService.emit('paiement:confirmer_envoi', payload);
-        toast.success("Demande de confirmation envoyée au chauffeur.", { icon: '💰' });
+        toast.success("Demande de confirmation envoyée au chauffeur.", { icon: '💰', id: 'payment-status' });
         // On NE met PAS isProcessing à false. Le bouton reste gris "En cours..." 
         // jusqu'à ce que le chauffeur confirme (course:finit_avec_paiement)
       } else if (selectedPayment === 'orange') {
@@ -445,7 +445,7 @@ const TripComplete = ({
           socketService.emit('paiement:confirmer_envoi', payload);
           setPaymentStatus('PAYE');
           setIsProcessing(false);
-          toast.success("Paiement Orange Money effectué avec succès !");
+          toast.success("Paiement Orange Money effectué avec succès !", { id: 'payment-status' });
         }, 2000);
       } else {
         socketService.emit('paiement:confirmer_envoi', payload);
@@ -480,8 +480,8 @@ const TripComplete = ({
       setPaymentStatus('PAYE');
       setIsProcessing(false);
       setWaitingForDriverConfirmation(false);
-      toast.success("Réception validée", { id: 'driver-success-opt' });
-    }, 1000);
+      toast.success("Réception validée", { id: 'payment-status' });
+    }, 500);
   };
 
   const handleReportProblem = () => {

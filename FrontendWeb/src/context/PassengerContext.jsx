@@ -297,6 +297,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Chauffeur trouvé ! ✅',
         message: `${chauffeur?.prenom || ""} ${chauffeur?.nom || ""} a accepté votre course.`,
+        id: `accepted-${reservationId}`
       });
       notifiedEvents.current.add(eventKey);
 
@@ -320,6 +321,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Chauffeur en route 🚗',
         message: message || "Votre chauffeur est en route pour vous récupérer.",
+        id: `approaching-${reservationId}`
       });
       notifiedEvents.current.add(eventKey);
 
@@ -359,6 +361,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Chauffeur arrivé ! ✅',
         message: 'Votre chauffeur est arrivé au point de ramassage.',
+        id: `arrived-${reservationId}`
       });
       notifiedEvents.current.add(eventKey);
 
@@ -384,6 +387,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Trajet démarré 🚀',
         message: 'Votre course a commencé. Bon voyage !',
+        id: `started-${reservationId}`
       });
       notifiedEvents.current.add(eventKey);
 
@@ -396,7 +400,7 @@ export const PassengerProvider = ({ children }) => {
       console.log(`📩 [CONTEXT] course:demarre_global reçu for RID=${reservationId}`);
       setTripStatus("en_route");
       setCurrentTrip((prev) => (prev ? { ...prev, status: "en_route" } : prev));
-      toast.success(message || "🚀 Le trajet commence !", { id: "trip-started-global" });
+      toast.success(message || "🚀 Le trajet commence !", { id: "trip-status" });
     };
 
     const onPosition = (data) => {
@@ -429,6 +433,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Trajet terminé 🏁',
         message: 'Vous êtes arrivé à destination. Merci d\'avoir choisi TakaTaka !',
+        id: 'trip-completion'
       });
 
       // Note: On ne met PAS currentTrip à null ici, car l'écran de résumé/note en a besoin.

@@ -387,7 +387,7 @@ const Passenger = () => {
     setShowTripComplete(true);
     setShowTripStatusModal(false);
 
-    toast.success('Trajet terminé avec succès !');
+    toast.success('Trajet terminé avec succès !', { id: 'trip-completion' });
   };
 
   const handlePostTripPaymentSuccess = useCallback((paymentData) => {
@@ -405,7 +405,7 @@ const Passenger = () => {
 
     setCurrentTrip(updatedTrip);
     setShowTripRating(true);
-    toast.success('Paiement effectué avec succès !');
+    toast.success('Paiement effectué avec succès !', { id: 'payment-status' });
   }, [currentTrip, setCurrentTrip]);
 
   const handleRatingComplete = () => {
@@ -413,7 +413,7 @@ const Passenger = () => {
     setCurrentTrip(null);
     setCurrentDriver(null);
     setTripStatus('idle');
-    toast.success('Merci pour votre évaluation !');
+    toast.success('Merci pour votre évaluation !', { id: 'rating-status' });
   };
 
   const handleRateTrip = (ratingData) => {
@@ -422,7 +422,7 @@ const Passenger = () => {
     setCurrentTrip(null);
     setCurrentDriver(null);
     setTripStatus('idle');
-    toast.success('Merci pour votre évaluation !');
+    toast.success('Merci pour votre évaluation !', { id: 'rating-status' });
   };
 
   const handleTabChange = (tabId) => {

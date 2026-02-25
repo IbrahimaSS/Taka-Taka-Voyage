@@ -57,20 +57,26 @@ export const DriverProvider = ({ children }) => {
   // ────────────────────────────────────────────────
   const { user } = useAuth();
 
-  // ✅ Suggestion 2: Initialiser directement depuis le stockage pour éviter d'être "Offline" au refresh
+  // ✅ Suggestion 2: Initialiser directement depuis le stockage (taka_active_trip_driver)
   const [isOnline, setIsOnline] = useState(() => {
-    const saved = localStorage.getItem('DRIVER_STATE_CHAUFFEUR');
+    const saved = localStorage.getItem('taka_active_trip_driver');
     if (saved) {
-      try { return JSON.parse(saved).isOnline || false; } catch (e) { return false; }
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.state?.isOnline || false;
+      } catch (e) { return false; }
     }
     return false;
   });
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [status, setStatus] = useState(() => {
-    const saved = localStorage.getItem('DRIVER_STATE_CHAUFFEUR');
+    const saved = localStorage.getItem('taka_active_trip_driver');
     if (saved) {
-      try { return JSON.parse(saved).status || "offline"; } catch (e) { return "offline"; }
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.state?.status || "offline";
+      } catch (e) { return "offline"; }
     }
     return "offline";
   }); // offline | available | busy
@@ -414,11 +420,11 @@ export const DriverProvider = ({ children }) => {
     // ✅ Suggestion 2: Libérer le chauffeur quand le trajet se termine (via socket)
     const onTripFinished = (data) => {
       console.log("🏁 [DRIVER] Trajet terminé reçu par socket, libération du statut");
-      setAcceptedTrips([]);
+      // On ne vide plus brutalement setAcceptedTrips([]) ici pour ne pas casser l'UI
       setCurrentPickupTripId(null);
       setTripStep("idle");
       setStatus("available");
-      refreshActiveTrips();
+      // refreshActiveTrips() est commenté car il viderait acceptedTrips si le trajet n'est plus actif
     };
 
     socketService.on("course:terminee", onTripFinished);
