@@ -22,7 +22,10 @@ const Dashboard = ({ showToast }) => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  // Base URL calculation (stripping /api if present)
+  const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const API_URL = apiURL.replace(/\/api$/, '');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -141,7 +144,8 @@ const Dashboard = ({ showToast }) => {
   const getAvatarUrl = (path) => {
     if (!path) return null;
     if (path.startsWith('http')) return path;
-    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${API_URL}${cleanPath}`;
   };
 
   const getInitials = (user) => {
