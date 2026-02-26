@@ -58,6 +58,10 @@ export const AuthProvider = ({ children }) => {
             if (response.data.succes) {
                 setUser(response.data.utilisateur);
                 localStorage.setItem('user', JSON.stringify(response.data.utilisateur));
+                // Stocker le JWT pour l'envoyer via l'en-tête Authorization (cross-domain)
+                if (response.data.token) {
+                    localStorage.setItem('authToken', response.data.token);
+                }
                 setIsAuthenticated(true);
                 return {
                     succes: true,
@@ -82,6 +86,7 @@ export const AuthProvider = ({ children }) => {
             // Toujours nettoyer l'état local, même si l'appel backend échoue
             setUser(null);
             localStorage.removeItem('user');
+            localStorage.removeItem('authToken');
             setIsAuthenticated(false);
         }
     };
