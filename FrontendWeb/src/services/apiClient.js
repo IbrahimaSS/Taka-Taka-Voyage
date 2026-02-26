@@ -1,40 +1,75 @@
+// src/services/apiClient.js
 import axios from 'axios';
 
-// Configuration de base API
-// TODO: definir VITE_API_URL vers votre backend (ex: https://api.takataka.com/api)
+// -----------------------------------------------------------------------------
+// 1️⃣  Base configuration
+// -----------------------------------------------------------------------------
+// VITE_API_URL should be set in Vercel's Environment Variables (Production).
+// Fallback to localhost for local development.
 const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const timeout = Number(import.meta.env.VITE_API_TIMEOUT || 15000);
 
 export const apiClient = axios.create({
   baseURL,
   timeout,
-  withCredentials: true, // cookies pour les sessions d'auth
+  // Keep cookies for session‑based auth (if your backend uses them)
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// OPTIONNEL: joindre un token CSRF depuis le cookie si votre backend l'utilise
-// TODO: ajuster le nom du cookie / header selon votre backend (ex: XSRF-TOKEN)
+// -----------------------------------------------------------------------------
+// 2️⃣  Request interceptor – attach auth token (JWT) & CSRF token if needed
+// -----------------------------------------------------------------------------
 apiClient.interceptors.request.use((config) => {
-  // Si le body est un FormData, supprimer le Content-Type pour laisser le navigateur
-  // ajouter automatiquement multipart/form-data avec le boundary correct
+  // ---- JWT handling -------------------------------------------------------
+  // Try to read a JWT stored by your login flow (e.g. localStorage)
+  const jwt = localStorage.getItem('authToken');
+  if (jwt) {
+    config.headers['Authorization'] = `Bearer ${jwt}`;
+  }
+
+  // ---- CSRF handling (existing logic) -----------------------------------
+  // If the request body is a FormData, let the browser set the correct
+  // multipart header (including boundary).
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type'];
   }
 
+  // Optional: read a CSRF token from a cookie (default name XSRF‑TOKEN)
   const csrfCookieName = 'XSRF-TOKEN';
   const match = document.cookie.match(new RegExp(`(?:^|; )${csrfCookieName}=([^;]*)`));
   if (match && match[1]) {
     config.headers['X-CSRF-Token'] = decodeURIComponent(match[1]);
   }
+
   return config;
 });
 
+// -----------------------------------------------------------------------------
+// 3️⃣  Response interceptor – global 401 handling
+// -----------------------------------------------------------------------------
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // TODO: gerer globalement les 401 (refresh token / redirection login)
+    // If the backend says the token is invalid/expired, clear it and redirect.
+    if (error.response && error.response.status === 401) {
+      console.warn('🔐 401 – unauthorized, clearing auth token');
+      // Remove stored JWT (if any)
+      localStorage.removeItem('authToken');
+      // Optional: you can also clear cookies here if you use session cookies.
+
+      // Redirect to login page – adjust the path if your router differs.
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }
     return Promise.reject(error);
   }
 );
+
+// -----------------------------------------------------------------------------
+// 4️⃣  Export (nothing else to change)
+// -----------------------------------------------------------------------------
+export default apiClient;

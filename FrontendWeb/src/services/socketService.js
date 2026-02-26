@@ -1,6 +1,9 @@
 // src/services/socketService.js
 import { io } from "socket.io-client";
 
+// -----------------------------------------------------------------------------
+// 1️⃣  URL du serveur Socket.io – provient de VITE_SOCKET_URL
+// -----------------------------------------------------------------------------
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 
 class SocketService {
@@ -8,27 +11,28 @@ class SocketService {
     this.socket = null;
     this.identity = null;
     this.pendingEmits = [];
-    this.listeners = new Map(); // Store listeners to re-apply them on reconnect/reconnect
+    this.listeners = new Map(); // Store listeners to re‑apply them on reconnect
   }
 
   isConnected() {
     return !!this.socket?.connected;
   }
 
+  // ---------------------------------------------------------------------------
+  // 2️⃣  Connexion – on ajoute le JWT (authToken) au payload d'authentification
+  // ---------------------------------------------------------------------------
   connect(userId, role = "CHAUFFEUR", nom = "", prenom = "") {
     if (!userId) throw new Error("socketService.connect: userId manquant");
 
     const nextIdentity = { userId, role, nom, prenom };
 
-    // Si on est déjà connecté avec la même identité, on ne fait rien
+    // Si déjà connecté avec la même identité, on ne fait rien
     if (this.socket?.connected && this.identity?.userId === userId && this.identity?.role === role) {
       return;
     }
 
+    // Nettoyage de l'ancienne socket et suppression des listeners
     if (this.socket) {
-      // Before disconnecting, remove all listeners from the old socket instance
-      // to prevent them from being called multiple times if they are re-attached
-      // to a new socket instance.
       this.listeners.forEach((callbacks, event) => {
         callbacks.forEach(cb => this.socket.off(event, cb));
       });
@@ -38,23 +42,27 @@ class SocketService {
 
     this.identity = nextIdentity;
 
+    // Récupération du JWT stocké côté client
+    const jwt = localStorage.getItem('authToken');
+    const authPayload = { userId, role, nom, prenom };
+    if (jwt) authPayload.token = jwt; // le serveur pourra le lire via socket.handshake.auth
+
     this.socket = io(SOCKET_URL, {
       path: "/socket.io/",
-      auth: { userId, role, nom, prenom },
+      auth: authPayload,
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 20,
       withCredentials: true,
     });
 
-    // ✅ Attach existing listeners to the NEW socket instance ONLY ONCE
+    // Ré‑attacher les listeners déjà enregistrés (une seule fois)
     this.listeners.forEach((callbacks, event) => {
       callbacks.forEach(cb => this.socket.on(event, cb));
     });
 
     this.socket.on("connect", () => {
       console.log(`🟢 Socket connecté → ${this.socket.id} (${role})`);
-
       this.socket.emit("client:online", { role, userId, nom, prenom });
 
       if (this.pendingEmits.length) {
@@ -66,16 +74,26 @@ class SocketService {
 
     this.socket.on("connect_error", (err) => {
       console.error("❌ socket connect_error:", err.message);
+      // Gestion du cas 401 – token invalide
+      if (err?.data?.code === 401) {
+        console.warn('🔐 401 socket – token invalide, nettoyage et redirection');
+        localStorage.removeItem('authToken');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+      }
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // 3️⃣  Gestion des écouteurs
+  // ---------------------------------------------------------------------------
   on(event, callback) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event).add(callback);
 
-    // Si déjà connecté, on attache direct
     if (this.socket) {
       this.socket.on(event, callback);
     }
@@ -114,7 +132,7 @@ class SocketService {
       this.socket = null;
       this.identity = null;
       this.pendingEmits = [];
-      // Note: we keep this.listeners to re-apply them if connect() is called again
+      // listeners are kept for future reconnection
     }
   }
 }
