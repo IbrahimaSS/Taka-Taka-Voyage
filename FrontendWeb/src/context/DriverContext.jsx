@@ -499,6 +499,8 @@ export const DriverProvider = ({ children }) => {
             reservationId: rid,
             lat: currentLoc.lat,
             lng: currentLoc.lng,
+            speed: currentLoc.speed || 0,
+            heading: currentLoc.heading || 0
           });
         }
         lastBroadcastRef.current = currentLoc;

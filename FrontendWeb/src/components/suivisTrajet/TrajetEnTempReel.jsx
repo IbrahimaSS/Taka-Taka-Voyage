@@ -92,6 +92,16 @@ const RealTimeTracking = ({
   const progressInterval = useRef();
   const timeInterval = useRef();
   const driverStartPositionRef = useRef(null); // Position du chauffeur au démarrage du suivi
+  const lastStatusRef = useRef(trip?.status);
+
+  // ✅ Reset de la référence si le statut change (ex: de 'approaching' à 'in_progress')
+  useEffect(() => {
+    if (trip?.status !== lastStatusRef.current) {
+      console.log("🔄 [Tracking] Changement de statut:", lastStatusRef.current, "->", trip?.status);
+      driverStartPositionRef.current = null;
+      lastStatusRef.current = trip?.status;
+    }
+  }, [trip?.status]);
 
   // Données calculées à partir des props
   const tripData = {
@@ -302,10 +312,19 @@ const RealTimeTracking = ({
     };
   }, [updateTime, trip?.reservationId, trip?.id]);
 
-  // ✅ FIX: Mettre à jour la position locale quand le prop driver change (socket)
+  // ✅ Mise à jour de la position et de la vitesse
   useEffect(() => {
     if (driver?.location || driver?.currentLocation) {
-      setDriverPosition(driver.location || driver.currentLocation);
+      const loc = driver.location || driver.currentLocation;
+      setDriverPosition(loc);
+
+      // Mise à jour de la vitesse si disponible (speed est en m/s par défaut via browser API)
+      if (loc && typeof loc.speed === 'number') {
+        const speedKmh = Math.round(loc.speed * 3.6);
+        setSpeed(speedKmh > 0 ? speedKmh : 0);
+      } else if (driver.speed) {
+        setSpeed(Math.round(driver.speed));
+      }
     }
   }, [driver]);
 
@@ -314,6 +333,13 @@ const RealTimeTracking = ({
     const onPositionUpdate = (data) => {
       if (data && data.lat && data.lng) {
         setDriverPosition({ lat: data.lat, lng: data.lng });
+
+        // Mise à jour de la vitesse via le socket
+        if (typeof data.speed === 'number') {
+          // On assume que le serveur transmet les m/s du GPS
+          const speedKmh = Math.round(data.speed * 3.6);
+          setSpeed(speedKmh > 0 ? speedKmh : 0);
+        }
       }
     };
 
@@ -417,8 +443,8 @@ const RealTimeTracking = ({
       const newEta = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
       setRealTimeMetrics({
-        distanceTraveled: parseFloat(distTraveled.toFixed(1)),
-        distanceRemaining: parseFloat(distRemaining.toFixed(1)),
+        distanceTraveled: parseFloat(distTraveled.toFixed(2)),
+        distanceRemaining: parseFloat(distRemaining.toFixed(2)),
         progress: Math.round(pct),
         durationRemaining: timeRemaining,
         formattedDuration
@@ -426,7 +452,7 @@ const RealTimeTracking = ({
       setProgress(Math.round(pct)); // Sync avec l'état existant pour la barre
       setEstimatedArrival(newEta);   // Sync avec l'état existant pour l'ETA
     }
-  }, [driverPosition, tripData.destination.coords, tripData.departure.coords, tripData.trip.totalDistance, tripData.trip.totalDuration]);
+  }, [driverPosition, tripData.destination.coords, tripData.departure.coords, tripData.trip.totalDistance, tripData.trip.totalDuration, trip?.status]);
 
   // ✅ AUTO-TERMINER : Si progress === 100%, on finit automatiquement
   useEffect(() => {
@@ -584,8 +610,8 @@ const RealTimeTracking = ({
               />
             </div>
             <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-2">
-              <span>{realTimeMetrics.distanceTraveled} km parcourus</span>
-              <span>{realTimeMetrics.distanceRemaining} km restants</span>
+              <span>{realTimeMetrics.distanceTraveled.toFixed(2)} km parcourus</span>
+              <span>{realTimeMetrics.distanceRemaining.toFixed(2)} km restants</span>
             </div>
           </div>
 
