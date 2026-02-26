@@ -70,9 +70,6 @@ const RealTimeTracking = ({
     return false;
   };
 
-  const isSimulating = driverCtx?.isSimulating || false;
-  const setIsSimulating = driverCtx?.setIsSimulating || (() => { });
-
   const [driverPosition, setDriverPosition] = useState(
     driver?.currentLocation || driver?.location || null
   );
@@ -695,21 +692,6 @@ const RealTimeTracking = ({
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Actualiser
                   </motion.button>
-
-                  {role === 'driver' && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setIsSimulating(!isSimulating)}
-                      className={`flex items-center gap-2 px-4 py-1.5 rounded-xl border-2 transition-all font-bold text-xs ${isSimulating
-                        ? 'bg-amber-500 border-amber-600 text-white animate-pulse'
-                        : 'bg-white dark:bg-gray-800 border-emerald-500 text-emerald-600'
-                        }`}
-                    >
-                      <RefreshCw className={`w-3 h-3 ${isSimulating ? 'animate-spin' : ''}`} />
-                      {isSimulating ? 'SIMULATION ACTIVE' : 'SIMULER MOUVEMENT'}
-                    </motion.button>
-                  )}
                 </div>
               </div>
 

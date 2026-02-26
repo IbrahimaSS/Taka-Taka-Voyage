@@ -228,8 +228,6 @@ const StatsPanel = ({
     progress,
     distanceDisplay,
     etaMinutes,
-    isSimulating,
-    setIsSimulating
 }) => {
     const { t } = useTranslation();
     const totalRevenue = acceptedTrips.reduce((acc, t) => acc + (t.estimatedFare || 0), 0);
@@ -281,19 +279,7 @@ const StatsPanel = ({
                         </div>
 
                         <div className="flex items-center gap-4">
-                            {/* Bouton Simulation Debug */}
-                            {tripStep === 'in_progress' && (
-                                <button
-                                    onClick={() => setIsSimulating(!isSimulating)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all font-bold ${isSimulating
-                                        ? 'bg-amber-500 border-amber-600 text-white animate-pulse'
-                                        : 'bg-white dark:bg-gray-800 border-emerald-500 text-emerald-600'
-                                        }`}
-                                >
-                                    <RefreshCw className={`w-4 h-4 ${isSimulating ? 'animate-spin' : ''}`} />
-                                    {isSimulating ? t('tracking.simulation_active') : t('tracking.debug_move')}
-                                </button>
-                            )}
+
 
                             <div className="text-center bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 min-w-[120px]">
                                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wider">
@@ -422,8 +408,6 @@ const ChauffeurTracking = () => {
         startTripImmediately,
         reportDispute,
         calculateDistance,
-        isSimulating,
-        setIsSimulating
     } = useDriverContext();
 
     const navigate = useNavigate();
@@ -472,35 +456,9 @@ const ChauffeurTracking = () => {
         ? calculateDistance(driverLocation.lat, driverLocation.lng, targetCoords[0], targetCoords[1])
         : 0;
 
-    // Simulation de mouvement et vitesse
     useEffect(() => {
         setIsLoading(false);
-        if (!isSimulating || !targetCoords || !driverLocation) return;
-
-        const interval = setInterval(() => {
-            // 1. Simulation de vitesse
-            setSpeed(prev => {
-                const change = Math.random() * 10 - 5;
-                return Math.max(30, Math.min(90, prev + change));
-            });
-
-            // 2. Simulation de mouvement vers la cible
-            const latDiff = targetCoords[0] - driverLocation.lat;
-            const lngDiff = targetCoords[1] - driverLocation.lng;
-            const dist = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
-
-            if (dist > 0.0001) {
-                // Avancer de ~0.0002 degrés par tick (environ 20m)
-                const moveStep = 0.0002;
-                const newLat = driverLocation.lat + (latDiff / dist) * moveStep;
-                const newLng = driverLocation.lng + (lngDiff / dist) * moveStep;
-
-                // Mettre à jour la position dans le contexte via setDriverLocation si accessible ou localement
-            }
-        }, 2000);
-
-        return () => clearInterval(interval);
-    }, [isSimulating, targetCoords, driverLocation]);
+    }, []);
 
     const [progress, setProgress] = useState(0);
     useEffect(() => {
@@ -596,8 +554,6 @@ const ChauffeurTracking = () => {
                 progress={progress}
                 distanceDisplay={distanceDisplay}
                 etaMinutes={etaMinutes}
-                isSimulating={isSimulating}
-                setIsSimulating={setIsSimulating}
             />
 
             {/* Contenu principal */}
