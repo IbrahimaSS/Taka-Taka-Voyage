@@ -25,6 +25,13 @@ export const AuthProvider = ({ children }) => {
 
     // Vérifier la session au chargement
     const checkAuth = useCallback(async () => {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            setIsLoading(false);
+            setIsAuthenticated(false);
+            return;
+        }
+
         try {
             const response = await apiClient.get(API_ROUTES.auth.me);
             if (response.data.succes) {
@@ -40,6 +47,7 @@ export const AuthProvider = ({ children }) => {
             } else {
                 setUser(null);
                 localStorage.removeItem('user');
+                localStorage.removeItem('authToken');
                 setIsAuthenticated(false);
             }
         } finally {
