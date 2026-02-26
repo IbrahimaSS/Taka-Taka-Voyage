@@ -258,15 +258,17 @@ export const PassengerProvider = ({ children }) => {
         prenom: chauffeur?.prenom,
         name: `${chauffeur?.prenom || ""} ${chauffeur?.nom || ""}`.trim(),
         vehicle: (chauffeur?.vehicule || chauffeur?.vehicle) ? {
-          brand: (chauffeur.vehicule || chauffeur.vehicle).marque || "N/A",
-          model: (chauffeur.vehicule || chauffeur.vehicle).modele || "N/A",
-          plate: (chauffeur.vehicule || chauffeur.vehicle).immatriculation || "N/A",
-          color: (chauffeur.vehicule || chauffeur.vehicle).couleur || "N/A",
+          brand: (chauffeur.vehicule || chauffeur.vehicle).marque || (chauffeur.vehicule || chauffeur.vehicle).brand || "N/A",
+          model: (chauffeur.vehicule || chauffeur.vehicle).modele || (chauffeur.vehicule || chauffeur.vehicle).model || "N/A",
+          plate: (chauffeur.vehicule || chauffeur.vehicle).immatriculation || (chauffeur.vehicule || chauffeur.vehicle).plate || "N/A",
+          color: (chauffeur.vehicule || chauffeur.vehicle).couleur || (chauffeur.vehicule || chauffeur.vehicle).color || "N/A",
           type: (chauffeur.vehicule || chauffeur.vehicle).type || "taxi"
         } : (chauffeur?.vehicle || chauffeur?.vehicule || { brand: "N/A", model: "N/A", plate: "N/A" }),
-        phone: chauffeur?.telephone || chauffeur?.phone || chauffeur?.contact,
+        phone: chauffeur?.telephone || chauffeur?.phone || chauffeur?.contact || "N/A",
         email: chauffeur?.email,
-        photo: chauffeur?.photo,
+        photo: chauffeur?.photo || chauffeur?.photoUrl,
+        rating: chauffeur?.rating || chauffeur?.noteMoyenne || "5.0",
+        tripsCount: chauffeur?.tripsCount || chauffeur?.nombreTrajets || "0",
         eta: "Arrivée imminente",
         distance: "Proche"
       });
@@ -303,7 +305,8 @@ export const PassengerProvider = ({ children }) => {
 
     };
 
-    const onEnRoute = ({ reservationId, message } = {}) => {
+    const onEnRoute = (payload = {}) => {
+      const { reservationId, message } = payload;
       // ✅ Accepter si c'est la course courante OU si on n'a pas encore de course chargée (au cas où)
       const trip = currentTripRef.current;
       if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
@@ -313,8 +316,28 @@ export const PassengerProvider = ({ children }) => {
       const eventKey = `approaching-${reservationId}`;
       if (notifiedEvents.current.has(eventKey)) return;
 
+      const chauffeur = payload?.chauffeur || payload?.driver;
+      if (chauffeur) {
+        setSelectedDriver({
+          id: chauffeur?.id || chauffeur?._id,
+          nom: chauffeur?.nom,
+          prenom: chauffeur?.prenom,
+          name: `${chauffeur?.prenom || ""} ${chauffeur?.nom || ""}`.trim(),
+          vehicle: (chauffeur?.vehicule || chauffeur?.vehicle) ? {
+            brand: (chauffeur.vehicule || chauffeur.vehicle).marque || (chauffeur.vehicule || chauffeur.vehicle).brand || "N/A",
+            model: (chauffeur.vehicule || chauffeur.vehicle).modele || (chauffeur.vehicule || chauffeur.vehicle).model || "N/A",
+            plate: (chauffeur.vehicule || chauffeur.vehicle).immatriculation || (chauffeur.vehicule || chauffeur.vehicle).plate || "N/A",
+            color: (chauffeur.vehicule || chauffeur.vehicle).couleur || (chauffeur.vehicule || chauffeur.vehicle).color || "N/A",
+            type: (chauffeur.vehicule || chauffeur.vehicle).type || "taxi"
+          } : { brand: "N/A", model: "N/A", plate: "N/A" },
+          phone: chauffeur?.telephone || chauffeur?.phone || "N/A",
+          photo: chauffeur?.photo || chauffeur?.photoUrl,
+          rating: chauffeur?.rating || chauffeur?.noteMoyenne || "5.0",
+        });
+      }
+
       setTripStatus("approaching");
-      setCurrentTrip((prev) => (prev ? { ...prev, status: "approaching" } : prev));
+      setCurrentTrip((prev) => (prev ? { ...prev, status: "approaching", driver: chauffeur || prev.driver } : prev));
 
       // ✅ Notification immédiate demandée par l'utilisateur
       toast.success(message || "🚗 Votre chauffeur est en route !", { id: "driver-en-route" });
@@ -330,7 +353,8 @@ export const PassengerProvider = ({ children }) => {
 
     };
 
-    const onArrived = ({ reservationId } = {}) => {
+    const onArrived = (payload = {}) => {
+      const { reservationId } = payload;
       console.log(`🔔 [SOCKET] course:chauffeur_arrive REÇU pour RID=${reservationId}`);
       const trip = currentTripRef.current;
 
@@ -346,17 +370,34 @@ export const PassengerProvider = ({ children }) => {
       // Check souple (String comparison)
       if (!sameRid(trip.reservationId, reservationId)) {
         console.warn(`⚠️ [SOCKET] ID Mismatch arrivée : Reçu ${reservationId} vs Actuel ${trip.reservationId}`);
-        // Dans le doute, si c'est la seule course active, on peut décider de forcer (à voir selon cas d'usage)
         return;
       }
 
-      console.log("✅ [CONTEXT] Validation OK. Passage du statut à 'arrived'.");
+      const chauffeur = payload?.chauffeur || payload?.driver;
+      if (chauffeur) {
+        setSelectedDriver({
+          id: chauffeur?.id || chauffeur?._id,
+          nom: chauffeur?.nom,
+          prenom: chauffeur?.prenom,
+          name: `${chauffeur?.prenom || ""} ${chauffeur?.nom || ""}`.trim(),
+          vehicle: (chauffeur?.vehicule || chauffeur?.vehicle) ? {
+            brand: (chauffeur.vehicule || chauffeur.vehicle).marque || (chauffeur.vehicule || chauffeur.vehicle).brand || "N/A",
+            model: (chauffeur.vehicule || chauffeur.vehicle).modele || (chauffeur.vehicule || chauffeur.vehicle).model || "N/A",
+            plate: (chauffeur.vehicule || chauffeur.vehicle).immatriculation || (chauffeur.vehicule || chauffeur.vehicle).plate || "N/A",
+            color: (chauffeur.vehicule || chauffeur.vehicle).couleur || (chauffeur.vehicule || chauffeur.vehicle).color || "N/A",
+            type: (chauffeur.vehicule || chauffeur.vehicle).type || "taxi"
+          } : { brand: "N/A", model: "N/A", plate: "N/A" },
+          phone: chauffeur?.telephone || chauffeur?.phone || "N/A",
+          photo: chauffeur?.photo || chauffeur?.photoUrl,
+          rating: chauffeur?.rating || chauffeur?.noteMoyenne || "5.0",
+        });
+      }
 
       // ✅ Mise à jour critique
       setTripStatus("arrived");
       setCurrentTrip((prev) => {
         if (!prev) return null;
-        return { ...prev, status: "arrived" };
+        return { ...prev, status: "arrived", driver: chauffeur || prev.driver };
       });
 
       addNotification({

@@ -112,7 +112,6 @@ const TripComplete = ({
     localTrip?.paiement?.statut ||
     localTrip?.payment?.status ||
     localTrip?.payment?.statut ||
-    localTrip?.statut ||
     localTrip?.payment?.state ||
     ''
   ).toUpperCase();
@@ -141,16 +140,26 @@ const TripComplete = ({
     String(localTrip?.paiement_avance).toUpperCase() === 'TRUE' ||
     pS_top.includes('CONFIRMEE') ||
     pS_top.includes('VALIDEE') ||
-    (localTrip?.paymentMethod && !localTrip?.paymentMethod.toUpperCase().includes('CASH') && !localTrip?.paymentMethod.toUpperCase().includes('ESPECES')) ||
-    (localTrip?.typePaiement && !localTrip?.typePaiement.toUpperCase().includes('CASH') && !localTrip?.typePaiement.toUpperCase().includes('ESPECES')) ||
-    (localTrip?.typeCourse === 'PLANIFIEE' && localTrip?.paymentMethod && !localTrip?.paymentMethod.toUpperCase().includes('CASH')) ||
-    (localTrip?.momentPaiement && (String(localTrip.momentPaiement).toUpperCase().includes('AVANCE') || String(localTrip.momentPaiement).toUpperCase().includes('MAINTENANT') || String(localTrip.momentPaiement).toUpperCase().includes('PREPAID'))) ||
-    localTrip?.paiementAvance === true ||
+    localTrip?.paiement_avance === true ||
     localTrip?.isPaid === true ||
     localTrip?.paid === true ||
-    !!localTrip?.transactionId ||
-    localTrip?.statut?.toUpperCase() === 'COMPLETED' ||
-    localTrip?.statut === 'completed';
+    !!localTrip?.transactionId;
+
+  // ✅ [NOUVEAU] Forcer isPrepaid à FAUX si le moment de paiement est explicitement à la fin
+  const isPaymentAtEnd = mP_top.includes('FIN') || mP_top.includes('END') || mP_top.includes('APRES');
+  const finalIsPrepaid = isPrepaid && !isPaymentAtEnd;
+
+  const [paymentStatus, setPaymentStatus] = useState(() => {
+    // On ne considère payé que si c'est prépayé ou si le statut de paiement est explicitement validé
+    if (finalIsPrepaid ||
+      pS_top.includes('PAYE') ||
+      pS_top.includes('PAID') ||
+      pS_top.includes('SUCCESS') ||
+      pS_top === 'VALIDEE' ||
+      pS_top === 'CONFIRMEE'
+    ) return 'PAYE';
+    return 'EN_ATTENTE';
+  });
 
   //  DEBUG LOGS
   useEffect(() => {
@@ -161,40 +170,23 @@ const TripComplete = ({
     console.log("Reservation ID:", localTrip?.reservationId);
     console.log("Payment Method:", localTrip?.paymentMethod);
     console.log("Moment Paiement:", localTrip?.momentPaiement);
-    console.log("isPrepaid:", isPrepaid);
+    console.log("isPrepaid:", finalIsPrepaid);
+    console.log("PaymentStatus:", paymentStatus);
     console.groupEnd();
-  }, [localTrip, isPrepaid, role]);
-
-  const [paymentStatus, setPaymentStatus] = useState(() => {
-    // FORCE PAYE si isPrepaid est détecté (Très important pour le flux Chauffeur)
-    if (isPrepaid ||
-      pS_top.includes('PAYE') ||
-      pS_top.includes('PAID') ||
-      pS_top.includes('SUCCESS') ||
-      pS_top.includes('COMPLETED') ||
-      pS_top.includes('TERMINEE') ||
-      pS_top.includes('VALIDE') ||
-      pS_top.includes('CONFIRME') ||
-      pS_top.includes('ACCEPTED')
-    ) return 'PAYE';
-    return 'EN_ATTENTE';
-  });
+  }, [localTrip, finalIsPrepaid, paymentStatus, role]);
 
   // ✅ Synchroniser le statut du paiement si la prop trip change
   useEffect(() => {
-    if (isPrepaid ||
+    if (finalIsPrepaid ||
       pS_top.includes('PAYE') ||
       pS_top.includes('PAID') ||
       pS_top.includes('SUCCESS') ||
-      pS_top.includes('COMPLETED') ||
-      pS_top.includes('TERMINEE') ||
-      pS_top.includes('VALIDE') ||
-      pS_top.includes('CONFIRME') ||
-      pS_top.includes('ACCEPTED')
+      pS_top === 'VALIDEE' ||
+      pS_top === 'CONFIRMEE'
     ) {
       setPaymentStatus('PAYE');
     }
-  }, [localTrip, isPrepaid, pS_top]);
+  }, [localTrip, finalIsPrepaid, pS_top]);
 
 
   const [waitingForDriverConfirmation, setWaitingForDriverConfirmation] = useState(false);
@@ -204,10 +196,10 @@ const TripComplete = ({
 
   // ✅ Auto-reset processing state if payment is confirmed via props/sync
   useEffect(() => {
-    if (paymentStatus === 'PAYE' || isPrepaid) {
+    if (paymentStatus === 'PAYE' || finalIsPrepaid) {
       setIsProcessing(false);
     }
-  }, [paymentStatus, isPrepaid]);
+  }, [paymentStatus, finalIsPrepaid]);
 
   const totalAmount = (tripData?.pricing?.base || 0) + (tripData?.pricing?.serviceFee || 0);
 
@@ -309,7 +301,7 @@ const TripComplete = ({
   }, [onPaymentSuccess]);
 
   useEffect(() => {
-    if (role === 'passenger' && (paymentStatus === 'PAYE' || isPrepaid) && !redirectTriggered.current) {
+    if (role === 'passenger' && (paymentStatus === 'PAYE' || finalIsPrepaid) && !redirectTriggered.current) {
       console.log("⏱️ [TrajetComplete] Lancement du timer de redirection auto (4s)");
       redirectTriggered.current = true;
       const timer = setTimeout(() => {
@@ -320,7 +312,7 @@ const TripComplete = ({
       }, 4000);
       return () => clearTimeout(timer);
     }
-  }, [role, paymentStatus, isPrepaid]);
+  }, [role, paymentStatus, finalIsPrepaid]);
 
   // Gestion OTP
   const handleOtpChange = (index, value) => {
@@ -367,6 +359,17 @@ const TripComplete = ({
       }
     };
 
+    const handleArrivalWithoutPayment = (data) => {
+      console.log("📍 [TrajetComplete] Arrivée à destination signalée (En attente paiement)", data);
+      const receivedId = String(data.reservationId || '').trim();
+      if (receivedId === targetId || !receivedId) {
+        setPaymentStatus('EN_ATTENTE');
+        setIsProcessing(false);
+        toast("📍 Vous êtes arrivé à destination. Veuillez procéder au paiement.", { icon: '🚕', id: 'arrival-notice' });
+        refreshTripData(true);
+      }
+    };
+
     const handleFinitAvecPaiement = (data) => {
       console.log("📩 [TrajetComplete] Payment/Trip completion event RECEIVED", data);
       const receivedId = String(data.reservationId || data.tripId || data.id || data.trip?._id || '').trim();
@@ -406,14 +409,14 @@ const TripComplete = ({
     socketService.on('paiement:reception_a_confirmer', handleReceptionAConfirmer);
     socketService.on('course:finit_avec_paiement', handleFinitAvecPaiement);
     socketService.on('paiement:confirme', handleFinitAvecPaiement);
-    socketService.on('course:terminee', handleFinitAvecPaiement);
+    socketService.on('course:arrive_destination', handleArrivalWithoutPayment);
     socketService.on('reserver:mise_a_jour', handleUpdate);
 
     return () => {
       socketService.off('paiement:reception_a_confirmer', handleReceptionAConfirmer);
       socketService.off('course:finit_avec_paiement', handleFinitAvecPaiement);
       socketService.off('paiement:confirme', handleFinitAvecPaiement);
-      socketService.off('course:terminee', handleFinitAvecPaiement);
+      socketService.off('course:arrive_destination', handleArrivalWithoutPayment);
     };
   }, [localTrip?.id, localTrip?._id, localTrip?.reservationId, role, onPaymentSuccess]);
 
@@ -457,7 +460,7 @@ const TripComplete = ({
       }
     } else if (role === 'driver') {
       // Suggestion 1: Utiliser un modal maison au lieu de window.confirm
-      if (!waitingForDriverConfirmation && !isPrepaid) {
+      if (!waitingForDriverConfirmation && !finalIsPrepaid) {
         setShowConfirmModal(true);
         return;
       }
@@ -688,14 +691,13 @@ const TripComplete = ({
           </div>
         </motion.div>
 
-        {/* Sélection du mode de paiement - Masqué si déjà payé ou si chauffeur */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="passenger-glass dark:bg-gray-900/90 rounded-2xl p-8 mb-8 border border-white/20 dark:border-white/5 shadow-2xl"
         >
-          {role === 'passenger' && paymentStatus !== 'PAYE' && !isPrepaid && (
+          {role === 'passenger' && paymentStatus !== 'PAYE' && !finalIsPrepaid && (
             <>
               <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Choisissez votre mode de paiement</h2>
 

@@ -19,13 +19,31 @@ const DriverEnRouteModal = ({ driver, onTrack, onContact, status }) => {
                     {/* Photo Chauffeur */}
                     <div className="relative">
                         <div className="w-14 h-14 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden border-2 border-blue-500 shadow-md">
-                            {driver.photo ? (
-                                <img src={driver.photo} alt={driver.name} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold">
-                                    {driver.name?.charAt(0)}
-                                </div>
-                            )}
+                            {(() => {
+                                const avatar = driver.photo;
+                                if (avatar && (avatar.startsWith('http') || avatar.startsWith('data:') || avatar.startsWith('/'))) {
+                                    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                                    const baseUrl = apiURL.replace(/\/api$/, '');
+                                    const avatarUrl = (avatar.startsWith('data:') || avatar.startsWith('http'))
+                                        ? avatar
+                                        : `${baseUrl}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
+
+                                    return (
+                                        <img
+                                            src={avatarUrl}
+                                            alt=""
+                                            className="h-full w-full object-cover absolute inset-0 z-10"
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                            }}
+                                        />
+                                    );
+                                }
+                                return null;
+                            })()}
+                            <div className="w-full h-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold text-lg uppercase">
+                                {driver.name ? driver.name.split(' ').map(n => n[0]).filter(c => /[a-z0-9]/i.test(c)).join('').slice(0, 2) : '?'}
+                            </div>
                         </div>
                         <div className={`absolute -bottom-1 -right-1 ${isArrived ? 'bg-emerald-500' : 'bg-green-500'} w-4 h-4 rounded-full border-2 border-white dark:border-gray-900 animate-pulse`}></div>
                     </div>

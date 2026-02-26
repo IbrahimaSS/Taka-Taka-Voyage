@@ -282,6 +282,17 @@ module.exports = (io) => {
 
         const pid = String(reservation.passager._id);
         const chauffeurDoc = await Utilisateurs.findById(socket.user.id);
+        const chauffeurProfile = await ChauffeurProfile.findOne({ utilisateur: socket.user.id });
+
+        // Normalisation ultra-robuste du véhicule (Backend -> Frontend)
+        const vehicleInfo = {
+          marque: chauffeurDoc?.vehicule?.marque || chauffeurProfile?.marqueVehicule || "N/A",
+          modele: chauffeurDoc?.vehicule?.modele || chauffeurProfile?.modeleVehicule || "N/A",
+          immatriculation: chauffeurDoc?.vehicule?.immatriculation || chauffeurProfile?.plaque || "N/A",
+          couleur: chauffeurDoc?.vehicule?.couleur || chauffeurProfile?.couleurVehicule || "N/A",
+          type: chauffeurDoc?.vehicule?.type || chauffeurProfile?.typeVehicule || "TAXI"
+        };
+
         const payload = {
           reservationId: rid,
           chauffeur: {
@@ -289,9 +300,13 @@ module.exports = (io) => {
             nom: chauffeurDoc?.nom || socket.user.nom,
             prenom: chauffeurDoc?.prenom || socket.user.prenom,
             telephone: chauffeurDoc?.telephone || "",
+            phone: chauffeurDoc?.telephone || "",
             email: chauffeurDoc?.email || "",
-            photo: chauffeurDoc?.photo || "",
-            vehicle: chauffeurDoc?.vehicule || null // ✅ Utilise le champ réel du modèle
+            photo: chauffeurDoc?.photoUrl || chauffeurDoc?.photo || "",
+            vehicle: vehicleInfo,
+            vehicule: vehicleInfo,
+            rating: chauffeurProfile?.noteMoyenne || chauffeurDoc?.noteMoyenne || 5.0,
+            tripsCount: chauffeurProfile?.nombreTrajets || chauffeurDoc?.nombreTrajets || 0
           },
         };
 
@@ -456,9 +471,31 @@ module.exports = (io) => {
         // ✅ FIX: s'assurer que le chauffeur rejoint la room de la réservation pour les updates (dont annulation)
         socket.join(`RESERVATION_${reservationId}`);
 
+        const chauffeurDoc = await Utilisateurs.findById(socket.user.id);
+        const chauffeurProfile = await ChauffeurProfile.findOne({ utilisateur: socket.user.id });
+
+        const vehicleInfo = {
+          marque: chauffeurDoc?.vehicule?.marque || chauffeurProfile?.marqueVehicule || "N/A",
+          modele: chauffeurDoc?.vehicule?.modele || chauffeurProfile?.modeleVehicule || "N/A",
+          immatriculation: chauffeurDoc?.vehicule?.immatriculation || chauffeurProfile?.plaque || "N/A",
+          couleur: chauffeurDoc?.vehicule?.couleur || chauffeurProfile?.couleurVehicule || "N/A",
+          type: chauffeurDoc?.vehicule?.type || chauffeurProfile?.typeVehicule || "TAXI"
+        };
+
         io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:chauffeur_en_route", {
           reservationId,
           message: "Le chauffeur est en route pour vous récupérer",
+          chauffeur: {
+            id: socket.user.id,
+            nom: chauffeurDoc?.nom || socket.user.nom,
+            prenom: chauffeurDoc?.prenom || socket.user.prenom,
+            telephone: chauffeurDoc?.telephone || "",
+            phone: chauffeurDoc?.telephone || "",
+            photo: chauffeurDoc?.photoUrl || chauffeurDoc?.photo || "",
+            vehicle: vehicleInfo,
+            vehicule: vehicleInfo,
+            rating: chauffeurProfile?.noteMoyenne || chauffeurDoc?.noteMoyenne || 5.0,
+          }
         });
 
         socket.emit("course:rejoint_confirmation", { reservationId });
@@ -492,10 +529,32 @@ module.exports = (io) => {
         // ✅ FIX Map
         courseChauffeur.set(String(reservationId), socket.id);
 
-        // ✅ Notifier passager (room stable — ne PAS émettre aussi à RESERVATION_ pour éviter doublon)
+        const chauffeurDoc = await Utilisateurs.findById(socket.user.id);
+        const chauffeurProfile = await ChauffeurProfile.findOne({ utilisateur: socket.user.id });
+
+        const vehicleInfo = {
+          marque: chauffeurDoc?.vehicule?.marque || chauffeurProfile?.marqueVehicule || "N/A",
+          modele: chauffeurDoc?.vehicule?.modele || chauffeurProfile?.modeleVehicule || "N/A",
+          immatriculation: chauffeurDoc?.vehicule?.immatriculation || chauffeurProfile?.plaque || "N/A",
+          couleur: chauffeurDoc?.vehicule?.couleur || chauffeurProfile?.couleurVehicule || "N/A",
+          type: chauffeurDoc?.vehicule?.type || chauffeurProfile?.typeVehicule || "TAXI"
+        };
+
+        // ✅ Notifier passager
         const payloadArrive = {
           reservationId,
           message: "Votre chauffeur est arrivé, prêt pour le voyage !",
+          chauffeur: {
+            id: socket.user.id,
+            nom: chauffeurDoc?.nom || socket.user.nom,
+            prenom: chauffeurDoc?.prenom || socket.user.prenom,
+            telephone: chauffeurDoc?.telephone || "",
+            phone: chauffeurDoc?.telephone || "",
+            photo: chauffeurDoc?.photoUrl || chauffeurDoc?.photo || "",
+            vehicle: vehicleInfo,
+            vehicule: vehicleInfo,
+            rating: chauffeurProfile?.noteMoyenne || chauffeurDoc?.noteMoyenne || 5.0,
+          }
         };
         io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:chauffeur_arrive", payloadArrive);
 

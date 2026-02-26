@@ -85,18 +85,20 @@ const LiveTrackingWrapper = () => {
       }}
       onBack={() => navigate("/chauffeur/tracking")}
       onEndTrip={async () => {
-        // ✅ Utilisation de plusieurs fallbacks d'identifiants pour éviter le 400 (Bad Request)
-        const tripId = mainTrip?.id || mainTrip?._id || mainTrip?.reservationId;
+        // ✅ Priorité aux IDs Mongoose (_id) pour éviter les erreurs 400
+        const tripId = mainTrip?._id || mainTrip?.reservationId || mainTrip?.id;
 
         if (tripId) {
-          // Verrouiller les données avant de terminer pour éviter le flash blanc (race condition)
+          // Verrouiller les données avant de terminer
           setCompletedTripData(mainTrip);
 
           try {
-            console.log("🏁 [ChauffeurApp] Tentative de clôture du trajet:", tripId);
-            await tripService.complete(tripId);
+            console.log("🏁 [ChauffeurApp] Tentative de clôture du trajet ID:", tripId);
+            const response = await tripService.complete(tripId);
+            console.log("✅ [ChauffeurApp] Trajet clôturé avec succès:", response.data);
           } catch (err) {
-            console.error("❌ Erreur lors de la completion du trajet:", err);
+            console.error("❌ [ChauffeurApp] Erreur 400/500 lors de la clôture:", err.response?.data || err.message);
+            // On peut logger plus d'infos si besoin: err.response?.status
           }
         }
         setShowComplete(true);

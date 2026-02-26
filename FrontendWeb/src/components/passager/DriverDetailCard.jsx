@@ -47,13 +47,31 @@ const DriverDetailCard = ({ driver, onContact, onCancel, onTrack }) => {
           <div className="relative mr-4">
             <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 p-0.5 shadow-md">
               <div className="w-full h-full rounded-full overflow-hidden">
-                {driver.photo ? (
-                  <img src={driver.photo} alt={driver.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xl">
-                    {driver.name?.charAt(0)}
-                  </div>
-                )}
+                {(() => {
+                  const avatar = driver.photo;
+                  if (avatar && (avatar.startsWith('http') || avatar.startsWith('data:') || avatar.startsWith('/'))) {
+                    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                    const baseUrl = apiURL.replace(/\/api$/, '');
+                    const avatarUrl = (avatar.startsWith('data:') || avatar.startsWith('http'))
+                      ? avatar
+                      : `${baseUrl}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
+
+                    return (
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    );
+                  }
+                  return null;
+                })()}
+                <div className="w-full h-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xl uppercase">
+                  {driver.name ? driver.name.split(' ').map(n => n[0]).filter(c => /[a-z0-9]/i.test(c)).join('').slice(0, 2) : '?'}
+                </div>
               </div>
             </div>
             {driver.verified && (
