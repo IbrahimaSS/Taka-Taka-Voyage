@@ -228,12 +228,21 @@ const Passenger = () => {
     }
   };
 
-  // Auto-switch to tracking view when trip starts
+  // 🔄 GESTION AUTOMATIQUE DES RÉDIRECTIONS SELON LE STATUT
   useEffect(() => {
+    // 🚀 Quand le trajet démarre (clic Chauffeur sur Démarrer)
     if (tripStatus === 'en_route') {
       setIsOnTrackingView(true);
       setIsOnMapView(false);
       setActiveTab('home');
+      // Toast déjà géré dans le contexte ou ici
+      console.log("🚀 [Passager] Basculement automatique en mode suivi plein écran.");
+    }
+
+    // 🚗 Quand le chauffeur est en approche ou arrivé
+    if (tripStatus === 'approaching' || tripStatus === 'arrived') {
+      setIsOnMapView(true); // Se focaliser sur la carte d'accueil
+      setIsOnTrackingView(false);
     }
   }, [tripStatus]);
 
@@ -275,26 +284,6 @@ const Passenger = () => {
     setShowTripStatusModal(false);
     setActiveTab('home');
     toast.success('Suivi du chauffeur activé');
-  };
-
-  const handleStartTrip = () => {
-    clearTimers();
-
-    setTimeout(() => {
-      setTripStatus('en_route');
-      setIsOnTrackingView(true);
-      setIsOnMapView(false);
-      setActiveTab('home');
-
-      setCurrentTrip((prev) => ({
-        ...prev,
-        status: 'en_route',
-        startedAt: new Date().toISOString(),
-      }));
-
-      setShowTripStatusModal(false);
-      toast.success('Trajet démarré ! Suivi en temps réel activé.');
-    }, 600);
   };
 
   const handleNavigateToTracking = () => {
@@ -347,16 +336,8 @@ const Passenger = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (tripStatus === 'en_route') {
-      setIsOnTrackingView(true);
-      setIsOnMapView(false);
-    }
+  // Suppression du hook tripStatus redondant déplacé en haut
 
-    if (tripStatus === 'approaching') {
-      setIsOnMapView(true);
-    }
-  }, [tripStatus]);
 
   if (isLoadingProfile) {
     return (
@@ -442,13 +423,7 @@ const Passenger = () => {
           currentDriver={currentDriver}
           tripStatus={tripStatus}
           isOnMapView={isOnMapView}
-          onStartTrip={handleStartTrip}
-          onShowTracking={() => {
-            if (tripStatus === 'en_route') {
-              setIsOnTrackingView(true);
-              setIsOnMapView(false);
-            }
-          }}
+          onShowTracking={handleShowOnMap}
         />
       );
     }
@@ -615,7 +590,6 @@ const Passenger = () => {
           onContact={() => window.open(`tel:${currentDriver?.phone}`)}
           onTrack={handleShowOnMap}
           onViewPlanning={hadalOnViewPlanning}
-          onStartTrip={handleStartTrip}
           onTripComplete={handleCompleteTrip}
           onSearchAgain={() => {
             toast.dismiss('searching');

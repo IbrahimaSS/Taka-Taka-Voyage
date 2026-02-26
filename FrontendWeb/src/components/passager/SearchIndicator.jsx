@@ -136,6 +136,7 @@ const SearchIndicator = ({
           {(isApproaching || status === 'arrived') && driver && isCardVisible && (
             <DriverEnRouteModal
               driver={driver}
+              status={status}
               onTrack={() => {
                 setIsCardVisible(false); // Masquer le modal pour voir la carte en dessous
                 if (onTrack) onTrack();

@@ -316,6 +316,9 @@ export const PassengerProvider = ({ children }) => {
       setTripStatus("approaching");
       setCurrentTrip((prev) => (prev ? { ...prev, status: "approaching" } : prev));
 
+      // ✅ Notification immédiate demandée par l'utilisateur
+      toast.success(message || "🚗 Votre chauffeur est en route !", { id: "driver-en-route" });
+
       addNotification({
         type: NOTIFICATION_TYPES.INFO,
         category: NOTIFICATION_CATEGORIES.TRIP,

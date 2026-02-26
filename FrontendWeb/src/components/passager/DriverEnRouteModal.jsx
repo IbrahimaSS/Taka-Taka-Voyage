@@ -2,8 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Navigation, Phone } from 'lucide-react';
 
-const DriverEnRouteModal = ({ driver, onTrack, onContact }) => {
+const DriverEnRouteModal = ({ driver, onTrack, onContact, status }) => {
     if (!driver) return null;
+
+    const isArrived = status === 'arrived';
 
     return (
         <motion.div
@@ -25,7 +27,7 @@ const DriverEnRouteModal = ({ driver, onTrack, onContact }) => {
                                 </div>
                             )}
                         </div>
-                        <div className="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-white dark:border-gray-900 animate-pulse"></div>
+                        <div className={`absolute -bottom-1 -right-1 ${isArrived ? 'bg-emerald-500' : 'bg-green-500'} w-4 h-4 rounded-full border-2 border-white dark:border-gray-900 animate-pulse`}></div>
                     </div>
 
                     {/* Infos Textuelles */}
@@ -33,8 +35,8 @@ const DriverEnRouteModal = ({ driver, onTrack, onContact }) => {
                         <h4 className="font-bold text-gray-900 dark:text-gray-100 truncate">
                             {driver.name}
                         </h4>
-                        <p className="text-sm text-blue-600 dark:text-blue-400 font-medium truncate">
-                            Est en route vers vous
+                        <p className={`text-sm ${isArrived ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'} font-medium truncate`}>
+                            {isArrived ? 'Est arrivé ! ✅' : 'Est en route vers vous'}
                         </p>
                         <p className="text-xs text-gray-500 truncate">
                             {driver.vehicle?.brand} {driver.vehicle?.model} • {driver.vehicle?.plate}

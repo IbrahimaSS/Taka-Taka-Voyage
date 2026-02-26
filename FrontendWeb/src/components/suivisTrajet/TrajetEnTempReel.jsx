@@ -568,7 +568,7 @@ const RealTimeTracking = ({
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                {isTripEnded ? 'Trajet terminé' : (trip?.status === 'approaching' ? 'Chauffeur en approche' : 'Trajet en cours')}
+                {isTripEnded ? 'Trajet terminé' : 'Trajet en cours'}
               </h1>
               <div className="flex flex-wrap items-center gap-4 text-gray-600 dark:text-gray-400">
                 <div className="flex items-center">
@@ -800,19 +800,19 @@ const RealTimeTracking = ({
                     </Marker>
                   )}
 
-                  {/* Trajet Driver -> Passenger (Approche) */}
-                  {isValidCoords(driverPosition) && isValidCoords(tripData.departure.coords) && (
-                    <Polyline
-                      positions={[driverPosition, tripData.departure.coords]}
-                      pathOptions={{ color: '#22c55e', weight: 6, opacity: 0.9, dashArray: '15, 15', lineCap: 'round', lineJoin: 'round' }}
-                    />
-                  )}
-
-                  {/* Trajet Passenger -> Destination (Future Course) */}
+                  {/* Trajet global (Pointillés discrets en fond) */}
                   {isValidCoords(tripData.departure.coords) && isValidCoords(tripData.destination.coords) && (
                     <Polyline
                       positions={[tripData.departure.coords, tripData.destination.coords]}
-                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.4 }}
+                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.2, dashArray: '5, 10' }}
+                    />
+                  )}
+
+                  {/* Trajet Chauffeur -> Destination (Actuel) */}
+                  {isValidCoords(driverPosition) && isValidCoords(tripData.destination.coords) && (
+                    <Polyline
+                      positions={[driverPosition, tripData.destination.coords]}
+                      pathOptions={{ color: '#22c55e', weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }}
                     />
                   )}
                 </MapContainer>
