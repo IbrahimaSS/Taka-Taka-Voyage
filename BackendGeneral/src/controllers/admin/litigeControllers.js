@@ -56,14 +56,40 @@ exports.listeLitiges = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
+
+        const { type, status, search } = req.query;
+        let query = {};
+
+        if (type && type !== 'all') {
+            query.type = type.toUpperCase();
+        }
+
+        if (status && status !== 'all') {
+            const statusMap = {
+                open: "OUVERT",
+                in_progress: "EN_COURS",
+                resolved: "RESOLU",
+                rejected: "REJETER",
+                pending: "EN_COURS"
+            };
+            query.statut = statusMap[status.toLowerCase()] || status.toUpperCase();
+        }
+
+        if (search) {
+            query.$or = [
+                { reference: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
+        }
+
         const [litiges, total] = await Promise.all([
-            Litige.find()
+            Litige.find(query)
                 .populate("passager", "nom prenom")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
                 .lean(),
-            Litige.countDocuments()
+            Litige.countDocuments(query)
         ]);
 
         // Récupérer les IDs valides uniquement
