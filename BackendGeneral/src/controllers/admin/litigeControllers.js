@@ -2,6 +2,7 @@ const Litige = require("../../models/Litiges");
 const Reservation = require("../../models/Reservations");
 const Utilisateurs = require("../../models/Utilisateurs");
 const Notification = require("../../models/Notifications");
+const Paiement = require("../../models/Paiements");
 
 
 // ===================================LITIGES=======================================
@@ -58,18 +59,37 @@ exports.listeLitiges = async (req, res) => {
         const [litiges, total] = await Promise.all([
             Litige.find()
                 .populate("passager", "nom prenom")
-                .populate({
-                    path: "reservation",
-                    populate: {
-                        path: "chauffeur",
-                        select: "nom prenom"
-                    }
-                })
                 .sort({ createdAt: -1 })
                 .skip(skip)
-                .limit(limit),
+                .limit(limit)
+                .lean(),
             Litige.countDocuments()
         ]);
+
+        // Récupérer les IDs valides uniquement
+        const resIds = litiges.map(l => l.reservation ? l.reservation.toString() : null).filter(Boolean);
+        const reservationIds = [...new Set(resIds)];
+
+        // Charger réservations et paiements en bloc (Mongoose gère automatiquement le tableau)
+        const [reservations, paiements] = await Promise.all([
+            Reservation.find({ _id: reservationIds }).populate("chauffeur", "nom prenom").lean(),
+            Paiement.find({ reservation: reservationIds }).populate("chauffeur", "nom prenom").lean()
+        ]);
+
+        const driverMap = {};
+        reservationIds.forEach(id => {
+            const sid = id.toString();
+            const r = reservations.find(res => res._id.toString() === sid);
+            if (r && r.chauffeur) {
+                driverMap[sid] = `${r.chauffeur.prenom || ""} ${r.chauffeur.nom || ""}`.trim() || "Chauffeur";
+            } else {
+                const p = paiements.find(paie => paie.reservation.toString() === sid);
+                if (p && p.chauffeur) {
+                    driverMap[sid] = `${p.chauffeur.prenom || ""} ${p.chauffeur.nom || ""}`.trim() || "Chauffeur";
+                }
+            }
+        });
+
         return res.json({
             succes: true,
             pagination: {
@@ -78,21 +98,22 @@ exports.listeLitiges = async (req, res) => {
                 limit,
                 totalPages: Math.ceil(total / limit)
             },
-            litiges: litiges.map(l => ({
-                identifiant: l.id,
-                reference: l.reference || `DIS-${l._id.toString().slice(-6).toUpperCase()}`,
-                date: l.createdAt,
-                utilisateurs: {
-                    passager: l.passager
-                        ? `${l.passager.prenom} ${l.passager.nom}`
-                        : null,
-                    chauffeur: l.reservation?.chauffeur
-                        ? `${l.reservation.chauffeur.prenom} ${l.reservation.chauffeur.nom}`
-                        : null
-                },
-                type: l.type,
-                statut: l.statut
-            }))
+            litiges: litiges.map(l => {
+                const sid = l.reservation ? l.reservation.toString() : null;
+                return {
+                    identifiant: l.id || l._id,
+                    reference: l.reference || `DIS-${l._id.toString().slice(-6).toUpperCase()}`,
+                    date: l.createdAt,
+                    utilisateurs: {
+                        passager: l.passager
+                            ? `${l.passager.prenom || ""} ${l.passager.nom || ""}`.trim()
+                            : "Inconnu",
+                        chauffeur: sid && driverMap[sid] ? driverMap[sid] : "Non assigné"
+                    },
+                    type: l.type,
+                    statut: l.statut
+                };
+            })
         });
 
     } catch (error) {
@@ -110,19 +131,35 @@ exports.detailsLitige = async (req, res) => {
         const { litigeId } = req.params;
         const litige = await Litige.findById(litigeId)
             .populate("passager", "nom prenom")
-            .populate({
-                path: "reservation",
-                populate: {
-                    path: "chauffeur",
-                    select: "nom prenom"
-                }
-            });
+            .lean(); // Utilisation de lean pour avoir l'ID brut de reservation si ref cassée
+
         if (!litige) {
-            return res.status(404).json({
-                succes: false,
-                message: "Litige introuvable"
-            });
+            return res.status(404).json({ succes: false, message: "Litige introuvable" });
         }
+
+        const resId = litige.reservation;
+        let chauffeurName = "Non assigné";
+        let tripData = { depart: "N/A", destination: "N/A" };
+
+        if (resId) {
+            // 1. Essayer de charger la réservation
+            const r = await Reservation.findById(resId).populate("chauffeur", "nom prenom").lean();
+            if (r) {
+                tripData = { depart: r.depart || "N/A", destination: r.destination || "N/A" };
+                if (r.chauffeur) {
+                    chauffeurName = `${r.chauffeur.prenom || ""} ${r.chauffeur.nom || ""}`.trim() || "Chauffeur";
+                }
+            }
+
+            // 2. Si pas de chauffeur, essayer via le paiement
+            if (chauffeurName === "Non assigné") {
+                const p = await Paiement.findOne({ reservation: resId }).populate("chauffeur", "nom prenom").lean();
+                if (p && p.chauffeur) {
+                    chauffeurName = `${p.chauffeur.prenom || ""} ${p.chauffeur.nom || ""}`.trim() || "Chauffeur";
+                }
+            }
+        }
+
         return res.json({
             succes: true,
             litige: {
@@ -139,17 +176,15 @@ exports.detailsLitige = async (req, res) => {
                     description: litige.description,
                     dateCreation: litige.createdAt,
                     message: "===Trajets===",
-                    Depart: litige.reservation?.depart || "N/A",
-                    Destination: litige.reservation?.destination || "N/A",
+                    Depart: tripData.depart,
+                    Destination: tripData.destination,
                 },
 
                 partiesConcernees: {
                     passager: litige.passager
                         ? `${litige.passager.prenom} ${litige.passager.nom}`
                         : null,
-                    chauffeur: litige.reservation?.chauffeur
-                        ? `${litige.reservation.chauffeur.prenom} ${litige.reservation.chauffeur.nom}`
-                        : null
+                    chauffeur: chauffeurName
                 },
                 historique: [
                     {
