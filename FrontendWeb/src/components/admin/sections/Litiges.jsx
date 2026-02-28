@@ -20,7 +20,6 @@ import Tabs from '../ui/Tabs';
 import ChartCard from '../ui/ChartCard';
 import ConfirmModal from '../ui/ConfirmModal';
 import Pagination from '../ui/Pagination';
-import Toast from '../ui/Toast';
 import Modal from '../ui/Modal';
 import ExportDropdown from '../ui/ExportDropdown';
 import { apiClient } from '../../../services/apiClient';
@@ -111,7 +110,7 @@ const TableActions = ({ dispute, onView, onResolve, onReject, onDelete }) => {
   );
 };
 
-const Disputes = () => {
+const Disputes = ({ showToast }) => {
   const { t } = useTranslation();
   // États
   const [disputes, setDisputes] = useState([]);
@@ -130,7 +129,6 @@ const Disputes = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
-  const [toast, setToast] = useState({ show: false, title: '', message: '', type: 'success' });
   const [isMobile, setIsMobile] = useState(false);
   const { addNotification } = useNotificationCenter();
 
@@ -160,7 +158,7 @@ const Disputes = () => {
       const [statsRes, listRes, repartitionRes] = await Promise.all([
         apiClient.get(API_ROUTES.admin.litiges.stats),
         apiClient.get(API_ROUTES.admin.litiges.list, {
-          params: { page: currentPage, limit: pageSize, search, status: statusFilter, type: typeFilter }
+          params: { page: currentPage, limit: pageSize, search, status: statusFilter, type: activeTab !== 'all' ? activeTab : typeFilter }
         }),
         apiClient.get(API_ROUTES.admin.litiges.repartitionTypes, { params: { period } })
       ]);
@@ -192,7 +190,7 @@ const Disputes = () => {
           title: l.type === "PAIEMENT" ? "Paiement non reçu" : "Litige signalé",
           description: l.description || "Aucune description",
           type: l.type.toLowerCase(),
-          amount: 0, // Le backend listeLitiges ne renvoie pas encore amount
+          amount: l.montant || 0,
           users: {
             passenger: l.utilisateurs.passager || "Inconnu",
             driver: l.utilisateurs.chauffeur || "Non assigné",
@@ -269,7 +267,7 @@ const Disputes = () => {
 
   // Configuration des colonnes pour l'exportation
   const exportColumns = useMemo(() => [
-    { header: 'ID', accessor: 'id' },
+    { header: 'N°', accessor: 'index', formatter: (_, __, index) => index + 1 },
     { header: 'Date', accessor: 'date' },
     { header: 'Titre', accessor: 'title' },
     { header: 'Description', accessor: 'description' },
@@ -285,11 +283,9 @@ const Disputes = () => {
         return typeMap[value] || value;
       }
     },
-    { header: 'Montant', accessor: 'amount', formatter: (value) => `${value.toLocaleString('fr-FR')} GNF` },
+    { header: 'Montant', accessor: 'amount', formatter: (value) => `${(value || 0).toLocaleString('fr-FR')} GNF` },
     { header: 'Passager', accessor: 'users.passenger' },
-    { header: 'ID Passager', accessor: 'users.passengerId' },
     { header: 'Chauffeur', accessor: 'users.driver' },
-    { header: 'ID Chauffeur', accessor: 'users.driverId' },
     {
       header: 'Priorité', accessor: 'priority', formatter: (value) => {
         const priorityMap = {
@@ -312,10 +308,7 @@ const Disputes = () => {
         };
         return statusMap[value] || value;
       }
-    },
-    { header: 'Agent', accessor: 'agent', formatter: (value) => value || 'Non assigné' },
-    { header: 'ID Trajet', accessor: 'tripId' },
-    { header: 'Lieu', accessor: 'location' }
+    }
   ], []);
 
   // Handlers
@@ -411,12 +404,7 @@ const Disputes = () => {
   };
 
 
-  const showToast = (title, message, type = 'success') => {
-    setToast({ show: true, title, message, type });
-    setTimeout(() => {
-      setToast(prev => ({ ...prev, show: false }));
-    }, 5000);
-  };
+
 
   const handleViewDetails = async (dispute) => {
     setModalState(prev => ({ ...prev, loading: true }));
@@ -495,10 +483,10 @@ const Disputes = () => {
   // Configuration des tabs
   const disputeTabs = [
     { id: 'all', label: t('common.all', 'Tous'), icon: AlertTriangle },
-    { id: 'payment', label: t('nav.paiements', 'Paiements'), icon: DollarSign },
-    { id: 'driving', label: t('disputes.driving', 'Conduite'), icon: Car },
-    { id: 'delay', label: t('disputes.delay', 'Retards'), icon: Clock },
-    { id: 'vehicle', label: t('drivers.vehicle', 'Véhicules'), icon: Car },
+    { id: 'paiement', label: t('nav.paiements', 'Paiements'), icon: DollarSign },
+    { id: 'trajet', label: t('trips.trajet', 'Trajet'), icon: Car },
+    { id: 'comportement', label: t('disputes.behavior', 'Comportement'), icon: User },
+    { id: 'accident', label: t('disputes.accident', 'Accident'), icon: AlertTriangle },
   ];
 
   // Helper pour afficher le statut
@@ -537,14 +525,18 @@ const Disputes = () => {
   // Helper pour afficher le type
   const renderType = (type) => {
     const config = {
-      payment: { label: 'Paiement', icon: CreditCard, color: 'blue' },
-      driving: { label: 'Conduite', icon: Car, color: 'red' },
-      delay: { label: 'Retard', icon: Clock, color: 'yellow' },
-      vehicle: { label: 'Véhicule', icon: Car, color: 'green' },
-      behavior: { label: 'Comportement', icon: User, color: 'purple' }
+      paiement: { label: t('nav.paiements', 'Paiement'), icon: CreditCard, color: 'blue' },
+      comportement: { label: t('disputes.behavior', 'Comportement'), icon: User, color: 'purple' },
+      trajet: { label: t('trips.trajet', 'Trajet'), icon: MapPin, color: 'emerald' },
+      accident: { label: t('disputes.accident', 'Accident'), icon: AlertTriangle, color: 'red' },
+      agression: { label: t('disputes.agression', 'Agression'), icon: Shield, color: 'red' },
+      urgence_medicale: { label: t('disputes.medical', 'Urgence Médicale'), icon: AlertTriangle, color: 'red' },
+      danger: { label: t('disputes.danger', 'Danger'), icon: AlertTriangle, color: 'orange' },
+      autre: { label: t('common.other', 'Autre'), icon: FileText, color: 'gray' }
     };
 
-    const { label, icon: Icon, color } = config[type] || config.payment;
+    const fallback = { label: type || 'Inconnu', icon: FileText, color: 'gray' };
+    const { label, icon: Icon, color } = config[type] || fallback;
     return (
       <Badge className='bg-gray-200 dark:bg-gray-800'>
         <Icon className={`w-3 h-3 mr-1 text-${color}-500`} />
@@ -750,10 +742,6 @@ const Disputes = () => {
                 <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Trajet concerné</h3>
                 <div className="bg-gray-50 dark:bg-gray-900/40 rounded-lg p-3">
                   <div className="flex items-center justify-center mb-2 gap-10">
-                    <div className="flex items-center">
-                      <div className='text-xm text-gray-500 dark:text-gray-400'> ID:
-                        <p className="font-medium"> {dispute.tripId}</p></div>
-                    </div>
                     <div className='text-gray-900 dark:text-gray-100 text-sm font-medium'>Depart <p>Mamou</p></div>
                     <div className='text-gray-900 dark:text-gray-100 text-sm font-medium'>Destination <p>Kankan</p></div>
                   </div>
@@ -771,7 +759,6 @@ const Disputes = () => {
                       <span className="font-medium">Passager</span>
                     </div>
                     <p className="text-sm font-medium">{dispute.users.passenger}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{dispute.users.passengerId}</p>
                   </div>
                   <div className="bg-blue-50 dark:bg-blue-900/40 rounded-lg p-3">
                     <div className="flex items-center mb-2">
@@ -779,7 +766,6 @@ const Disputes = () => {
                       <span className="font-medium">Chauffeur</span>
                     </div>
                     <p className="text-sm font-medium">{dispute.users.driver}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{dispute.users.driverId}</p>
                   </div>
                 </div>
               </div>
@@ -857,15 +843,7 @@ const Disputes = () => {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      {/* Toast Notification */}
-      {toast.show && (
-        <Toast
-          title={toast.title}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(prev => ({ ...prev, show: false }))}
-        />
-      )}
+
 
       {/* Modales de confirmation */}
       <ConfirmModal
@@ -1004,15 +982,19 @@ const Disputes = () => {
             value={typeFilter}
             onChange={(e) => {
               setTypeFilter(e.target.value);
+              setActiveTab('all');
               setCurrentPage(1);
             }}
           >
             <option value="all">{t('common.categories', 'Types')}</option>
-            <option value="payment">{t('nav.paiements', 'Paiement')}</option>
-            <option value="driving">{t('disputes.driving', 'Conduite')}</option>
-            <option value="delay">{t('disputes.delay', 'Retard')}</option>
-            <option value="vehicle">{t('drivers.vehicle', 'Véhicule')}</option>
-            <option value="behavior">{t('disputes.behavior', 'Comportement')}</option>
+            <option value="paiement">{t('nav.paiements', 'Paiement')}</option>
+            <option value="comportement">{t('disputes.behavior', 'Comportement')}</option>
+            <option value="trajet">{t('trips.trajet', 'Trajet')}</option>
+            <option value="accident">{t('disputes.accident', 'Accident')}</option>
+            <option value="agression">{t('disputes.agression', 'Agression')}</option>
+            <option value="urgence_medicale">{t('disputes.medical', 'Urgence Médicale')}</option>
+            <option value="danger">{t('disputes.danger', 'Danger')}</option>
+            <option value="autre">{t('common.other', 'Autre')}</option>
           </select>
 
           <select
@@ -1040,6 +1022,7 @@ const Disputes = () => {
             activeTab={activeTab}
             onChange={(tab) => {
               setActiveTab(tab);
+              setTypeFilter('all');
               setCurrentPage(1);
             }}
             className="px-2 md:px-4"

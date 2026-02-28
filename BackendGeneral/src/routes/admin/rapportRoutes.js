@@ -170,4 +170,11 @@ router.delete(
     rapportController.supprimerRapport
 );
 
+router.patch(
+    "/rapports/:rapportId/download",
+    verifierToken,
+    autoriserRoles("ADMIN"),
+    rapportController.incrementerTelechargement
+);
+
 module.exports = router;

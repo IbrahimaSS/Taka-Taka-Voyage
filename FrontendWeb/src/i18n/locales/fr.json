@@ -1,5 +1,9 @@
 {
+    "service": "Service",
     "common": {
+        "service": "Service",
+        "email": "E-mail",
+        "rating": "Note",
         "welcome": "Bienvenue sur Taka-Taka",
         "loading": "Chargement...",
         "error": "Une erreur est survenue",
@@ -148,7 +152,15 @@
         "show": "Afficher",
         "try_modifying_filters": "Essayez de modifier vos filtres ou votre recherche",
         "me": "Vous",
-        "my_vehicle": "Votre véhicule"
+        "my_vehicle": "Votre véhicule",
+        "export": "Exporter",
+        "expand": "Développer",
+        "collapse": "Réduire",
+        "period": "Période",
+        "export_pdf": "Export PDF",
+        "export_csv": "Export CSV",
+        "export_excel": "Export Excel",
+        "export_word": "Export Word"
     },
     "drivers": {
         "title": "Gestion des Chauffeurs",
@@ -174,6 +186,7 @@
         "details_title": "Détails du chauffeur",
         "trips_completed_text": "trajets effectués",
         "documents_title": "Documents du chauffeur",
+        "vehicle_type": "Type de véhicule",
         "license": "Permis",
         "insurance": "Assurance",
         "reg_card": "Carte grise",
@@ -514,6 +527,7 @@
     "payments": {
         "title": "Gestion des Paiements",
         "subtitle": "Suivez les flux financiers et gérez les transactions",
+        "invoice_id": "N° Facture",
         "total_revenue": "Revenus totaux",
         "total_payments": "Total paiements",
         "platform_commission": "Commission plateforme",

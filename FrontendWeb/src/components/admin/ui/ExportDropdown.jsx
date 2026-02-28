@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Download, ChevronDown, FileSpreadsheet, FileText, FilePen, Printer, Share2 } from "lucide-react";
 import Button from "../ui/Bttn";
 import { exportToCSV, exportToPDF, exportToWord } from "../../../utils/exporters";
+import { useSettings } from "../../../context/SettingsContext";
 
 /**
  * Dropdown export réutilisable (CSV, Word, PDF)
@@ -27,9 +28,12 @@ export default function ExportDropdown({
     [data, columns]
   );
 
+  const { settings } = useSettings();
+  const platform = settings?.platform || {};
+
   const payload = useMemo(
-    () => ({ data, columns, fileName, title, orientation, onToast: showToast }),
-    [data, columns, fileName, title, orientation, showToast]
+    () => ({ data, columns, fileName, title, orientation, platform, onToast: showToast }),
+    [data, columns, fileName, title, orientation, platform, showToast]
   );
 
   useEffect(() => {

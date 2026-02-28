@@ -34,8 +34,8 @@ export function useGeolocation(options = {}) {
                 setLocation(prev => {
                     // Only update if coordinates changed significantly to save renders
                     if (!prev ||
-                        Math.abs(prev.lat - pos.lat) > 0.00001 ||
-                        Math.abs(prev.lng - pos.lng) > 0.00001) {
+                        Math.abs(prev.lat - pos.lat) > 0.000001 ||
+                        Math.abs(prev.lng - pos.lng) > 0.000001) {
                         return pos;
                     }
                     return prev;

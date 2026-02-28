@@ -123,7 +123,7 @@ const MaintenanceBanner = () => {
                             border: '1px solid rgba(255,255,255,0.1)',
                         }}>
                             <span style={{ fontSize: '13px', color: '#a0a0c0', fontWeight: '600' }}>
-                                🚖 Taka Taka Voyage
+                                🚖 Taka Taka
                             </span>
                         </div>
 

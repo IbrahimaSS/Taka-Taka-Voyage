@@ -70,6 +70,26 @@ router.get(
 
 /**
  * @swagger
+ * /api/admin/paiements/repartition-type:
+ *   get:
+ *     summary: Obtenir la répartition des revenus par type de véhicule
+ *     tags: [4 - Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Répartition par type de véhicule
+ */
+//Répartition par type de véhicule
+router.get(
+    "/repartition-type",
+    verifierToken,
+    autoriserRoles("ADMIN"),
+    paiementController.repartitionRevenusParType
+);
+
+/**
+ * @swagger
  * /api/admin/paiements:
  *   get:
  *     summary: Obtenir la liste de tous les paiements

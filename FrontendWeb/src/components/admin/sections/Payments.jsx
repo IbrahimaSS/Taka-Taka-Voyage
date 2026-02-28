@@ -43,6 +43,7 @@ import { useTranslation } from 'react-i18next';
 import { adminService } from '../../../services/adminService';
 import PremiumInvoice from '../ui/PremiumInvoice';
 import ExportDropdown from '../ui/ExportDropdown';
+import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -107,9 +108,9 @@ const mapBackendPaymentToFrontend = (p) => {
       rating: chauffeur.noteMoyenne ? chauffeur.noteMoyenne.toFixed(1) : '-',
       vehicle: chauffeur.vehicule
         ? (typeof chauffeur.vehicule === 'object'
-          ? `${chauffeur.vehicule.marque || ''} ${chauffeur.vehicule.modele || ''}`.trim() || chauffeur.vehicule.marque || chauffeur.vehicule.modele || '-'
+          ? `${chauffeur.vehicule.marque || ''} ${chauffeur.vehicule.modele || ''}`.trim() || chauffeur.vehicule.marque || chauffeur.vehicule.modele || r.typeVehicule || '-'
           : chauffeur.vehicule)
-        : '-',
+        : (r.typeVehicule || '-'),
       account: chauffeur.email || chauffeur.telephone || '-',
       photo: chauffeur.photoUrl || null
     },
@@ -396,7 +397,7 @@ const Avatar = ({ name, photoUrl, type = 'passenger', size = 'w-8 h-8', classNam
 // TODO API (admin/paiements):
 // Remplacer les donnees simulees et les actions locales par des appels backend
 // Exemple: GET API_ROUTES.payments.list, POST API_ROUTES.payments.confirm
-const Payments = () => {
+const Payments = ({ showToast }) => {
   const { t } = useTranslation();
   // États principaux
   const [payments, setPayments] = useState([]);
@@ -406,6 +407,7 @@ const Payments = () => {
   const [timeRange, setTimeRange] = useState('30j');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [methodFilter, setMethodFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [archiveFilter, setArchiveFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState('');
@@ -474,7 +476,7 @@ const Payments = () => {
   // États pour les modales et notifications
   // Configuration des colonnes pour l'exportation
   const exportColumns = useMemo(() => [
-    { header: t('payments.invoice_id'), accessor: 'invoiceNumber' },
+    { header: "N°", accessor: (p, i) => i + 1 },
     { header: t('trips.passenger'), accessor: (p) => p.passenger.name },
     { header: t('trips.driver'), accessor: (p) => p.driver.name },
     { header: t('payments.amount'), accessor: 'amount' },
@@ -494,8 +496,6 @@ const Payments = () => {
     selectedFormat: 'pdf',
     loading: false
   });
-
-  const [toast, setToast] = useState({ show: false, title: '', message: '', type: 'success' });
 
   // Détection de la taille d'écran
   useEffect(() => {
@@ -747,18 +747,26 @@ const Payments = () => {
 
       const matchesStatus = paymentFilter === 'all' || payment.status === paymentFilter;
       const matchesMethod = methodFilter === 'all' || payment.method === methodFilter;
-      const matchesArchive =
-        archiveFilter === 'all' ||
+      const matchesType = typeFilter === 'all' ||
+        (payment.trip.vehicleType && payment.trip.vehicleType.toUpperCase() === typeFilter.toUpperCase());
+      const matchesArchive = archiveFilter === 'all' ||
         (archiveFilter === 'archived' && payment.archived) ||
         (archiveFilter === 'not-archived' && !payment.archived);
 
-      const matchesDate =
-        (!dateRange.start || payment.date >= dateRange.start) &&
-        (!dateRange.end || payment.date <= dateRange.end);
+      // Filtre date
+      let matchesDate = true;
+      if (dateRange.start) {
+        matchesDate = matchesDate && new Date(payment.rawDate) >= new Date(dateRange.start);
+      }
+      if (dateRange.end) {
+        const endDate = new Date(dateRange.end);
+        endDate.setHours(23, 59, 59, 999);
+        matchesDate = matchesDate && new Date(payment.rawDate) <= endDate;
+      }
 
-      return matchesSearch && matchesStatus && matchesMethod && matchesArchive && matchesDate;
+      return matchesSearch && matchesStatus && matchesMethod && matchesType && matchesArchive && matchesDate;
     });
-  }, [payments, search, paymentFilter, methodFilter, archiveFilter, dateRange]);
+  }, [payments, search, paymentFilter, methodFilter, typeFilter, archiveFilter, dateRange]);
 
   // Pagination
   const paginatedPayments = useMemo(() => {
@@ -799,7 +807,10 @@ const Payments = () => {
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(22);
           doc.setFont("helvetica", "bold");
-          doc.text("Taka Taka Voyage", 14, 13);
+          doc.text("Taka Taka", 14, 12);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "normal");
+          doc.text("Votre transport, notre confort", 14, 17);
   
           doc.setFontSize(10);
           doc.setFont("helvetica", "normal");
@@ -808,7 +819,7 @@ const Payments = () => {
           // --- Info Entreprise (en haut à droite) ---
           doc.setTextColor(50, 50, 50);
           doc.setFontSize(10);
-          doc.text("Taka Taka Voyage SARL", 150, 35);
+          doc.text("Taka Taka SARL", 150, 35);
           doc.text("Conakry, Guinée", 150, 40);
           doc.text("contact@takataka.com", 150, 45);
           doc.text("+224 620 00 00 00", 150, 50);
@@ -911,7 +922,7 @@ const Payments = () => {
           const pageHeight = doc.internal.pageSize.height;
           doc.setFontSize(8);
           doc.setTextColor(150, 150, 150);
-          doc.text("Ce document est une preuve de paiement générée électroniquement par la plateforme Taka Taka Voyage.", 105, pageHeight - 15, { align: 'center' });
+          doc.text("Ce document est une preuve de paiement générée électroniquement par la plateforme Taka Taka.", 105, pageHeight - 15, { align: 'center' });
           doc.text("Merci de votre confiance.", 105, pageHeight - 10, { align: 'center' });
   
           // Sauvegarde
@@ -941,71 +952,27 @@ const Payments = () => {
   };
 
   const handleExportPayment = (payment, format) => {
-    showToast('Export', `Exportation du paiement en ${format.toUpperCase()}...`, 'info');
+    const data = [payment];
+    const fileName = `paiement_${payment.id}`;
+    const title = t('payments.details_title');
 
-    setTimeout(() => {
-      const content = `Paiement: ${payment.id}\nMontant: ${payment.amount}\nPassager: ${payment.passenger.name}\nDate: ${payment.date}`;
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Paiement_${payment.id}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+    const options = {
+      data,
+      columns: exportColumns,
+      fileName,
+      title,
+      onToast: (t, m, s) => showToast(t, m, s)
+    };
 
-      showToast('Export réussi', `Le paiement a été exporté en ${format.toUpperCase()}`, 'success');
-    }, 1000);
-  };
-
-  const handleBulkExport = (format) => {
-    if (selectedPayments.length === 0) {
-      showToast('Aucun paiement sélectionné', 'Veuillez sélectionner au moins un paiement', 'warning');
-      return;
+    switch (format) {
+      case 'csv': exportToCSV(options); break;
+      case 'pdf': exportToPDF(options); break;
+      case 'word':
+      case 'doc':
+        exportToWord(options);
+        break;
+      default: exportToPDF(options);
     }
-
-    showToast('Export', `Exportation de ${selectedPayments.length} paiements en ${format}...`, 'info');
-
-    setTimeout(() => {
-      const data = selectedPayments.map(id => {
-        const payment = payments.find(p => p.id === id);
-        return {
-          id: payment.id,
-          amount: payment.amount,
-          passenger: payment.passenger.name,
-          driver: payment.driver.name,
-          status: payment.status,
-          date: payment.date
-        };
-      });
-
-      let blob, filename;
-      if (format === 'csv') {
-        const csv = [
-          ['ID', 'Montant', 'Passager', 'Chauffeur', 'Statut', 'Date'],
-          ...data.map(p => [p.id, p.amount, p.passenger, p.driver, p.status, p.date])
-        ].map(row => row.join(';')).join('\n');
-
-        blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        filename = `paiements_${new Date().toISOString().split('T')[0]}.csv`;
-      } else if (format === 'json') {
-        blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        filename = `paiements_${new Date().toISOString().split('T')[0]}.json`;
-      } else {
-        // PDF simulation
-        showToast('Export PDF', 'Génération du PDF en cours...', 'success');
-        return;
-      }
-
-      if (blob) {
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        link.click();
-        showToast('Export réussi', `${selectedPayments.length} paiements exportés`, 'success');
-      }
-    }, 1500);
   };
 
   const handleSelectPayment = (paymentId, checked) => {
@@ -1022,13 +989,6 @@ const Payments = () => {
     } else {
       setSelectedPayments([]);
     }
-  };
-
-  const showToast = (title, message, type = 'success') => {
-    setToast({ show: true, title, message, type });
-    setTimeout(() => {
-      setToast(prev => ({ ...prev, show: false }));
-    }, 5000);
   };
 
   const handleAction = (action, payment, format = null) => {
@@ -1108,9 +1068,9 @@ const Payments = () => {
           {/* En-tête */}
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">{t('payments.id') || 'Transaction'} {payment.id}</h2>
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">{payment.id}</h2>
               <p className="text-gray-600 dark:text-gray-300 mt-1">
-                {t('payments.reference')}: {payment.reference} • {payment.date} {t('common.at') || 'à'} {payment.time}
+                {t('payments.reference')}: {payment.reference} • {payment.date} à {payment.time}
               </p>
               <div className="flex items-center mt-2 space-x-2">
                 {getStatusBadge(payment.status)}
@@ -1173,8 +1133,8 @@ const Payments = () => {
                     </div>
                   </div>
                   <div className="text-sm">
-                    <p className="text-gray-500 dark:text-gray-400">{t('common.email')}: {payment.passenger.email}</p>
-                    <p className="text-gray-500 dark:text-gray-400">{t('common.rating') || 'Note'}: {payment.passenger.rating}/5</p>
+                    <p className="text-gray-500 dark:text-gray-400"><span className="font-medium">{t('common.email') || 'E-mail'}:</span> {payment.passenger.email || '-'}</p>
+                    <p className="text-gray-500 dark:text-gray-400"><span className="font-medium">{t('common.rating') || 'Note'}:</span> {payment.passenger.rating}/5</p>
                   </div>
                 </div>
               </CardContent>
@@ -1200,8 +1160,13 @@ const Payments = () => {
                     </div>
                   </div>
                   <div className="text-sm">
-                    <p className="text-gray-500 dark:text-gray-400">{t('drivers.vehicle')}: {payment.driver.vehicle}</p>
-                    <p className="text-gray-500 dark:text-gray-400">{t('common.rating') || 'Note'}: {payment.driver.rating !== '-' ? `${payment.driver.rating}/5` : t('common.not_rated') || 'Non noté'}</p>
+                    <p className="text-gray-500 dark:text-gray-400"><span className="font-medium">{t('drivers.vehicle', 'Véhicule')}:</span> {
+                      payment.trip.vehicleType === 'MOTO' || payment.trip.vehicleType === 'MOTO_TAXI' ? t('services.moto_taxi', 'Moto-taxi') :
+                        payment.trip.vehicleType === 'TAXI' || payment.trip.vehicleType === 'TAXI_PARTAGE' ? t('services.taxi_partage', 'Taxi partagé') :
+                          payment.trip.vehicleType === 'PARTICULIER' || payment.trip.vehicleType === 'VOITURE_PRIVEE' ? t('services.voiture_privee', 'Voiture privée') :
+                            payment.trip.vehicleType
+                    }</p>
+                    <p className="text-gray-500 dark:text-gray-400"><span className="font-medium">{t('common.rating', 'Note')}:</span> {payment.driver.rating !== '-' ? `${payment.driver.rating}/5` : t('common.not_rated', 'Non noté')}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1330,15 +1295,7 @@ const Payments = () => {
 
   return (
     <div className="space-y-4 md:space-y-6 px-2 md:px-0">
-      {/* Toast Notification */}
-      {toast.show && (
-        <Toast
-          title={toast.title}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(prev => ({ ...prev, show: false }))}
-        />
-      )}
+
 
       {/* Modales */}
       <div key="modals-container">
@@ -1522,7 +1479,7 @@ const Payments = () => {
               setPaymentFilter(e.target.value);
               setCurrentPage(1);
             }}>
-            <option value="all">{t('common.all_status')}</option>
+            <option value="all">{t('common.all_status', 'Tous les statuts')}</option>
             <option value="paid">{t('history.status.completed')}</option>
             <option value="pending">{t('history.status.pending')}</option>
             <option value="failed">{t('history.status.cancelled')}</option>
@@ -1543,11 +1500,24 @@ const Payments = () => {
             <option value="card">{t('payments.card')}</option>
           </select>
 
+          <select
+            className="border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl px-4 py-3 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition text-sm md:text-base"
+            value={typeFilter}
+            onChange={(e) => {
+              setTypeFilter(e.target.value);
+              setCurrentPage(1);
+            }}>
+            <option value="all">{t('common.all_types', 'Tous les types')}</option>
+            <option value="MOTO_TAXI">{t('services.moto_taxi', 'Moto-taxi')}</option>
+            <option value="TAXI_PARTAGE">{t('services.taxi_partage', 'Taxi partagé')}</option>
+            <option value="VOITURE_PRIVEE">{t('services.voiture_privee', 'Voiture privée')}</option>
+          </select>
+
 
 
           <div className="col-span-2 grid grid-cols-2 gap-4 ">
             <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">{t('common.from') || 'Du'}</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">{t('common.from', 'Du')}</label>
               <input
                 type="date"
                 value={dateRange.start}
@@ -1556,7 +1526,7 @@ const Payments = () => {
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">{t('common.to') || 'Au'}</label>
+              <label className="block text-sm text-gray-600 dark:text-gray-300 mb-2">{t('common.to', 'Au')}</label>
               <input
                 type="date"
                 value={dateRange.end}
@@ -1590,13 +1560,13 @@ const Payments = () => {
             <div>
               <CardTitle>{t('payments.transactions')} ({filteredPayments.length})</CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {selectedPayments.length > 0 && `${selectedPayments.length} ${t('common.selected') || 'sélectionné(s)'} • `}
-                {t('common.showing_n_of_m', { n: paginatedPayments.length, m: filteredPayments.length }) || `${paginatedPayments.length} affiché(s) sur ${filteredPayments.length}`}
+                {selectedPayments.length > 0 && `${selectedPayments.length} ${t('common.selected', 'sélectionné(s)')} • `}
+                {t('common.showing_n_of_m', { n: paginatedPayments.length, m: filteredPayments.length, defaultValue: `${paginatedPayments.length} affiché(s) sur ${filteredPayments.length}` })}
               </p>
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto">
-              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{t('common.show')}:</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{t('common.show', 'Afficher')}:</span>
               <select
                 className="border border-gray-200 dark:bg-gray-900/40 dark:border-gray-800 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-green-400 transition w-full md:w-auto"
                 value={pageSize}
@@ -1632,8 +1602,10 @@ const Payments = () => {
                 t('trips.passenger'),
                 t('trips.driver'),
                 t('trips.route'),
+                t('service', 'Service'),
+                t('payments.method', 'Mode'),
                 t('trips.amount'),
-                t('common.status'),
+                t('common.status', 'Statut'),
                 t('trips.actions')
               ]}>
               {paginatedPayments.map((payment) => (
@@ -1662,11 +1634,21 @@ const Payments = () => {
                     <div className="text-xs text-gray-600 dark:text-gray-300">{payment.date}</div>
                   </TableCell>
                   <TableCell>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+                      {payment.trip.vehicleType === 'MOTO' || payment.trip.vehicleType === 'MOTO_TAXI' ? t('services.moto_taxi', 'Moto-taxi') :
+                        payment.trip.vehicleType === 'TAXI' || payment.trip.vehicleType === 'TAXI_PARTAGE' ? t('services.taxi_partage', 'Taxi partagé') :
+                          payment.trip.vehicleType === 'PARTICULIER' || payment.trip.vehicleType === 'VOITURE_PRIVEE' ? t('services.voiture_privee', 'Voiture privée') :
+                            payment.trip.vehicleType}
+                    </span>
+                  </TableCell>
+                  <TableCell>
                     {getMethodBadge(payment.method)}
                   </TableCell>
                   <TableCell>
                     <div className="font-bold text-gray-800 dark:text-gray-100">{payment.amount}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400"> {getStatusBadge(payment.status)}</div>
+                  </TableCell>
+                  <TableCell>
+                    {getStatusBadge(payment.status)}
                   </TableCell>
 
                   <TableCell>
@@ -1700,7 +1682,7 @@ const Payments = () => {
           {paginatedPayments.length === 0 && (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">{t('payments.no_payment_found') || 'Aucune transaction trouvée'}</p>
+              <p className="text-gray-500 dark:text-gray-400">{t('payments.no_payment_found', 'Aucune transaction trouvée')}</p>
               <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
                 {t('common.try_modifying_filters')}
               </p>

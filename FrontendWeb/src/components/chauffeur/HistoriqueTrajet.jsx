@@ -176,17 +176,27 @@ function HistoriqueTrajet({ chauffeurId = null }) {
       </div>
 
       {historyTrips.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center bg-white dark:bg-gray-800 rounded-3xl p-16 shadow-sm border border-gray-100 dark:border-gray-700"
-        >
-          <div className="w-20 h-20 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Navigation className="w-10 h-10 text-gray-300" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white">{t('history.no_trips_found')}</h3>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">{t('history.no_trips_found_desc')}</p>
-        </motion.div>
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 rounded-2xl p-6 text-center shadow-sm"
+          >
+            <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
+            <h3 className="text-3xl font-black text-emerald-700 dark:text-emerald-400">0</h3>
+            <p className="text-sm font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wider">{t('history.completed_services', 'Trajets terminés')}</p>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 rounded-2xl p-6 text-center shadow-sm"
+          >
+            <XCircle className="w-12 h-12 text-red-500 mx-auto mb-2" />
+            <h3 className="text-3xl font-black text-red-700 dark:text-red-400">0</h3>
+            <p className="text-sm font-bold text-red-600 dark:text-red-500 uppercase tracking-wider">{t('history.cancelled_services_full', 'Trajets annulés')}</p>
+          </motion.div>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6">

@@ -55,7 +55,7 @@ const Navbar = () => {
                   {platform.name || 'TAKATAKA'}
                 </span>
                 <span className="block text-xs text-slate-500 dark:text-slate-400">
-                  {platform.tagline || 'Mobilité & Logistique'}
+                  {platform.tagline || 'Votre transport, notre confort'}
                 </span>
               </span>
             </button>

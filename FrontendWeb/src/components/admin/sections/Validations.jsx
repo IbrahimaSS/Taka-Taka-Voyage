@@ -10,7 +10,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import StatCard from '../layout/StatCard';
 import { adminService } from '../../../services/adminService';
-import toast from 'react-hot-toast';
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
 import Table, { TableRow, TableCell } from '../ui/Table';
 import Button from '../ui/Bttn';
@@ -28,10 +27,10 @@ const ExportMenu = ({ onExport }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const exportOptions = [
-    { format: 'pdf', label: t('common.export_pdf') || 'Exporter en PDF', icon: FileText, color: 'text-red-500' },
-    { format: 'csv', label: t('common.export_csv') || 'Exporter en CSV', icon: FileSpreadsheet, color: 'text-green-500' },
-    { format: 'excel', label: t('common.export_excel') || 'Exporter en Excel', icon: FileSpreadsheet, color: 'text-green-600' },
-    { format: 'doc', label: t('common.export_word') || 'Exporter en Word', icon: File, color: 'text-blue-500' },
+    { format: 'pdf', label: t('common.export_pdf', 'Exporter en PDF'), icon: FileText, color: 'text-red-500' },
+    { format: 'csv', label: t('common.export_csv', 'Exporter en CSV'), icon: FileSpreadsheet, color: 'text-green-500' },
+    { format: 'excel', label: t('common.export_excel', 'Exporter en Excel'), icon: FileSpreadsheet, color: 'text-green-600' },
+    { format: 'doc', label: t('common.export_word', 'Exporter en Word'), icon: File, color: 'text-blue-500' },
   ];
 
   return (
@@ -41,7 +40,7 @@ const ExportMenu = ({ onExport }) => {
         icon={Download}
         onClick={() => setIsOpen(!isOpen)}
       >
-        {t('common.export') || 'Exporter'}
+        {t('common.export', 'Exporter')}
       </Button>
 
       <AnimatePresence>
@@ -142,7 +141,7 @@ const AdvancedFilters = ({ filters, onFilterChange }) => {
           onClick={() => setExpanded(!expanded)}
           className="text-green-600 text-sm font-medium flex items-center"
         >
-          {expanded ? (t('common.collapse') || 'Réduire') : (t('common.expand') || 'Développer')}
+          {expanded ? t('common.collapse', 'Réduire') : t('common.expand', 'Développer')}
           <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </button>
       </div>
@@ -156,7 +155,7 @@ const AdvancedFilters = ({ filters, onFilterChange }) => {
         >
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              {t('drivers.vehicle_type') || 'Type de véhicule'}
+              {t('drivers.vehicle_type', 'Type de véhicule')}
             </label>
             <select
               className="w-full border border-gray-300 dark:border-gray-900 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm"
@@ -186,7 +185,7 @@ const AdvancedFilters = ({ filters, onFilterChange }) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              {t('common.period') || 'Période'}
+              {t('common.period', 'Période')}
             </label>
             <select
               className="w-full border border-gray-300 dark:border-gray-900 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm"
@@ -270,7 +269,7 @@ const TableActions = ({ driver, onView, onValidate, onReject }) => {
 // Remplacer les donnees simulees et les actions locales par des appels backend
 // Exemple: GET API_ROUTES.admin.validations, POST API_ROUTES.admin.validateDriver(id)
 
-const Validations = () => {
+const Validations = ({ showToast }) => {
   const { t, i18n } = useTranslation();
   // États pour la gestion des données
   const [search, setSearch] = useState('');
@@ -331,7 +330,7 @@ const Validations = () => {
       }
     } catch (error) {
       console.error("Erreur fetch pending:", error);
-      toast.error(t('validations.error_loading_requests') || "Erreur lors du chargement des demandes");
+      showToast(t('common.error'), t('validations.error_loading_requests') || "Erreur lors du chargement des demandes", 'error');
     } finally {
       setIsLoading(false);
     }
@@ -359,21 +358,21 @@ const Validations = () => {
   // Statistiques UI
   const stats = useMemo(() => [
     {
-      title: t('common.pending') || 'En attente',
+      title: t('common.pending', 'En attente'),
       value: statsData.enAttente.toString(),
       icon: Clock,
       color: 'yellow',
       progress: Math.min(100, (statsData.enAttente / 20) * 100)
     },
     {
-      title: t('validations.validated_this_month') || 'Validés ce mois',
+      title: t('validations.validated_this_month', 'Validés ce mois'),
       value: statsData.validesCeMois.toString(),
       icon: UserCheck,
       color: 'green',
       progress: 100
     },
     {
-      title: t('validations.rejected_this_month') || 'Rejetés ce mois',
+      title: t('validations.rejected_this_month', 'Rejetés ce mois'),
       value: statsData.rejetesCeMois.toString(),
       icon: UserX,
       color: 'red',
@@ -407,19 +406,19 @@ const Validations = () => {
       if (type === 'validate') {
         const res = await adminService.validateDriver(driver.id, { commentaire: comment });
         if (res.data?.succes) {
-          toast.success(t('validations.driver_validated', { name: driver.name }) || `Chauffeur ${driver.name} validé !`);
+          showToast(t('common.success'), t('validations.driver_validated', { name: driver.name }) || `Chauffeur ${driver.name} validé !`, 'success');
         }
       } else {
         const res = await adminService.rejectDriver(driver.id, { motif: comment });
         if (res.data?.succes) {
-          toast.error(t('validations.driver_rejected', { name: driver.name }) || `Candidature de ${driver.name} rejetée.`);
+          showToast(t('common.info'), t('validations.driver_rejected', { name: driver.name }) || `Candidature de ${driver.name} rejetée.`, 'warning');
         }
       }
       fetchPendingRequests();
       fetchStats();
       fetchHistory();
     } catch (error) {
-      toast.error(error.response?.data?.message || t('common.error_occurred') || "Une erreur est survenue");
+      showToast(t('common.error'), error.response?.data?.message || t('common.error_occurred') || "Une erreur est survenue", 'error');
     }
   };
 
@@ -432,7 +431,7 @@ const Validations = () => {
         setSelectedDriver(response.data.chauffeur);
       }
     } catch (error) {
-      toast.error(t('common.error_loading_details') || "Impossible de charger les détails");
+      showToast(t('common.error'), t('common.error_loading_details') || "Impossible de charger les détails", 'error');
       setViewModalOpen(false);
     } finally {
       setIsLoadingDetails(false);
@@ -443,14 +442,14 @@ const Validations = () => {
     try {
       const response = await adminService.updateDocumentStatus(docId, newStatus);
       if (response.data?.succes) {
-        toast.success(t('validations.doc_status_updated') || "Statut du document mis à jour");
+        showToast(t('common.success'), t('validations.doc_status_updated') || "Statut du document mis à jour", 'success');
         // Rafraîchir les détails du chauffeur pour voir la progression
         if (selectedDriver) {
           handleViewDetails(selectedDriver);
         }
       }
     } catch (error) {
-      toast.error(t('validations.error_updating_doc') || "Erreur lors de la mise à jour du document");
+      showToast(t('common.error'), t('validations.error_updating_doc') || "Erreur lors de la mise à jour du document", 'error');
     }
   };
 
@@ -462,11 +461,42 @@ const Validations = () => {
 
   const handleExport = (format) => {
     const columns = [
-      { header: t('common.date') || 'Date', accessor: (item) => new Date(item.date || item.joinDate).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US') },
-      { header: t('nav.chauffeur') || 'Chauffeur', accessor: (item) => item.name || item.chauffeur?.nom },
-      { header: 'Type', accessor: (item) => item.type || item.typeVehicule },
-      { header: t('validations.action_status') || 'Action/Statut', accessor: (item) => item.action || item.status },
-      { header: t('validations.validator') || 'Validateur', accessor: (item) => item.validateur || 'N/A' },
+      {
+        header: 'Date',
+        accessor: (item) => {
+          const d = item.date || item.createdAt || item.valideLe || item.updatedAt || item.joinDate;
+          if (!d) return 'N/A';
+          try {
+            return new Date(d).toLocaleDateString('fr-FR');
+          } catch (e) {
+            return 'N/A';
+          }
+        }
+      },
+      {
+        header: 'Chauffeur',
+        accessor: (item) => item.chauffeur?.nom || item.name || (item.utilisateur ? `${item.utilisateur.prenom} ${item.utilisateur.nom}` : 'N/A')
+      },
+      { header: 'Type', accessor: (item) => item.typeVehicule || item.type || 'N/A' },
+      {
+        header: 'Action/Statut',
+        accessor: (item) => {
+          if (item.action === 'VALIDE' || item.statut === 'ACTIF') return 'Validé';
+          if (item.action === 'REJETE' || item.statut === 'SUSPENDU') return 'Rejeté';
+          return item.status || item.action || item.statut || 'N/A';
+        }
+      },
+      {
+        header: 'Validateur',
+        accessor: (item) => {
+          if (item.validateur && typeof item.validateur === 'string') return item.validateur;
+          if (item.validePar) {
+            if (typeof item.validePar === 'object') return `${item.validePar.prenom || ''} ${item.validePar.nom || ''}`.trim() || 'Admin';
+            return 'Admin';
+          }
+          return (item.action || item.dateValidation || item.valideLe) ? 'Admin' : 'N/A';
+        }
+      },
     ];
 
     const payload = {
@@ -475,7 +505,7 @@ const Validations = () => {
       fileName: `validations_${new Date().toISOString().split('T')[0]}`,
       title: t('validations.export_title') || 'Historique des Validations Chauffeurs',
       orientation: 'landscape',
-      onToast: (title, msg, type) => toast[type](msg)
+      onToast: (title, msg, type) => showToast(title, msg, type)
     };
 
     switch (format) {
@@ -491,16 +521,16 @@ const Validations = () => {
         exportToWord(payload);
         break;
       default:
-        toast.error(t('common.unsupported_format') || "Format non supporté");
+        showToast(t('common.error'), t('common.unsupported_format') || "Format non supporté", 'error');
     }
   };
 
   const handleValidateAll = () => {
     if (pendingDrivers.length === 0) {
-      toast.error(t('validations.no_pending_drivers') || "Aucun chauffeur en attente");
+      showToast(t('common.info'), t('validations.no_pending_drivers') || "Aucun chauffeur en attente", 'info');
       return;
     }
-    toast.error(t('validations.validate_all_warn') || "La validation groupée n'est pas recommandée sans vérification individuelle des documents.");
+    showToast(t('common.info'), t('validations.validate_all_warn') || "La validation groupée n'est pas recommandée sans vérification individuelle des documents.", 'info');
   };
 
   const handleFilterChange = (key, value) => {

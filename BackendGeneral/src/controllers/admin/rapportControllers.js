@@ -211,6 +211,8 @@ exports.listeRapports = async (req, res) => {
 
                 // Créé le
                 creeLe: r.createdAt,
+                misAJourLe: r.updatedAt,
+                nombreTelechargements: r.nombreTelechargements || 0,
 
                 // Période affichée sous la date
                 periode: r.periode
@@ -324,8 +326,9 @@ exports.detailsRapport = async (req, res) => {
                 dates: {
                     creation: rapport.createdAt,
                     derniereModification: rapport.updatedAt,
-                    dernierAcces: rapport.updatedAt // simulé pour l’instant
+                    dernierAcces: rapport.updatedAt
                 },
+                nombreTelechargements: rapport.nombreTelechargements || 0,
 
                 // ===== Période couverte
                 periode: rapport.periode
@@ -382,5 +385,24 @@ exports.supprimerRapport = async (req, res) => {
             succes: false,
             message: "Erreur suppression rapport"
         });
+    }
+};
+
+// INCRÉMENTER LE NOMBRE DE TÉLÉCHARGEMENTS
+exports.incrementerTelechargement = async (req, res) => {
+    try {
+        const { rapportId } = req.params;
+        const rapport = await Rapport.findByIdAndUpdate(
+            rapportId,
+            { $inc: { nombreTelechargements: 1 } },
+            { new: true }
+        );
+        if (!rapport) {
+            return res.status(404).json({ succes: false, message: "Rapport introuvable" });
+        }
+        return res.json({ succes: true, count: rapport.nombreTelechargements });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ succes: false, message: "Erreur incrémentation" });
     }
 };

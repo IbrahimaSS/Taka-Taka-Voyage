@@ -1,5 +1,9 @@
 {
+    "service": "Service",
     "common": {
+        "service": "Service",
+        "email": "Email",
+        "rating": "Rating",
         "welcome": "Welcome to Taka-Taka",
         "loading": "Loading...",
         "error": "An error occurred",
@@ -158,11 +162,20 @@
         "show": "Show",
         "try_modifying_filters": "Try modifying your filters or search",
         "me": "You",
-        "my_vehicle": "Your vehicle"
+        "my_vehicle": "Your vehicle",
+        "export": "Export",
+        "expand": "Expand",
+        "collapse": "Collapse",
+        "period": "Period",
+        "export_pdf": "Export PDF",
+        "export_csv": "Export CSV",
+        "export_excel": "Export Excel",
+        "export_word": "Export Word"
     },
     "drivers": {
         "title": "Driver Management",
         "subtitle": "Manage Taka Taka platform drivers",
+        "vehicle_type": "Vehicle Type",
         "documents_desc": "Manage and track all driver documents",
         "search_driver": "Driver search",
         "driver_found": "driver(s) found",

@@ -80,7 +80,7 @@ const Footer = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold uppercase tracking-tight bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">{platform.name || 'TAKA TAKA'}</h1>
-                <p className="text-gray-400 text-xs font-medium">{platform.tagline || 'Mobilité Intelligente'}</p>
+                <p className="text-gray-400 text-xs font-medium">{platform.tagline || 'Votre transport, notre confort'}</p>
               </div>
             </div>
             <p className="text-gray-400 leading-relaxed max-w-md">

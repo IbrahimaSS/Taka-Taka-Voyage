@@ -1,3 +1,5 @@
+import { logoBase64 } from './logoBase64';
+
 const safe = (v, fallback = "") => {
   if (v === null || v === undefined) return fallback;
   if (typeof v === 'string') {
@@ -37,8 +39,8 @@ const buildTable = (data = [], columns = [], chunkSize = 10000) => {
       for (let i = 0; i < list.length; i++) {
         const row = list[i];
         yield cols.map((c) => {
-          const raw = typeof c.accessor === "function" ? c.accessor(row) : getByPath(row, c.accessor);
-          const val = c.formatter ? c.formatter(raw, row) : raw;
+          const raw = typeof c.accessor === "function" ? c.accessor(row, i) : getByPath(row, c.accessor);
+          const val = c.formatter ? c.formatter(raw, row, i) : raw;
           return safe(val, "");
         });
       }
@@ -53,10 +55,10 @@ const buildTable = (data = [], columns = [], chunkSize = 10000) => {
   }
 
   // Pour les datasets normaux
-  const body = list.map((row) =>
+  const body = list.map((row, i) =>
     cols.map((c) => {
-      const raw = typeof c.accessor === "function" ? c.accessor(row) : getByPath(row, c.accessor);
-      const val = c.formatter ? c.formatter(raw, row) : raw;
+      const raw = typeof c.accessor === "function" ? c.accessor(row, i) : getByPath(row, c.accessor);
+      const val = c.formatter ? c.formatter(raw, row, i) : raw;
       return safe(val, "");
     })
   );
@@ -147,7 +149,7 @@ export const exportToCSV = ({
   }
 };
 
-// Export Word optimisé
+// Export Word optimisé avec un design premium
 export const exportToWord = ({
   data,
   columns,
@@ -159,7 +161,7 @@ export const exportToWord = ({
   try {
     const { head, body, totalRows } = buildTable(data, columns);
 
-    // Limiter le nombre de lignes pour Word (garde-fou)
+    // Limiter le nombre de lignes (garde-fou)
     const safeBody = Array.isArray(body) ? body.slice(0, maxRows) : [];
     const actualRows = safeBody.length;
 
@@ -167,44 +169,97 @@ export const exportToWord = ({
       onToast?.("Avertissement Word", `Limité à ${maxRows} lignes sur ${totalRows}`, "warning");
     }
 
+    // Calcul des totaux dynamiques
+    const totals = columns.map((col, idx) => {
+      const isNumeric = /montant|total|prix|frais|commission|amount|price|fees/i.test(col.header);
+      if (isNumeric) {
+        let sum = 0;
+        safeBody.forEach(row => {
+          const val = row[idx];
+          const num = parseFloat(String(val).replace(/[^\d.,]/g, "").replace(",", "."));
+          if (!isNaN(num)) sum += num;
+        });
+        return sum > 0 ? sum.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) : "";
+      }
+      return "";
+    });
+
+    const hasTotals = totals.some(t => t !== "");
+
     const headerHtml = `
-      <tr>
-        ${head
-        .map((h) => `<th style="background-color:#f2f2f2;padding:6px;border:1px solid #ddd;font-weight:bold;">${escapeHtml(h)}</th>`)
+      <thead>
+        <tr style="background: linear-gradient(90deg, #10b981 0%, #3b82f6 100%); background-color: #10b981;">
+          ${head
+        .map((h) => `<th style="color:white;padding:12px 8px;border:1px solid #ddd;font-weight:bold;text-align:left;">${escapeHtml(h)}</th>`)
         .join("")}
-      </tr>`;
+        </tr>
+      </thead>`;
 
     const rowsHtml = safeBody
       .map(
-        (row) => `
-      <tr>
+        (row, i) => `
+      <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
         ${row
-            .map((cell) => `<td style="padding:6px;border:1px solid #ddd;vertical-align:top;">${escapeHtml(cell)}</td>`)
+            .map((cell) => `<td style="padding:8px;border:1px solid #e2e8f0;vertical-align:top;color:#334155;">${escapeHtml(cell)}</td>`)
             .join("")}
       </tr>`
       )
       .join("");
 
+    const totalsHtml = hasTotals ? `
+      <tfoot>
+        <tr style="background-color: #f1f5f9; font-weight: bold;">
+          ${totals.map((t, idx) => idx === 0 ? `<td style="padding:10px 8px;border:1px solid #cbd5e1;">TOTAL</td>` : `<td style="padding:10px 8px;border:1px solid #cbd5e1;text-align:right;">${t}</td>`).join("")}
+        </tr>
+      </tfoot>` : "";
+
     const html = `
       <!DOCTYPE html>
-      <html>
+      <html lang="fr">
         <head>
           <meta charset="utf-8">
-          <title>${escapeHtml(title)}</title>
+          <title>TAKA TAKA - ${escapeHtml(title)}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            table { border-collapse: collapse; width: 100%; font-size: 11px; }
-            h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-            .info { color: #7f8c8d; font-size: 12px; margin-bottom: 20px; }
+            body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 40px; color: #1e293b; }
+            .header-container { display: flex; align-items: center; border-bottom: 3px solid #10b981; padding-bottom: 20px; margin-bottom: 30px; }
+            .logo-placeholder { width: 50px; height: 50px; background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; margin-right: 15px; }
+            .company-name { font-size: 28px; font-weight: 800; color: #0f172a; margin: 0; }
+            .report-title { font-size: 18px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; }
+            .meta-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; color: #64748b; background: #f8fafc; padding: 15px; border-radius: 8px; }
+            table { border-collapse: collapse; width: 100%; font-size: 11px; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+            .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
           </style>
         </head>
         <body>
-          <h1>${escapeHtml(title)}</h1>
-          <div class="info">
-            Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}<br>
-            Total: ${actualRows} ligne${actualRows > 1 ? 's' : ''}
+          <div class="header-container">
+            <div class="logo-placeholder">TT</div>
+            <div>
+              <h1 class="company-name">TAKA TAKA</h1>
+              <div class="report-title">${escapeHtml(title)}</div>
+            </div>
           </div>
-          <table>${headerHtml}${rowsHtml}</table>
+          
+          <div class="meta-info">
+            <div>
+              <strong>Rapport :</strong> ${escapeHtml(title)}<br>
+              <strong>Date d’export :</strong> ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}
+            </div>
+            <div style="text-align: right;">
+              <strong>Nombre d'enregistrements :</strong> ${actualRows}<br>
+              <strong>Format :</strong> Microsoft Word (.doc)
+            </div>
+          </div>
+
+          <table>
+            ${headerHtml}
+            <tbody>${rowsHtml}</tbody>
+            ${totalsHtml}
+          </table>
+
+          <div class="footer">
+            <div>© ${new Date().getFullYear()} TAKA TAKA | Rapport Administratif Confidentiel</div>
+            <div>Généré dynamiquement par le système</div>
+          </div>
         </body>
       </html>`;
 
@@ -215,7 +270,7 @@ export const exportToWord = ({
 
     onToast?.(
       "Export Word réussi",
-      `${actualRows} lignes exportées (${(blob.size / 1024 / 1024).toFixed(2)} MB)`,
+      `${actualRows} lignes exportées`,
       "success"
     );
   } catch (error) {
@@ -224,7 +279,7 @@ export const exportToWord = ({
   }
 };
 
-// Export PDF optimisé avec compression
+// Export PDF Premium avec Design Moderne et Totaux Dynamiques
 export const exportToPDF = async ({
   data,
   columns,
@@ -232,22 +287,18 @@ export const exportToPDF = async ({
   title = "Export",
   orientation = "landscape",
   onToast,
-  maxRows = 5000, // PDF supporte moins de lignes
+  maxRows = 5000,
 }) => {
   try {
-    onToast?.("Export PDF", "Génération du PDF en cours...", "info");
+    onToast?.("Export PDF", "Génération du rapport premium...", "info");
 
     const { head, body, totalRows } = buildTable(data, columns);
 
-    // Limiter les lignes pour PDF (performance)
+    // Limiter les lignes pour PDF
     const safeBody = Array.isArray(body) ? body.slice(0, maxRows) : [];
     const actualRows = safeBody.length;
 
-    if (totalRows > maxRows) {
-      onToast?.("Avertissement PDF", `Limité à ${maxRows} lignes sur ${totalRows}`, "warning");
-    }
-
-    // Import dynamique pour réduire le bundle initial
+    // Import dynamique
     const [{ jsPDF }, { default: autoTable }] = await Promise.all([
       import("jspdf"),
       import("jspdf-autotable"),
@@ -256,102 +307,119 @@ export const exportToPDF = async ({
     const doc = new jsPDF({
       orientation,
       unit: "mm",
-      format: orientation === "landscape" ? "a4" : "a4",
-      compress: true // Compression activée
+      format: "a4",
+      compress: true
     });
 
-    // En-tête Moderne
-    // Bandeau couleur en haut
-    doc.setFillColor(16, 185, 129); // Emerald 500
-    doc.rect(0, 0, doc.internal.pageSize.width, 25, 'F');
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
 
-    // Nom de la plateforme
-    doc.setFontSize(22);
+    // --- EN-TÊTE PREMIUM GRADIENT ---
+    const headerHeight = 35;
+    for (let i = 0; i < 100; i++) {
+      const step = i / 100;
+      const r = Math.round(16 + (37 - 16) * step);     // 16 -> 37 (Emerald -> Blue)
+      const g = Math.round(185 + (99 - 185) * step);   // 185 -> 99
+      const b = Math.round(129 + (235 - 129) * step);  // 129 -> 235
+      doc.setFillColor(r, g, b);
+      doc.rect((pageWidth / 100) * i, 0, pageWidth / 100 + 0.5, headerHeight, 'F');
+    }
+
+    // --- LOGO TAKA TAKA ---
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(14, 8, 18, 18, 4, 4, 'F'); // Fond blanc pour le logo
+    doc.addImage(logoBase64, 'JPEG', 15, 9, 16, 16, '', 'FAST');
+
+    // --- TEXTE "TAKA TAKA" ---
+    doc.setFontSize(26);
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.text("TAKA TAKA VOYAGE", 14, 16);
+    doc.text("TAKA TAKA", 36, 18);
 
-    // Titre du rapport
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`SYSTÈME D'ADMINISTRATION - ${title.toUpperCase()}`, doc.internal.pageSize.width - 14, 16, { align: 'right' });
+    doc.setTextColor(220, 230, 240);
+    doc.text("Votre transport, notre confort", 36, 24);
 
-    // Informations complémentaires
+    // REPORT METADATA (RIGHT)
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(10);
-    doc.setTextColor(40, 40, 40);
-    const dateStr = new Date().toLocaleDateString('fr-FR');
-    const timeStr = new Date().toLocaleTimeString('fr-FR');
-
     doc.setFont("helvetica", "bold");
-    doc.text(`Rapport: ${title}`, 14, 35);
-
+    doc.text(`RAPPORT : ${title.toUpperCase()}`, pageWidth - 14, 15, { align: 'right' });
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Généré le: ${dateStr} à ${timeStr}`, 14, 42);
-    doc.text(`Nombre d'enregistrements: ${actualRows}`, 14, 47);
+    doc.setTextColor(220, 230, 240);
+    doc.setFontSize(8);
+    const dateNow = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    doc.text(`Généré le : ${dateNow}`, pageWidth - 14, 21, { align: 'right' });
+    doc.text(`Total : ${actualRows} enregistrements`, pageWidth - 14, 26, { align: 'right' });
 
-    // Ligne de séparation
-    doc.setDrawColor(226, 232, 240);
-    doc.line(14, 52, doc.internal.pageSize.width - 14, 52);
+    // --- CORPS DU DOCUMENT ---
 
-    // Tableau
+    // Title Section
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(title, 14, 50);
+
+    // Emerald Accent Under Title
+    doc.setDrawColor(16, 185, 129);
+    doc.setLineWidth(0.8);
+    doc.line(14, 54, 45, 54);
+
+    // Tableau avec Autotable Premium
     autoTable(doc, {
-      startY: 58,
+      startY: 65,
       head: [head],
       body: safeBody,
       theme: 'grid',
       headStyles: {
-        fillColor: [15, 23, 42], // Slate 900
-        textColor: 255,
+        fillColor: [16, 185, 129], // OFFICIAL GREEN
+        textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 9,
+        fontSize: 10,
         halign: 'left',
-        cellPadding: 4
+        cellPadding: 4,
+        lineWidth: 0.1,
+        lineColor: [255, 255, 255]
       },
       bodyStyles: {
-        fontSize: 8,
-        cellPadding: 3,
-        textColor: [51, 65, 85] // Slate 700
+        fontSize: 9,
+        cellPadding: 3.5,
+        textColor: [30, 41, 59],
+        lineColor: [203, 213, 225], // Visible Grey Lines
+        lineWidth: 0.1
       },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252] // Slate 50
-      },
-      margin: { top: 58, left: 14, right: 14 },
+      alternateRowStyles: { fillColor: [250, 252, 254] },
+      margin: { top: 65, left: 14, right: 14, bottom: 25 },
       didDrawPage: (data) => {
-        // Pied de page
+        // PROFESSIONAL FOOTER
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.4);
+        doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
         doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        const pageCount = doc.internal.getNumberOfPages();
-
-        // Bandeau de bas de page
-        doc.setDrawColor(16, 185, 129);
-        doc.setLineWidth(0.5);
-        doc.line(14, doc.internal.pageSize.height - 15, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 15);
-
-        doc.text(`Taka Taka Voyage | Rapport Administratif Confidentiel`, 14, doc.internal.pageSize.height - 10);
-        doc.text(`Page ${data.pageNumber} sur ${pageCount}`, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 10, { align: 'right' });
+        doc.setTextColor(148, 163, 184);
+        const fDate = new Date().toLocaleDateString('fr-FR');
+        doc.text(`© ${new Date().getFullYear()} TAKA TAKA | DOCUMENT ADMINISTRATIF CONFIDENTIEL`, 14, pageHeight - 10);
+        doc.text(`Audit le ${fDate} | Page ${data.pageNumber} sur ${doc.internal.getNumberOfPages()}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
       }
     });
+
+    if (totalRows > maxRows) {
+      doc.setFontSize(8);
+      doc.setTextColor(239, 68, 68);
+      doc.text(`* Note : Affichage limité aux ${maxRows} premières lignes pour l'optimisation.`, 14, doc.lastAutoTable.finalY + 12);
+    }
 
     doc.save(`${fileName}_${new Date().toISOString().split("T")[0]}.pdf`);
 
     onToast?.(
       "Export PDF réussi",
-      `${actualRows} lignes exportées (PDF compressé)`,
+      `Rapport premium exporté (${actualRows} lignes)`,
       "success"
     );
   } catch (error) {
     console.error("PDF export error:", error);
-
-    if (error.message.includes("jspdf")) {
-      onToast?.(
-        "Export PDF",
-        'Pour générer des PDF, installez: npm install jspdf jspdf-autotable',
-        "warning"
-      );
-    } else {
-      onToast?.("Erreur PDF", error.message || "Erreur lors de la génération", "error");
-    }
+    onToast?.("Erreur PDF", error.message || "Erreur lors de la génération", "error");
   }
 };
 

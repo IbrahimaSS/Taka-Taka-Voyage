@@ -126,10 +126,14 @@ exports.listeLitiges = async (req, res) => {
             },
             litiges: litiges.map(l => {
                 const sid = l.reservation ? l.reservation.toString() : null;
+                const reservationFound = sid ? reservations.find(res => res._id.toString() === sid) : null;
+
                 return {
                     identifiant: l.id || l._id,
                     reference: l.reference || `DIS-${l._id.toString().slice(-6).toUpperCase()}`,
                     date: l.createdAt,
+                    description: l.description || "Aucune description",
+                    montant: reservationFound ? reservationFound.prix : 0,
                     utilisateurs: {
                         passager: l.passager
                             ? `${l.passager.prenom || ""} ${l.passager.nom || ""}`.trim()

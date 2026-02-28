@@ -119,7 +119,6 @@ const Users = ({ showToast }) => {
     { header: t('common.name') || 'Nom', accessor: (u) => `${u.prenom} ${u.nom}` },
     { header: 'Email', accessor: 'email' },
     { header: t('common.phone') || 'Téléphone', accessor: 'telephone' },
-    { header: t('common.city') || 'Ville', accessor: (u) => u.localisation?.adresse || 'N/A' },
     { header: t('common.status') || 'Statut', accessor: 'statut' },
     { header: t('nav.trajets') || 'Trajets', accessor: (u) => u.nombreTrajets || 0 },
     { header: t('common.note') || 'Note', accessor: (u) => u.noteMoyenne || '-' },

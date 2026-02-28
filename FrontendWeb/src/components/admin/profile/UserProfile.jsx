@@ -41,6 +41,9 @@ const UserProfile = () => {
   const [avatarFile, setAvatarFile] = useState(null);
   const [loadingPersonnels, setLoadingPersonnels] = useState(false);
 
+  // Stats dynamiques
+  const [profileStats, setProfileStats] = useState({ actions: 0, validations: 0, notifications: 0 });
+
   // Gestion de l'avatar
   const { uploadImage } = useImageUpload(null);
 
@@ -114,10 +117,36 @@ const UserProfile = () => {
     }
   }, []);
 
+  // Charger les statistiques du profil
+  const fetchProfileStats = useCallback(async () => {
+    try {
+      const [dashRes, valRes, docRes] = await Promise.all([
+        adminService.getDashboardStats().catch(() => ({ data: {} })),
+        adminService.getValidationStats().catch(() => ({ data: {} })),
+        adminService.getDocumentStats().catch(() => ({ data: {} }))
+      ]);
+      // Dashboard: data.stats.{trajetsEffectues, trajetsAujourdhui, ...}
+      const dash = dashRes.data?.stats || dashRes.data || {};
+      // Validation: data.stats.{enAttente, ...}
+      const val = valRes.data?.stats || {};
+      // Documents: data.stats.{enAttente, ...}
+      const doc = docRes.data?.stats || {};
+
+      setProfileStats({
+        actions: dash.trajetsAujourdhui || dash.trajetsEffectues || 0,
+        validations: (val.enAttente || 0) + (doc.enAttente || 0),
+        notifications: doc.enAttente || 0,
+      });
+    } catch (error) {
+      console.error('Erreur stats:', error);
+    }
+  }, []);
+
   // Charger au montage
   useEffect(() => {
     fetchPersonnels();
-  }, [fetchPersonnels]);
+    fetchProfileStats();
+  }, [fetchPersonnels, fetchProfileStats]);
 
   // Mapper les rôles backend → frontend
   const mapRoleLabel = (role) => {
@@ -414,9 +443,9 @@ const UserProfile = () => {
                     <CardContent>
                       <div className="space-y-4">
                         {[
-                          { label: 'Actions aujourd\'hui', value: '24', icon: User, color: 'green' },
-                          { label: 'Validations en attente', value: '12', icon: Shield, color: 'blue' },
-                          { label: 'Notifications', value: '8', icon: Bell, color: 'purple' },
+                          { label: 'Actions aujourd\'hui', value: profileStats.actions, icon: User, color: 'green' },
+                          { label: 'Validations en attente', value: profileStats.validations, icon: Shield, color: 'blue' },
+                          { label: 'Notifications', value: profileStats.notifications, icon: Bell, color: 'purple' },
                         ].map((stat, idx) => (
                           <div key={idx} className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">

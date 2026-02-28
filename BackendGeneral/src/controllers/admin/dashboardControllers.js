@@ -63,7 +63,7 @@ exports.trajetsRecents = async (req, res) => {
             .limit(5)
             .populate("passager", "nom prenom telephone photoUrl email")
             .populate("chauffeur", "nom prenom telephone photoUrl vehicule")
-            .select("depart destination statut prix createdAt dureeMin distanceKm typeVehicule");
+            .select("depart destination statut prix createdAt dureeMin distanceKm typeVehicule paiement");
 
         return res.status(200).json({
             succes: true,

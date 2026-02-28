@@ -517,7 +517,7 @@ const Drivers = ({ showToast }) => {
             <div className="pt-6 border-t border-gray-200 dark:border-gray-900 overflow-hidden">
               <p className="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-widest mb-4">{t('nav.history') || 'Historique des trajets'}</p>
               <div className="max-h-[500px] overflow-y-auto px-1 -mx-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800">
-                <HistoriqueTrajet chauffeurId={selectedDriver.id} />
+                <HistoriqueTrajet chauffeurId={selectedDriver.userId || selectedDriver.id} />
               </div>
             </div>
 
@@ -545,7 +545,7 @@ const Drivers = ({ showToast }) => {
                   openStatusModal(selectedDriver, 'suspend');
                 }}
               >
-                {t('common.suspend') || 'Suspendre'}
+                {t('common.suspend', 'Suspendre')}
               </Button>
             </div>
           </div>
@@ -802,7 +802,7 @@ const Drivers = ({ showToast }) => {
                             size="small"
                             icon={Ban}
                             onClick={() => openStatusModal(driver, 'suspend')}
-                            title={t('common.suspend') || 'Suspendre'}
+                            title={t('common.suspend', 'Suspendre')}
                             className="p-2 text-red-600 hover:text-red-700"
                           />
                         )}

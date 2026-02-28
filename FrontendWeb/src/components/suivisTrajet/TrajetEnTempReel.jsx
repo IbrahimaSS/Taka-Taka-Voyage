@@ -410,7 +410,8 @@ const RealTimeTracking = ({
       const startLng = driverStartPositionRef.current.lng;
 
       // 1. Distance totale du trajet = position initiale du chauffeur → destination
-      const distTotal = GeolocationService.calculateDistance(startLat, startLng, destLat, destLng) || Math.max(0.1, tripData.trip.totalDistance);
+      // On réduit le fallback à 5 mètres (0.005 km) pour les démos en salle
+      const distTotal = GeolocationService.calculateDistance(startLat, startLng, destLat, destLng) || Math.max(0.005, tripData.trip.totalDistance);
 
       // 2. Distance restante = position actuelle du chauffeur → destination
       const distRemaining = GeolocationService.calculateDistance(driverLat, driverLng, destLat, destLng);
@@ -421,9 +422,9 @@ const RealTimeTracking = ({
       // 4. Pourcentage — borné entre 0% et 100%
       let pct = (distTraveled / distTotal) * 100;
 
-      // ✅ [FIX] Si on est à moins de 200m de la destination, on considère que c'est 100%
-      // pour éviter les sauts GPS qui bloquent à 99%
-      if (distRemaining < 0.2) {
+      // ✅ [FIX] Pour la démo en salle, on réduit le seuil d'arrivée à 5 mètres (0.005 km)
+      // au lieu de 200 mètres (0.2 km) pour que la barre puisse bouger visiblement.
+      if (distRemaining < 0.005) {
         pct = 100;
       }
 

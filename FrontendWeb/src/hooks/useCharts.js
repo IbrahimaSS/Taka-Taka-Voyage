@@ -35,7 +35,7 @@ export const useChart = (config) => {
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              display: config.type === 'doughnut' ? true : false,
+              display: true,
               position: 'right',
               labels: {
                 usePointStyle: true,
