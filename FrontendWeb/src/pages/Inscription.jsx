@@ -116,9 +116,9 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
   ];
 
   const vehicleTypes = [
-    { value: 'moto', label: 'Moto-taxi', icon: '🏍️', color: 'from-blue-100 to-blue-100' },
-    { value: 'taxi', label: 'Taxi', icon: '🚕', color: 'from-blue-100 to-blue-100' },
-    { value: 'voiture_privé', label: 'Voiture privée', icon: '🚗', color: 'from-blue-100 to-blue-100' }
+    { value: 'moto', label: 'Moto-taxi', icon: '/assets/images/vehicles/moto.png', color: ' bg-gradient-to-r from-blue-100 to-blue-100' },
+    { value: 'taxi', label: 'Taxi', icon: '/assets/images/vehicles/taxi.png', color: 'bg-gradient-to-r from-blue-100 to-blue-100' },
+    { value: 'voiture_privé', label: 'Voiture privée', icon: '/assets/images/vehicles/car.png', color: 'bg-gradient-to-r from-blue-100 to-blue-100' }
   ];
 
   const handleFileChange = (key, file) => {
@@ -227,14 +227,6 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
 
     setIsSubmitting(true);
 
-    // TODO API (documents chauffeur + vehicule):
-    // Remplacer le mock ci-dessous par:
-    // - upload des documents (FormData) vers API_ROUTES.drivers.documents(driverId)
-    // - sauvegarde du vehicule vers API_ROUTES.drivers.details(driverId) ou /vehicles
-    // - retour statut chauffeur = pending
-    //
-    // Voir: src/services/driverService.js et src/services/apiRoutes.js
-
     try {
       await onSubmit(driverData);
     } finally {
@@ -284,8 +276,8 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
 
       {/* En-tête */}
       <div className="mb-8 text-center ">
-        <div className="w-20 h-20 mx-auto bg-gradient-to-r from-blue-600 to-green-600 rounded-full flex items-center justify-center mb-4 shadow-lg">
-          <Shield className="w-10 h-10 text-white" />
+        <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-r from-blue-600 to-green-600 rounded-full flex items-center justify-center mb-4 shadow-lg">
+          <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           Documents & Véhicule
@@ -474,7 +466,7 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
                 <label className="block text-gray-700 dark:text-gray-300 mb-3 font-medium">
                   Type de véhicule
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {vehicleTypes.map((type) => (
                     <button
                       type="button"
@@ -485,7 +477,9 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
                         : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
                         }`}
                     >
-                      <div className="text-2xl mb-2">{type.icon}</div>
+                      <div className="w-16 h-12 mb-3 mx-auto flex items-center justify-center">
+                        <img src={type.icon} alt={type.label} className="max-w-full max-h-full object-contain drop-shadow-md" />
+                      </div>
                       <span className={`text-sm font-medium ${driverData.vehicle.type === type.value
                         ? 'text-blue-600 dark:text-blue-400'
                         : 'text-gray-700 dark:text-gray-300'
@@ -498,7 +492,7 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
               </div>
 
               {/* Formulaire véhicule */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">
                     Marque
@@ -537,7 +531,7 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
                   )}
                 </div>
 
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">
                     Immatriculation
                   </label>
@@ -589,7 +583,7 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
                   />
                 </div>
 
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">
                     Capacité (nombre de places)
                   </label>
@@ -707,18 +701,6 @@ const Inscription = () => {
   const [toast, setToast] = useState({ show: false, title: '', message: '', type: 'info' });
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  // useEffect(() => {
-  //   const typeFromUrl = searchParams.get('type');
-  //   if (typeFromUrl === 'passenger' || typeFromUrl === 'driver') {
-  //     setUserType(typeFromUrl);
-  //   }
-
-  //   const otp = Math.floor(100000 + Math.random() * 900000);
-  //   setGeneratedOtp(otp);
-  //   console.log('Code OTP (pour test):', otp);
-  // }, [searchParams]);
-
   useEffect(() => {
     let interval;
     if (currentStep === 3 && otpTimer > 0) {
@@ -1687,8 +1669,8 @@ const Inscription = () => {
                     className="animate-fade-in"
                   >
                     <div className="text-center mb-8">
-                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-green-100 dark:from-blue-900/30 dark:to-green-900/30 flex items-center justify-center mx-auto mb-6 shadow-lg">
-                        <Shield className="text-blue-600 dark:text-blue-400 text-3xl" />
+                      <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-blue-100 to-green-100 dark:from-blue-900/30 dark:to-green-900/30 flex items-center justify-center mx-auto mb-6 shadow-lg">
+                        <Shield className="text-blue-600 dark:text-blue-400 w-8 h-8 sm:w-12 sm:h-12" />
                       </div>
                       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Vérification</h2>
                       <p className="text-gray-600 dark:text-gray-300">
@@ -1709,7 +1691,7 @@ const Inscription = () => {
                       </p>
                     </div>
 
-                    <div className="flex justify-center items-center gap-2 mb-8">
+                    <div className="flex justify-center items-center gap-1 sm:gap-2 mb-8">
                       {[0, 1, 2, 3, 4, 5].map((index) => (
                         <React.Fragment key={index}>
                           <input
@@ -1719,7 +1701,7 @@ const Inscription = () => {
                             onChange={(e) => handleOtpChange(e.target.value, index)}
                             onKeyDown={(e) => handleOtpKeyDown(e, index)}
                             onFocus={() => setActiveOtpIndex(index)}
-                            className={`w-14 h-14 text-center text-2xl font-bold rounded-xl border-2 transition-all ${formData.otp[index]
+                            className={`w-10 sm:w-14 h-10 sm:h-14 text-center text-lg sm:text-2xl font-bold rounded-xl border-2 transition-all ${formData.otp[index]
                               ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
                               : 'border-gray-300 dark:border-gray-600'
                               } ${activeOtpIndex === index ? 'ring-2 ring-blue-500/50' : ''}`}
@@ -1730,7 +1712,7 @@ const Inscription = () => {
                             }}
                           />
                           {index === 2 && (
-                            <span className="h-16 flex items-center text-gray-400 dark:text-gray-500 font-bold text-xl mx-2">
+                            <span className="h-10 sm:h-16 flex items-center text-gray-400 dark:text-gray-500 font-bold text-lg sm:text-xl mx-1 sm:mx-2">
                               -
                             </span>
                           )}

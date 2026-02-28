@@ -54,7 +54,7 @@ const Navbar = () => {
                 <span className="block text-sm font-bold tracking-wide bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent uppercase">
                   {platform.name || 'TAKATAKA'}
                 </span>
-                <span className="block text-xs text-slate-500 dark:text-slate-400">
+                <span className="hidden sm:block text-xs text-slate-500 dark:text-slate-400">
                   {platform.tagline || 'Votre transport, notre confort'}
                 </span>
               </span>
@@ -101,7 +101,7 @@ const Navbar = () => {
                 onClick={() => scrollToSection('telecharger')}
                 icon={<Download className="h-4 w-4" />}
               >
-                Télécharger
+                <span className="sm:inline">Télécharger</span>
               </Button>
 
               <button

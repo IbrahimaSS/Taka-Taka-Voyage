@@ -52,7 +52,7 @@ const HeroSection = () => {
         <div className="flex flex-col lg:flex-row items-center gap-12">
           {/* Texte */}
           <div className="lg:w-1/2" >
-            <h1 className="text-4xl md:text-5xl lg:text-5xl font-bold mb-6 text-white leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-bold mb-6 text-white leading-tight">
               Votre solution de <span className="text-transparent bg-clip-text bg-gradient-to-r from-primaryGreen-start to-primaryBlue-start">mobilité</span> en Guinée
             </h1>
 

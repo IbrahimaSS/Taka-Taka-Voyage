@@ -471,7 +471,7 @@ const BookingSection = ({
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
         >
-          <Card hoverable padding="p-8">
+          <Card hoverable padding="p-4 sm:p-8">
             <CardHeader align="start" className="mb-8">
               <CardTitle size="lg">
                 {isSearching ? t('booking.searching_driver') : shouldShowDriver ? t('booking.your_trip') : t('booking.title')}
@@ -598,7 +598,7 @@ const BookingSection = ({
                   className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30"
                 >
                   <h3 className="font-bold text-gray-900 dark:text-white mb-4">{t('booking.estimation_title')}</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                         {priceData?.price || '—'} GNF
@@ -722,7 +722,7 @@ const BookingSection = ({
                 </div>
               </div>
 
-              <div className="relative rounded-xl overflow-hidden h-[500px]">
+              <div className="relative rounded-xl overflow-hidden h-[350px] sm:h-[500px]">
                 <MapContainer
                   center={mapCenter}
                   zoom={13}
@@ -874,8 +874,7 @@ const BookingSection = ({
                 t('history.table.pickup'),
                 t('history.table.destination'),
                 t('history.table.price'),
-                t('history.table.status'),
-                t('history.table.actions')
+                t('history.table.status')
               ]}
               striped
               hoverable
@@ -914,11 +913,7 @@ const BookingSection = ({
                         {trip.status === 'completed' ? t('history.status.completed') : t('history.status.cancelled')}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="small" icon={Eye}>
-                        {t('history.table.actions')}
-                      </Button>
-                    </TableCell>
+
                   </TableRow>
                 ))
               ) : (
