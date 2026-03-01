@@ -7,12 +7,10 @@ import { API_ROUTES } from "../services/apiRoutes";
 import { offlineTripService } from "../services/offlineTripService";
 import { useAuth } from './AuthContext';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from "./NotificationContext";
-
+import { getApiBaseURL } from "../utils/urlHelper";
 
 const PassengerContext = createContext();
 export const usePassenger = () => useContext(PassengerContext);
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export const PassengerProvider = ({ children }) => {
   const { user, updateUser: updateAuthUser } = useAuth();
@@ -47,7 +45,8 @@ export const PassengerProvider = ({ children }) => {
   const fetchProfile = useCallback(async () => {
     try {
       setIsLoadingProfile(true);
-      const { data } = await axios.get(`${API_URL}/api${API_ROUTES.passager.profil.get}`, {
+      const baseURL = getApiBaseURL();
+      const { data } = await axios.get(`${baseURL}${API_ROUTES.passager.profil.get}`, {
         withCredentials: true
       });
       if (data?.succes && data?.profil) {

@@ -14,6 +14,8 @@ import { adminService } from '../../../services/adminService';
 import { useTranslation } from 'react-i18next';
 import HistoriqueTrajet from '../../chauffeur/HistoriqueTrajet'; // Import du composant partagé
 
+import { getFullAssetURL } from '../../../utils/urlHelper';
+
 const Drivers = ({ showToast }) => {
   const { t, i18n } = useTranslation();
   // Hook d'actions chauffeur (Activer / Désactiver / Suspendre)
@@ -236,14 +238,7 @@ const Drivers = ({ showToast }) => {
     return name.split(' ').filter(Boolean).map(n => n[0]?.toUpperCase()).join('');
   };
 
-  const getAvatarUrl = (path) => {
-    if (!path) return null;
-    if (path.startsWith('http')) return path;
-    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-    const baseUrl = apiURL.replace(/\/api$/, '');
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${baseUrl}${cleanPath}`;
-  };
+  const getAvatarUrl = (path) => getFullAssetURL(path);
 
   // Fonctions pour les badges
   const getStatusBadge = (statut) => {

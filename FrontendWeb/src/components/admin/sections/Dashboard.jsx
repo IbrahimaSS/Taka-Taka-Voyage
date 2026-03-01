@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import Button from '../ui/Bttn';
 import { adminService } from '../../../services/adminService';
 import { useAuth } from '../../../context/AuthContext';
+import { getFullAssetURL } from '../../../utils/urlHelper';
 
 const Dashboard = ({ showToast }) => {
   const { t, i18n } = useTranslation();
@@ -25,9 +26,7 @@ const Dashboard = ({ showToast }) => {
   const [repartitionData, setRepartitionData] = useState(null);
   const { user } = useAuth();
 
-  // Base URL calculation (stripping /api if present)
-  const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  const API_URL = apiURL.replace(/\/api$/, '');
+
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -271,12 +270,7 @@ const Dashboard = ({ showToast }) => {
     return service;
   };
 
-  const getAvatarUrl = (path) => {
-    if (!path) return null;
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${API_URL}${cleanPath}`;
-  };
+  const getAvatarUrl = (path) => getFullAssetURL(path);
 
   const getInitials = (user) => {
     if (!user) return '?';

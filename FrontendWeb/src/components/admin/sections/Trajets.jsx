@@ -36,6 +36,7 @@ import { socketService } from '../../../services/socketService';
 import { GeolocationService } from '../../../services/geolocation';
 import ExportDropdown from '../ui/ExportDropdown';
 import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
+import { getFullAssetURL } from '../../../utils/urlHelper';
 
 // TODO API (admin/trajets):
 // Remplacer les donnees simulees et les actions locales par des appels backend
@@ -117,12 +118,7 @@ const Trips = ({ showToast }) => {
   }, []);
 
   // Helpers pour les avatars
-  const getAvatarUrl = (path) => {
-    if (!path) return null;
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-    return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${cleanPath}`;
-  };
+  const getAvatarUrl = (path) => getFullAssetURL(path);
 
   const getUserAvatarInitials = (person) => {
     if (!person) return '?';
