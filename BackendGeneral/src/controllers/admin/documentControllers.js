@@ -49,7 +49,8 @@ exports.listeChauffeursAvecDocuments = async (req, res) => {
                     id: d._id,
                     type: d.type,
                     statut: d.statut,
-                    fichier: d.fichier
+                    fichier: d.fichier,
+                    createdAt: d.createdAt
                 }))
             };
         }));

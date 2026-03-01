@@ -21,20 +21,44 @@ const Dashboard = ({ showToast }) => {
   const [dashboardData, setDashboardData] = useState(null);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [evolutionData, setEvolutionData] = useState(null);
+  const [repartitionData, setRepartitionData] = useState(null);
   const { user } = useAuth();
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  // Base URL calculation (stripping /api if present)
+  const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const API_URL = apiURL.replace(/\/api$/, '');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const [statsRes, tripsRes] = await Promise.all([
+        const results = await Promise.allSettled([
           adminService.getDashboardStats(),
-          adminService.getRecentTrips()
+          adminService.getRecentTrips(),
+          adminService.getMonthlyRevenue({ periode: 6, mode: 'mensuel' }),
+          adminService.getRevenueByVehicleType()
         ]);
 
-        if (statsRes.data.succes) setDashboardData(statsRes.data.stats);
-        if (tripsRes.data.succes) setTrips(tripsRes.data.trajets || []);
+        const [statsRes, tripsRes, evolutionRes, repartitionRes] = results;
+
+        if (statsRes.status === 'fulfilled' && statsRes.value.data.succes) {
+          setDashboardData(statsRes.value.data.stats);
+        }
+
+        if (tripsRes.status === 'fulfilled' && tripsRes.value.data.succes) {
+          setTrips(tripsRes.value.data.trajets || []);
+        }
+
+        if (evolutionRes.status === 'fulfilled' && evolutionRes.value.data.succes) {
+          setEvolutionData(evolutionRes.value.data.evolution);
+        }
+
+        if (repartitionRes.status === 'fulfilled' && repartitionRes.value.data.succes) {
+          setRepartitionData(repartitionRes.value.data.repartition);
+        } else if (repartitionRes.status === 'rejected') {
+          console.error("Erreur répartition:", repartitionRes.reason);
+        }
       } catch (error) {
         showToast(t('common.error') || 'Erreur', t('dashboard.error_loading') || 'Impossible de charger les données du tableau de bord', 'error');
         console.error(error);
@@ -44,7 +68,77 @@ const Dashboard = ({ showToast }) => {
     };
 
     fetchDashboardData();
-  }, [showToast]);
+  }, [showToast, t]);
+
+  // Génération dynamique des configurations de graphiques
+  const monthlyRevenueConfig = React.useMemo(() => {
+    // Si pas de données, retour config par défaut
+    if (!evolutionData) return chartConfigs.monthlyRevenue;
+
+    // Pour éviter que le graphe "disparaisse" quand il n'y a qu'un point (un seul mois),
+    // on va s'assurer d'avoir au moins les 6 derniers mois, même avec des 0.
+    const last6Months = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      // Calculer le mois de manière robuste
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const isoLabel = d.toISOString().substring(0, 7); // Format YYYY-MM pour la recherche
+
+      // Label pour l'affichage (ex: "Jan 2024")
+      const displayLabel = d.toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US', {
+        month: 'short',
+        year: 'numeric'
+      });
+
+      const existingData = evolutionData.find(ed => ed.label === isoLabel);
+      last6Months.push({
+        label: displayLabel,
+        revenus: existingData?.revenus || 0,
+        commissions: existingData?.commissions || 0
+      });
+    }
+
+    return {
+      ...chartConfigs.monthlyRevenue,
+      data: {
+        labels: last6Months.map(d => d.label),
+        datasets: [
+          {
+            ...chartConfigs.monthlyRevenue.data.datasets[0],
+            label: t('payments.total_revenue') || 'Revenus Totaux',
+            data: last6Months.map(d => d.revenus),
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            tension: 0.4,
+            fill: true
+          },
+          {
+            ...chartConfigs.monthlyRevenue.data.datasets[0],
+            label: t('payments.platform_commission') || 'Commissions Plateforme',
+            data: last6Months.map(d => d.commissions),
+            borderColor: '#8B5CF6',
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            tension: 0.4,
+            fill: true
+          }
+        ]
+      }
+    };
+  }, [evolutionData, t, i18n.language]);
+
+  const serviceDistributionConfig = React.useMemo(() => {
+    if (!repartitionData || repartitionData.length === 0) return chartConfigs.revenueDistribution;
+    return {
+      ...chartConfigs.revenueDistribution,
+      data: {
+        labels: repartitionData.map(d => d.type || 'Inconnu'),
+        datasets: [{
+          ...chartConfigs.revenueDistribution.data.datasets[0],
+          data: repartitionData.map(d => d.montant)
+        }]
+      }
+    };
+  }, [repartitionData]);
 
   const stats = [
     {
@@ -138,10 +232,38 @@ const Dashboard = ({ showToast }) => {
     }
   };
 
+  const getMethodBadge = (method) => {
+    const baseClasses = "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border uppercase";
+
+    const getMethod = (m) => {
+      if (!m) return 'cash';
+      const lower = m.toLowerCase();
+      if (lower.includes('orange')) return 'orange';
+      if (lower.includes('mtn')) return 'mtn';
+      if (lower.includes('wave')) return 'wave';
+      if (lower.includes('carte') || lower.includes('card')) return 'card';
+      return 'cash';
+    };
+
+    const m = getMethod(method);
+
+    switch (m) {
+      case 'orange':
+        return <span className={`${baseClasses} bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800`}>Orange Money</span>;
+      case 'mtn':
+        return <span className={`${baseClasses} bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800`}>MTN Money</span>;
+      case 'card':
+        return <span className={`${baseClasses} bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800`}>Carte</span>;
+      default:
+        return <span className={`${baseClasses} bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800`}>Espèces</span>;
+    }
+  };
+
   const getAvatarUrl = (path) => {
     if (!path) return null;
     if (path.startsWith('http')) return path;
-    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${API_URL}${cleanPath}`;
   };
 
   const getInitials = (user) => {
@@ -231,7 +353,7 @@ const Dashboard = ({ showToast }) => {
         <ChartCard
           title={t('dashboard.monthly_revenue') || 'Revenus Mensuels'}
           subtitle={`${t('dashboard.evolution_on') || 'Évolution sur'} ${timeRange === 'month' ? (t('dashboard.the_month') || 'le mois') : (t('dashboard.the_year') || "l'année")}`}
-          chartConfig={chartConfigs.monthlyRevenue}
+          chartConfig={monthlyRevenueConfig}
           height="320px"
           action={
             <button className="flex items-center gap-2 text-sm text-emerald-600 hover:text-emerald-700 font-medium transition-colors">
@@ -243,7 +365,7 @@ const Dashboard = ({ showToast }) => {
         <ChartCard
           title={t('dashboard.service_distribution') || 'Répartition des Services'}
           subtitle={t('dashboard.by_vehicle_and_zone') || 'Par type de véhicule et zone'}
-          chartConfig={chartConfigs.revenueDistribution}
+          chartConfig={serviceDistributionConfig}
           height="320px"
         />
       </motion.div>
@@ -279,7 +401,9 @@ const Dashboard = ({ showToast }) => {
                 <th className="px-6 py-4">{t('dashboard.trip') || 'Trajet'}</th>
                 <th className="px-6 py-4">{t('nav.passagers') || 'Passager'}</th>
                 <th className="px-6 py-4">{t('nav.chauffeurs') || 'Chauffeur'}</th>
-                <th className="px-6 py-4">{t('dashboard.details') || 'Détails'}</th>
+                <th className="px-6 py-4">{t('common.type') || 'Type'}</th>
+                <th className="px-6 py-4">{t('payments.method') || 'Mode'}</th>
+                <th className="px-6 py-4 text-right">{t('dashboard.details') || 'Détails'}</th>
                 <th className="px-6 py-4">{t('dashboard.status') || 'Statut'}</th>
               </tr>
             </thead>
@@ -370,7 +494,15 @@ const Dashboard = ({ showToast }) => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                          {trip.typeVehicule || '-'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {getMethodBadge(trip.paiement?.mode)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex flex-col gap-1 items-end">
                           <div className="font-bold text-gray-900 dark:text-white text-sm">
                             {(trip.prix || 0).toLocaleString()} {t('common.currency_symbol') || 'GNF'}
                           </div>

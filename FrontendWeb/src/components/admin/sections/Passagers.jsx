@@ -119,7 +119,6 @@ const Users = ({ showToast }) => {
     { header: t('common.name') || 'Nom', accessor: (u) => `${u.prenom} ${u.nom}` },
     { header: 'Email', accessor: 'email' },
     { header: t('common.phone') || 'Téléphone', accessor: 'telephone' },
-    { header: t('common.city') || 'Ville', accessor: (u) => u.localisation?.adresse || 'N/A' },
     { header: t('common.status') || 'Statut', accessor: 'statut' },
     { header: t('nav.trajets') || 'Trajets', accessor: (u) => u.nombreTrajets || 0 },
     { header: t('common.note') || 'Note', accessor: (u) => u.noteMoyenne || '-' },
@@ -239,6 +238,15 @@ const Users = ({ showToast }) => {
         {label}
       </span>
     );
+  };
+
+  const getAvatarUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const baseUrl = apiURL.replace(/\/api$/, '');
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${baseUrl}${cleanPath}`;
   };
 
   const getTimeAgo = (dateString) => {
@@ -408,7 +416,7 @@ const Users = ({ showToast }) => {
                     <div className="relative w-10 h-10 rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 flex items-center justify-center mr-3 overflow-hidden shadow-sm border border-white dark:border-gray-700">
                       {user.photoUrl && user.photoUrl !== '' ? (
                         <img
-                          src={user.photoUrl.startsWith('http') ? user.photoUrl : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${user.photoUrl.startsWith('/') ? '' : '/'}${user.photoUrl}`}
+                          src={getAvatarUrl(user.photoUrl)}
                           alt={`${user.prenom} ${user.nom}`}
                           className="w-full h-full object-cover z-10"
                           onError={(e) => {
@@ -534,7 +542,7 @@ const Users = ({ showToast }) => {
             <div className="flex items-center gap-6">
               <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center overflow-hidden`}>
                 {selectedUser.photoUrl ? (
-                  <img src={selectedUser.photoUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  <img src={getAvatarUrl(selectedUser.photoUrl)} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-white text-3xl font-bold">{selectedUser.prenom?.[0]}{selectedUser.nom?.[0]}</span>
                 )}

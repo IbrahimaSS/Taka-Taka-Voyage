@@ -19,7 +19,6 @@ import DocumentViewer from '../ui/DocumentViewer';
 import ExportDropdown from '../ui/ExportDropdown';
 import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
 import { adminService } from '../../../services/adminService';
-import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -97,7 +96,12 @@ const Documents = ({ showToast }) => {
         setFilteredDrivers(driversData);
 
         // On aplatit également les documents pour les fonctions d'export si besoin
-        const allDocs = driversData.flatMap(driver => driver.documents);
+        const allDocs = driversData.flatMap(driver =>
+          (driver.documents || []).map(doc => ({
+            ...doc,
+            chauffeur: { nom: driver.name || driver.nom || 'Inconnu' }
+          }))
+        );
         setDocuments(allDocs);
       }
     } catch (error) {
@@ -111,11 +115,22 @@ const Documents = ({ showToast }) => {
   // Configuration pour ExportDropdown
   const exportConfig = useMemo(() => ({
     columns: [
-      { header: 'Type', accessor: (doc) => documentTypes.find(t => t.id === doc.type)?.label || doc.type },
-      { header: 'Propriétaire', accessor: (doc) => doc.chauffeur?.nom || 'N/A' },
-      { header: 'Statut', accessor: (doc) => statusTypes.find(s => s.id === doc.statut)?.label || doc.statut },
-      { header: 'Fichier', accessor: (doc) => doc.fichier || 'N/A' },
-      { header: 'Date upload', accessor: (doc) => doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'N/A' },
+      { header: 'Type', accessor: (doc) => documentTypes.find(t => t.id === doc.type)?.label || doc.type || 'N/A' },
+      { header: 'Propriétaire', accessor: (doc) => doc.chauffeur?.nom || doc.owner?.name || (doc.utilisateur ? `${doc.utilisateur.prenom} ${doc.utilisateur.nom}` : 'N/A') },
+      { header: 'Statut', accessor: (doc) => statusTypes.find(s => s.id === doc.statut)?.label || doc.statut || 'N/A' },
+      { header: 'Fichier', accessor: (doc) => doc.fichier || doc.fileName || doc.fileUrl || 'N/A' },
+      {
+        header: 'Date upload',
+        accessor: (doc) => {
+          const dateVal = doc.createdAt || doc.dateUpload || doc.date || doc.dateCreation;
+          if (!dateVal) return 'N/A';
+          try {
+            return new Date(dateVal).toLocaleDateString('fr-FR');
+          } catch (e) {
+            return 'N/A';
+          }
+        }
+      },
     ],
     fileName: `documents_${new Date().toISOString().split('T')[0]}`,
     title: 'Liste des documents Chauffeurs',
@@ -240,11 +255,11 @@ const Documents = ({ showToast }) => {
       await Promise.all(selectedDocuments.map(id =>
         adminService.updateDocumentStatus(id, 'VALIDE')
       ));
-      toast.success(`${selectedDocuments.length} document(s) validé(s)`);
+      showToast(t('common.success'), `${selectedDocuments.length} document(s) validé(s)`, 'success');
       setSelectedDocuments([]);
       loadDocuments();
     } catch (error) {
-      toast.error("Erreur lors de la validation groupée");
+      showToast(t('common.error'), "Erreur lors de la validation groupée", 'error');
     }
   };
 
@@ -253,11 +268,11 @@ const Documents = ({ showToast }) => {
       await Promise.all(selectedDocuments.map(id =>
         adminService.updateDocumentStatus(id, 'REFUSE')
       ));
-      toast.success(`${selectedDocuments.length} document(s) rejeté(s)`);
+      showToast(t('common.success'), `${selectedDocuments.length} document(s) rejeté(s)`, 'success');
       setSelectedDocuments([]);
       loadDocuments();
     } catch (error) {
-      toast.error("Erreur lors du rejet groupé");
+      showToast(t('common.error'), "Erreur lors du rejet groupé", 'error');
     }
   };
 
@@ -266,7 +281,7 @@ const Documents = ({ showToast }) => {
     try {
       const response = await adminService.updateDocumentStatus(documentId, 'VALIDE');
       if (response.data?.succes) {
-        toast.success("Document validé");
+        showToast(t('common.success'), "Document validé", 'success');
         loadDocuments();
         // Si une modale est ouverte, on pourrait avoir besoin de mettre à jour selectedDriver
         if (selectedDriver) {
@@ -277,7 +292,7 @@ const Documents = ({ showToast }) => {
         }
       }
     } catch (error) {
-      toast.error("Erreur lors de la validation");
+      showToast(t('common.error'), "Erreur lors de la validation", 'error');
     }
   };
 
@@ -286,7 +301,7 @@ const Documents = ({ showToast }) => {
     try {
       const response = await adminService.updateDocumentStatus(documentId, 'REFUSE');
       if (response.data?.succes) {
-        toast.success("Document rejeté");
+        showToast(t('common.success'), "Document rejeté", 'success');
         loadDocuments();
         if (selectedDriver) {
           const updatedDocs = selectedDriver.documents.map(d =>
@@ -296,7 +311,7 @@ const Documents = ({ showToast }) => {
         }
       }
     } catch (error) {
-      toast.error("Erreur lors du rejet");
+      showToast(t('common.error'), "Erreur lors du rejet", 'error');
     }
   };
 
@@ -387,7 +402,7 @@ const Documents = ({ showToast }) => {
       const url = `${API_URL}${document.fichier || document.fileUrl}`;
       window.open(url, '_blank');
     } catch (error) {
-      toast.error("Erreur lors du téléchargement");
+      showToast(t('common.error'), "Erreur lors du téléchargement", 'error');
     }
   };
 
@@ -599,9 +614,12 @@ const Documents = ({ showToast }) => {
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold">Exporter les données</h4>
                 <ExportDropdown
-                  data={selectedDriver.documents}
+                  data={(selectedDriver.documents || []).map(doc => ({
+                    ...doc,
+                    chauffeur: { nom: selectedDriver.name || selectedDriver.nom || 'Inconnu' }
+                  }))}
                   columns={exportConfig.columns}
-                  fileName={`documents_${selectedDriver.name.toLowerCase().replace(/\s+/g, '_')}`}
+                  fileName={`documents_${(selectedDriver.name || 'chauffeur').toLowerCase().replace(/\s+/g, '_')}`}
                   title={`Documents de ${selectedDriver.name}`}
                   orientation="landscape"
                   showToast={showToast}

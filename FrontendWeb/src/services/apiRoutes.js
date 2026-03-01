@@ -119,6 +119,7 @@ export const API_ROUTES = {
       list: "/admin/rapports",
       create: "/admin/rapports",
       details: (id) => `/admin/rapports/${id}`,
+      download: (id) => `/admin/rapports/${id}/download`,
     },
     profile: {
       get: "/admin/profile",

@@ -428,7 +428,7 @@ const Connexion = () => {
                 </div>
 
                 {/* Remember & Forgot */}
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
                   <label className="flex items-center space-x-3 cursor-pointer group">
                     <div className="relative">
                       <input

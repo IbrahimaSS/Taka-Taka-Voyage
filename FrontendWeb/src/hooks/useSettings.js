@@ -15,7 +15,7 @@ export const useSettings = (initialSettings = {}) => {
     platform: {
       name: 'Taka Taka',
       logo: null,
-      tagline: 'Votre transport, notre priorité',
+      tagline: 'Votre transport, notre confort',
       currency: 'GNF',
       timezone: 'Africa/Conakry',
       language: 'fr',

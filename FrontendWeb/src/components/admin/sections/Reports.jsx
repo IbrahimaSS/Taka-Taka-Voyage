@@ -15,7 +15,6 @@ import Badge from '../ui/Badge';
 import Tabs from '../ui/Tabs';
 import ConfirmModal from '../ui/ConfirmModal';
 import Pagination from '../ui/Pagination';
-import Toast from '../ui/Toast';
 import Modal from '../ui/Modal';
 import ExportDropdown from '../ui/ExportDropdown';
 import { adminService } from '../../../services/adminService';
@@ -451,7 +450,7 @@ const generateReports = (count = 50) => {
 // TODO API (admin/rapports):
 // Remplacer les donnees simulees et la generation locale par des appels backend
 // Exemple: GET API_ROUTES.admin.reports, POST /admin/reports/generate
-const Reports = () => {
+const Reports = ({ showToast }) => {
   const { t } = useTranslation();
   // États
   const [reports, setReports] = useState([]);
@@ -464,7 +463,6 @@ const Reports = () => {
   const [formatFilter, setFormatFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [toast, setToast] = useState({ show: false, title: '', message: '', type: 'success' });
   const [isMobile, setIsMobile] = useState(false);
 
   // États pour les modales
@@ -499,6 +497,12 @@ const Reports = () => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  const getReportSize = (type, format) => {
+    const base = type === 'financial' ? 450 : type === 'users' ? 280 : 350;
+    const mult = format === 'pdf' ? 1.2 : format === 'csv' ? 0.3 : 0.8;
+    return Math.round(base * mult);
+  };
 
   // Fetch Stats et Rapports
   const fetchData = async () => {
@@ -536,8 +540,10 @@ const Reports = () => {
           format: r.format?.toLowerCase() || 'pdf',
           author: 'Système',
           createdAt: new Date(r.creeLe).toLocaleDateString('fr-FR'),
+          lastAccessed: r.misAJourLe ? new Date(r.misAJourLe).toLocaleDateString('fr-FR') : null,
+          size: getReportSize(typeMap[r.type] || r.type.toLowerCase(), r.format?.toLowerCase() || 'pdf'),
           period: r.periode ? `${new Date(r.periode.debut).toLocaleDateString('fr-FR')} - ${new Date(r.periode.fin).toLocaleDateString('fr-FR')}` : "Période non def.",
-          downloadCount: 0,
+          downloadCount: r.nombreTelechargements || 0,
           raw: r
         })));
         setTotalItems(rapportsRes.pagination.total);
@@ -669,7 +675,7 @@ const Reports = () => {
         const { data: res } = await adminService.getPaymentList({ limit: 1000 });
         data = res.paiements || [];
         columns = [
-          { header: 'ID Trajet', accessor: (p) => p.reservation?.toString().slice(-6).toUpperCase() || 'N/A' },
+          { header: 'N°', accessor: (p, i) => i + 1 },
           { header: 'Passager', accessor: (p) => p.passager ? `${p.passager.prenom || ''} ${p.passager.nom || ''}`.trim() : 'N/A' },
           { header: 'Chauffeur', accessor: (p) => p.chauffeur ? `${p.chauffeur.prenom || ''} ${p.chauffeur.nom || ''}`.trim() : 'N/A' },
           { header: 'Montant', accessor: (p) => `${Number(p.montantTotal || 0).toLocaleString('fr-FR')} GNF` },
@@ -681,9 +687,19 @@ const Reports = () => {
         const { data: res } = await adminService.getTrips({ limit: 1000 });
         data = res.trajets || [];
         columns = [
-          { header: 'ID', accessor: (t) => t._id?.toString().slice(-6).toUpperCase() || 'N/A' },
-          { header: 'Départ', accessor: (t) => t.depart || (t.pointDepart && t.pointDepart.adresse) || (t.reservation && t.reservation.depart) || 'N/A' },
-          { header: 'Arrivée', accessor: (t) => t.destination || (t.pointArrivee && t.pointArrivee.adresse) || (t.reservation && t.reservation.destination) || 'N/A' },
+          { header: 'N°', accessor: (t, i) => i + 1 },
+          {
+            header: 'Départ', accessor: (t) => {
+              const dep = t.depart || (t.pointDepart && t.pointDepart.adresse) || (t.reservation && t.reservation.depart) || 'N/A';
+              return dep.split(',').slice(0, 2).join(', ').replace(' ! ', ', '); // Keep it short
+            }
+          },
+          {
+            header: 'Arrivée', accessor: (t) => {
+              const arr = t.destination || (t.pointArrivee && t.pointArrivee.adresse) || (t.reservation && t.reservation.destination) || 'N/A';
+              return arr.split(',').slice(0, 2).join(', ').replace(' ! ', ', '); // Keep it short
+            }
+          },
           { header: 'Catégorie', accessor: (t) => t.typeVehicule || t.categorie || (t.reservation && t.reservation.typeVehicule) || 'N/A' },
           {
             header: 'Prix', accessor: (t) => {
@@ -725,18 +741,21 @@ const Reports = () => {
         await exportToPDF(exportOptions);
       }
 
+      // Incrémenter le compteur côté serveur
+      adminService.incrementReportDownload(report.id).catch(err => console.error("Increment failed", err));
+
+      // Mettre à jour localement pour l'affichage immédiat
+      setReports(prev => prev.map(r =>
+        r.id === report.id ? { ...r, downloadCount: r.downloadCount + 1, lastAccessed: new Date().toLocaleDateString('fr-FR') } : r
+      ));
+
     } catch (error) {
       console.error("Export error:", error);
       showToast('Erreur', 'Impossible de récupérer les données pour générer le fichier.', 'error');
     }
   };
 
-  const showToast = (title, message, type = 'success') => {
-    setToast({ show: true, title, message, type });
-    setTimeout(() => {
-      setToast(prev => ({ ...prev, show: false }));
-    }, 5000);
-  };
+
 
   const handleViewDetails = (report) => {
     setModalState(prev => ({
@@ -755,20 +774,24 @@ const Reports = () => {
     }));
   };
 
-  // Configuration des colonnes pour l'exportation
   const exportColumns = useMemo(() => [
-    { header: 'ID', accessor: 'id' },
+    { header: "N°", accessor: (row, i) => i + 1 },
     { header: 'Titre', accessor: 'title' },
-    { header: 'Description', accessor: 'description' },
-    { header: 'Type', accessor: 'type' },
-    { header: 'Format', accessor: 'format' },
-    { header: 'Statut', accessor: 'status' },
-    { header: 'Auteur', accessor: 'author' },
-    { header: 'Date de création', accessor: 'createdAt' },
-    { header: 'Période', accessor: 'period' },
-    { header: 'Dernier accès', accessor: 'lastAccessed', formatter: (val) => val || 'Jamais' },
-    { header: 'Téléchargements', accessor: 'downloadCount' },
-    { header: 'Taille (KB)', accessor: 'size' }
+    {
+      header: 'Type', accessor: 'type', formatter: (val) => {
+        const types = { financial: 'Financier', users: 'Utilisateurs', geographic: 'Géographique', performance: 'Performance', security: 'Sécurité' };
+        return types[val] || val;
+      }
+    },
+    { header: 'Format', accessor: 'format', formatter: (val) => val?.toUpperCase() || val },
+    {
+      header: 'Statut', accessor: 'status', formatter: (val) => {
+        const statuses = { generated: 'Généré', pending: 'En attente', failed: 'Échoué', processing: 'En cours' };
+        return statuses[val] || val;
+      }
+    },
+    { header: 'Créé le', accessor: 'createdAt' },
+    { header: 'Période', accessor: 'period' }
   ], []);
 
   // Configuration des tabs
@@ -1073,15 +1096,7 @@ const Reports = () => {
       {renderReportDetailsModal()}
       {renderGenerateReportModal()}
 
-      {/* Toast Notification */}
-      {toast.show && (
-        <Toast
-          title={toast.title}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(prev => ({ ...prev, show: false }))}
-        />
-      )}
+
 
       {/* Modale de confirmation de suppression */}
       <ConfirmModal

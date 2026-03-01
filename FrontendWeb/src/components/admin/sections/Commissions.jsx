@@ -19,7 +19,6 @@ import Tabs from '../ui/Tabs';
 import ChartCard from '../ui/ChartCard';
 import ConfirmModal from '../ui/ConfirmModal';
 import Pagination from '../ui/Pagination';
-import Toast from '../ui/Toast';
 import Modal from '../ui/Modal';
 import ExportDropdown from '../ui/ExportDropdown';
 import { adminService } from '../../../services/adminService';
@@ -134,7 +133,7 @@ const PaymentActions = ({ payment, onView, onProcess, onEdit }) => {
   );
 };
 
-const Commissions = () => {
+const Commissions = ({ showToast }) => {
   const { t } = useTranslation();
   // ============ DONNÉES RÉELLES (API) ============
   const [payments, setPayments] = useState([]);
@@ -152,7 +151,6 @@ const Commissions = () => {
   const [selectedPayments, setSelectedPayments] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [toast, setToast] = useState({ show: false, title: '', message: '', type: 'success' });
   const [isMobile, setIsMobile] = useState(false);
 
   // ============ MODALES ============
@@ -246,7 +244,7 @@ const Commissions = () => {
 
   // Configuration des colonnes pour l'exportation
   const exportColumns = useMemo(() => [
-    { header: t('commissions.export.id'), accessor: 'id' },
+    { header: "N°", accessor: (row, index) => index + 1 },
     { header: t('commissions.export.driver'), accessor: 'nom' },
     { header: t('commissions.export.email'), accessor: 'email' },
     { header: t('commissions.export.phone'), accessor: 'telephone' },
@@ -398,12 +396,7 @@ const Commissions = () => {
     }
   };
 
-  const showToast = (title, message, type = 'success') => {
-    setToast({ show: true, title, message, type });
-    setTimeout(() => {
-      setToast(prev => ({ ...prev, show: false }));
-    }, 5000);
-  };
+
 
   const handleViewDetails = async (payment) => {
     setModalState(prev => ({ ...prev, showDetails: true, selectedPayment: payment, loading: true }));
@@ -994,15 +987,7 @@ const Commissions = () => {
 
   return (
     <div className="space-y-4 md:space-y-6 px-2">
-      {/* Toast Notification */}
-      {toast.show && (
-        <Toast
-          title={toast.title}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(prev => ({ ...prev, show: false }))}
-        />
-      )}
+
 
       {/* Modales de confirmation */}
       <ConfirmModal

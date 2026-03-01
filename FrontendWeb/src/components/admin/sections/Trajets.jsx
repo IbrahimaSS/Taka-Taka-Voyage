@@ -35,6 +35,7 @@ import { adminService } from '../../../services/adminService';
 import { socketService } from '../../../services/socketService';
 import { GeolocationService } from '../../../services/geolocation';
 import ExportDropdown from '../ui/ExportDropdown';
+import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
 
 // TODO API (admin/trajets):
 // Remplacer les donnees simulees et les actions locales par des appels backend
@@ -71,7 +72,7 @@ const Trips = ({ showToast }) => {
 
   // Configuration des colonnes pour l'exportation
   const exportColumns = useMemo(() => [
-    { header: t('trips.trip_id'), accessor: 'id' },
+    { header: "N°", accessor: (t, i) => i + 1 },
     { header: t('trips.date'), accessor: 'date' },
     { header: t('trips.passenger'), accessor: (t) => t.passenger.name },
     { header: t('trips.driver'), accessor: (t) => t.driver.name },
@@ -177,7 +178,7 @@ const Trips = ({ showToast }) => {
       id: trip.reference || `TR-${trip._id.slice(-6).toUpperCase()}`,
       _id: trip._id,
       time: new Date(trip.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      route: `${trip.depart} → ${trip.destination}`,
+      route: `${(trip.depart || '').split(',').slice(0, 2).join(', ').replace(' ! ', ', ')} - ${(trip.destination || '').split(',').slice(0, 2).join(', ').replace(' ! ', ', ')}`,
       distance: `${trip.distanceKm} km`,
       duration: `${trip.dureeMin} min`,
       passenger: {
@@ -432,11 +433,29 @@ const Trips = ({ showToast }) => {
   };
 
   const handleExport = (format) => {
-    showToast({
-      type: 'success',
-      title: 'Export réussi',
-      message: `Les données ont été exportées en ${format.toUpperCase()}`,
-    });
+    const data = selectedTrips.length > 0 ? tripsData.filter(t => selectedTrips.includes(t.id)) : filteredTrips;
+    const fileName = `trajets_${new Date().toISOString().split('T')[0]}`;
+    const title = t('trips.title');
+
+    const columns = exportColumns; // Assuming exportColumns is defined
+
+    const options = {
+      data,
+      columns,
+      fileName,
+      title,
+      onToast: (t, m, s) => showToast(t, m, s)
+    };
+
+    switch (format) {
+      case 'csv': exportToCSV(options); break;
+      case 'pdf': exportToPDF(options); break;
+      case 'word':
+      case 'doc':
+        exportToWord(options);
+        break;
+      default: exportToPDF(options);
+    }
     setShowExportMenu(false);
   };
 
@@ -1423,7 +1442,7 @@ const Trips = ({ showToast }) => {
                       <div className="font-medium text-gray-800 dark:text-gray-100">{(currentPage - 1) * pageSize + index + 1}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                         <Calendar className="w-3 h-3" />
-                        {trip.date} {t('common.at') || 'à'} {trip.time}
+                        {trip.date} à {trip.time}
                       </div>
                     </td>
                     <td className="py-4">
@@ -1432,10 +1451,7 @@ const Trips = ({ showToast }) => {
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           {trip.distance} • {trip.duration}
                         </p>
-                        <div className="flex items-center mt-1">
-                          <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{t('common.direct') || 'Direct'}</span>
-                        </div>
+
                       </div>
                     </td>
                     <td className="py-4">

@@ -112,7 +112,7 @@ exports.detailUtilisateur = async (req, res) => {
     try {
         const { id } = req.params;
         const utilisateur = await Utilisateurs.findById(id)
-            .select("nom prenom email role statut createdAt telephone photoUrl localisation");
+            .select("nom prenom email role statut createdAt updatedAt telephone photoUrl localisation");
 
         if (!utilisateur) {
             return res.status(404).json({
@@ -165,6 +165,7 @@ exports.detailUtilisateur = async (req, res) => {
                 role: utilisateur.role,
                 statut: utilisateur.statut,
                 createdAt: utilisateur.createdAt,
+                updatedAt: utilisateur.updatedAt,
                 nombreTrajets,
                 noteMoyenne,
                 totalDepense,

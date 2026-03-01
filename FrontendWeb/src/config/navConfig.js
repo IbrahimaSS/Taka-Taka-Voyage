@@ -33,16 +33,14 @@ export const NAV_CONFIG = {
                 icon: Route,
                 label: 'Trajets',
                 path: 'trajets',
-                count: 45,
             },
             {
                 icon: Users,
                 label: 'Utilisateurs',
                 path: 'utilisateurs',
-                count: 180,
                 subItems: [
-                    { label: 'Passagers', path: 'utilisateurs', count: 24 },
-                    { label: 'Chauffeurs', path: 'chauffeurs', count: 156 },
+                    { label: 'Passagers', path: 'utilisateurs' },
+                    { label: 'Chauffeurs', path: 'chauffeurs' },
                 ],
             },
             {
@@ -58,17 +56,15 @@ export const NAV_CONFIG = {
                 icon: CheckCircle,
                 label: 'Validations',
                 path: 'validations',
-                count: 12,
                 subItems: [
-                    { label: 'Documents', path: 'documents', count: 8 },
-                    { label: 'Chauffeurs', path: 'validations', count: 4 },
+                    { label: 'Documents', path: 'documents' },
+                    { label: 'Chauffeurs', path: 'validations' },
                 ],
             },
             {
                 icon: AlertTriangle,
                 label: 'Litiges',
                 path: 'litiges',
-                count: 3,
             },
             {
                 icon: BarChart3,

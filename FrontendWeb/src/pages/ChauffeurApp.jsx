@@ -85,18 +85,20 @@ const LiveTrackingWrapper = () => {
       }}
       onBack={() => navigate("/chauffeur/tracking")}
       onEndTrip={async () => {
-        // ✅ Utilisation de plusieurs fallbacks d'identifiants pour éviter le 400 (Bad Request)
-        const tripId = mainTrip?.id || mainTrip?._id || mainTrip?.reservationId;
+        // ✅ Priorité aux IDs Mongoose (_id) pour éviter les erreurs 400
+        const tripId = mainTrip?._id || mainTrip?.reservationId || mainTrip?.id;
 
         if (tripId) {
-          // Verrouiller les données avant de terminer pour éviter le flash blanc (race condition)
+          // Verrouiller les données avant de terminer
           setCompletedTripData(mainTrip);
 
           try {
-            console.log("🏁 [ChauffeurApp] Tentative de clôture du trajet:", tripId);
-            await tripService.complete(tripId);
+            console.log("🏁 [ChauffeurApp] Tentative de clôture du trajet ID:", tripId);
+            const response = await tripService.complete(tripId);
+            console.log("✅ [ChauffeurApp] Trajet clôturé avec succès:", response.data);
           } catch (err) {
-            console.error("❌ Erreur lors de la completion du trajet:", err);
+            console.error("❌ [ChauffeurApp] Erreur 400/500 lors de la clôture:", err.response?.data || err.message);
+            // On peut logger plus d'infos si besoin: err.response?.status
           }
         }
         setShowComplete(true);
@@ -129,7 +131,7 @@ const ChauffeurDisputeButton = () => {
   );
 };
 
-function ChauffeurApp() {
+function DriverAppContent() {
   const { settings } = useSettings();
   const platform = settings?.platform || {};
 
@@ -139,6 +141,17 @@ function ChauffeurApp() {
   const [modal, setModal] = useState(null);
   const [currentDate, setCurrentDate] = useState("");
   const location = useLocation();
+  const navigate = useNavigate();
+  const { tripStep } = useDriverContext();
+
+  // ✅ REDIRECTION AUTOMATIQUE (Demande utilisateur)
+  useEffect(() => {
+    const isOnLive = location.pathname.includes("live-tracking");
+    if (tripStep === 'in_progress' && !isOnLive) {
+      console.log("🚀 [ChauffeurApp] Redirection automatique vers le suivi en direct.");
+      navigate("/chauffeur/live-tracking", { replace: true });
+    }
+  }, [tripStep, location.pathname, navigate]);
 
   useEffect(() => {
     const update = () => setCurrentDate(format(new Date(), "EEEE d MMMM yyyy", { locale: fr }));
@@ -167,138 +180,142 @@ function ChauffeurApp() {
   const isLiveTracking = location.pathname.includes("live-tracking");
 
   return (
-    <DriverProvider>
-      <DriverAutoOnline />
-      <ChauffeurDisputeButton />
+    <div className="flex min-h-screen inset-0 bg-gray-100 bg-gradient-to-br from-primary-50 to-secondary-100 dark:from-gray-800 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+      <TripNotificationToast />
 
-      <div className="flex min-h-screen inset-0 bg-gray-100 bg-gradient-to-br from-primary-50 to-secondary-100 dark:from-gray-800 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+      {!isLiveTracking && (
+        <Sidebar
+          role={ROLES.CHAUFFEUR}
+          collapsed={sidebarCollapsed}
+          mobileOpen={mobileSidebarOpen}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onCloseMobile={() => setMobileSidebarOpen(false)}
+        />
+      )}
 
-        <TripNotificationToast />
-
+      <div
+        className={`flex-1 transition-all duration-300 ease-in-out ${!isLiveTracking && sidebarCollapsed ? "lg:ml-20" : !isLiveTracking ? "lg:ml-72" : "ml-0"
+          }`}
+      >
         {!isLiveTracking && (
-          <Sidebar
+          <Header
             role={ROLES.CHAUFFEUR}
-            collapsed={sidebarCollapsed}
-            mobileOpen={mobileSidebarOpen}
-            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-            onCloseMobile={() => setMobileSidebarOpen(false)}
+            currentDate={currentDate}
+            onMenuToggle={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+            sidebarCollapsed={sidebarCollapsed}
+            onToast={showToast}
           />
         )}
 
-        <div
-          className={`flex-1 transition-all duration-300 ease-in-out ${!isLiveTracking && sidebarCollapsed ? "lg:ml-20" : !isLiveTracking ? "lg:ml-72" : "ml-0"
-            }`}
-        >
-          {!isLiveTracking && (
-            <Header
-              role={ROLES.CHAUFFEUR}
-              currentDate={currentDate}
-              onMenuToggle={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-              onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-              sidebarCollapsed={sidebarCollapsed}
-              onToast={showToast}
-            />
-          )}
+        <main className={isLiveTracking ? "h-screen" : "content-padding"}>
+          <div className="content-container">
+            <AnimatePresence mode="wait">
+              <Routes location={location} key={location.pathname}>
+                <Route index element={<Dashboard onToast={showToast} onModal={showModal} />} />
+                <Route path="trips" element={<Trajets onToast={showToast} onModal={showModal} />} />
+                <Route path="history" element={<HistoriqueTrajet onToast={showToast} onModal={showModal} />} />
+                <Route path="revenues" element={<Revenues onToast={showToast} onModal={showModal} />} />
+                <Route path="tracking" element={<ChauffeurTracking />} />
+                <Route path="live-tracking" element={<LiveTrackingWrapper />} />
+                <Route path="planning" element={<Planning onToast={showToast} onModal={showModal} />} />
+                <Route path="settings" element={<ChauffeurSettings onToast={showToast} onModal={showModal} />} />
+                <Route path="evaluations" element={<ChauffeurEvaluations onToast={showToast} onModal={showModal} />} />
+                <Route path="support" element={<ChauffeurSupport onToast={showToast} onModal={showModal} />} />
+                <Route path="profil" element={<ChauffeurProfile onToast={showToast} onModal={showModal} />} />
+              </Routes>
+            </AnimatePresence>
+          </div>
+        </main>
 
-          <main className={isLiveTracking ? "h-screen" : "content-padding"}>
-            <div className="content-container">
-              <AnimatePresence mode="wait">
-                <Routes location={location} key={location.pathname}>
-                  <Route index element={<Dashboard onToast={showToast} onModal={showModal} />} />
-                  <Route path="trips" element={<Trajets onToast={showToast} onModal={showModal} />} />
-                  <Route path="history" element={<HistoriqueTrajet onToast={showToast} onModal={showModal} />} />
-                  <Route path="revenues" element={<Revenues onToast={showToast} onModal={showModal} />} />
-                  <Route path="tracking" element={<ChauffeurTracking />} />
-                  <Route path="live-tracking" element={<LiveTrackingWrapper />} />
-                  <Route path="planning" element={<Planning onToast={showToast} onModal={showModal} />} />
-                  <Route path="settings" element={<ChauffeurSettings onToast={showToast} onModal={showModal} />} />
-                  <Route path="evaluations" element={<ChauffeurEvaluations onToast={showToast} onModal={showModal} />} />
-                  <Route path="support" element={<ChauffeurSupport onToast={showToast} onModal={showModal} />} />
-                  <Route path="profil" element={<ChauffeurProfile onToast={showToast} onModal={showModal} />} />
-                </Routes>
-              </AnimatePresence>
-            </div>
-          </main>
+        {!isLiveTracking && (
+          <footer className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-gray-800/40 backdrop-blur-sm px-6 py-4">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <p className="text-slate-600 dark:text-slate-300 text-sm mb-2 md:mb-0">
+                © {new Date().getFullYear()} {platform.name || 'TakaTaka'} Driver. Tous droits réservés.
+              </p>
+              <div className="flex items-center space-x-6">
+                <Bttn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    showModal(
+                      <div className="p-6">
+                        <h3>Aide Chauffeur</h3>
+                        <p>Support 24/7...</p>
+                      </div>
+                    )
+                  }
+                >
+                  Aide Chauffeur
+                </Bttn>
 
-          {!isLiveTracking && (
-            <footer className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-gray-800/40 backdrop-blur-sm px-6 py-4">
-              <div className="flex flex-col md:flex-row justify-between items-center">
-                <p className="text-slate-600 dark:text-slate-300 text-sm mb-2 md:mb-0">
-                  © {new Date().getFullYear()} {platform.name || 'TakaTaka'} Driver. Tous droits réservés.
-                </p>
-                <div className="flex items-center space-x-6">
-                  <Bttn
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      showModal(
-                        <div className="p-6">
-                          <h3>Aide Chauffeur</h3>
-                          <p>Support 24/7...</p>
-                        </div>
-                      )
-                    }
-                  >
-                    Aide Chauffeur
-                  </Bttn>
-
-                  <Bttn variant="ghost" size="sm" onClick={() => showToast("Sécurité en cours de développement", "info")}>
-                    Sécurité
-                  </Bttn>
-                </div>
+                <Bttn variant="ghost" size="sm" onClick={() => showToast("Sécurité en cours de développement", "info")}>
+                  Sécurité
+                </Bttn>
               </div>
-            </footer>
-          )}
-        </div>
-
-        {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-
-        <Modal isOpen={!!modal} onClose={closeModal} title={modal?.title}>
-          {modal?.content}
-        </Modal>
-
-        {/* Toaster global */}
-        <Toaster
-          position="top-right"
-          containerStyle={{
-            zIndex: 9999,
-          }}
-          toastOptions={{
-            duration: 3000,
-            style: {
-              color: '#fff',
-              borderRadius: '12px',
-              padding: '12px 16px',
-              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
-              fontSize: '14px',
-              fontWeight: '500',
-            },
-            success: {
-              style: {
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              },
-              iconTheme: {
-                primary: '#fff',
-                secondary: '#10b981',
-              },
-            },
-            error: {
-              style: {
-                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              },
-              iconTheme: {
-                primary: '#fff',
-                secondary: '#ef4444',
-              },
-            },
-            loading: {
-              style: {
-                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-              },
-            },
-          }}
-        />
+            </div>
+          </footer>
+        )}
       </div>
+
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+
+      <Modal isOpen={!!modal} onClose={closeModal} title={modal?.title}>
+        {modal?.content}
+      </Modal>
+
+      {/* Toaster global */}
+      <Toaster
+        position="top-right"
+        containerStyle={{
+          zIndex: 9999,
+        }}
+        toastOptions={{
+          duration: 3000,
+          style: {
+            color: '#fff',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+          success: {
+            style: {
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            },
+            iconTheme: {
+              primary: '#fff',
+              secondary: '#10b981',
+            },
+          },
+          error: {
+            style: {
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            },
+            iconTheme: {
+              primary: '#fff',
+              secondary: '#ef4444',
+            },
+          },
+          loading: {
+            style: {
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            },
+          },
+        }}
+      />
+    </div>
+  );
+}
+
+function ChauffeurApp() {
+  return (
+    <DriverProvider>
+      <DriverAutoOnline />
+      <ChauffeurDisputeButton />
+      <DriverAppContent />
     </DriverProvider>
   );
 }

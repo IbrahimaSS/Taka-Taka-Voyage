@@ -236,6 +236,15 @@ const Drivers = ({ showToast }) => {
     return name.split(' ').filter(Boolean).map(n => n[0]?.toUpperCase()).join('');
   };
 
+  const getAvatarUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const baseUrl = apiURL.replace(/\/api$/, '');
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${baseUrl}${cleanPath}`;
+  };
+
   // Fonctions pour les badges
   const getStatusBadge = (statut) => {
     switch (statut) {
@@ -404,7 +413,7 @@ const Drivers = ({ showToast }) => {
             <div className="flex items-center space-x-4">
               <div className={`w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-green-500 to-blue-700 flex items-center justify-center`}>
                 {selectedDriver.photoUrl ? (
-                  <img src={selectedDriver.photoUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={getAvatarUrl(selectedDriver.photoUrl)} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-white text-xl font-bold">
                     {getInitials(selectedDriver.name || `${selectedDriver.prenom} ${selectedDriver.nom}`)}
@@ -508,7 +517,7 @@ const Drivers = ({ showToast }) => {
             <div className="pt-6 border-t border-gray-200 dark:border-gray-900 overflow-hidden">
               <p className="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-widest mb-4">{t('nav.history') || 'Historique des trajets'}</p>
               <div className="max-h-[500px] overflow-y-auto px-1 -mx-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800">
-                <HistoriqueTrajet chauffeurId={selectedDriver.id} />
+                <HistoriqueTrajet chauffeurId={selectedDriver.userId || selectedDriver.id} />
               </div>
             </div>
 
@@ -536,7 +545,7 @@ const Drivers = ({ showToast }) => {
                   openStatusModal(selectedDriver, 'suspend');
                 }}
               >
-                {t('common.suspend') || 'Suspendre'}
+                {t('common.suspend', 'Suspendre')}
               </Button>
             </div>
           </div>
@@ -689,7 +698,7 @@ const Drivers = ({ showToast }) => {
                       <div className="flex items-center">
                         <div className={`w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center mr-4`}>
                           {driver.photoUrl ? (
-                            <img src={driver.photoUrl} alt="" className="w-full h-full object-cover" />
+                            <img src={getAvatarUrl(driver.photoUrl)} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <span className="text-white text-xl font-bold">
                               {getInitials(driver.name)}
@@ -793,7 +802,7 @@ const Drivers = ({ showToast }) => {
                             size="small"
                             icon={Ban}
                             onClick={() => openStatusModal(driver, 'suspend')}
-                            title={t('common.suspend') || 'Suspendre'}
+                            title={t('common.suspend', 'Suspendre')}
                             className="p-2 text-red-600 hover:text-red-700"
                           />
                         )}

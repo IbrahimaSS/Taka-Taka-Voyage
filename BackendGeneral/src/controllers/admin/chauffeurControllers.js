@@ -158,6 +158,22 @@ exports.listeChauffeurs = async (req, res) => {
                     noteMoyenne = (totalNotes / evaluations.length).toFixed(1);
                 }
 
+                const gainsAgg = await Reservation.aggregate([
+                    {
+                        $match: {
+                            chauffeur: new mongoose.Types.ObjectId(ch.utilisateur._id),
+                            "paiement.statut": "PAYE",
+                        },
+                    },
+                    {
+                        $group: {
+                            _id: null,
+                            total: { $sum: "$prix" },
+                        },
+                    },
+                ]);
+                const totalGagne = gainsAgg?.[0]?.total || 0;
+
                 const baseUrl = `${req.protocol}://${req.get("host")}`;
                 let finalPhotoUrl = ch.utilisateur.photoUrl;
                 if (finalPhotoUrl && !finalPhotoUrl.startsWith("http")) {
@@ -177,7 +193,7 @@ exports.listeChauffeurs = async (req, res) => {
                     plate: ch.plaque,
                     trips: nombreTrajets,
                     rating: noteMoyenne || 0,
-                    earnings: ch.gainsTotaux || 0,
+                    earnings: totalGagne,
                     joinDate: ch.createdAt,
                 };
             })
@@ -280,6 +296,7 @@ exports.detailChauffeur = async (req, res) => {
             chauffeur: {
                 // ===== INFOS CHAUFFEUR =====
                 id: chauffeurProfile._id,
+                userId: chauffeurProfile.utilisateur._id,
                 nom: chauffeurProfile.utilisateur.nom,
                 prenom: chauffeurProfile.utilisateur.prenom,
                 email: chauffeurProfile.utilisateur.email,

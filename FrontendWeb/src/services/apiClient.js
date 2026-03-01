@@ -55,14 +55,15 @@ apiClient.interceptors.response.use(
   (error) => {
     // If the backend says the token is invalid/expired, clear it and redirect.
     if (error.response && error.response.status === 401) {
-      console.warn('🔐 401 – unauthorized, clearing auth token');
-      // Remove stored JWT (if any)
-      localStorage.removeItem('authToken');
-      // Optional: you can also clear cookies here if you use session cookies.
+      // Si on est déjà sur la page de login, on ne redirige pas (évite les boucles)
+      const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/connexion';
 
-      // Redirect to login page – adjust the path if your router differs.
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+      if (!isLoginPage) {
+        console.warn('🔐 401 – unauthorized, clearing auth token and redirecting');
+        localStorage.removeItem('authToken');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

@@ -20,7 +20,13 @@ export class GeolocationService {
           if (isNaN(latitude) || isNaN(longitude)) {
             reject(new Error('Coordonnées invalides reçues du GPS'));
           } else {
-            resolve({ lat: latitude, lng: longitude });
+            resolve({
+              lat: latitude,
+              lng: longitude,
+              speed: pos.coords.speed,
+              heading: pos.coords.heading,
+              accuracy: pos.coords.accuracy
+            });
           }
         },
         reject,
@@ -47,14 +53,20 @@ export class GeolocationService {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         if (!isNaN(latitude) && !isNaN(longitude)) {
-          onSuccess({ lat: latitude, lng: longitude });
+          onSuccess({
+            lat: latitude,
+            lng: longitude,
+            speed: pos.coords.speed,
+            heading: pos.coords.heading,
+            accuracy: pos.coords.accuracy
+          });
         }
       },
       onError,
       {
         enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 5000,
+        timeout: 20000,
+        maximumAge: 0,
         ...options
       }
     );

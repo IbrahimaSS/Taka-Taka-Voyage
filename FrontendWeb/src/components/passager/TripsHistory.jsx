@@ -204,16 +204,6 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
             >
               {t('history.details.close')}
             </Button>
-            {trip.status === 'completed' && trip.payment === 'Espèces' && (
-              <Button
-                variant="warning"
-                onClick={onPay}
-                icon={CreditCard}
-                className="flex-1"
-              >
-                {t('history.details.pay')}
-              </Button>
-            )}
             <Button
               variant="warning"
               onClick={() => onShowInvoice(trip)}
@@ -274,8 +264,6 @@ const TripsHistory = () => {
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedVehicleType, setSelectedVehicleType] = useState('all');
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [tripToPay, setTripToPay] = useState(null);
   const [showInvoice, setShowInvoice] = useState(false);
   const [invoiceData, setInvoiceData] = useState(null);
 
@@ -562,23 +550,11 @@ const TripsHistory = () => {
     setShowInvoice(true);
   };
 
-  const handleOpenPayment = (trip) => {
-    setTripToPay(trip);
-    setShowPaymentModal(true);
-  };
-
-  const onPaymentSuccess = (paymentResult) => {
-    toast.success(t('common.save_success'));
-    setShowPaymentModal(false);
-    setTrips(prev => prev.map(t =>
-      t.id === tripToPay.id ? { ...t, payment: paymentResult.paymentMethod } : t
-    ));
-  };
+  
 
   const resetFilters = () => {
     setSearchTerm('');
     setActiveFilter('all');
-    setSelectedVehicleType('all');
     setSortConfig({ key: 'date', direction: 'desc' });
     toast.success(t('history.reset_filters'));
   };
@@ -670,18 +646,7 @@ const TripsHistory = () => {
                   ))}
                 </div>
 
-                <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mr-2">{t('history.vehicle.title')}:</span>
-                  {vehicleFilters.map((filter) => (
-                    <FilterChip
-                      key={filter.id}
-                      active={selectedVehicleType === filter.id}
-                      onClick={() => setSelectedVehicleType(filter.id)}
-                      icon={filter.icon}
-                      label={filter.label}
-                    />
-                  ))}
-                </div>
+                
               </div>
             </div>
           </CardContent>
@@ -780,15 +745,7 @@ const TripsHistory = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex space-x-2">
-                                {trip.status === 'completed' && trip.payment === 'Espèces' && (
-                                  <Button
-                                    variant="ghost"
-                                    size="small"
-                                    icon={CreditCard}
-                                    onClick={() => handleOpenPayment(trip)}
-                                    tooltip="Payer maintenant"
-                                  />
-                                )}
+                                
                                 <Button
                                   variant="ghost"
                                   size="small"
@@ -872,10 +829,7 @@ const TripsHistory = () => {
         onClose={() => setShowDetailsModal(false)}
         onShare={() => selectedTrip && handleShareTrip(selectedTrip)}
         onContact={() => selectedTrip?.driver?.phone && handleContactDriver(selectedTrip.driver.phone)}
-        onPay={() => {
-          setShowDetailsModal(false);
-          selectedTrip && handleOpenPayment(selectedTrip);
-        }}
+       
         onShowInvoice={handleShowInvoice}
       />
 
@@ -889,15 +843,7 @@ const TripsHistory = () => {
         )}
       </AnimatePresence>
 
-      {/* Modale de paiement */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onSuccess={onPaymentSuccess}
-        amount={tripToPay ? parseInt(tripToPay.price.replace(/[^0-9]/g, '')) : 0}
-        tripDetails={tripToPay}
-        user={trips[0]?.passenger}
-      />
+      
     </div>
   );
 };

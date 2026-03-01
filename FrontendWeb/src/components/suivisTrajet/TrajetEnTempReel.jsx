@@ -70,9 +70,6 @@ const RealTimeTracking = ({
     return false;
   };
 
-  const isSimulating = driverCtx?.isSimulating || false;
-  const setIsSimulating = driverCtx?.setIsSimulating || (() => { });
-
   const [driverPosition, setDriverPosition] = useState(
     driver?.currentLocation || driver?.location || null
   );
@@ -95,6 +92,16 @@ const RealTimeTracking = ({
   const progressInterval = useRef();
   const timeInterval = useRef();
   const driverStartPositionRef = useRef(null); // Position du chauffeur au démarrage du suivi
+  const lastStatusRef = useRef(trip?.status);
+
+  // ✅ Reset de la référence si le statut change (ex: de 'approaching' à 'in_progress')
+  useEffect(() => {
+    if (trip?.status !== lastStatusRef.current) {
+      console.log("🔄 [Tracking] Changement de statut:", lastStatusRef.current, "->", trip?.status);
+      driverStartPositionRef.current = null;
+      lastStatusRef.current = trip?.status;
+    }
+  }, [trip?.status]);
 
   // Données calculées à partir des props
   const tripData = {
@@ -305,10 +312,19 @@ const RealTimeTracking = ({
     };
   }, [updateTime, trip?.reservationId, trip?.id]);
 
-  // ✅ FIX: Mettre à jour la position locale quand le prop driver change (socket)
+  // ✅ Mise à jour de la position et de la vitesse
   useEffect(() => {
     if (driver?.location || driver?.currentLocation) {
-      setDriverPosition(driver.location || driver.currentLocation);
+      const loc = driver.location || driver.currentLocation;
+      setDriverPosition(loc);
+
+      // Mise à jour de la vitesse si disponible (speed est en m/s par défaut via browser API)
+      if (loc && typeof loc.speed === 'number') {
+        const speedKmh = Math.round(loc.speed * 3.6);
+        setSpeed(speedKmh > 0 ? speedKmh : 0);
+      } else if (driver.speed) {
+        setSpeed(Math.round(driver.speed));
+      }
     }
   }, [driver]);
 
@@ -317,6 +333,13 @@ const RealTimeTracking = ({
     const onPositionUpdate = (data) => {
       if (data && data.lat && data.lng) {
         setDriverPosition({ lat: data.lat, lng: data.lng });
+
+        // Mise à jour de la vitesse via le socket
+        if (typeof data.speed === 'number') {
+          // On assume que le serveur transmet les m/s du GPS
+          const speedKmh = Math.round(data.speed * 3.6);
+          setSpeed(speedKmh > 0 ? speedKmh : 0);
+        }
       }
     };
 
@@ -387,7 +410,8 @@ const RealTimeTracking = ({
       const startLng = driverStartPositionRef.current.lng;
 
       // 1. Distance totale du trajet = position initiale du chauffeur → destination
-      const distTotal = GeolocationService.calculateDistance(startLat, startLng, destLat, destLng) || Math.max(0.1, tripData.trip.totalDistance);
+      // On réduit le fallback à 5 mètres (0.005 km) pour les démos en salle
+      const distTotal = GeolocationService.calculateDistance(startLat, startLng, destLat, destLng) || Math.max(0.005, tripData.trip.totalDistance);
 
       // 2. Distance restante = position actuelle du chauffeur → destination
       const distRemaining = GeolocationService.calculateDistance(driverLat, driverLng, destLat, destLng);
@@ -398,9 +422,9 @@ const RealTimeTracking = ({
       // 4. Pourcentage — borné entre 0% et 100%
       let pct = (distTraveled / distTotal) * 100;
 
-      // ✅ [FIX] Si on est à moins de 200m de la destination, on considère que c'est 100%
-      // pour éviter les sauts GPS qui bloquent à 99%
-      if (distRemaining < 0.2) {
+      // ✅ [FIX] Pour la démo en salle, on réduit le seuil d'arrivée à 5 mètres (0.005 km)
+      // au lieu de 200 mètres (0.2 km) pour que la barre puisse bouger visiblement.
+      if (distRemaining < 0.005) {
         pct = 100;
       }
 
@@ -420,8 +444,8 @@ const RealTimeTracking = ({
       const newEta = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
       setRealTimeMetrics({
-        distanceTraveled: parseFloat(distTraveled.toFixed(1)),
-        distanceRemaining: parseFloat(distRemaining.toFixed(1)),
+        distanceTraveled: parseFloat(distTraveled.toFixed(2)),
+        distanceRemaining: parseFloat(distRemaining.toFixed(2)),
         progress: Math.round(pct),
         durationRemaining: timeRemaining,
         formattedDuration
@@ -429,7 +453,7 @@ const RealTimeTracking = ({
       setProgress(Math.round(pct)); // Sync avec l'état existant pour la barre
       setEstimatedArrival(newEta);   // Sync avec l'état existant pour l'ETA
     }
-  }, [driverPosition, tripData.destination.coords, tripData.departure.coords, tripData.trip.totalDistance, tripData.trip.totalDuration]);
+  }, [driverPosition, tripData.destination.coords, tripData.departure.coords, tripData.trip.totalDistance, tripData.trip.totalDuration, trip?.status]);
 
   // ✅ AUTO-TERMINER : Si progress === 100%, on finit automatiquement
   useEffect(() => {
@@ -545,7 +569,7 @@ const RealTimeTracking = ({
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                {isTripEnded ? 'Trajet terminé' : (trip?.status === 'approaching' ? 'Chauffeur en approche' : 'Trajet en cours')}
+                {isTripEnded ? 'Trajet terminé' : 'Trajet en cours'}
               </h1>
               <div className="flex flex-wrap items-center gap-4 text-gray-600 dark:text-gray-400">
                 <div className="flex items-center">
@@ -587,8 +611,8 @@ const RealTimeTracking = ({
               />
             </div>
             <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-2">
-              <span>{realTimeMetrics.distanceTraveled} km parcourus</span>
-              <span>{realTimeMetrics.distanceRemaining} km restants</span>
+              <span>{realTimeMetrics.distanceTraveled.toFixed(2)} km parcourus</span>
+              <span>{realTimeMetrics.distanceRemaining.toFixed(2)} km restants</span>
             </div>
           </div>
 
@@ -695,21 +719,6 @@ const RealTimeTracking = ({
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Actualiser
                   </motion.button>
-
-                  {role === 'driver' && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setIsSimulating(!isSimulating)}
-                      className={`flex items-center gap-2 px-4 py-1.5 rounded-xl border-2 transition-all font-bold text-xs ${isSimulating
-                        ? 'bg-amber-500 border-amber-600 text-white animate-pulse'
-                        : 'bg-white dark:bg-gray-800 border-emerald-500 text-emerald-600'
-                        }`}
-                    >
-                      <RefreshCw className={`w-3 h-3 ${isSimulating ? 'animate-spin' : ''}`} />
-                      {isSimulating ? 'SIMULATION ACTIVE' : 'SIMULER MOUVEMENT'}
-                    </motion.button>
-                  )}
                 </div>
               </div>
 
@@ -792,19 +801,19 @@ const RealTimeTracking = ({
                     </Marker>
                   )}
 
-                  {/* Trajet Driver -> Passenger (Approche) */}
-                  {isValidCoords(driverPosition) && isValidCoords(tripData.departure.coords) && (
-                    <Polyline
-                      positions={[driverPosition, tripData.departure.coords]}
-                      pathOptions={{ color: '#22c55e', weight: 6, opacity: 0.9, dashArray: '15, 15', lineCap: 'round', lineJoin: 'round' }}
-                    />
-                  )}
-
-                  {/* Trajet Passenger -> Destination (Future Course) */}
+                  {/* Trajet global (Pointillés discrets en fond) */}
                   {isValidCoords(tripData.departure.coords) && isValidCoords(tripData.destination.coords) && (
                     <Polyline
                       positions={[tripData.departure.coords, tripData.destination.coords]}
-                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.4 }}
+                      pathOptions={{ color: '#3b82f6', weight: 4, opacity: 0.2, dashArray: '5, 10' }}
+                    />
+                  )}
+
+                  {/* Trajet Chauffeur -> Destination (Actuel) */}
+                  {isValidCoords(driverPosition) && isValidCoords(tripData.destination.coords) && (
+                    <Polyline
+                      positions={[driverPosition, tripData.destination.coords]}
+                      pathOptions={{ color: '#22c55e', weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }}
                     />
                   )}
                 </MapContainer>

@@ -42,7 +42,8 @@ export const adminService = {
   getReports: (params) => apiClient.get(API_ROUTES.admin.rapports.list, { params }),
   createReport: (data) => apiClient.post(API_ROUTES.admin.rapports.create, data),
   getReportDetails: (id) => apiClient.get(API_ROUTES.admin.rapports.details(id)),
-  deleteReport: (id) => apiClient.delete(API_ROUTES.admin.rapports.details(id)), // Assume DELETE exists or will be added
+  deleteReport: (id) => apiClient.delete(API_ROUTES.admin.rapports.details(id)),
+  incrementReportDownload: (id) => apiClient.patch(API_ROUTES.admin.rapports.download(id)),
 
   // Gestion des passagers
   getPassengers: (params) => apiClient.get(API_ROUTES.admin.passagers.list, { params }),

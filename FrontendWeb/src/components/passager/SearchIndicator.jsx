@@ -28,7 +28,7 @@ const SearchIndicator = ({
   // driver_found = Grand Modal (qui s'auto-hide)
   const isDriverFound = status === 'driver_found';
   // approaching = Petit Modal "En Route" (quand le chauffeur clique Rejoindre)
-  const isApproaching = status === 'approaching' || status === 'arrived'; // On garde aussi pour arrived
+  const isApproaching = status === 'approaching';
 
   /* Gestion de la visibilité temporaire (30s) pour driver_found */
   const [isCardVisible, setIsCardVisible] = React.useState(true);
@@ -133,9 +133,10 @@ const SearchIndicator = ({
           )}
 
           {/* CAS 3: CHAUFFEUR EN ROUTE (Petit Modal - Après clic Rejoindre) */}
-          {(isApproaching || status === 'arrived') && driver && isCardVisible && (
+          {isApproaching && status !== 'arrived' && driver && isCardVisible && (
             <DriverEnRouteModal
               driver={driver}
+              status={status}
               onTrack={() => {
                 setIsCardVisible(false); // Masquer le modal pour voir la carte en dessous
                 if (onTrack) onTrack();

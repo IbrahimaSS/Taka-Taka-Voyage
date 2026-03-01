@@ -87,10 +87,6 @@ export const DriverProvider = ({ children }) => {
     maximumAge: 2000,
   }), []);
 
-  // Mode simulation pour les tests
-  const [isSimulating, setIsSimulating] = useState(false);
-  const simulationIntervalRef = useRef(null);
-
   const { location: realLocation } = useGeolocation(geolocationOptions);
 
   const [driverLocation, setDriverLocation] = useState({
@@ -99,10 +95,10 @@ export const DriverProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    if (!isSimulating && realLocation?.lat != null && realLocation?.lng != null) {
+    if (realLocation?.lat != null && realLocation?.lng != null) {
       setDriverLocation(realLocation);
     }
-  }, [realLocation, isSimulating]);
+  }, [realLocation]);
 
   // Demandes reçues (affichées par TripNotificationToast)
   const [tripRequests, setTripRequests] = useState([]);
@@ -476,29 +472,24 @@ export const DriverProvider = ({ children }) => {
       const currentIds = getTargetIds();
       if (currentIds.length === 0) return;
 
+      const lastLoc = lastBroadcastRef.current;
+      const lastTime = lastBroadcastTimeRef.current;
+
       const currentLoc = driverLocationRef.current || driverLocation;
       const now = Date.now();
 
       // Logique de filtrage
       let shouldBroadcast = false;
 
-      if (isSimulating) {
-        // En simulation, on envoie à chaque tick pour la fluidité du test
+      if (!lastLoc) {
         shouldBroadcast = true;
       } else {
-        const lastLoc = lastBroadcastRef.current;
-        const lastTime = lastBroadcastTimeRef.current;
+        const dist = calculateDistance(currentLoc.lat, currentLoc.lng, lastLoc.lat, lastLoc.lng);
+        const timeSinceLast = now - lastTime;
 
-        if (!lastLoc) {
+        // SEUILS: 10 mètres (0.01 km) OU 30 secondes (Heartbeat)
+        if (dist > 0.005 || timeSinceLast > 15000) {
           shouldBroadcast = true;
-        } else {
-          const dist = calculateDistance(currentLoc.lat, currentLoc.lng, lastLoc.lat, lastLoc.lng);
-          const timeSinceLast = now - lastTime;
-
-          // SEUILS: 10 mètres (0.01 km) OU 30 secondes (Heartbeat)
-          if (dist > 0.01 || timeSinceLast > 30000) {
-            shouldBroadcast = true;
-          }
         }
       }
 
@@ -508,55 +499,19 @@ export const DriverProvider = ({ children }) => {
             reservationId: rid,
             lat: currentLoc.lat,
             lng: currentLoc.lng,
+            speed: currentLoc.speed || 0,
+            heading: currentLoc.heading || 0
           });
         }
         lastBroadcastRef.current = currentLoc;
         lastBroadcastTimeRef.current = now;
       }
-    }, isSimulating ? 2000 : 4000);
+    }, 4000);
 
     return () => clearInterval(interval);
-  }, [isOnline, currentPickupTripId, tripStep, isSimulating]);
+  }, [isOnline, currentPickupTripId, tripStep]);
 
-  // ────────────────────────────────────────────────
-  // 4) Logique de Simulation
-  // ────────────────────────────────────────────────
-  useEffect(() => {
-    if (isSimulating && tripStep === "in_progress") {
-      // Si pas d'ID spécifique, prendre le premier trajet "picked_up"
-      const activeTrip = currentPickupTripId
-        ? acceptedTrips.find(t => t.id === currentPickupTripId)
-        : acceptedTrips.find(t => t.pickupStatus === "picked_up");
 
-      if (!activeTrip) return;
-
-      const dest = normalizeCoords(activeTrip.destinationCoords);
-      if (!dest) return;
-
-      simulationIntervalRef.current = setInterval(() => {
-        setDriverLocation(prev => {
-          const latDiff = dest.lat - prev.lat;
-          const lngDiff = dest.lng - prev.lng;
-          const dist = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
-
-          if (dist < 0.0001) {
-            setIsSimulating(false);
-            return prev;
-          }
-
-          // Avancer beaucoup plus vite pour les tests/juges (~8x plus vite)
-          return {
-            lat: prev.lat + (latDiff / dist) * 0.004,
-            lng: prev.lng + (lngDiff / dist) * 0.004
-          };
-        });
-      }, 250); // Intervalle plus court pour plus de nervosité (250ms au lieu de 1000ms)
-
-      return () => clearInterval(simulationIntervalRef.current);
-    } else {
-      setIsSimulating(false);
-    }
-  }, [isSimulating, tripStep, currentPickupTripId, acceptedTrips]);
 
   // ────────────────────────────────────────────────
   // 4) Expiration demandes
@@ -733,8 +688,6 @@ export const DriverProvider = ({ children }) => {
 
       calculateDistance,
       maxDistanceKm: MAX_DISTANCE_KM,
-      isSimulating,
-      setIsSimulating,
       refreshActiveTrips,
       startPlannedTrip,
     }),
@@ -749,7 +702,6 @@ export const DriverProvider = ({ children }) => {
       tripStep,
       stats,
       calculateDistance,
-      isSimulating,
       refreshActiveTrips,
       startPlannedTrip,
     ]
