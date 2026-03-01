@@ -25,7 +25,7 @@ import {
   TrendingUp, TrendingDown, Award, Compass,
   Zap, Battery, Wifi, Map as MapIcon,
   Layers, Database, Cpu, Satellite,
-  Copy
+  Copy, CreditCard
 } from 'lucide-react';
 import LiveTripMap from '../../maps/LiveTripMap';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
@@ -124,13 +124,11 @@ const Trips = ({ showToast }) => {
     return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${cleanPath}`;
   };
 
-  const getInitials = (person) => {
+  const getUserAvatarInitials = (person) => {
     if (!person) return '?';
-    // Si l'objet a firstName/lastName (notre mapping)
     if (person.firstName || person.lastName) {
-      return `${person.firstName?.charAt(0) || ''}${person.lastName?.charAt(0) || ''}`.toUpperCase();
+      return `${person.firstName?.charAt(0) || ''}${person.lastName?.charAt(0) || ''}`.toUpperCase() || '?';
     }
-    // Fallback sur le nom complet si seulement name est dispo
     if (person.name) {
       const parts = person.name.split(' ');
       if (parts.length >= 2) return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
@@ -142,14 +140,12 @@ const Trips = ({ showToast }) => {
   const LocationMarker = () => {
     const [position, setPosition] = useState(null);
     const map = useMap();
-
     useEffect(() => {
       map.locate().on("locationfound", function (e) {
         setPosition(e.latlng);
         map.flyTo(e.latlng, map.getZoom());
       });
     }, [map]);
-
     return position === null ? null : (
       <Marker position={position} icon={leafletIcons.user}>
         <Popup>Vous êtes ici (Admin)</Popup>
@@ -187,9 +183,9 @@ const Trips = ({ showToast }) => {
         name: trip.passager ? `${trip.passager.prenom} ${trip.passager.nom}` : 'Utilisateur supprimé',
         phone: trip.passager?.telephone || '-',
         email: trip.passager?.email || '-',
-        rating: 5,
-        tripsCount: 0,
-        memberSince: '-',
+        rating: trip.passager?.noteMoyenne ?? 5,
+        tripsCount: trip.passager?.nombreTrajets || 0,
+        memberSince: trip.passager?.createdAt ? new Date(trip.passager.createdAt).toLocaleDateString() : '-',
         avatarColor: 'bg-emerald-100 text-emerald-600',
         photoUrl: trip.passager?.photoUrl
       },
@@ -198,10 +194,25 @@ const Trips = ({ showToast }) => {
         lastName: trip.chauffeur.nom || '',
         name: `${trip.chauffeur.prenom} ${trip.chauffeur.nom}`,
         phone: trip.chauffeur.telephone,
-        rating: 5,
-        vehicleType: getVehicleType(trip.chauffeur.vehicule, trip.typeVehicule),
-        yearsExperience: 0,
-        completedTrips: 0,
+        rating: trip.chauffeur.noteMoyenne ?? 5,
+        vehicleType: (() => {
+          const marque = trip.chauffeur.vehicule?.marque || '';
+          const modele = trip.chauffeur.vehicule?.modele || '';
+          if (!marque && !modele) return trip.typeVehicule || 'Standard';
+          if (modele.toLowerCase().startsWith(marque.toLowerCase())) return modele;
+          return `${marque} ${modele}`.trim();
+        })(),
+        yearsExperience: trip.chauffeur.valideLe ? Math.max(0, Math.floor((new Date() - new Date(trip.chauffeur.valideLe)) / (1000 * 60 * 60 * 24 * 365))) : 0,
+        experienceStr: trip.chauffeur.valideLe ? (
+          (() => {
+            const diff = new Date() - new Date(trip.chauffeur.valideLe);
+            const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30));
+            if (months < 1) return "< 1 mois";
+            if (months < 12) return `${months} mois`;
+            return `${Math.floor(months / 12)} ans`;
+          })()
+        ) : '0 ans',
+        completedTrips: trip.chauffeur.nombreTrajets || 0,
         avatarColor: 'bg-blue-100 text-blue-600',
         photoUrl: trip.chauffeur.photoUrl,
         vehicle: trip.chauffeur.vehicule
@@ -213,11 +224,13 @@ const Trips = ({ showToast }) => {
         rating: 0,
         vehicleType: '-',
         yearsExperience: 0,
+        experienceStr: '0 ans',
         completedTrips: 0,
         avatarColor: 'bg-gray-100 text-gray-400'
       },
       vehicle: {
         type: trip.chauffeur?.vehicule?.type || trip.typeVehicule || 'Standard',
+        model: trip.chauffeur?.vehicule?.modele || '-',
         plate: trip.chauffeur?.vehicule?.immatriculation || '-',
         color: trip.chauffeur?.vehicule?.couleur || '-',
         year: '-',
@@ -226,7 +239,7 @@ const Trips = ({ showToast }) => {
         features: []
       },
       amount: `${(trip.prix || 0).toLocaleString()} GNF`,
-      paymentMethod: 'Espèces', // Default for now
+      paymentMethod: trip.paiement?.methode || trip.paiement?.mode || 'CASH',
       status: getStatus(trip.statut),
       date: new Date(trip.createdAt).toISOString().split('T')[0],
       rawDate: new Date(trip.createdAt),
@@ -251,9 +264,9 @@ const Trips = ({ showToast }) => {
       distanceKm: trip.distanceKm,
       durationMin: trip.dureeMin,
       fareBreakdown: {
-        base: 0,
-        distance: 0,
-        time: 0,
+        base: Math.round((trip.prix || 0) * 0.20), // 20% estimé
+        distance: Math.round((trip.prix || 0) * 0.60), // 60% estimé
+        time: Math.round((trip.prix || 0) * 0.20), // 20% estimé
         total: trip.prix || 0,
         commission: Math.round((trip.prix || 0) * 0.15),
         platformFee: 0,
@@ -399,14 +412,29 @@ const Trips = ({ showToast }) => {
   };
 
   const getPaymentBadge = (method) => {
-    const config = {
-      'Espèces': { label: t('payments.cash'), color: 'emerald', icon: DollarSign },
-      'Mobile Money': { label: t('payments.mobile_money'), color: 'blue', icon: Smartphone },
-      'Orange Money': { label: t('payments.orange_money'), color: 'orange', icon: Phone },
-      'Wave': { label: t('payments.wave'), color: 'purple', icon: Zap },
+    const getMethod = (m) => {
+      if (!m) return 'cash';
+      const lower = m.toLowerCase();
+      if (lower.includes('orange')) return 'orange';
+      if (lower.includes('mtn')) return 'mtn';
+      if (lower.includes('wave')) return 'wave';
+      if (lower.includes('carte') || lower.includes('card')) return 'card';
+      if (lower.includes('mobile') || lower.includes('money')) return 'orange'; // Fallback visuel (Orange par défaut)
+      if (lower.includes('portefeuille') || lower.includes('wallet')) return 'card';
+      return 'cash';
     };
 
-    const { label, color, icon: Icon } = config[method] || { label: method, color: 'gray', icon: DollarSign };
+    const m = getMethod(method);
+
+    const config = {
+      'cash': { label: t('payments.cash') || 'Espèces', color: 'emerald', icon: DollarSign },
+      'orange': { label: t('payments.orange_money') || 'Orange Money', color: 'orange', icon: Phone },
+      'mtn': { label: t('payments.mobile_money') || 'MTN Money', color: 'blue', icon: Smartphone },
+      'wave': { label: t('payments.wave') || 'Wave', color: 'purple', icon: Zap },
+      'card': { label: t('payments.card') || 'Carte', color: 'gray', icon: CreditCard },
+    };
+
+    const { label, color, icon: Icon } = config[m] || config.cash;
     return (
       <Badge className={`bg-${color}-50 text-${color}-700 border border-${color}-200`} size="sm">
         <Icon className="w-3 h-3 mr-1" />
@@ -614,7 +642,7 @@ const Trips = ({ showToast }) => {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center">
               <div className="relative w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-200 dark:border-emerald-800 overflow-hidden mr-3">
-                <span className="z-0">{getInitials(trip.passenger)}</span>
+                <span className="z-0">{getUserAvatarInitials(trip.passenger)}</span>
                 {trip.passenger.photoUrl && (
                   <img
                     src={getAvatarUrl(trip.passenger.photoUrl)}
@@ -631,7 +659,7 @@ const Trips = ({ showToast }) => {
             </div>
             <div className="flex items-center">
               <div className="relative w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-700 dark:text-blue-400 text-xs font-bold border border-blue-200 dark:border-blue-800 overflow-hidden mr-3">
-                <span className="z-0">{getInitials(trip.driver)}</span>
+                <span className="z-0">{getUserAvatarInitials(trip.driver)}</span>
                 {trip.driver.photoUrl && (
                   <img
                     src={getAvatarUrl(trip.driver.photoUrl)}
@@ -832,7 +860,7 @@ const Trips = ({ showToast }) => {
               <CardContent>
                 <div className="flex items-start gap-4">
                   <div className="relative w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 text-xl font-bold border border-emerald-200 dark:border-emerald-800 overflow-hidden">
-                    <span className="z-0">{getInitials(selectedTrip.passenger)}</span>
+                    <span className="z-0">{getUserAvatarInitials(selectedTrip.passenger)}</span>
                     {selectedTrip.passenger.photoUrl && (
                       <img
                         src={getAvatarUrl(selectedTrip.passenger.photoUrl)}
@@ -888,7 +916,7 @@ const Trips = ({ showToast }) => {
               <CardContent>
                 <div className="flex items-start gap-4">
                   <div className="relative w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-700 dark:text-blue-400 text-xl font-bold border border-blue-200 dark:border-blue-800 overflow-hidden">
-                    <span className="z-0">{getInitials(selectedTrip.driver)}</span>
+                    <span className="z-0">{getUserAvatarInitials(selectedTrip.driver)}</span>
                     {selectedTrip.driver.photoUrl && (
                       <img
                         src={getAvatarUrl(selectedTrip.driver.photoUrl)}
@@ -922,7 +950,7 @@ const Trips = ({ showToast }) => {
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Expérience</p>
-                        <p className="font-medium text-gray-800 dark:text-gray-100">{selectedTrip.driver.yearsExperience} ans</p>
+                        <p className="font-medium text-gray-800 dark:text-gray-100">{selectedTrip.driver.experienceStr}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Trajets</p>
@@ -949,7 +977,7 @@ const Trips = ({ showToast }) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Modèle</p>
-                      <p className="font-medium text-gray-800 dark:text-gray-100">{selectedTrip.vehicle.type}</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">{selectedTrip.vehicle.model}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Plaque</p>
@@ -1457,7 +1485,7 @@ const Trips = ({ showToast }) => {
                     <td className="py-4">
                       <div className="flex items-center">
                         <div className="relative w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-200 dark:border-emerald-800 overflow-hidden mr-3">
-                          <span className="z-0">{getInitials(trip.passenger)}</span>
+                          <span className="z-0">{getUserAvatarInitials(trip.passenger)}</span>
                           {trip.passenger.photoUrl && (
                             <img
                               src={getAvatarUrl(trip.passenger.photoUrl)}
@@ -1476,7 +1504,7 @@ const Trips = ({ showToast }) => {
                     <td className="py-4">
                       <div className="flex items-center">
                         <div className="relative w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-700 dark:text-blue-400 text-xs font-bold border border-blue-200 dark:border-blue-800 overflow-hidden mr-3">
-                          <span className="z-0">{getInitials(trip.driver)}</span>
+                          <span className="z-0">{getUserAvatarInitials(trip.driver)}</span>
                           {trip.driver.photoUrl && (
                             <img
                               src={getAvatarUrl(trip.driver.photoUrl)}
@@ -1561,8 +1589,6 @@ const Trips = ({ showToast }) => {
         </div>
       )}
 
-      {/* Modales */}
-      <TripDetailsModal />
       {/* Modales */}
       <TripDetailsModal />
       <FollowModal

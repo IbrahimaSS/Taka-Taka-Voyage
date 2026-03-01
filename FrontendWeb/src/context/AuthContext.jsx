@@ -73,6 +73,7 @@ export const AuthProvider = ({ children }) => {
                 setIsAuthenticated(true);
                 return {
                     succes: true,
+                    statut: response.data.statut || response.data.utilisateur?.statut || 'ACTIF',
                     utilisateur: response.data.utilisateur,
                     user: response.data.utilisateur
                 };

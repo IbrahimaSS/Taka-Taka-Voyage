@@ -288,7 +288,7 @@ const TripsHistory = () => {
             destination: t_raw.destination || (t_raw.pointDestination && t_raw.pointDestination.adresse) || (t_raw.reservation && t_raw.reservation.destination) || 'Non défini',
             price: `${(t_raw.prix || t_raw.montantTotal || 0).toLocaleString()} GNF`,
             distance: String(t_raw.distanceKm || t_raw.distance || 0).includes('km') ? (t_raw.distanceKm || t_raw.distance || '0 km') : `${t_raw.distanceKm || t_raw.distance || 0} km`,
-            rating: t_raw.note || 0,
+            rating: t_raw.note || t_raw.noteChauffeur || t_raw.chauffeur?.noteMoyenne || 0,
             driver: (() => {
               const driverCandidates = [t_raw.chauffeur, t_raw.driver, t_raw.reservation?.chauffeur, t_raw.reservation?.driver].filter(c => c && typeof c === 'object');
 
@@ -339,16 +339,35 @@ const TripsHistory = () => {
                 if (dPhone !== '-') break;
               }
 
-              // 3. VÉHICULE
+              // 3. VÉHICULE — Priorité : profilVehicule (ChauffeurProfile) puis vehicule (Utilisateurs)
               let dVeh = 'Véhicule standard';
-              for (const c of driverCandidates) {
-                const v = c.vehicule || c.vehicle || t_raw.vehicule || t_raw.vehicle;
-                if (v && typeof v === 'object') {
-                  const vStr = [v.marque, v.modele, v.immatriculation || v.plaque].filter(Boolean).join(' ').trim();
-                  if (vStr.length > 1) { dVeh = vStr; break; }
-                  else if (v.type && typeof v.type === 'string') { dVeh = v.type; break; }
-                } else if (typeof v === 'string' && v.trim().length > 2) {
-                  dVeh = v.trim(); break;
+              const chauffeurObj = t_raw.chauffeur || t_raw.driver;
+              if (chauffeurObj && typeof chauffeurObj === 'object') {
+                // 1ère priorité : profilVehicule (données de ChauffeurProfile)
+                const pv = chauffeurObj.profilVehicule;
+                if (pv) {
+                  const parts = [pv.marque, pv.modele].filter(Boolean).join(' ').trim();
+                  if (parts.length > 1) {
+                    dVeh = parts;
+                  } else if (pv.couleur) {
+                    dVeh = pv.couleur;
+                  } else if (pv.type) {
+                    dVeh = pv.type;
+                  }
+                }
+                // 2ème priorité : vehicule (objet dans Utilisateurs)
+                if (dVeh === 'Véhicule standard') {
+                  const v = chauffeurObj.vehicule || chauffeurObj.vehicle;
+                  if (v && typeof v === 'object') {
+                    const parts = [v.marque, v.modele].filter(Boolean).join(' ').trim();
+                    if (parts.length > 1) {
+                      dVeh = parts;
+                    } else if (v.couleur) {
+                      dVeh = v.couleur;
+                    } else if (v.type && v.type !== 'TAXI') {
+                      dVeh = v.type;
+                    }
+                  }
                 }
               }
 
@@ -366,10 +385,17 @@ const TripsHistory = () => {
                 if (dEmail !== '-') break;
               }
 
+              // 5. NOTE RÉELLE du chauffeur pour ce trajet
+              const driverRating = t_raw.chauffeur?.noteMoyenne
+                ?? t_raw.driver?.noteMoyenne
+                ?? t_raw.noteChauffeur
+                ?? t_raw.note
+                ?? 0;
+
               return {
                 name: dName,
                 vehicle: dVeh,
-                rating: 5,
+                rating: driverRating,
                 phone: dPhone,
                 email: dEmail,
                 photo: driverCandidates[0]?.photoUrl || driverCandidates[0]?.utilisateur?.photoUrl
@@ -550,7 +576,7 @@ const TripsHistory = () => {
     setShowInvoice(true);
   };
 
-  
+
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -646,7 +672,7 @@ const TripsHistory = () => {
                   ))}
                 </div>
 
-                
+
               </div>
             </div>
           </CardContent>
@@ -745,7 +771,7 @@ const TripsHistory = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex space-x-2">
-                                
+
                                 <Button
                                   variant="ghost"
                                   size="small"
@@ -829,7 +855,7 @@ const TripsHistory = () => {
         onClose={() => setShowDetailsModal(false)}
         onShare={() => selectedTrip && handleShareTrip(selectedTrip)}
         onContact={() => selectedTrip?.driver?.phone && handleContactDriver(selectedTrip.driver.phone)}
-       
+
         onShowInvoice={handleShowInvoice}
       />
 
@@ -843,7 +869,7 @@ const TripsHistory = () => {
         )}
       </AnimatePresence>
 
-      
+
     </div>
   );
 };

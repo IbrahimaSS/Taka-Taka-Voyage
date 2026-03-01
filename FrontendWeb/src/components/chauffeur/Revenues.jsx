@@ -201,7 +201,7 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                     </button>
                     <button
                         onClick={onClose}
-                        className="flex-1 py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity"
+                        className="flex-1 py-3.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all border border-gray-200 dark:border-gray-600"
                     >
                         {t('revenues.close_details')}
                     </button>
@@ -268,6 +268,7 @@ const Revenues = ({ onToast, onModal }) => {
                     item.telephonePassager || item.telPassager || item.passagerTelephone || item.passengerPhone ||
                     item.reservation?.passager?.telephone || item.reservation?.passager?.utilisateur?.telephone ||
                     item.reservation?.telephonePassager || item.reservation?.passagerPhone ||
+                    item.reservation?.passagerId?.telephone || item.reservation?.passagerId?.utilisateur?.telephone ||
                     '-';
 
                 // Fallbacks pour l'email
@@ -275,6 +276,7 @@ const Revenues = ({ onToast, onModal }) => {
                     item.emailPassager || item.passagerEmail || item.passengerEmail ||
                     item.reservation?.passager?.email || item.reservation?.passager?.utilisateur?.email ||
                     item.reservation?.emailPassager ||
+                    item.reservation?.passagerId?.email || item.reservation?.passagerId?.utilisateur?.email ||
                     '-';
 
                 return {
@@ -326,7 +328,9 @@ const Revenues = ({ onToast, onModal }) => {
         if (!backendMethod) return "other";
         const method = backendMethod.toLowerCase();
         if (method.includes("espèce") || method.includes("cash")) return "cash";
-        if (method.includes("mobile") || method.includes("orange") || method.includes("mtn")) return "mobile";
+        if (method.includes("orange")) return "orange";
+        if (method.includes("mtn")) return "mtn";
+        if (method.includes("mobile")) return "mobile";
         if (method.includes("carte")) return "card";
         return "other";
     };
@@ -355,6 +359,9 @@ const Revenues = ({ onToast, onModal }) => {
     }).filter(ride => {
         // Filtre par méthode de paiement
         if (selectedPaymentMethod === "all") return true;
+        if (selectedPaymentMethod === "mobile") {
+            return ["mobile", "orange", "mtn"].includes(ride.paymentMethod);
+        }
         return ride.paymentMethod === selectedPaymentMethod;
     });
 
@@ -383,9 +390,38 @@ const Revenues = ({ onToast, onModal }) => {
 
     // Obtenir l'icône pour la méthode de paiement
     const getPaymentIcon = (method) => {
+        const iconClass = "w-6 h-6 rounded-md object-contain shadow-sm flex-shrink-0";
         switch (method) {
+            case 'orange':
+                return (
+                    <img
+                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Orange_Money_logo.svg/120px-Orange_Money_logo.svg.png"
+                        alt=""
+                        className={iconClass}
+                        onError={(e) => {
+                            e.target.src = "https://ui-avatars.com/api/?name=OM&background=FF7900&color=fff&font-size=0.5&bold=true";
+                            e.target.onerror = null;
+                        }}
+                    />
+                );
+            case 'mtn':
+                return (
+                    <img
+                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/MTN_Mobile_Money_Logo.svg/120px-MTN_Mobile_Money_Logo.svg.png"
+                        alt=""
+                        className={iconClass}
+                        onError={(e) => {
+                            e.target.src = "https://ui-avatars.com/api/?name=MTN&background=FFCC00&color=000&font-size=0.45&bold=true";
+                            e.target.onerror = null;
+                        }}
+                    />
+                );
             case 'cash':
-                return <Banknote className="w-4 h-4" />;
+                return (
+                    <div className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shadow-sm border border-emerald-200 dark:border-emerald-800 flex-shrink-0">
+                        <Banknote className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                );
             case 'mobile':
                 return <Smartphone className="w-4 h-4" />;
             case 'card':
@@ -398,6 +434,10 @@ const Revenues = ({ onToast, onModal }) => {
     // Obtenir le libellé pour la méthode de paiement
     const getPaymentLabel = (method) => {
         switch (method) {
+            case 'orange':
+                return "Orange Money";
+            case 'mtn':
+                return "MTN Mobile Money";
             case 'cash':
                 return t('revenues.cash');
             case 'mobile':
@@ -598,11 +638,11 @@ const Revenues = ({ onToast, onModal }) => {
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm text-gray-600 dark:text-gray-400">{t('revenues.payment')}</span>
                                     <div className="flex gap-1">
-                                        {["all", "cash", "mobile", "card"].map((m) => (
+                                        {["all", "cash", "orange", "mtn", "card"].map((m) => (
                                             <button
                                                 key={m}
                                                 onClick={() => setSelectedPaymentMethod(m)}
-                                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${selectedPaymentMethod === m ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${selectedPaymentMethod === m ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
                                             >
                                                 {m !== "all" && getPaymentIcon(m)}
                                                 {m === "all" ? t('revenues.all') : getPaymentLabel(m)}

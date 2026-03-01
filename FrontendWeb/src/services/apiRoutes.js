@@ -36,6 +36,7 @@ export const API_ROUTES = {
       get: "/passager/profile/profil",
       update: "/passager/profile/profil",
       preferences: "/passager/profile/preferences",
+      stats: "/passager/profile/stats",
     },
     motDePasse: "/passager/mot-de-passe",
     notifications: "/passager/notifications",
@@ -67,7 +68,7 @@ export const API_ROUTES = {
     validations: {
       demandes: "/admin/chauffeurs/validation/demande",
       stats: "/admin/chauffeurs/validation/stats",
-      historique: "/admin/chauffeurs/validations/historique",
+      historique: "/admin/chauffeurs/validation/historique",
       valider: (id) => `/admin/chauffeurs/validation/${id}/valider`,
       rejeter: (id) => `/admin/chauffeurs/validation/${id}/rejeter`,
       details: (id) => `/admin/chauffeurs/validation/${id}`,

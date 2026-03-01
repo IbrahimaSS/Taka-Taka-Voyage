@@ -98,9 +98,46 @@ exports.tousLesTrajets = async (req, res) => {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .populate("passager", "nom prenom telephone photoUrl email")
-            .populate("chauffeur", "nom prenom telephone photoUrl vehicule")
-            .select("_id depart destination departCoords destinationCoords statut prix createdAt dureeMin distanceKm typeVehicule reference");
+            .populate("passager", "nom prenom telephone photoUrl email createdAt noteMoyenne")
+            .populate("chauffeur", "nom prenom telephone photoUrl vehicule noteMoyenne")
+            .select("_id depart destination departCoords destinationCoords statut prix createdAt dureeMin distanceKm typeVehicule reference paiement");
+
+        // Enrichissement complet des chauffeurs et passagers
+        const resultats = await Promise.all(trajets.map(async (trip) => {
+            const t = trip.toObject();
+
+            // 1. Infos Passager
+            if (t.passager) {
+                const nbTrajetsPassager = await Reservation.countDocuments({ passager: t.passager._id });
+                t.passager.nombreTrajets = nbTrajetsPassager;
+                t.passager.inscritLe = t.passager.createdAt;
+                // Note moyenne déjà récupérée via populate
+            }
+
+            // 2. Infos Chauffeur
+            if (t.chauffeur) {
+                const profile = await ChauffeurProfile.findOne({ utilisateur: t.chauffeur._id });
+                const nbTrajetsChauffeur = await Reservation.countDocuments({ chauffeur: t.chauffeur._id });
+
+                if (profile) {
+                    if (!t.chauffeur.vehicule) t.chauffeur.vehicule = {};
+                    t.chauffeur.vehicule.marque = profile.marqueVehicule || "";
+                    t.chauffeur.vehicule.modele = profile.modeleVehicule || "";
+                    t.chauffeur.vehicule.immatriculation = profile.plaque || "";
+                    t.chauffeur.vehicule.couleur = profile.couleurVehicule || "";
+                    t.chauffeur.vehicule.places = profile.capaciteVehicule || 1;
+
+                    // Priorité à la note du profil, sinon celle de l'utilisateur, sinon 5
+                    t.chauffeur.noteMoyenne = profile.noteMoyenne || t.chauffeur.noteMoyenne || 5;
+                    t.chauffeur.nombreTrajets = nbTrajetsChauffeur;
+                    t.chauffeur.valideLe = profile.valideLe || profile.createdAt;
+                } else {
+                    t.chauffeur.noteMoyenne = t.chauffeur.noteMoyenne || 5;
+                    t.chauffeur.nombreTrajets = nbTrajetsChauffeur;
+                }
+            }
+            return t;
+        }));
 
         return res.status(200).json({
             succes: true,
@@ -112,7 +149,7 @@ exports.tousLesTrajets = async (req, res) => {
                 from: total === 0 ? 0 : skip + 1,
                 to: skip + trajets.length,
             },
-            trajets,
+            trajets: resultats,
         });
     } catch (error) {
         return res.status(500).json({
@@ -216,7 +253,7 @@ exports.detailTrajet = async (req, res) => {
             trajet: {
                 reference: trajet.reference || `TR-${trajet._id.toString().slice(-6)}`,
                 statut: trajet.statut,
-                paiement: trajet.paiement?.mode || "ESPECES",
+                paiement: trajet.paiement?.methode || "CASH",
                 date: trajet.createdAt,
 
                 depart: trajet.depart,

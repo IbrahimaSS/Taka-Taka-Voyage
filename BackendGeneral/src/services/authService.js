@@ -4,18 +4,18 @@ const Utilisateur = require("../models/Utilisateurs");
 
 // OUTILS CRYPTO (réutilisables partout)
 
-    // Hash du mot de passe
-    exports.hashPassword = async (motDePasse) => {
+// Hash du mot de passe
+exports.hashPassword = async (motDePasse) => {
     return await bcrypt.hash(motDePasse, 10);
-    };
+};
 
-    // Comparaison mot de passe
-    exports.comparePassword = async (motDePasse, hash) => {
+// Comparaison mot de passe
+exports.comparePassword = async (motDePasse, hash) => {
     return await bcrypt.compare(motDePasse, hash);
-    };
+};
 
 // INSCRIPTION
-    exports.inscrireUtilisateur = async (donnees) => {
+exports.inscrireUtilisateur = async (donnees) => {
     const {
         nom,
         prenom,
@@ -50,22 +50,23 @@ const Utilisateur = require("../models/Utilisateurs");
         motDePasse: motDePasseHash,
         role: roleFinal,
         genre,
+        statut: roleFinal === "CHAUFFEUR" ? "EN_ATTENTE" : "ACTIF",
     });
 
     return nouvelUtilisateur;
-    };
+};
 
 // VÉRIFICATION EXISTENCE
-    exports.verifierUtilisateurExiste = async (email, telephone) => {
+exports.verifierUtilisateurExiste = async (email, telephone) => {
     const utilisateurExiste = await Utilisateur.findOne({
         $or: [{ email }, { telephone }],
     });
 
     return !!utilisateurExiste;
-    };
+};
 
 // CONNEXION
-    exports.connecterUtilisateur = async (identifiant, motDePasse) => {
+exports.connecterUtilisateur = async (identifiant, motDePasse) => {
     let utilisateur;
 
     // Détecter email ou téléphone
@@ -94,12 +95,12 @@ const Utilisateur = require("../models/Utilisateurs");
 
     const token = jwt.sign(
         {
-        id: utilisateur._id,
-        role: utilisateur.role,
+            id: utilisateur._id,
+            role: utilisateur.role,
         },
         process.env.JWT_SECRET,
         {
-        expiresIn: "7d",
+            expiresIn: "7d",
         }
     );
 

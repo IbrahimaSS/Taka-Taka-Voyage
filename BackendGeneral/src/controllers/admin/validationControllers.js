@@ -119,6 +119,9 @@ exports.validerChauffeur = async (req, res) => {
 
         await chauffeur.save();
 
+        // ✅ CRITIQUE : Mettre à jour le statut Utilisateurs pour autoriser la connexion après validation
+        await Utilisateurs.findByIdAndUpdate(chauffeur.utilisateur._id, { statut: "ACTIF" });
+
         // 🔔 Notifier le chauffeur en temps réel qu'il a été validé
         try {
             const io = req.app.get("io");
@@ -168,6 +171,9 @@ exports.rejeterChauffeur = async (req, res) => {
         chauffeur.motifRefus = motif || "Documents non conformes";
 
         await chauffeur.save();
+
+        // ✅ CRITIQUE : Mettre à jour le statut Utilisateurs pour bloquer la connexion
+        await Utilisateurs.findByIdAndUpdate(chauffeur.utilisateur._id, { statut: "SUSPENDU" });
 
         // 🔔 Notifier le chauffeur en temps réel qu'il a été rejeté
         try {

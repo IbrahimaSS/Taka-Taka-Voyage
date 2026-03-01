@@ -704,75 +704,80 @@ const Validations = ({ showToast }) => {
         </CardHeader>
 
         <CardContent>
-          <Table
-            headers={['Date', 'Chauffeur', 'Type', 'Action', 'Validateur', 'Actions']}
-          >
-            {validationHistory.map((item) => (
-              <TableRow key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 transition">
-                <TableCell>
-                  <div className="font-medium text-gray-800 dark:text-gray-100">
-                    {new Date(item.date).toLocaleDateString()}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-secondary-600 flex items-center justify-center mr-3">
-                      <UserCheck className="text-white text-sm" />
-                    </div>
-                    <div>
-                      <div className="font-medium">{item.chauffeur?.nom}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{item.chauffeur?.telephone}</div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge size="sm">
-                    {item.typeVehicule || 'N/A'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {item.action === 'VALIDE' ? (
-                    <Badge className="text-green-500">
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      Validé
-                    </Badge>
-                  ) : (
-                    <Badge className="text-red-500">
-                      <XCircle className="w-3 h-3 mr-1" />
-                      Rejeté
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="font-medium text-xs">{item.validateur}</div>
-                </TableCell>
-
-                <TableCell>
-                  <Button
-                    variant="secondary"
-                    size="small"
-                    icon={Eye}
-                    onClick={() => handleViewDetails(item)}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </Table>
-
-          {/* Pagination */}
-          {validationHistory.length > 0 && (
-            <div className="mt-6">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={Math.ceil(totalItems / pageSize)}
-                onPageChange={handlePageChange}
-                pageSize={pageSize}
-                totalItems={totalItems}
-              />
+          {validationHistory.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                <FileCheck className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-700 dark:text-gray-200 mb-2">Aucune action de validation</h3>
+              <p className="text-gray-500 dark:text-gray-400">L'historique des validations apparaîtra ici après traitement des demandes.</p>
             </div>
+          ) : (
+            <>
+              <Table headers={['Date', 'Chauffeur', 'Type', 'Action', 'Validateur', 'Actions']}>
+                {validationHistory.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 transition">
+                    <TableCell>
+                      <div className="font-medium text-gray-800 dark:text-gray-100">
+                        {new Date(item.date).toLocaleDateString('fr-FR')}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-secondary-600 flex items-center justify-center mr-3">
+                          <UserCheck className="text-white text-sm" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{item.chauffeur?.nom}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{item.chauffeur?.telephone}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge size="sm">{item.typeVehicule || 'N/A'}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {item.action === 'VALIDE' ? (
+                        <Badge className="text-green-500">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Validé
+                        </Badge>
+                      ) : (
+                        <Badge className="text-red-500">
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Rejeté
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-xs">{item.validateur}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        icon={Eye}
+                        onClick={() => handleViewDetails(item)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Table>
+
+              {/* Pagination */}
+              <div className="mt-6">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(totalItems / pageSize)}
+                  onPageChange={handlePageChange}
+                  pageSize={pageSize}
+                  totalItems={totalItems}
+                />
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -4,6 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { Routes, Route, useLocation, Navigate, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useAuth } from '../context/AuthContext';
 
 import Sidebar from "../components/admin/layout/Sidebar";
 import Header from "../components/admin/layout/Header";
@@ -134,6 +135,12 @@ const ChauffeurDisputeButton = () => {
 function DriverAppContent() {
   const { settings } = useSettings();
   const platform = settings?.platform || {};
+  const { user } = useAuth();
+
+  // 🔒 Bloquer l'accès si le chauffeur est EN_ATTENTE de validation
+  if (user?.statut === 'EN_ATTENTE') {
+    return <Navigate to="/validation-en-attente" replace />;
+  }
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
