@@ -8,13 +8,13 @@ function NotFound() {
       <div className="w-full max-w-lg mx-auto">
         {/* Carte avec effets */}
         <div className="relative rounded-3xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-white/20 dark:border-slate-700/50 shadow-2xl p-8 md:p-12 transform transition-all duration-300 hover:scale-[1.02]">
-          
+
           {/* Élément décoratif */}
           <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
             <div className="relative">
               {/* Cercle externe animé */}
               <div className="w-24 h-24 rounded-full bg-gradient-to-r from-primaryBlue-start to-primaryGreen-start opacity-10 animate-pulse"></div>
-              
+
               {/* Cercle interne */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-primaryBlue-start to-primaryGreen-start flex items-center justify-center shadow-lg">
@@ -27,13 +27,13 @@ function NotFound() {
           {/* Contenu */}
           <div className="pt-16 text-center">
             {/* Titre */}
-            <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-primaryBlue-start to-primaryGreen-start bg-clip-text text-transparent mb-4">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-primaryBlue-start to-primaryGreen-start bg-clip-text text-transparent mb-4">
               Page introuvable
             </h1>
-            
+
             {/* Description */}
             <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-              Oups ! Il semble que la page que vous cherchez ait pris une autre direction. 
+              Oups ! Il semble que la page que vous cherchez ait pris une autre direction.
               Elle pourrait être en pause ou avoir changé d'itinéraire.
             </p>
 
@@ -67,10 +67,10 @@ function NotFound() {
               >
                 {/* Fond gradient animé */}
                 <div className="absolute inset-0 bg-gradient-to-r from-primaryGreen-start to-primaryBlue-start group-hover:from-primaryGreen-end group-hover:to-primaryBlue-end transition-all duration-500"></div>
-                
+
                 {/* Effet de surbrillance */}
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-                
+
                 {/* Texte */}
                 <span className="relative z-10 text-white font-semibold flex items-center gap-2">
                   Retour à l'accueil
@@ -86,8 +86,8 @@ function NotFound() {
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
                 Vous pensez qu'il s'agit d'une erreur ?
               </p>
-              <a 
-                href="#" 
+              <a
+                href="#"
                 className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline text-sm font-medium"
               >
                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

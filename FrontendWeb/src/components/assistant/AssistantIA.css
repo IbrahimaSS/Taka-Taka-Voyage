@@ -25,6 +25,23 @@
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+@media (max-width: 640px) {
+    .taka-assistant-container {
+        bottom: 4%;
+        right: 4%;
+    }
+
+    .assistant-trigger {
+        width: 50px;
+        height: 50px;
+    }
+
+    .assistant-trigger svg {
+        width: 22px;
+        height: 22px;
+    }
+}
+
 .assistant-trigger::before {
     content: '';
     position: absolute;
