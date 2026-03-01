@@ -119,6 +119,7 @@ export const API_ROUTES = {
       repartition: "/admin/analyses/repartition/",
       list: "/admin/rapports",
       create: "/admin/rapports",
+      schedule: "/admin/rapports/programmation",
       details: (id) => `/admin/rapports/${id}`,
       download: (id) => `/admin/rapports/${id}/download`,
     },

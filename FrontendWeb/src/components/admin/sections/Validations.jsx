@@ -18,8 +18,8 @@ import Modal from '../ui/Modal';
 import Pagination from '../ui/Pagination';
 import Progress from '../ui/Progress';
 import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
+import { getFullAssetURL } from '../../../utils/urlHelper';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // Composant réutilisable pour les actions d'export
 const ExportMenu = ({ onExport }) => {
@@ -265,10 +265,6 @@ const TableActions = ({ driver, onView, onValidate, onReject }) => {
 };
 
 // Composant principal
-// TODO API (admin/validations):
-// Remplacer les donnees simulees et les actions locales par des appels backend
-// Exemple: GET API_ROUTES.admin.validations, POST API_ROUTES.admin.validateDriver(id)
-
 const Validations = ({ showToast }) => {
   const { t, i18n } = useTranslation();
   // États pour la gestion des données
@@ -325,6 +321,7 @@ const Validations = ({ showToast }) => {
           status: c.statut === 'EN_ATTENTE' ? 'new' : 'pending',
           documents: [], // On les chargera au cas par cas pour les détails
           progress: 0,
+          photoUrl: c.utilisateur?.photoUrl || null,
         }));
         setPendingDrivers(formatted);
       }
@@ -453,11 +450,7 @@ const Validations = ({ showToast }) => {
     }
   };
 
-  const getFullFileUrl = (path) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
-  };
+
 
   const handleExport = (format) => {
     const columns = [
@@ -641,7 +634,7 @@ const Validations = ({ showToast }) => {
                     <div className="flex items-start">
                       <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-secondary-600 flex items-center justify-center mr-4 overflow-hidden`}>
                         {driver.photoUrl ? (
-                          <img src={getFullFileUrl(driver.photoUrl)} className="w-full h-full object-cover" />
+                          <img src={getFullAssetURL(driver.photoUrl)} className="w-full h-full object-cover" />
                         ) : (
                           <UserCheck className="text-white" />
                         )}
@@ -816,7 +809,7 @@ const Validations = ({ showToast }) => {
             <div className="flex items-center space-x-4">
               <div className="w-20 h-20 rounded-full bg-slate-200/30 dark:bg-gray-800 flex items-center justify-center overflow-hidden border-2 border-green-100">
                 {selectedDriver.utilisateur?.photoUrl ? (
-                  <img src={getFullFileUrl(selectedDriver.utilisateur.photoUrl)} alt="" className="w-full h-full object-cover" />
+                  <img src={getFullAssetURL(selectedDriver.utilisateur.photoUrl)} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <UserCheck className="text-3xl text-green-500" />
                 )}
@@ -866,7 +859,7 @@ const Validations = ({ showToast }) => {
                             {doc.statut}
                           </Badge>
                           {doc.url && (
-                            <a href={getFullFileUrl(doc.url)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline flex items-center">
+                            <a href={getFullAssetURL(doc.url)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline flex items-center">
                               <Eye className="w-3 h-3 mr-1" /> Voir le fichier
                             </a>
                           )}

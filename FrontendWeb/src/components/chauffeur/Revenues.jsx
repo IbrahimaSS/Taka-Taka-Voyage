@@ -197,7 +197,7 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                     </button>
                     <button
                         onClick={onClose}
-                        className="flex-1 py-3.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all border border-gray-200 dark:border-gray-600"
+                        className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg active:scale-95"
                     >
                         {t('revenues.close_details')}
                     </button>

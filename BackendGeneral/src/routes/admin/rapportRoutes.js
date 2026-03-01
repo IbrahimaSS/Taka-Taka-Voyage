@@ -120,6 +120,28 @@ router.post(
     rapportController.creerRapport
 );
 
+// ROUTES POUR LA PROGRAMMATION DES RAPPORTS
+router.get(
+    "/rapports/programmation",
+    verifierToken,
+    autoriserRoles("ADMIN"),
+    rapportController.getProgrammations
+);
+
+router.post(
+    "/rapports/programmation",
+    verifierToken,
+    autoriserRoles("ADMIN"),
+    rapportController.creerProgrammation
+);
+
+router.delete(
+    "/rapports/programmation/:id",
+    verifierToken,
+    autoriserRoles("ADMIN"),
+    rapportController.supprimerProgrammation
+);
+
 /**
  * @swagger
  * /api/admin/rapports/{rapportId}:

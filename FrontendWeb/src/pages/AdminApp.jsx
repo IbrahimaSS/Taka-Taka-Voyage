@@ -28,6 +28,8 @@ import { useSettings } from '../context/SettingsContext';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../context/NotificationContext';
 import { socketService } from '../services/socketService';
 import { useAuth } from '../context/AuthContext';
+import { CheckCircle, Download } from 'lucide-react';
+import AdminButton from '../components/admin/ui/Bttn';
 
 
 
@@ -44,6 +46,7 @@ function AdminApp() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null);
+  const [reportGeneratedData, setReportGeneratedData] = useState(null);
   const [currentDate, setCurrentDate] = useState('');
   const location = useLocation();
 
@@ -139,11 +142,30 @@ function AdminApp() {
       socketService.on('chauffeur:inscription', onNewChauffeur);
       socketService.on('chauffeur:new', onNewChauffeur);
 
+      // Listener pour les rapports générés automatiquement
+      const onReportGenerated = (data) => {
+        playNotificationSound();
+        setReportGeneratedData(data);
+        addNotification({
+          title: 'Rapport Prêt ✅',
+          message: `Le rapport "${data.title || data.rapport || 'Auto'}" est prêt.`,
+          type: NOTIFICATION_TYPES.SUCCESS,
+          category: NOTIFICATION_CATEGORIES.SYSTEM,
+          link: '/admin/rapports',
+          priority: 'high'
+        });
+      };
+
+      socketService.on('report:generated', onReportGenerated);
+      socketService.on('rapport:genere', onReportGenerated);
+
       return () => {
         socketService.off('system:alert', onSystemAlert);
         socketService.off('dispute:new', onNewDispute);
         socketService.off('chauffeur:inscription', onNewChauffeur);
         socketService.off('chauffeur:new', onNewChauffeur);
+        socketService.off('report:generated', onReportGenerated);
+        socketService.off('rapport:genere', onReportGenerated);
       };
 
     }
@@ -363,6 +385,41 @@ function AdminApp() {
 
       {/* Toast Notification */}
       <Toast {...toast} onClose={() => setToast(null)} />
+
+      {/* Modale Notification Rapport */}
+      <Modal
+        isOpen={!!reportGeneratedData}
+        onClose={() => setReportGeneratedData(null)}
+        title="Rapport Automatique Généré"
+      >
+        <div className="text-center p-2">
+          <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">
+            Votre rapport est prêt !
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Le rapport planifié <span className="font-semibold text-gray-800 dark:text-gray-100">"{reportGeneratedData?.title || reportGeneratedData?.rapport}"</span> a été généré avec succès et envoyé aux destinataires.
+          </p>
+          <div className="flex flex-col gap-2">
+            <AdminButton
+              variant="perso"
+              icon={Download}
+              onClick={() => {
+                // Logique de téléchargement si l'URL est fournie
+                setReportGeneratedData(null);
+                window.location.href = '/admin/rapports';
+              }}
+            >
+              Consulter les rapports
+            </AdminButton>
+            <AdminButton variant="outline" onClick={() => setReportGeneratedData(null)}>
+              Fermer
+            </AdminButton>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal */}
       <Modal isOpen={!!modal} onClose={closeModal}>

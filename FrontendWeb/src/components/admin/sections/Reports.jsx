@@ -20,6 +20,37 @@ import ExportDropdown from '../ui/ExportDropdown';
 import { adminService } from '../../../services/adminService';
 import { exportToPDF, exportToCSV, exportToWord } from '../../../utils/exporters';
 
+// ============= HELPERS =============
+const findNameInObject = (p, role = 'passager') => {
+  const getFromObj = (obj) => {
+    if (!obj || typeof obj !== 'object') return null;
+    return obj.nomComplet || obj.fullName || obj.name ||
+      (obj.prenom || obj.nom ? `${obj.prenom || ''} ${obj.nom || ''}`.trim() : null) ||
+      (obj.firstName || obj.lastName ? `${obj.firstName || ''} ${obj.lastName || ''}`.trim() : null) ||
+      (obj.utilisateur ? (obj.utilisateur.nomComplet || (obj.utilisateur.prenom || obj.utilisateur.nom ? `${obj.utilisateur.prenom || ''} ${obj.utilisateur.nom || ''}`.trim() : null)) : null);
+  };
+
+  const isRole = (r) => role.toLowerCase().includes(r);
+
+  if (isRole('passager')) {
+    return getFromObj(p.passager) ||
+      getFromObj(p.reservation?.passager) ||
+      getFromObj(p.trajet?.passager) ||
+      getFromObj(p.client) ||
+      p.nomPassager || p.passagerName ||
+      (p.reservation && (p.reservation.nomPassager || p.reservation.passagerName)) ||
+      (typeof p.passager === 'string' && p.passager.length > 3 ? p.passager : 'N/A');
+  } else {
+    return getFromObj(p.chauffeur) ||
+      getFromObj(p.reservation?.chauffeur) ||
+      getFromObj(p.trajet?.chauffeur) ||
+      getFromObj(p.driver) ||
+      p.nomChauffeur || p.chauffeurName ||
+      (p.reservation && (p.reservation.nomChauffeur || p.reservation.chauffeurName)) ||
+      (typeof p.chauffeur === 'string' && p.chauffeur.length > 3 ? p.chauffeur : 'N/A');
+  }
+};
+
 // ============= COMPOSANTS INTERNES =============
 
 // Composant pour les actions rapides
@@ -471,10 +502,13 @@ const Reports = ({ showToast }) => {
     showDelete: false,
     showDetails: false,
     showExport: false,
+    showSchedule: false,
     selectedReport: null,
     selectedFormat: 'pdf',
     loading: false
   });
+
+  const [schedules, setSchedules] = useState([]);
 
   const [newReport, setNewReport] = useState({
     type: 'FINANCIER',
@@ -484,7 +518,18 @@ const Reports = ({ showToast }) => {
     customEnd: '',
     includeCharts: true,
     includeDetails: true,
-    emailNotification: false
+    emailNotification: false,
+    isScheduled: false,
+    frequency: 'weekly'
+  });
+
+  const [newSchedule, setNewSchedule] = useState({
+    type: 'FINANCIER',
+    format: 'PDF',
+    frequency: 'weekly',
+    recipients: '',
+    includeCharts: true,
+    includeDetails: true
   });
 
   // Détection de la taille de l'écran
@@ -506,6 +551,19 @@ const Reports = ({ showToast }) => {
 
   // Fetch Stats et Rapports
   const fetchData = async () => {
+    // Initialiser l'email par défaut si vide
+    if (!newSchedule.recipients) {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser);
+          if (user.email) {
+            setNewSchedule(prev => ({ ...prev, recipients: user.email }));
+          }
+        } catch (e) { }
+      }
+    }
+
     setLoading(true);
     try {
       const { data: statsRes } = await adminService.getReportStats();
@@ -528,25 +586,43 @@ const Reports = ({ showToast }) => {
       };
 
       const { data: rapportsRes } = await adminService.getReports(params);
-      if (rapportsRes.succes) {
+      if (rapportsRes.succes && rapportsRes.rapports) {
         setReports(rapportsRes.rapports.map(r => ({
-          id: r.id,
-          title: r.rapport,
-          description: `Rapport ${r.type.toLowerCase()} généré par le système`,
-          type: typeMap[r.type] || r.type.toLowerCase(),
-          status: r.statut?.toLowerCase() === 'genere' ? 'generated' :
-            r.statut?.toLowerCase() === 'en_attente' ? 'pending' :
-              r.statut?.toLowerCase() === 'en_cours' ? 'processing' : 'failed',
-          format: r.format?.toLowerCase() || 'pdf',
+          id: String(r.id || r._id),
+          title: r.rapport || 'Rapport sans titre',
+          description: `Rapport ${String(r.type || '').toLowerCase()} généré par le système`,
+          type: typeMap[r.type] || String(r.type || '').toLowerCase(),
+          status: String(r.statut || '').toLowerCase() === 'genere' ? 'generated' :
+            String(r.statut || '').toLowerCase() === 'en_attente' ? 'pending' :
+              String(r.statut || '').toLowerCase() === 'en_cours' ? 'processing' : 'failed',
+          format: String(r.format || '').toLowerCase() || 'pdf',
           author: 'Système',
-          createdAt: new Date(r.creeLe).toLocaleDateString('fr-FR'),
+          createdAt: r.creeLe ? new Date(r.creeLe).toLocaleDateString('fr-FR') : 'Date inconnue',
           lastAccessed: r.misAJourLe ? new Date(r.misAJourLe).toLocaleDateString('fr-FR') : null,
-          size: getReportSize(typeMap[r.type] || r.type.toLowerCase(), r.format?.toLowerCase() || 'pdf'),
+          size: getReportSize(typeMap[r.type] || String(r.type || '').toLowerCase(), String(r.format || '').toLowerCase() || 'pdf'),
           period: r.periode ? `${new Date(r.periode.debut).toLocaleDateString('fr-FR')} - ${new Date(r.periode.fin).toLocaleDateString('fr-FR')}` : "Période non def.",
           downloadCount: r.nombreTelechargements || 0,
           raw: r
         })));
-        setTotalItems(rapportsRes.pagination.total);
+        if (rapportsRes.pagination) {
+          setTotalItems(rapportsRes.pagination.total || 0);
+        }
+      }
+
+      // Fetch Schedules
+      const { data: schedulesRes } = await adminService.getSchedules();
+      if (schedulesRes.succes && schedulesRes.programmations) {
+        setSchedules(schedulesRes.programmations.map(p => ({
+          id: String(p.id || p._id),
+          title: p.titre || 'Sans titre',
+          type: p.type || 'Inconnu',
+          frequency: p.frequence || 'weekly',
+          format: p.format || 'PDF',
+          recipients: p.destinataires || [],
+          status: p.statut || 'active',
+          nextRun: p.prochaineExecution,
+          createdAt: p.creeLe
+        })));
       }
     } catch (error) {
       console.error("Erreur fetching reports:", error);
@@ -608,6 +684,7 @@ const Reports = ({ showToast }) => {
   const handleGenerateReport = async () => {
     setModalState(prev => ({ ...prev, loading: true }));
     try {
+      // 1. Génération immédiate
       const payload = {
         titre: `Rapport ${newReport.type.toLowerCase()} généré le ${new Date().toLocaleDateString('fr-FR')}`,
         type: newReport.type,
@@ -619,8 +696,42 @@ const Reports = ({ showToast }) => {
       };
 
       const { data: res } = await adminService.createReport(payload);
+
+      // 2. Si l'utilisateur a coché "Planifier", on crée aussi une programmation
+      if (newReport.isScheduled) {
+        const storedUser = localStorage.getItem('user');
+        let adminEmail = [];
+        if (storedUser) {
+          try {
+            const user = JSON.parse(storedUser);
+            if (user.email) adminEmail = [user.email];
+          } catch (e) { }
+        }
+
+        const schedulePayload = {
+          titre: `Programmation : ${payload.titre}`,
+          type: newReport.type,
+          frequence: newReport.frequency || 'weekly',
+          format: newReport.format,
+          destinataires: adminEmail
+        };
+        await adminService.createSchedule(schedulePayload);
+      }
+
       if (res.succes) {
         showToast('Rapport généré', 'Le rapport a été créé avec succès', 'success');
+        setNewReport({
+          type: 'FINANCIER',
+          format: 'PDF',
+          period: 'month',
+          customStart: '',
+          customEnd: '',
+          includeCharts: true,
+          includeDetails: true,
+          emailNotification: false,
+          isScheduled: false,
+          frequency: 'weekly'
+        });
         fetchData(); // rafraichir la liste
       }
     } catch (error) {
@@ -628,6 +739,50 @@ const Reports = ({ showToast }) => {
       showToast('Erreur', 'Impossible de générer le rapport', 'error');
     } finally {
       setModalState(prev => ({ ...prev, loading: false, showGenerate: false }));
+    }
+  };
+
+  const handleSaveSchedule = async () => {
+    setModalState(prev => ({ ...prev, loading: true }));
+    try {
+      const payload = {
+        titre: `Rapport Auto : ${newSchedule.type}`,
+        type: newSchedule.type,
+        frequence: newSchedule.frequency,
+        format: newSchedule.format,
+        destinataires: newSchedule.recipients.split(',').map(e => e.trim()).filter(e => e)
+      };
+
+      const { data: res } = await adminService.createSchedule(payload);
+      if (res.succes) {
+        showToast('Succès', 'Planification enregistrée avec succès', 'success');
+        setNewSchedule({
+          type: 'FINANCIER',
+          format: 'PDF',
+          frequency: 'weekly',
+          recipients: '',
+          includeCharts: true,
+          includeDetails: true
+        });
+        fetchData();
+      }
+    } catch (err) {
+      console.error("Erreur sauvegarde planification:", err);
+      showToast('Erreur', 'Impossible d\'enregistrer la planification', 'error');
+    } finally {
+      setModalState(prev => ({ ...prev, loading: false, showSchedule: false }));
+    }
+  };
+
+  const handleDeleteSchedule = async (id) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer cette planification ?")) return;
+    try {
+      await adminService.deleteSchedule(id);
+      showToast('Supprimé', 'La planification a été retirée', 'info');
+      fetchData();
+    } catch (err) {
+      console.error("Erreur suppression planification:", err);
+      showToast('Erreur', 'Impossible de supprimer la planification', 'error');
     }
   };
 
@@ -676,8 +831,14 @@ const Reports = ({ showToast }) => {
         data = res.paiements || [];
         columns = [
           { header: 'N°', accessor: (p, i) => i + 1 },
-          { header: 'Passager', accessor: (p) => p.passager ? `${p.passager.prenom || ''} ${p.passager.nom || ''}`.trim() : 'N/A' },
-          { header: 'Chauffeur', accessor: (p) => p.chauffeur ? `${p.chauffeur.prenom || ''} ${p.chauffeur.nom || ''}`.trim() : 'N/A' },
+          {
+            header: 'Passager',
+            accessor: (p) => findNameInObject(p, 'passager')
+          },
+          {
+            header: 'Chauffeur',
+            accessor: (p) => findNameInObject(p, 'chauffeur')
+          },
           { header: 'Montant', accessor: (p) => `${Number(p.montantTotal || 0).toLocaleString('fr-FR')} GNF` },
           { header: 'Commission', accessor: (p) => `${Number(p.commissionPlateforme || 0).toLocaleString('fr-FR')} GNF` },
           { header: 'Date', accessor: (p) => p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR') : 'N/A' },
@@ -688,6 +849,14 @@ const Reports = ({ showToast }) => {
         data = res.trajets || [];
         columns = [
           { header: 'N°', accessor: (t, i) => i + 1 },
+          {
+            header: 'Passager',
+            accessor: (t) => findNameInObject(t, 'passager')
+          },
+          {
+            header: 'Chauffeur',
+            accessor: (t) => findNameInObject(t, 'chauffeur')
+          },
           {
             header: 'Départ', accessor: (t) => {
               const dep = t.depart || (t.pointDepart && t.pointDepart.adresse) || (t.reservation && t.reservation.depart) || 'N/A';
@@ -801,7 +970,7 @@ const Reports = ({ showToast }) => {
     { id: 'users', label: t('nav.utilisateurs', 'Utilisateurs'), icon: Users },
     { id: 'geographic', label: t('reports.geographic', 'Géographique'), icon: MapPin },
     { id: 'performance', label: t('reports.driver_performance', 'Performance'), icon: Activity },
-    { id: 'security', label: t('common.security', 'Sécurité'), icon: Shield }
+    { id: 'schedule', label: t('reports.planning', 'Planification'), icon: Clock }
   ];
 
   // Modal de détails du rapport
@@ -930,7 +1099,7 @@ const Reports = ({ showToast }) => {
                   {t('reports.download', 'Télécharger')}
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   icon={Share2}
                   onClick={() => {
                     navigator.clipboard.writeText(window.location.href);
@@ -957,6 +1126,74 @@ const Reports = ({ showToast }) => {
       </Modal>
     );
   };
+
+  // Modal pour planifier un rapport
+  const renderSchedulingModal = () => (
+    <Modal
+      isOpen={modalState.showSchedule}
+      onClose={() => setModalState(prev => ({ ...prev, showSchedule: false }))}
+      title={t('reports.schedule_report_title', 'Planifier une génération automatique')}
+      size="lg"
+    >
+      <div className="space-y-6 max-h-[70vh] overflow-y-auto p-1 text-gray-800 dark:text-gray-100">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">{t('reports.report_type', 'Type de rapport')}</label>
+            <select
+              value={newSchedule.type}
+              onChange={(e) => setNewSchedule(prev => ({ ...prev, type: e.target.value }))}
+              className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-4 py-3 outline-none"
+            >
+              <option value="FINANCIER">{t('reports.financial', 'Financier')}</option>
+              <option value="UTILISATEURS">{t('nav.utilisateurs', 'Utilisateurs')}</option>
+              <option value="TRAJETS">{t('reports.geographic', 'Trajets')}</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">{t('reports.frequency', 'Fréquence')}</label>
+            <select
+              value={newSchedule.frequency}
+              onChange={(e) => setNewSchedule(prev => ({ ...prev, frequency: e.target.value }))}
+              className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-4 py-3 outline-none"
+            >
+              <option value="daily">{t('reports.daily', 'Quotidien (chaque jour)')}</option>
+              <option value="weekly">{t('reports.weekly', 'Hebdomadaire (chaque lundi)')}</option>
+              <option value="monthly">{t('reports.monthly', 'Mensuel (chaque 1er du mois)')}</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">{t('reports.recipients', 'Destinataires (email)')}</label>
+          <input
+            type="text"
+            placeholder="admin@takataka.com, manager@takataka.com"
+            value={newSchedule.recipients}
+            onChange={(e) => setNewSchedule(prev => ({ ...prev, recipients: e.target.value }))}
+            className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-4 py-3 outline-none"
+          />
+          <p className="text-xs text-gray-500 mt-1">Séparez les emails par des virgules</p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
+          <Button
+            variant="outline"
+            onClick={() => setModalState(prev => ({ ...prev, showSchedule: false }))}
+          >
+            {t('common.cancel', 'Annuler')}
+          </Button>
+          <Button
+            variant="perso"
+            icon={Clock}
+            onClick={handleSaveSchedule}
+            loading={modalState.loading}
+          >
+            {t('reports.confirm_schedule', 'Confirmer la planification')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
 
   // Modal pour générer un nouveau rapport
   const renderGenerateReportModal = () => (
@@ -1048,31 +1285,55 @@ const Reports = ({ showToast }) => {
 
         <div className="space-y-4">
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200">{t('reports.additional_options', 'Options supplémentaires')}</h4>
-          <div className="space-y-3">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={newReport.includeCharts}
-                onChange={(e) => setNewReport(prev => ({ ...prev, includeCharts: e.target.checked }))}
-                className="rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-500"
-              />
-              <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">{t('reports.include_charts', 'Inclure les graphiques')}</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={newReport.includeDetails}
-                onChange={(e) => setNewReport(prev => ({ ...prev, includeDetails: e.target.checked }))}
-                className="rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-500"
-              />
-              <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">{t('reports.include_details', 'Inclure les détails complets')}</span>
-            </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={newReport.includeCharts}
+                  onChange={(e) => setNewReport(prev => ({ ...prev, includeCharts: e.target.checked }))}
+                  className="rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">{t('reports.include_charts', 'Inclure les graphiques')}</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={newReport.includeDetails}
+                  onChange={(e) => setNewReport(prev => ({ ...prev, includeDetails: e.target.checked }))}
+                  className="rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-200">{t('reports.include_details', 'Inclure les détails complets')}</span>
+              </label>
+            </div>
+
+            <div className="space-y-3 bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={newReport.isScheduled}
+                  onChange={(e) => setNewReport(prev => ({ ...prev, isScheduled: e.target.checked }))}
+                  className="rounded border-gray-300 dark:border-gray-700 text-blue-500 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm font-medium text-blue-700 dark:text-blue-400">{t('reports.schedule_this', 'Planifier ce rapport')}</span>
+              </label>
+              {newReport.isScheduled && (
+                <select
+                  className="w-full mt-2 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 rounded-lg px-2 py-1.5 text-xs outline-none"
+                  onChange={(e) => setNewReport(prev => ({ ...prev, frequency: e.target.value }))}
+                >
+                  <option value="daily">Toutes les 24h</option>
+                  <option value="weekly">Toutes les semaines</option>
+                  <option value="monthly">Tous les mois</option>
+                </select>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
           <Button
-            variant="secondary"
+            variant="outline"
             onClick={() => setModalState(prev => ({ ...prev, showGenerate: false }))}
           >
             {t('common.cancel', 'Annuler')}
@@ -1095,6 +1356,7 @@ const Reports = ({ showToast }) => {
       {/* Modales */}
       {renderReportDetailsModal()}
       {renderGenerateReportModal()}
+      {renderSchedulingModal()}
 
 
 
@@ -1123,7 +1385,16 @@ const Reports = ({ showToast }) => {
           <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base">{t('reports.subtitle', 'Analyses détaillées et rapports de performance')}</p>
         </div>
 
-        <div className="flex w-full md:w-auto">
+        <div className="flex w-full md:w-auto gap-3">
+          <Button
+            icon={Clock}
+            onClick={() => setModalState(prev => ({ ...prev, showSchedule: true }))}
+            className="w-full md:w-auto"
+            variant='outline'
+          >
+            <span className="hidden md:inline">{t('reports.schedule_report', 'Planifier')}</span>
+            <span className="md:hidden">Plannif.</span>
+          </Button>
           <Button
             icon={Plus}
             onClick={() => setModalState(prev => ({ ...prev, showGenerate: true }))}
@@ -1151,18 +1422,20 @@ const Reports = ({ showToast }) => {
       </div>
 
       {/* Filtres */}
-      <ReportFilters
-        search={search}
-        setSearch={setSearch}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        formatFilter={formatFilter}
-        setFormatFilter={setFormatFilter}
-        filteredReports={filteredReports}
-        exportColumns={exportColumns}
-        showToast={showToast}
-        setCurrentPage={setCurrentPage}
-      />
+      {activeReportType !== 'schedule' && (
+        <ReportFilters
+          search={search}
+          setSearch={setSearch}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          formatFilter={formatFilter}
+          setFormatFilter={setFormatFilter}
+          filteredReports={filteredReports}
+          exportColumns={exportColumns}
+          showToast={showToast}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
 
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto">
@@ -1184,9 +1457,16 @@ const Reports = ({ showToast }) => {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle>{t('reports.title', 'Rapports')} ({totalItems})</CardTitle>
+              <CardTitle>
+                {activeReportType === 'schedule'
+                  ? t('reports.planned_tasks', 'Tâches planifiées')
+                  : t('reports.title', 'Rapports')}
+                ({activeReportType === 'schedule' ? schedules.length : totalItems})
+              </CardTitle>
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {t('common.showing_n_of_m', { n: filteredReports.length, m: totalItems, defaultValue: `${filteredReports.length} affiché(s) sur ${totalItems}` })}
+                {activeReportType === 'schedule'
+                  ? `${schedules.length} programmation(s) active(s)`
+                  : t('common.showing_n_of_m', { n: filteredReports.length, m: totalItems, defaultValue: `${filteredReports.length} affiché(s) sur ${totalItems}` })}
               </p>
             </div>
 
@@ -1214,6 +1494,61 @@ const Reports = ({ showToast }) => {
             <div className="flex flex-col items-center justify-center py-20">
               <RefreshCw className="w-10 h-10 text-green-500 animate-spin mb-4" />
               <p className="text-gray-500 animate-pulse">Chargement des rapports...</p>
+            </div>
+          ) : activeReportType === 'schedule' ? (
+            /* Vue spécifique pour la planification */
+            <div className="overflow-x-auto">
+              <Table
+                headers={[
+                  t('reports.task_name', 'Tâche'),
+                  t('common.categories', 'Type'),
+                  t('reports.frequency', 'Fréquence'),
+                  t('reports.next_run', 'Prochaine exécution'),
+                  t('common.status', 'Statut'),
+                  t('common.actions', 'Actions')
+                ]}
+              >
+                {schedules.map((sch) => (
+                  <TableRow key={sch.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-gray-800 dark:text-gray-100">{sch.title}</p>
+                        <p className="text-xs text-gray-500 truncate max-w-[200px]">{sch.recipients.join(', ')}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{sch.type}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm dark:text-gray-300 capitalize">
+                        {sch.frequency === 'daily' ? 'Quotidienne' : sch.frequency === 'weekly' ? 'Hebdomadaire' : 'Mensuelle'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                        <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                        {new Date(sch.nextRun).toLocaleDateString('fr-FR')}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="success">{sch.status === 'active' ? 'Activée' : 'Désactivée'}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="small" icon={RefreshCw} tooltip="Exécuter maintenant" />
+                        <Button
+                          variant="ghost"
+                          size="small"
+                          icon={Trash2}
+                          className="text-red-500"
+                          tooltip="Supprimer"
+                          onClick={() => handleDeleteSchedule(sch.id)}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Table>
             </div>
           ) : isMobile ? (
             <div className="space-y-3">
@@ -1295,7 +1630,7 @@ const Reports = ({ showToast }) => {
         </CardContent>
 
         {/* Pagination */}
-        {filteredReports.length > 0 && (
+        {activeReportType !== 'schedule' && filteredReports.length > 0 && (
           <div className="p-6 border-t border-gray-100 dark:border-gray-800">
             <Pagination
               currentPage={currentPage}
@@ -1308,12 +1643,16 @@ const Reports = ({ showToast }) => {
           </div>
         )}
 
-        {filteredReports.length === 0 && !loading && (
+        {(activeReportType === 'schedule' ? schedules.length === 0 : filteredReports.length === 0) && !loading && (
           <div className="text-center py-12">
             <AlertCircle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">Aucun rapport trouvé</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              {activeReportType === 'schedule' ? 'Aucune tâche planifiée' : 'Aucun rapport trouvé'}
+            </p>
             <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-              Essayez de modifier vos filtres ou générez un nouveau rapport
+              {activeReportType === 'schedule'
+                ? 'Commencez par planifier une génération automatique'
+                : 'Essayez de modifier vos filtres ou générez un nouveau rapport'}
             </p>
           </div>
         )}
