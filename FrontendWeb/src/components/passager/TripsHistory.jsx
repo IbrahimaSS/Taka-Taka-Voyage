@@ -29,6 +29,8 @@ import { tripService } from '../../services/tripService'; // ✅ Import service
 import { toast } from 'react-hot-toast';
 import PaymentModal from './PaymentModal';
 
+import { getFullAssetURL } from '../../utils/urlHelper';
+
 // --- Composants Internes ---
 
 const StatCard = ({ label, value, icon: Icon, colorClass, onClick }) => (
@@ -94,12 +96,7 @@ const TripStatusBadge = ({ status }) => {
 
 const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, onShowInvoice }) => {
   const { t } = useTranslation();
-  const getAvatarUrl = (path) => {
-    if (!path) return null;
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    if (path.startsWith('http')) return path;
-    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
-  };
+  const getAvatarUrl = (path) => getFullAssetURL(path);
 
   const getInitials = (name) => {
     if (!name) return '?';
@@ -237,12 +234,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
 
 const TripsHistory = () => {
   const { t } = useTranslation();
-  const getAvatarUrl = (path) => {
-    if (!path) return null;
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    if (path.startsWith('http')) return path;
-    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
-  };
+  const getAvatarUrl = (path) => getFullAssetURL(path);
 
   const getInitials = (name) => {
     if (!name) return '?';

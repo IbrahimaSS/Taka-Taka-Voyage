@@ -26,6 +26,7 @@ import { useDriverContext } from '../../../context/DriverContext';
 import { useNotificationCenter } from '../../../context/NotificationContext';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../../common/LanguageSwitcher';
+import { getFullAssetURL } from '../../../utils/urlHelper';
 
 function parsePath(pathname, basePath) {
   if (!pathname.startsWith(basePath)) return { segments: [], first: '' };
@@ -287,11 +288,7 @@ export default function Header({
                 {(() => {
                   const avatar = profile.avatar || profile.photoProfil || profile.photoUrl;
                   if (avatar) {
-                    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                    const baseUrl = apiURL.replace(/\/api$/, '');
-                    const avatarUrl = (avatar.startsWith('data:') || avatar.startsWith('http'))
-                      ? avatar
-                      : `${baseUrl}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
+                    const avatarUrl = getFullAssetURL(avatar);
 
                     return (
                       <img
@@ -337,11 +334,7 @@ export default function Header({
                         {(() => {
                           const avatar = profile.avatar || profile.photoProfil || profile.photoUrl;
                           if (avatar) {
-                            const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                            const baseUrl = apiURL.replace(/\/api$/, '');
-                            const avatarUrl = (avatar.startsWith('data:') || avatar.startsWith('http'))
-                              ? avatar
-                              : `${baseUrl}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
+                            const avatarUrl = getFullAssetURL(avatar);
 
                             return (
                               <img

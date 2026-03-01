@@ -1,12 +1,10 @@
-// src/services/apiClient.js
 import axios from 'axios';
+import { getApiBaseURL } from '../utils/urlHelper';
 
 // -----------------------------------------------------------------------------
 // 1️⃣  Base configuration
 // -----------------------------------------------------------------------------
-// VITE_API_URL should be set in Vercel's Environment Variables (Production).
-// Fallback to localhost for local development.
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const baseURL = getApiBaseURL();
 const timeout = Number(import.meta.env.VITE_API_TIMEOUT || 15000);
 
 export const apiClient = axios.create({

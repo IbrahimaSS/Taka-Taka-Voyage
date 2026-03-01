@@ -18,6 +18,8 @@ import { adminService } from '../../../services/adminService';
 
 import { useTranslation } from 'react-i18next';
 
+import { getFullAssetURL } from '../../../utils/urlHelper';
+
 const Users = ({ showToast }) => {
   const { t, i18n } = useTranslation();
   // États principaux
@@ -240,14 +242,7 @@ const Users = ({ showToast }) => {
     );
   };
 
-  const getAvatarUrl = (path) => {
-    if (!path) return null;
-    if (path.startsWith('http')) return path;
-    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-    const baseUrl = apiURL.replace(/\/api$/, '');
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${baseUrl}${cleanPath}`;
-  };
+  const getAvatarUrl = (path) => getFullAssetURL(path);
 
   const getTimeAgo = (dateString) => {
     if (!dateString) return t('common.never') || 'Jamais';

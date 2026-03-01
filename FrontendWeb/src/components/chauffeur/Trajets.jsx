@@ -22,7 +22,7 @@ import { tripService } from '../../services/tripService';
 import { socketService } from '../../services/socketService';
 import { toast } from 'react-hot-toast';
 
-const SERVER_URL = "http://localhost:5000";
+import { getFullAssetURL } from '../../utils/urlHelper';
 
 const Trajets = () => {
   const { t, i18n } = useTranslation();
@@ -49,11 +49,7 @@ const Trajets = () => {
 
       let allTrips = [];
 
-      const formatPhotoUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith('http')) return url;
-        return `${SERVER_URL}${url}`;
-      };
+      const formatPhotoUrl = (url) => getFullAssetURL(url);
 
       // 1. Traiter les réservations "EN_ATTENTE" (disponibles)
       if (availableRes.data && availableRes.data.succes) {

@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { adminService } from '../../../services/adminService';
 import { apiClient } from '../../../services/apiClient';
+import { getFullAssetURL } from '../../../utils/urlHelper';
 
 const Sidebar = ({
   collapsed,
@@ -182,13 +183,9 @@ const Sidebar = ({
               )}>
                 {(() => {
                   const avatar = profile.avatar || profile.photoProfil || profile.photoUrl;
-                  if (avatar) {
-                    const apiURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                    const baseUrl = apiURL.replace(/\/api$/, '');
-                    const avatarUrl = (avatar.startsWith('data:') || avatar.startsWith('http'))
-                      ? avatar
-                      : `${baseUrl}${avatar.startsWith('/') ? avatar : `/${avatar}`}`;
+                  const avatarUrl = getFullAssetURL(avatar);
 
+                  if (avatarUrl) {
                     return (
                       <img
                         src={avatarUrl}

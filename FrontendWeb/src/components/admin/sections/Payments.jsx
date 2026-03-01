@@ -45,7 +45,7 @@ import PremiumInvoice from '../ui/PremiumInvoice';
 import ExportDropdown from '../ui/ExportDropdown';
 import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { getFullAssetURL } from '../../../utils/urlHelper';
 
 // Helper de mappage pour adapter les données backend au format frontend
 const mapBackendPaymentToFrontend = (p) => {
@@ -423,11 +423,7 @@ const Avatar = ({ name, photoUrl, type = 'passenger', size = 'w-8 h-8', classNam
   const initials = getInitials(name);
   const bgColor = type === 'driver' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600';
 
-  const getFullFileUrl = (path) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
-  };
+  const getFullFileUrl = (path) => getFullAssetURL(path);
 
   if (photoUrl && !imageError) {
     return (

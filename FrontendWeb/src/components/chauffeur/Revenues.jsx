@@ -26,17 +26,13 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { Printer } from "lucide-react";
 import PremiumInvoice from "../admin/ui/PremiumInvoice";
+import { getFullAssetURL } from "../../utils/urlHelper";
 
 const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, getPaymentIcon, getPaymentLabel, onShowReceipt }) => {
     const { t } = useTranslation();
     if (!isOpen || !ride) return null;
 
-    const getImageUrl = (path) => {
-        if (!path) return null;
-        if (path.startsWith('http')) return path;
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        return `${baseUrl}${path}`;
-    };
+    const getImageUrl = (path) => getFullAssetURL(path);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

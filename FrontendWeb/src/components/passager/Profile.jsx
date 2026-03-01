@@ -7,6 +7,7 @@ import { usePassenger } from '../../context/PassengerContext';
 import { useAuth } from '../../context/AuthContext';
 import { profileService } from '../../services/profileService';
 import toast from 'react-hot-toast';
+import { getFullAssetURL } from '../../utils/urlHelper';
 
 // Composants réutilisables
 import Button from '../admin/ui/Bttn';
@@ -43,7 +44,7 @@ const Profile = () => {
     rating: user?.noteMoyenne || passenger?.noteMoyenne || 5.0,
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 
   useEffect(() => {
     if (user) {
@@ -307,14 +308,7 @@ const Profile = () => {
     }
   };
 
-  const getImageUrl = (avatar) => {
-    if (!avatar) return null;
-    if (avatar.startsWith("data:") || avatar.startsWith("http")) return avatar;
-
-    const baseUrl = API_URL.replace(/\/api$/, '');
-    const cleanPath = avatar.startsWith('/') ? avatar : `/${avatar}`;
-    return `${baseUrl}${cleanPath}`;
-  };
+  const getImageUrl = (avatar) => getFullAssetURL(avatar);
 
   if (isLoadingProfile) {
     return (

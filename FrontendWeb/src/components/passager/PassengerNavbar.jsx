@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../common/LanguageSwitcher';
+import { getFullAssetURL } from '../../utils/urlHelper';
 
 const PassengerNavbar = ({
   activeTab,
@@ -34,16 +35,7 @@ const PassengerNavbar = ({
 
   const dateLocale = i18n.language === 'en' ? enUS : fr;
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
-  const getImageUrl = (avatar) => {
-    if (!avatar) return null;
-    if (avatar.startsWith("data:") || avatar.startsWith("http")) return avatar;
-
-    const baseUrl = API_URL.replace(/\/api$/, '');
-    const cleanPath = avatar.startsWith('/') ? avatar : `/${avatar}`;
-    return `${baseUrl}${cleanPath}`;
-  };
+  const getImageUrl = (avatar) => getFullAssetURL(avatar);
 
   // Integrated real notifications
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationCenter();
@@ -318,8 +310,8 @@ const PassengerNavbar = ({
                   key={tab.id}
                   onClick={() => onTabChange(tab.id)}
                   className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300 ${isActive
-                      ? 'text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/20'
-                      : 'text-gray-500 dark:text-gray-400'
+                    ? 'text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/20'
+                    : 'text-gray-500 dark:text-gray-400'
                     }`}
                 >
                   <Icon className={`w-5 h-5 ${isActive ? 'scale-110' : ''}`} />

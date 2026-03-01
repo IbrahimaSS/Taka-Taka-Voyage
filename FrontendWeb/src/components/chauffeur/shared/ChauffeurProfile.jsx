@@ -10,9 +10,10 @@ import { useUserStore } from '../../../data/userStore';
 import { useAuth } from '../../../context/AuthContext';
 import { profileService } from '../../../services/profileService';
 import toast from 'react-hot-toast';
+import { getFullAssetURL } from '../../../utils/urlHelper';
 
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 
 
 // Composants réutilisables
@@ -272,14 +273,7 @@ const ChauffeurProfile = () => {
         }
     };
 
-    const getImageUrl = (avatar) => {
-        if (!avatar) return null;
-        if (avatar.startsWith("data:") || avatar.startsWith("http")) return avatar;
-
-        const baseUrl = API_URL.replace(/\/api$/, '');
-        const cleanPath = avatar.startsWith('/') ? avatar : `/${avatar}`;
-        return `${baseUrl}${cleanPath}`;
-    };
+    const getImageUrl = (avatar) => getFullAssetURL(avatar);
 
 
     return (

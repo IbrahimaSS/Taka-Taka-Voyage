@@ -23,6 +23,7 @@ import Button from '../admin/ui/Bttn';
 import Badge from '../admin/ui/Badge';
 
 import { adminService } from '../../services/adminService';
+import { getFullAssetURL } from '../../utils/urlHelper';
 
 function HistoriqueTrajet({ chauffeurId = null }) {
   const { t, i18n } = useTranslation();
@@ -33,15 +34,7 @@ function HistoriqueTrajet({ chauffeurId = null }) {
   const [hasMore, setHasMore] = useState(true);
   const [totalTrips, setTotalTrips] = useState(0);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-  const getImageUrl = (avatar) => {
-    if (!avatar) return null;
-    if (avatar.startsWith("data:") || avatar.startsWith("http")) return avatar;
-    const baseUrl = API_URL.replace(/\/api$/, '');
-    const cleanPath = avatar.startsWith('/') ? avatar : `/${avatar}`;
-    return `${baseUrl}${cleanPath}`;
-  };
+  const getImageUrl = (avatar) => getFullAssetURL(avatar);
 
   const getInitials = (name) => {
     if (!name) return '?';
@@ -118,7 +111,7 @@ function HistoriqueTrajet({ chauffeurId = null }) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [API_URL, historyTrips.length, chauffeurId]);
+  }, [historyTrips.length, chauffeurId]);
 
   useEffect(() => {
     setHistoryTrips([]);
