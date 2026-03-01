@@ -15,6 +15,7 @@ export const profileService = {
         }),
         updatePreferences: (preferences) => apiClient.put(API_ROUTES.passager.profil.preferences, preferences),
         changePassword: (data) => apiClient.put(API_ROUTES.passager.motDePasse, data),
+        getStats: () => apiClient.get(API_ROUTES.passager.profil.stats),
     },
 
     // ===================== ADMIN =====================

@@ -242,6 +242,8 @@ const Dashboard = ({ showToast }) => {
       if (lower.includes('mtn')) return 'mtn';
       if (lower.includes('wave')) return 'wave';
       if (lower.includes('carte') || lower.includes('card')) return 'card';
+      if (lower.includes('mobile') || lower.includes('money')) return 'orange'; // Fallback visuel
+      if (lower.includes('portefeuille') || lower.includes('wallet')) return 'card';
       return 'cash';
     };
 
@@ -257,6 +259,16 @@ const Dashboard = ({ showToast }) => {
       default:
         return <span className={`${baseClasses} bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800`}>Espèces</span>;
     }
+  };
+
+  const getServiceLabel = (service) => {
+    if (!service) return '-';
+    const s = service.toUpperCase();
+    if (s === 'MOTO' || s === 'MOTO_TAXI') return t('services.moto_taxi') || 'Moto-taxi';
+    if (s === 'TAXI' || s === 'TAXI_PARTAGE') return t('services.taxi_partage') || 'Taxi partagé';
+    if (s === 'VOITURE' || s === 'VOITURE_PRIVEE' || s === 'PARTICULIER') return t('services.voiture_privee') || 'Voiture privée';
+    if (s === 'BUS') return 'Bus';
+    return service;
   };
 
   const getAvatarUrl = (path) => {
@@ -401,7 +413,7 @@ const Dashboard = ({ showToast }) => {
                 <th className="px-6 py-4">{t('dashboard.trip') || 'Trajet'}</th>
                 <th className="px-6 py-4">{t('nav.passagers') || 'Passager'}</th>
                 <th className="px-6 py-4">{t('nav.chauffeurs') || 'Chauffeur'}</th>
-                <th className="px-6 py-4">{t('common.type') || 'Type'}</th>
+                <th className="px-6 py-4">{t('common.service') || 'Service'}</th>
                 <th className="px-6 py-4">{t('payments.method') || 'Mode'}</th>
                 <th className="px-6 py-4 text-right">{t('dashboard.details') || 'Détails'}</th>
                 <th className="px-6 py-4">{t('dashboard.status') || 'Statut'}</th>
@@ -494,12 +506,12 @@ const Dashboard = ({ showToast }) => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
-                          {trip.typeVehicule || '-'}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700 uppercase">
+                          {getServiceLabel(trip.typeVehicule)}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {getMethodBadge(trip.paiement?.mode)}
+                        {getMethodBadge(trip.paiement?.methode || trip.paiement?.mode)}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex flex-col gap-1 items-end">

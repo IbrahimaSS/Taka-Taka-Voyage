@@ -565,22 +565,22 @@ const Users = ({ showToast }) => {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:bg-gray-900 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">{selectedUser.nombreTrajets || 0}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">{t('nav.trajets') || 'Trajets effectués'}</div>
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 dark:bg-gray-900 rounded-xl p-4 text-center border border-emerald-100 dark:border-emerald-900/50">
+                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{selectedUser.nombreTrajets || 0}</div>
+                <div className="text-sm text-emerald-700/70 dark:text-emerald-500/80">{t('nav.trajets') || 'Trajets effectués'}</div>
               </div>
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:bg-gray-900 rounded-xl p-4 text-center">
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 dark:bg-gray-900 rounded-xl p-4 text-center border border-amber-100 dark:border-amber-900/50">
                 <div className="flex items-center justify-center">
                   <Star className="w-5 h-5 text-amber-400 fill-current mr-1" />
-                  <span className="text-2xl font-bold text-gray-800 dark:text-gray-100">{selectedUser.noteMoyenne || '-'}</span>
+                  <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">{selectedUser.noteMoyenne || '-'}</span>
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">{t('passengers.average_rating') || 'Note moyenne'}</div>
+                <div className="text-sm text-amber-700/70 dark:text-amber-500/80">{t('passengers.average_rating') || 'Note moyenne'}</div>
               </div>
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:bg-gray-900 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/40 dark:to-pink-950/40 dark:bg-gray-900 rounded-xl p-4 text-center border border-purple-100 dark:border-purple-900/50">
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                   {selectedUser.totalDepense ? `${selectedUser.totalDepense.toLocaleString()} ${t('common.currency_symbol') || 'GNF'}` : '-'}
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">{t('passengers.total_spent') || 'Total dépensé'}</div>
+                <div className="text-sm text-purple-700/70 dark:text-purple-500/80">{t('passengers.total_spent') || 'Total dépensé'}</div>
               </div>
             </div>
 
@@ -590,13 +590,12 @@ const Users = ({ showToast }) => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-500 dark:text-gray-400">{t('common.registration_date') || "Date d'inscription"}:</span>
-                    <span className="font-medium">{new Date(selectedUser.createdAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US')}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-100">{new Date(selectedUser.createdAt).toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US')}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500 dark:text-gray-400">{t('common.last_activity') || 'Dernière activité'}:</span>
-                    <span className="font-medium">{getTimeAgo(selectedUser.updatedAt)}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-100">{getTimeAgo(selectedUser.updatedAt)}</span>
                   </div>
-
                 </div>
               </div>
             </div>

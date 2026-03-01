@@ -400,36 +400,38 @@ exports.repartitionLitigesParType = async (req, res) => {
 // CRÉER UN LITIGE
 exports.creerLitige = async (req, res) => {
     try {
-        const { reservation, type, description } = req.body;
+        const { reservation, type, description, piecesJointes } = req.body;
         const utilisateurId = req.utilisateur._id;
 
-        if (!reservation || !type || !description) {
+        // "Type" et "Description" sont obligatoires. "Reservation" est optionnel pour les questions générales.
+        if (!type || !description) {
             return res.status(400).json({
                 succes: false,
-                message: "Veuillez remplir tous les champs obligatoires"
+                message: "Veuillez remplir les champs obligatoires (Type et Description)"
             });
         }
 
-        const resExist = await Reservation.findById(reservation);
-        if (!resExist) {
-            return res.status(404).json({
-                succes: false,
-                message: "Réservation introuvable"
-            });
-        }
+        let passagerConcerne = utilisateurId;
+        let reservationId = null;
 
-        // Le passager concerné par le litige est celui de la réservation
-        const passagerConcerne = resExist.passager;
+        if (reservation) {
+            const resExist = await Reservation.findById(reservation);
+            if (resExist) {
+                passagerConcerne = resExist.passager;
+                reservationId = reservation;
+            }
+        }
 
         const reference = `DIS-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
         const nouveauLitige = await Litige.create({
             reference,
-            reservation,
+            reservation: reservationId, // Peut être null si contact général
             passager: passagerConcerne,
             type,
             description,
-            statut: "OUVERT"
+            statut: "OUVERT",
+            piecesJointes: piecesJointes || []
         });
 
         const io = req.app.get("io");

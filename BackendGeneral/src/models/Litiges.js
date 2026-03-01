@@ -10,7 +10,7 @@ const litigeSchema = new mongoose.Schema(
         reservation: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Reservation",
-            required: true
+            required: false // Peut être null si c'est un contact général sans trajet précis
         },
 
         passager: {
@@ -44,7 +44,9 @@ const litigeSchema = new mongoose.Schema(
             type: String,
             enum: ["OUVERT", "REJETER", "EN_COURS", "RESOLU"],
             default: "OUVERT"
-        }
+        },
+
+        piecesJointes: [String]
 
     },
     { timestamps: true }

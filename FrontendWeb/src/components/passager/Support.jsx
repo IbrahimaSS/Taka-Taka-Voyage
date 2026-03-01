@@ -163,10 +163,20 @@ const Support = () => {
     setIsSubmitting(true);
 
     try {
+      // Mapping des types pour correspondre à l'enum du backend : PAIEMENT, COMPORTEMENT, TRAJET, ACCIDENT, AGRESSION, URGENCE_MEDICALE, DANGER, AUTRE
+      const typeMapping = {
+        'trip_problem': 'TRAJET',
+        'payment_problem': 'PAIEMENT',
+        'driver_problem': 'COMPORTEMENT',
+        'account_question': 'AUTRE',
+        'suggestion': 'AUTRE',
+        'other': 'AUTRE'
+      };
+
       let finalData = {
-        type: formData.subject,
+        type: typeMapping[formData.subject] || 'AUTRE',
         description: formData.description,
-        piecesJointes: uploadedFiles.map(f => f.name), // Simplifié pour la démo, normalement upload via FormData
+        piecesJointes: uploadedFiles.map(f => f.name),
       };
 
       // Si l'utilisateur veut joindre les détails du dernier trajet
@@ -174,14 +184,13 @@ const Support = () => {
         try {
           const { data } = await tripService.getPassengerHistory({ limit: 1 });
           if (data.succes && data.trajets.length > 0) {
-            finalData.trajetId = data.trajets[0]._id;
-            finalData.metadata = {
-              lastTrip: {
-                date: data.trajets[0].createdAt,
-                driver: data.trajets[0].chauffeur?.nom,
-                route: `${data.trajets[0].depart} → ${data.trajets[0].destination}`
-              }
-            };
+            // Le backend attend "reservation" (ObjectId)
+            finalData.reservation = data.trajets[0].reservation;
+
+            if (!finalData.reservation) {
+              // Fallback au cas où le champ reservation du trajet est manquant (peu probable mais sécurité)
+              finalData.reservation = data.trajets[0]._id;
+            }
           }
         } catch (tripErr) {
           console.error("Erreur lors de la récupération du dernier trajet:", tripErr);

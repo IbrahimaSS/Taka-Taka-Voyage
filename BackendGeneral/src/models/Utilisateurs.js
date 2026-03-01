@@ -39,8 +39,8 @@ const utilisateurSchema = new mongoose.Schema(
 
         statut: {
             type: String,
-            enum: ["ACTIF", "INACTIF", "SUSPENDU"],
-            default: "ACTIF",
+            enum: ["ACTIF", "INACTIF", "SUSPENDU", "EN_ATTENTE"],
+            default: "EN_ATTENTE",
         },
 
         photoUrl: String,

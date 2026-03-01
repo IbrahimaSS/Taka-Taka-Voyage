@@ -17,12 +17,19 @@ import Badge from '../admin/ui/Badge';
 import Switch from '../admin/ui/Switch';
 
 const Profile = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { passenger, isLoadingProfile, updatePassenger: updateContextPassenger } = usePassenger();
   const { user, updateUser, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [realStats, setRealStats] = useState({
+    trips: 0,
+    spending: 0,
+    averageRating: 5.0,
+    totalTime: 0
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   const [profileData, setProfileData] = useState({
     name: user?.prenom && user?.nom ? `${user.prenom} ${user.nom}` : (user?.nom || passenger?.name || 'Passager'),
@@ -33,6 +40,7 @@ const Profile = () => {
     avatar: user?.photoUrl || user?.avatar || passenger?.avatar || null,
     localisation: user?.localisation || passenger?.localisation || '',
     address: user?.adresse || passenger?.address || '',
+    rating: user?.noteMoyenne || passenger?.noteMoyenne || 5.0,
   });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -49,15 +57,36 @@ const Profile = () => {
         avatar: user.photoUrl || user.avatar || null,
         localisation: user.localisation || '',
         address: user.adresse || '',
+        rating: user.noteMoyenne || 5.0,
       }));
     } else if (passenger) {
       setProfileData(prev => ({
         ...prev,
         ...passenger,
         name: passenger.name || `${passenger.prenom || ''} ${passenger.nom || ''}`.trim() || 'Passager',
+        rating: passenger.noteMoyenne || 5.0,
       }));
     }
   }, [user, passenger]);
+
+  // Charger les statistiques réelles
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setIsLoadingStats(true);
+        const response = await profileService.passager.getStats();
+        if (response.data?.succes) {
+          setRealStats(response.data.stats);
+        }
+      } catch (error) {
+        console.error("Erreur chargement stats passager:", error);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const fileInputRef = useRef(null);
 
@@ -84,11 +113,57 @@ const Profile = () => {
     { id: 6, name: t('profile.badges.vip'), icon: Award, color: 'text-pink-600', bgColor: 'bg-pink-100 dark:bg-pink-900/30', earned: false },
   ];
 
+  // Formater le temps (minutes -> h min)
+  const formatTime = (minutes) => {
+    if (!minutes) return "0min";
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${mins}min`;
+    return `${hours}h ${mins > 0 ? `${mins}min` : ''}`;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Janvier 2025';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US', {
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return 'Janvier 2025';
+    }
+  };
+
   const stats = [
-    { label: t('profile.stats.trips'), value: '24', icon: Radar, color: 'green', progress: 80 },
-    { label: t('profile.stats.spending'), value: '245 000 GNF', icon: CreditCard, color: 'blue', progress: 60 },
-    { label: t('profile.stats.average_rating'), value: '4.8', icon: Star, color: 'yellow', progress: 90 },
-    { label: t('profile.stats.total_time'), value: '18h 30min', icon: Clock, color: 'purple', progress: 75 },
+    {
+      label: t('profile.stats.trips'),
+      value: realStats.trips,
+      icon: Radar,
+      color: 'green',
+      progress: Math.min(100, (realStats.trips / 50) * 100) // Objectif 50 trajets
+    },
+    {
+      label: t('profile.stats.spending'),
+      value: `${(realStats.spending || 0).toLocaleString()} GNF`,
+      icon: CreditCard,
+      color: 'blue',
+      progress: Math.min(100, (realStats.spending / 1000000) * 100) // Objectif 1M GNF
+    },
+    {
+      label: t('profile.stats.average_rating'),
+      value: realStats.averageRating?.toFixed(1) || '5.0',
+      icon: Star,
+      color: 'yellow',
+      progress: (realStats.averageRating || 5) * 20
+    },
+    {
+      label: t('profile.stats.total_time'),
+      value: formatTime(realStats.totalTime),
+      icon: Clock,
+      color: 'purple',
+      progress: Math.min(100, (realStats.totalTime / 3000) * 100) // Objectif 50h
+    },
   ];
 
   // Gestion de l'upload de photo
@@ -329,7 +404,7 @@ const Profile = () => {
               <div className="space-y-2">
                 <div className="flex items-center text-gray-600 dark:text-gray-300">
                   <Calendar className="w-4 h-4 mr-2 text-green-600" />
-                  {t('profile.info.since', { date: 'Janvier 2025' })}
+                  {t('profile.info.since', { date: formatDate(user?.createdAt || passenger?.membreDepuis) })}
                 </div>
                 <div className="flex items-center text-gray-600 dark:text-gray-300">
                   <Star className="w-4 h-4 mr-2 text-amber-600" />

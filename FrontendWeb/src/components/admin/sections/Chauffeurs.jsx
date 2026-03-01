@@ -505,11 +505,11 @@ const Drivers = ({ showToast }) => {
             {/* Revenus */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-900">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('drivers.total_earnings') || 'Revenus totaux'}</p>
-              <div className="bg-green-50 rounded-xl p-4 text-center">
-                <p className="text-3xl font-bold text-green-700">
+              <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-4 text-center border border-green-100 dark:border-green-900/50">
+                <p className="text-3xl font-bold text-green-700 dark:text-green-400">
                   {t('common.currency_symbol') || 'GNF'} {(selectedDriver.earnings || selectedDriver.revenus?.totalGagne || 0).toLocaleString()}
                 </p>
-                <p className="text-green-600 mt-1">{t('drivers.total_platform_earnings') || 'Total gagné sur la plateforme'}</p>
+                <p className="text-green-600 dark:text-green-500/80 mt-1">{t('drivers.total_platform_earnings') || 'Total gagné sur la plateforme'}</p>
               </div>
             </div>
 

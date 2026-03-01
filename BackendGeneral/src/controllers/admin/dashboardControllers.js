@@ -61,14 +61,49 @@ exports.trajetsRecents = async (req, res) => {
         const trajets = await Reservation.find()
             .sort({ createdAt: -1 })
             .limit(5)
-            .populate("passager", "nom prenom telephone photoUrl email")
+            .populate("passager", "nom prenom telephone photoUrl email createdAt")
             .populate("chauffeur", "nom prenom telephone photoUrl vehicule")
             .select("depart destination statut prix createdAt dureeMin distanceKm typeVehicule paiement");
+
+        // Enrichissement complet des passagers et chauffeurs
+        const resultats = await Promise.all(trajets.map(async (trip) => {
+            const t = trip.toObject();
+
+            // 1. Infos Passager
+            if (t.passager) {
+                const nbTrajetsPassager = await Reservation.countDocuments({ passager: t.passager._id });
+                t.passager.nombreTrajets = nbTrajetsPassager;
+                t.passager.inscritLe = t.passager.createdAt;
+            }
+
+            // 2. Infos Chauffeur
+            if (t.chauffeur) {
+                const profile = await require("../../models/ChauffeurProfile").findOne({ utilisateur: t.chauffeur._id });
+                const nbTrajetsChauffeur = await Reservation.countDocuments({ chauffeur: t.chauffeur._id });
+
+                if (profile) {
+                    if (!t.chauffeur.vehicule) t.chauffeur.vehicule = {};
+                    t.chauffeur.vehicule.marque = profile.marqueVehicule || "";
+                    t.chauffeur.vehicule.modele = profile.modeleVehicule || "";
+                    t.chauffeur.vehicule.immatriculation = profile.plaque || "";
+                    t.chauffeur.vehicule.couleur = profile.couleurVehicule || "";
+                    t.chauffeur.vehicule.places = profile.capaciteVehicule || 1;
+
+                    t.chauffeur.noteMoyenne = profile.noteMoyenne || 5;
+                    t.chauffeur.nombreTrajets = nbTrajetsChauffeur;
+                    t.chauffeur.valideLe = profile.valideLe || profile.createdAt;
+                } else {
+                    t.chauffeur.noteMoyenne = 5;
+                    t.chauffeur.nombreTrajets = nbTrajetsChauffeur;
+                }
+            }
+            return t;
+        }));
 
         return res.status(200).json({
             succes: true,
             total: trajets.length,
-            trajets,
+            trajets: resultats,
         });
     } catch (error) {
         return res.status(500).json({ succes: false, message: error.message });

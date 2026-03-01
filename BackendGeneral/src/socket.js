@@ -94,7 +94,7 @@ module.exports = (io) => {
   // Lancer le timer de rappel toutes les 5 minutes
   setInterval(() => checkPlannedReminders(io), 5 * 60 * 1000);
 
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     console.log(`🟢 Socket connecté : ${socket.id}`);
     console.log("   → Auth:", socket.handshake.auth);
 
@@ -115,14 +115,24 @@ module.exports = (io) => {
         if (ROLE === "PASSAGER") {
           socket.join(`PASSAGER_${String(userId)}`);
         } else if (ROLE === "CHAUFFEUR") {
-          socket.join("CHAUFFEURS");
-          // On joint aussi la room PASSAGER pour les chauffeurs s'ils utilisent des fonctions passager (optionnel, mais plus propre de séparer)
-          // socket.join(`PASSAGER_${String(userId)}`); 
+          // 🔒 Vérifier le statut du chauffeur avant de joindre la room des courses
+          try {
+            const profil = await ChauffeurProfile.findOne({ utilisateur: userId }).select("statut");
+            if (profil && profil.statut === "ACTIF") {
+              socket.join("CHAUFFEURS");
+              console.log(`✅ [SOCKET_CONNECT] Chauffeur ACTIF (${userId}) a rejoint la room CHAUFFEURS`);
+            } else {
+              socket.join(`ATTENTE_${String(userId)}`); // Room isolée pour les validations
+              console.log(`⏳ [SOCKET_CONNECT] Chauffeur EN_ATTENTE (${userId}) - accès aux courses bloqué`);
+            }
+          } catch (profileErr) {
+            console.error("❌ [SOCKET_CONNECT] Erreur vérification profil chauffeur:", profileErr.message);
+          }
         } else if (ROLE === "ADMIN") {
           socket.join("ADMINS");
         }
 
-        console.log(`✅ [SOCKET_CONNECT] Rooms jointes pour ${ROLE} (${userId}): ${roomMain}, ${roomUser}${ROLE === "CHAUFFEUR" ? ", CHAUFFEURS" : ""}${ROLE === "ADMIN" ? ", ADMINS" : ""}`);
+        console.log(`✅ [SOCKET_CONNECT] Rooms jointes pour ${ROLE} (${userId}): ${roomMain}, ${roomUser}`);
       }
     } catch (e) {
       console.error("❌ join rooms on connect:", e.message);
@@ -143,7 +153,6 @@ module.exports = (io) => {
         socket.join(`${ROLE}_${sid}`);
         socket.join(`USER_${sid}`);
         socket.join(`PASSAGER_${sid}`);
-        if (ROLE === "CHAUFFEUR") socket.join("CHAUFFEURS");
 
         const updated = await Utilisateurs.findByIdAndUpdate(
           userId,
@@ -153,14 +162,24 @@ module.exports = (io) => {
 
         // Si c'est un chauffeur, on initialise son temps de session dans ChauffeurProfile
         if (ROLE === "CHAUFFEUR") {
-          await ChauffeurProfile.findOneAndUpdate(
-            { utilisateur: userId },
-            {
-              disponibilite: "EN_LIGNE",
-              disponibiliteDepuis: new Date()
-            },
-            { upsert: true }
-          );
+          // 🔒 Vérifier le statut avant d'autoriser dans la room des courses
+          const profil = await ChauffeurProfile.findOne({ utilisateur: userId }).select("statut");
+          if (profil && profil.statut === "ACTIF") {
+            socket.join("CHAUFFEURS");
+            await ChauffeurProfile.findOneAndUpdate(
+              { utilisateur: userId },
+              { disponibilite: "EN_LIGNE", disponibiliteDepuis: new Date() },
+              { upsert: true }
+            );
+          } else {
+            // Chauffeur EN_ATTENTE : ne pas rejoindre la room des courses
+            socket.join(`ATTENTE_${sid}`);
+            socket.emit("client:online:blocked", {
+              message: "Votre compte est en attente de validation. Accès aux courses bloqué.",
+              statut: profil?.statut || "EN_ATTENTE"
+            });
+            console.log(`⏳ [SOCKET] Chauffeur EN_ATTENTE (${userId}) - room CHAUFFEURS refusée`);
+          }
         }
 
         console.log("✅ client online DB:", {
@@ -789,7 +808,12 @@ module.exports = (io) => {
         const reservation = await Reservation.findById(reservationId);
         if (!reservation || String(reservation.passager) !== String(socket.user.id)) return;
 
-        const label = method.toUpperCase() === "CASH" ? "en espèces" : `via ${method.toUpperCase()}`;
+        // ✅ Sauvegarder la méthode de paiement dans la réservation
+        if (!reservation.paiement) reservation.paiement = {};
+        reservation.paiement.methode = method.toUpperCase();
+        await reservation.save();
+
+        const label = method.toUpperCase() === "CASH" || method.toUpperCase() === "ESPECES" ? "en espèces" : `via ${method.toUpperCase()}`;
         console.log(`💰 [PAYMENT] Passager ${socket.user.id} confirme envoi ${label} pour RID=${reservationId}`);
 
         const notificationMessage = `Le passager a déclaré avoir payé ${label}. Veuillez confirmer la réception.`;

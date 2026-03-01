@@ -4,6 +4,8 @@ const authService = require("../../services/authService");
 const otpService = require("../../services/OtpService");
 
 const InscriptionTemporaire = require("../../models/InscriptionsTemporaire");
+const ChauffeurProfile = require("../../models/ChauffeurProfile");
+const Utilisateurs = require("../../models/Utilisateurs");
 
 //============================= CONNEXION =============================================
 exports.connexion = async (req, res) => {
@@ -30,16 +32,48 @@ exports.connexion = async (req, res) => {
             motDePasse
         );
         const utilisateur = resultat.utilisateur;
-        // Vérifier le Statut
-        if (utilisateur.statut !== "ACTIF") {
+
+        // Vérifier le Statut (Utilisateurs)
+        if (utilisateur.statut === "SUSPENDU") {
             return res.status(403).json({
                 succes: false,
-                message:
-                    utilisateur.statut === "SUSPENDU"
-                        ? "Compte suspendu. Contactez l’administration."
-                        : "Compte inactif. Veuillez contacter l’administration.",
+                message: "Compte suspendu. Contactez l'administration.",
             });
         }
+
+        // 🔒 Pour les CHAUFFEURS : vérification SYSTÉMATIQUE du ChauffeurProfile
+        // (couvre les anciens comptes créés avant la mise à jour du statut par défaut)
+        let statutFinal = utilisateur.statut;
+        if (utilisateur.role === "CHAUFFEUR") {
+            const profil = await ChauffeurProfile.findOne({ utilisateur: utilisateur._id }).select("statut");
+            if (profil) {
+                if (profil.statut === "EN_ATTENTE" || profil.statut === "INACTIF") {
+                    // Synchroniser Utilisateurs.statut si nécessaire
+                    if (utilisateur.statut !== "EN_ATTENTE") {
+                        await Utilisateurs.findByIdAndUpdate(utilisateur._id, { statut: "EN_ATTENTE" });
+                    }
+                    statutFinal = "EN_ATTENTE";
+                } else if (profil.statut === "SUSPENDU") {
+                    if (utilisateur.statut !== "SUSPENDU") {
+                        await Utilisateurs.findByIdAndUpdate(utilisateur._id, { statut: "SUSPENDU" });
+                    }
+                    return res.status(403).json({
+                        succes: false,
+                        message: "Compte chauffeur suspendu. Contactez l'administration.",
+                    });
+                } else if (profil.statut === "ACTIF") {
+                    // Profil validé, s'assurer que Utilisateurs est aussi ACTIF
+                    if (utilisateur.statut !== "ACTIF") {
+                        await Utilisateurs.findByIdAndUpdate(utilisateur._id, { statut: "ACTIF" });
+                    }
+                    statutFinal = "ACTIF";
+                }
+            } else {
+                // Pas de profil chauffeur encore créé → compte EN_ATTENTE
+                statutFinal = "EN_ATTENTE";
+            }
+        }
+
         // Cookie httpOnly pour session via cookies
         // En production (cross-domain Vercel→Render), sameSite doit être "none" + secure
         const isProduction = process.env.NODE_ENV === "production";
@@ -55,6 +89,7 @@ exports.connexion = async (req, res) => {
             succes: true,
             message: "=====CONNEXION REUSSIE=====",
             token: resultat.token,
+            statut: statutFinal,
             utilisateur: {
                 id: resultat.utilisateur._id,
                 nom: resultat.utilisateur.nom,

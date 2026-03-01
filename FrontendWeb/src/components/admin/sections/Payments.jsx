@@ -284,15 +284,16 @@ const MobilePaymentCard = ({ payment, isSelected, onSelect, onAction }) => {
   const { t } = useTranslation();
   const getMethodBadge = (method) => {
     const config = {
-      'cash': { label: t('payments.cash'), variant: 'success', icon: DollarSign },
-      'orange': { label: t('payments.orange_money'), variant: 'warning', icon: Smartphone },
-      'mtn': { label: t('payments.mobile_money'), variant: 'primary', icon: CreditCard },
-      'card': { label: t('payments.card'), variant: 'secondary', icon: CreditCardIcon },
+      'cash': { label: t('payments.cash'), variant: 'success', icon: 'cash' },
+      'orange': { label: t('payments.orange_money'), variant: 'warning', icon: 'orange' },
+      'mtn': { label: t('payments.mobile_money'), variant: 'primary', icon: 'mtn' },
+      'card': { label: t('payments.card'), variant: 'secondary', icon: 'card' },
     };
 
-    const { label, variant } = config[method] || config.cash;
+    const { label, variant, icon } = config[method] || config.cash;
     return (
-      <Badge variant={variant} size="sm">
+      <Badge variant={variant} size="sm" className="flex items-center gap-1">
+        <MethodIcon method={icon} className="w-3 h-3" />
         {label}
       </Badge>
     );
@@ -355,6 +356,58 @@ const MobilePaymentCard = ({ payment, isSelected, onSelect, onAction }) => {
       </div>
     </div>
   );
+};
+
+const MethodIcon = ({ method, className = "w-4 h-4" }) => {
+  const iconClass = className.includes("w-") ? className : `w-6 h-6 ${className}`;
+  const imgClass = `${className.includes("w-") ? className : "w-6 h-6"} object-contain rounded-md shadow-sm`;
+
+  switch (method) {
+    case 'orange':
+      return (
+        <img
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Orange_Money_logo.svg/120px-Orange_Money_logo.svg.png"
+          alt=""
+          className={imgClass}
+          onError={(e) => {
+            e.target.src = "https://ui-avatars.com/api/?name=OM&background=FF7900&color=fff&font-size=0.5&bold=true";
+            e.target.onerror = null;
+          }}
+        />
+      );
+    case 'mtn':
+      return (
+        <img
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/MTN_Mobile_Money_Logo.svg/120px-MTN_Mobile_Money_Logo.svg.png"
+          alt=""
+          className={imgClass}
+          onError={(e) => {
+            e.target.src = "https://ui-avatars.com/api/?name=MTN&background=FFCC00&color=000&font-size=0.45&bold=true";
+            e.target.onerror = null;
+          }}
+        />
+      );
+    case 'wave':
+      return (
+        <div className={`${imgClass} bg-[#1CB0F6] flex items-center justify-center`}>
+          <span className="text-[10px] font-bold text-white">Wave</span>
+        </div>
+      );
+    case 'cash':
+      return (
+        <div className={`${imgClass} bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center border border-emerald-200 dark:border-emerald-800`}>
+          <Banknote className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+        </div>
+      );
+    case 'card':
+      return (
+        <div className={`${imgClass} bg-gray-100 dark:bg-gray-700 flex items-center justify-center border border-gray-200 dark:border-gray-600`}>
+          <CreditCard className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+        </div>
+      );
+    default:
+      return <Wallet className={className} />;
+  }
 };
 
 const Avatar = ({ name, photoUrl, type = 'passenger', size = 'w-8 h-8', className = 'mr-2' }) => {
@@ -1011,16 +1064,16 @@ const Payments = ({ showToast }) => {
   // Helper pour afficher le badge de méthode
   const getMethodBadge = (method) => {
     const config = {
-      'cash': { label: t('payments.cash'), color: 'green', icon: DollarSign },
-      'orange': { label: t('payments.orange_money'), color: 'yellow', icon: Smartphone },
-      'mtn': { label: t('payments.mobile_money'), color: 'red', icon: CreditCard },
-      'card': { label: t('payments.card'), color: 'gray', icon: CreditCardIcon },
+      'cash': { label: t('payments.cash'), color: 'green' },
+      'orange': { label: t('payments.orange_money'), color: 'orange' },
+      'mtn': { label: t('payments.mobile_money'), color: 'blue' },
+      'card': { label: t('payments.card'), color: 'gray' },
     };
 
-    const { label, color, icon: Icon } = config[method] || config.cash;
+    const { label, color } = config[method] || config.cash;
     return (
-      <Badge className={`text-${color}-500 `}>
-        <Icon className="w-3 h-3 mr-1" />
+      <Badge className={`text-${color}-500 flex items-center gap-1`}>
+        <MethodIcon method={method} className="w-3 h-3" />
         {label}
       </Badge>
     );
@@ -1404,20 +1457,7 @@ const Payments = ({ showToast }) => {
                 {paymentMethods.map((method) => (
                   <div key={method.type} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 dark:bg-gray-800 rounded-lg transition">
                     <div className="flex items-center">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${method.color === 'green' ? 'bg-green-100' :
-                        method.color === 'orange' ? 'bg-orange-100' :
-                          method.color === 'blue' ? 'bg-blue-100' :
-                            method.color === 'purple' ? 'bg-purple-100' :
-                              method.color === 'red' ? 'bg-red-100' : 'bg-gray-100 dark:bg-gray-800'
-                        }`}>
-                        <method.icon className={
-                          method.color === 'green' ? 'text-green-500' :
-                            method.color === 'orange' ? 'text-orange-500' :
-                              method.color === 'blue' ? 'text-blue-500' :
-                                method.color === 'purple' ? 'text-purple-500' :
-                                  method.color === 'red' ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
-                        } />
-                      </div>
+                      <MethodIcon method={method.type} className="w-10 h-10 mr-3" />
                       <div>
                         <p className="font-medium text-gray-800 dark:text-gray-100">{method.label}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{method.percentage}% ({method.count})</p>

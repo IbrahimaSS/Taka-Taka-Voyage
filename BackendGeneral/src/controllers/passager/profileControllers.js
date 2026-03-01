@@ -1,4 +1,6 @@
 const Utilisateur = require("../../models/Utilisateurs");
+const Trajet = require("../../models/Trajets");
+const Paiement = require("../../models/Paiements");
 const { validationResult } = require("express-validator");
 const { deleteFile } = require("../../utils/fileUtils");
 
@@ -159,6 +161,62 @@ exports.updatePreferences = async (req, res) => {
         return res.status(500).json({
             succes: false,
             message: error.message,
+        });
+    }
+};
+
+// Récupérer les statistiques du passager
+exports.getStats = async (req, res) => {
+    try {
+        const passagerId = req.utilisateur._id;
+
+        // 1. Nombre de trajets (Basé sur les trajets terminés)
+        const totalTrips = await Trajet.countDocuments({
+            passager: passagerId,
+            statut: "TERMINEE"
+        });
+
+        // 2. Dépenses totales (Basé sur les paiements "PAYE" pour être cohérent avec l'écran Paiement)
+        const statsComptables = await Paiement.aggregate([
+            { $match: { passager: passagerId, statut: "PAYE" } },
+            {
+                $group: {
+                    _id: null,
+                    totalSpending: { $sum: "$montantTotal" }
+                }
+            }
+        ]);
+
+        const totalSpending = statsComptables[0]?.totalSpending || 0;
+
+        // 3. Temps total passé en trajet
+        const statsTemps = await Trajet.aggregate([
+            { $match: { passager: passagerId, statut: "TERMINEE" } },
+            {
+                $group: {
+                    _id: null,
+                    totalDuration: { $sum: "$dureeMin" }
+                }
+            }
+        ]);
+
+        const totalTime = statsTemps[0]?.totalDuration || 0;
+
+        const stats = {
+            trips: totalTrips,
+            spending: totalSpending,
+            averageRating: req.utilisateur.noteMoyenne || 5.0,
+            totalTime: totalTime
+        };
+
+        return res.status(200).json({
+            succes: true,
+            stats
+        });
+    } catch (error) {
+        return res.status(500).json({
+            succes: false,
+            message: error.message
         });
     }
 };

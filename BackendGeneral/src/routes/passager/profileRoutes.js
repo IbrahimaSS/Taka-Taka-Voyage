@@ -5,6 +5,7 @@ const {
     getProfil,
     updateProfil,
     updatePreferences,
+    getStats,
 } = require("../../controllers/passager/profileControllers");
 
 const { verifierToken } = require("../../middlewares/authMiddlewares");
@@ -100,6 +101,27 @@ router.put(
     verifierToken,
     verifierStatutActif,
     updatePreferences
+);
+
+/**
+ * @swagger
+ * /api/passagers/stats:
+ *   get:
+ *     summary: Récupérer les statistiques du passager
+ *     tags: [3 - Passagers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Statistiques récupérées.
+ *       401:
+ *         description: Non autorisé.
+ */
+router.get(
+    "/stats",
+    verifierToken,
+    verifierStatutActif,
+    getStats
 );
 
 module.exports = router;

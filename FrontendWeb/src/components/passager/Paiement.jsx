@@ -345,19 +345,33 @@ const Transactions = () => {
                   if (dPhone !== '-') break;
                 }
 
-                // 3. Extraction du VÉHICULE
+                // 3. Extraction du VÉHICULE — Priorité : profilVehicule (ChauffeurProfile)
                 let dVeh = 'Véhicule standard';
-                for (const c of driverCandidates) {
-                  const v = c.vehicule || c.vehicle || resObj.vehicule || resObj.vehicle;
-                  if (v && typeof v === 'object') {
-                    const vStr = [v.marque, v.modele, v.immatriculation || v.plaque].filter(Boolean).join(' ').trim();
-                    if (vStr.length > 2 && !['N/A', '-', 'NULL'].includes(String(vStr).toUpperCase())) {
-                      dVeh = vStr; break;
-                    } else if (v.type && typeof v.type === 'string') {
-                      dVeh = v.type; break;
+
+                // 1ère priorité : profilVehicule depuis ChauffeurProfile (via relatedTrip enrichi)
+                const chauffeurObjP = relatedTrip?.chauffeur || p.chauffeur;
+                if (chauffeurObjP && typeof chauffeurObjP === 'object') {
+                  const pv = chauffeurObjP.profilVehicule;
+                  if (pv) {
+                    const parts = [pv.marque, pv.modele].filter(Boolean).join(' ').trim();
+                    if (parts.length > 1) dVeh = parts;
+                    else if (pv.couleur) dVeh = pv.couleur;
+                    else if (pv.type) dVeh = pv.type;
+                  }
+                }
+
+                // 2ème priorité : vehicule object (Utilisateurs)
+                if (dVeh === 'Véhicule standard') {
+                  for (const c of driverCandidates) {
+                    const v = c.vehicule || c.vehicle || resObj.vehicule || resObj.vehicle;
+                    if (v && typeof v === 'object') {
+                      const vStr = [v.marque, v.modele].filter(Boolean).join(' ').trim();
+                      if (vStr.length > 2) { dVeh = vStr; break; }
+                      else if (v.couleur) { dVeh = v.couleur; break; }
+                      else if (v.type && v.type !== 'TAXI') { dVeh = v.type; break; }
+                    } else if (typeof v === 'string' && v.trim().length > 2 && v.trim() !== 'TAXI') {
+                      dVeh = v.trim(); break;
                     }
-                  } else if (typeof v === 'string' && v.trim().length > 2) {
-                    dVeh = v.trim(); break;
                   }
                 }
 

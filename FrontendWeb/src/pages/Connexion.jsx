@@ -129,6 +129,14 @@ const Connexion = () => {
           localStorage.removeItem('userPhone');
         }
 
+        // Si chauffeur EN ATTENTE → page d'attente immédiatement
+        const statut = response.statut;
+        if (statut === 'EN_ATTENTE') {
+          showToast('Compte en attente', 'Votre dossier est en cours de validation.', 'info');
+          setTimeout(() => navigate('/validation-en-attente'), 1500);
+          return;
+        }
+
         showToast('Connexion réussie', 'Redirection vers votre espace...', 'success');
 
         // Redirection basée sur le rôle de l'utilisateur

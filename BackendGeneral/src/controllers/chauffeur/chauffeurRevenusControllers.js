@@ -123,7 +123,7 @@ exports.chauffeurRevenusListe = async (req, res) => {
             })
             .populate({
                 path: 'passager',
-                select: 'nom prenom photoUrl'
+                select: 'nom prenom photoUrl telephone email'
             });
 
         const data = paiements.map((p) => ({
@@ -136,7 +136,9 @@ exports.chauffeurRevenusListe = async (req, res) => {
             dureeMin: p.reservation?.dureeMin || 0,
             passager: p.passager ? {
                 nom: `${p.passager.prenom} ${p.passager.nom}`,
-                photo: p.passager.photoUrl
+                photo: p.passager.photoUrl,
+                telephone: p.passager.telephone,
+                email: p.passager.email
             } : null,
             modePaiement: p.methode || "N/A",
             montantBrut: p.montantTotal,
