@@ -23,6 +23,7 @@ import Modal from '../ui/Modal';
 import ExportDropdown from '../ui/ExportDropdown';
 import { adminService } from '../../../services/adminService';
 import { useTranslation } from 'react-i18next';
+import { getFullAssetURL } from '../../../utils/urlHelper';
 
 // Helper pour formater les montants en GNF
 const formatGNF = (value) => {
@@ -34,10 +35,8 @@ const formatGNF = (value) => {
 const DriverAvatar = ({ photo, nom, size = 'md' }) => {
   const sizeClasses = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-12 h-12 text-sm';
   const acronym = nom ? nom.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '?';
-  const baseURL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
-
   if (photo) {
-    const photoUrl = photo.startsWith('http') ? photo : `${baseURL}${photo}`;
+    const photoUrl = getFullAssetURL(photo);
     return (
       <div className={`${sizeClasses} rounded-full shadow-sm relative flex-shrink-0`}>
         <img
@@ -824,7 +823,7 @@ const Commissions = ({ showToast }) => {
               {/* Actions */}
               <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-6 border-t border-gray-200 dark:border-gray-800">
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   icon={X}
                   onClick={() => setModalState(prev => ({ ...prev, showDetails: false }))}
                   className="sm:w-auto"

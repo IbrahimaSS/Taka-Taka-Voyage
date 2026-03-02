@@ -20,8 +20,7 @@ import ExportDropdown from '../ui/ExportDropdown';
 import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
 import { adminService } from '../../../services/adminService';
 import { useTranslation } from 'react-i18next';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { getFullAssetURL } from '../../../utils/urlHelper';
 
 // TODO API (admin/documents):
 // Remplacer les donnees simulees et les validations locales par des appels backend
@@ -399,17 +398,11 @@ const Documents = ({ showToast }) => {
 
   const handleDownloadDocument = async (document) => {
     try {
-      const url = `${API_URL}${document.fichier || document.fileUrl}`;
+      const url = getFullAssetURL(document.fichier || document.fileUrl);
       window.open(url, '_blank');
     } catch (error) {
       showToast(t('common.error'), "Erreur lors du téléchargement", 'error');
     }
-  };
-
-  const getFullFileUrl = (path) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
   };
 
   return (
@@ -432,7 +425,7 @@ const Documents = ({ showToast }) => {
                 <div className="flex items-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4 overflow-hidden shadow-md">
                     {selectedDriver.photoUrl ? (
-                      <img src={getFullFileUrl(selectedDriver.photoUrl)} className="w-full h-full object-cover" />
+                      <img src={getFullAssetURL(selectedDriver.photoUrl)} className="w-full h-full object-cover" />
                     ) : selectedDriver.name.charAt(0)}
                   </div>
                   <div>
@@ -565,14 +558,14 @@ const Documents = ({ showToast }) => {
                               id: doc.id,
                               type: doc.type,
                               fileName: docType?.label || doc.type,
-                              fileUrl: getFullFileUrl(doc.fichier),
+                              fileUrl: getFullAssetURL(doc.fichier),
                               owner: { name: selectedDriver.name },
                               createdAt: doc.createdAt
                             })}
                             title="Visualiser"
                           />
                           <a
-                            href={getFullFileUrl(doc.fichier)}
+                            href={getFullAssetURL(doc.fichier)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-2 hover:bg-gray-100 rounded-lg transition"
@@ -829,7 +822,7 @@ const Documents = ({ showToast }) => {
                         <div className="flex items-center">
                           <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg mr-3 overflow-hidden shadow-sm">
                             {driver.photoUrl ? (
-                              <img src={getFullFileUrl(driver.photoUrl)} className="w-full h-full object-cover" />
+                              <img src={getFullAssetURL(driver.photoUrl)} className="w-full h-full object-cover" />
                             ) : (
                               driver.name.charAt(0)
                             )}

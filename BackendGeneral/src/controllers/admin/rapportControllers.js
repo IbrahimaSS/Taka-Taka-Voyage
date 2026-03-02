@@ -3,6 +3,7 @@ const Paiement = require("../../models/Paiements");
 const Rapport = require("../../models/Rapports");
 const Reservation = require("../../models/Reservations");
 const Utilisateurs = require("../../models/Utilisateurs");
+const ProgrammationRapport = require("../../models/ProgrammationRapports");
 
 
 //===================================GESTIONS RAPPORTS==============================
@@ -124,7 +125,7 @@ exports.repartitionAnalyses = async (req, res) => {
         // =========== UTILISATEURS ============
         // Répartition par rôle (PASSAGER/CHAUFFEUR/ADMIN) sur Utilisateurs
         if (scope === "utilisateurs") {
-            data = await Utilisateur.aggregate([
+            data = await Utilisateurs.aggregate([
                 { $match: { createdAt: { $gte: debut } } },
                 { $group: { _id: "$role", total: { $sum: 1 } } },
                 { $sort: { total: -1 } }
@@ -404,5 +405,98 @@ exports.incrementerTelechargement = async (req, res) => {
     } catch (error) {
         console.error(error);
         return res.status(500).json({ succes: false, message: "Erreur incrémentation" });
+    }
+};
+
+// =================================== PROGRAMMATION ===============================
+
+// LISTE DES PROGRAMMATIONS
+exports.getProgrammations = async (req, res) => {
+    try {
+        const programmations = await ProgrammationRapport.find()
+            .sort({ createdAt: -1 });
+
+        return res.json({
+            succes: true,
+            programmations: programmations.map(p => ({
+                id: p._id,
+                titre: p.titre,
+                type: p.type,
+                frequence: p.frequence,
+                format: p.format,
+                destinataires: p.destinataires,
+                statut: p.statut,
+                prochaineExecution: p.prochaineExecution || new Date(Date.now() + 86400000), // Date par défaut
+                creeLe: p.createdAt
+            }))
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            succes: false,
+            message: "Erreur chargement programmations"
+        });
+    }
+};
+
+// CRÉER UNE PROGRAMMATION
+exports.creerProgrammation = async (req, res) => {
+    try {
+        const { titre, type, frequence, format, destinataires } = req.body;
+
+        if (!titre || !type || !frequence || !format) {
+            return res.status(400).json({
+                succes: false,
+                message: "Champs obligatoires manquants"
+            });
+        }
+
+        const programmation = await ProgrammationRapport.create({
+            titre,
+            type,
+            frequence,
+            format,
+            destinataires: destinataires || [],
+            creePar: req.utilisateur?._id || null,
+            prochaineExecution: new Date(Date.now() + 86400000)
+        });
+
+        return res.status(201).json({
+            succes: true,
+            message: "Programmation créée avec succès",
+            programmation
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            succes: false,
+            message: "Erreur création programmation"
+        });
+    }
+};
+
+// SUPPRIMER UNE PROGRAMMATION
+exports.supprimerProgrammation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deleted = await ProgrammationRapport.findByIdAndDelete(id);
+
+        if (!deleted) {
+            return res.status(404).json({
+                succes: false,
+                message: "Programmation introuvable"
+            });
+        }
+
+        return res.json({
+            succes: true,
+            message: "Programmation supprimée"
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            succes: false,
+            message: "Erreur suppression programmation"
+        });
     }
 };

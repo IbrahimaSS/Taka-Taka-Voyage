@@ -1289,7 +1289,7 @@ const Payments = ({ showToast }) => {
 
           <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-4 border-t border-gray-200 dark:border-gray-800">
             <Button
-              variant="secondary"
+              variant="outline"
               onClick={() => setModalState(prev => ({ ...prev, showDetails: false }))}>
               {t('common.close')}
             </Button>

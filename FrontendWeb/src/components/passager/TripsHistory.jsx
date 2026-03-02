@@ -195,7 +195,7 @@ const TripDetailsModal = ({ trip, isOpen, onClose, onShare, onContact, onPay, on
 
           <div className="flex space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <Button
-              variant="secondary"
+              variant="primary"
               onClick={onClose}
               className="flex-1"
             >
