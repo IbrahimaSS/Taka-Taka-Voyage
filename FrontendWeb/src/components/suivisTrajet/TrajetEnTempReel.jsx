@@ -419,24 +419,23 @@ const RealTimeTracking = ({
       // 3. Distance parcourue = Total - Restant (bornée à 0 minimum)
       let distTraveled = Math.max(0, distTotal - distRemaining);
 
-      // 4. Pourcentage — borné entre 0% et 100%
+      // 4. Pourcentage — précision accrue pour fluidité visuelle (1 décimale)
       let pct = (distTraveled / distTotal) * 100;
 
-      // ✅ [FIX] Pour la démo en salle, on réduit le seuil d'arrivée à 5 mètres (0.005 km)
-      // au lieu de 200 mètres (0.2 km) pour que la barre puisse bouger visiblement.
-      if (distRemaining < 0.005) {
+      // ✅ [FIX] Pour la démo en salle ou test à pied, on réduit le seuil d'arrivée à 2 mètres (0.002 km)
+      if (distRemaining < 0.002) {
         pct = 100;
       }
 
       pct = Math.min(100, Math.max(0, pct));
 
       // 5. Temps restant — Règle de 3 sur la durée initiale estimée
-      const timeRemaining = Math.max(1, Math.round((distRemaining / distTotal) * tripData.trip.totalDuration));
+      const timeRemaining = pct >= 100 ? 0 : Math.max(1, Math.round((distRemaining / distTotal) * tripData.trip.totalDuration));
 
       // 5b. Format lisible
-      const formattedDuration = timeRemaining >= 60
+      const formattedDuration = pct >= 100 ? "0 min" : (timeRemaining >= 60
         ? `${Math.floor(timeRemaining / 60)}h ${timeRemaining % 60} min`
-        : `${timeRemaining} min`;
+        : `${timeRemaining} min`);
 
       // 6. Mise à jour de l'ETA
       const now = new Date();
@@ -444,13 +443,13 @@ const RealTimeTracking = ({
       const newEta = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
       setRealTimeMetrics({
-        distanceTraveled: parseFloat(distTraveled.toFixed(2)),
-        distanceRemaining: parseFloat(distRemaining.toFixed(2)),
-        progress: Math.round(pct),
+        distanceTraveled: parseFloat(distTraveled.toFixed(3)),
+        distanceRemaining: parseFloat(distRemaining.toFixed(3)),
+        progress: parseFloat(pct.toFixed(1)),
         durationRemaining: timeRemaining,
         formattedDuration
       });
-      setProgress(Math.round(pct)); // Sync avec l'état existant pour la barre
+      setProgress(parseFloat(pct.toFixed(1))); // Permet un mouvement plus fluide de la barre
       setEstimatedArrival(newEta);   // Sync avec l'état existant pour l'ETA
     }
   }, [driverPosition, tripData.destination.coords, tripData.departure.coords, tripData.trip.totalDistance, tripData.trip.totalDuration, trip?.status]);
@@ -628,10 +627,14 @@ const RealTimeTracking = ({
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {role === 'driver' ? 'Passager Principal' : 'Chauffeur'}
+                    {role === 'driver' ? (driverCtx?.acceptedTrips?.length > 1 ? 'Passagers à bord' : 'Passager') : 'Chauffeur'}
                   </p>
                   <p className="font-bold text-gray-800 dark:text-gray-100">
-                    {role === 'driver' ? (trip?.passengerName || 'Passager') : tripData.driver.name}
+                    {role === 'driver'
+                      ? (driverCtx?.acceptedTrips?.length > 1
+                        ? driverCtx.acceptedTrips.map(t => t.passengerName || t.nom).filter(Boolean).join(', ')
+                        : (trip?.passengerName || 'Passager'))
+                      : tripData.driver.name}
                   </p>
                   <div className="flex items-center mt-1">
                     {[...Array(5)].map((_, i) => (

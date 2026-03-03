@@ -159,5 +159,9 @@ app.use("/api/services-actifs", servicesRoutes);
 const aiRoutes = require("./routes/aiRoutes");
 app.use("/api/ai", aiRoutes);
 
+// 🚕 Taxi Partagé - Routes dédiées
+const taxiPartageRoutes = require("./routes/taxiPartageRoutes");
+app.use("/api/taxipartage", taxiPartageRoutes);
+
 module.exports = app;
 

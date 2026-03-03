@@ -20,7 +20,7 @@ export const tripService = {
   arrive: (id) => apiClient.post(`/chauffeur/mes-courses/${id}/signaler-arrivee`),
   start: (id) => apiClient.post(`/chauffeur/mes-courses/${id}/demarrer`),
   complete: (id) => apiClient.post(`/chauffeur/mes-courses/${id}/terminer`),
-  cancel: (id, payload) => apiClient.post(API_ROUTES.passager.reservationsPlanifiees.annuler(id), payload),
+  cancel: (id, payload) => apiClient.delete(API_ROUTES.passager.reservationsPlanifiees.annuler(id), { data: payload }),
   rate: (id, payload) => apiClient.post(API_ROUTES.passager.trajets.details(id) + '/rate', payload),
 
   // Historique

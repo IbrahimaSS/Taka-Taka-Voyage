@@ -108,30 +108,41 @@ export const PassengerProvider = ({ children }) => {
     try {
       // Endpoint hypothetique - à adapter selon API réelle.
       // Si n'existe pas, il faudra le créer ou utiliser une liste filtrée
-      const { data } = await axios.get(`${API_URL}/api/reservations/active`, { withCredentials: true });
+      const baseURL = getApiBaseURL();
+      const { data } = await axios.get(`${baseURL}/api/reservations/active`, { withCredentials: true });
 
       if (data?.success && data?.reservation) {
         const r = data.reservation;
         console.log("🔄 [CONTEXT] Restoring active trip:", r._id);
 
+        // Normalisation: EN_COURS (DB) -> en_route (Client)
+        const normalizedStatus = r.statut === 'EN_COURS' ? 'en_route' : r.statut?.toLowerCase();
+
         setCurrentTrip({
           reservationId: r._id,
-          id: r._id, // ✅ FIX: Doublon pour compatibilité TrajetEnTempReel
+          id: r._id,
           pickup: r.depart || r.pickupAddress,
           destination: r.destination || r.destinationAddress,
           pickupCoords: [r.departLat, r.departLng],
           destinationCoords: [r.destinationLat, r.destinationLng],
-          status: r.statut?.toLowerCase(),
+          status: normalizedStatus,
           driver: r.chauffeur,
           price: r.prix,
           vehicleType: r.typeVehicule,
           paymentMethod: r.paiement?.methode || "CASH",
-          payment: r.paiement, // ✅ FIX: Ajouter l'objet complet pour le statut
-          momentPaiement: r.momentPaiement, // ✅ FIX: Pour détecter le paiement à l'avance
-          createdAt: r.createdAt
+          payment: r.paiement,
+          momentPaiement: r.momentPaiement,
+          createdAt: r.createdAt,
+          groupeTaxiPartage: r.groupeTaxiPartage?._id || r.groupeTaxiPartage
         });
 
-        setTripStatus(r.statut?.toLowerCase());
+        setTripStatus(normalizedStatus);
+
+        const gId = r.groupeTaxiPartage?._id || r.groupeTaxiPartage;
+        if (gId) {
+          console.log(`🔌 [CONTEXT] Joining group room: GROUPE_${gId}`);
+          socketService.emit("taxipartage:rejoindre_groupe", { groupeId: gId });
+        }
 
         if (r.chauffeur) {
           setSelectedDriver({
@@ -281,11 +292,18 @@ export const PassengerProvider = ({ children }) => {
         return {
           ...base,
           reservationId: base.reservationId || reservationId,
-          id: base.id || reservationId, // ✅ FIX: Doublon
+          id: base.id || reservationId,
           status: "driver_found",
           driver: chauffeur || null,
+          groupeTaxiPartage: payload.groupeTaxiPartage?._id || payload.groupeTaxiPartage || payload.groupeId
         };
       });
+
+      const gId = payload.groupeTaxiPartage?._id || payload.groupeTaxiPartage || payload.groupeId;
+      if (gId) {
+        console.log(`🔌 [CONTEXT] Joining group room: GROUPE_${gId}`);
+        socketService.emit("taxipartage:rejoindre_groupe", { groupeId: gId });
+      }
 
       // ✅ Rejoindre la room RESERVATION pour position:chauffeur
       console.log(`🔌 [CONTEXT] Joining reservation room: RESERVATION_${reservationId}`);
@@ -350,6 +368,39 @@ export const PassengerProvider = ({ children }) => {
       });
       notifiedEvents.current.add(eventKey);
 
+    };
+
+    const onTPStatutMisAJour = (payload = {}) => {
+      console.log("🚕 [PASSAGER] Statut TP mis à jour:", payload);
+      const { reservationId, nouveauStatut, message, groupe } = payload;
+      const trip = currentTripRef.current;
+
+      // 1. Mise à jour de l'objet groupe si fourni
+      if (groupe) {
+        setCurrentTrip(prev => (prev ? { ...prev, groupeTaxiPartageObject: groupe } : prev));
+      }
+
+      // 2. Si c'est ma réservation qui change de statut spécifique
+      if (trip?.reservationId && sameRid(trip.reservationId, reservationId)) {
+        if (nouveauStatut === "EN_COURS_DE_RAMASSAGE") {
+          setTripStatus("chauffeur_en_route");
+          setCurrentTrip(prev => prev ? { ...prev, status: "chauffeur_en_route" } : prev);
+        } else if (nouveauStatut === "RAMASSE" || nouveauStatut === "ABORD") {
+          setTripStatus("picked_up");
+          setCurrentTrip(prev => prev ? { ...prev, status: "picked_up" } : prev);
+        } else if (nouveauStatut === "EN_COURS") {
+          console.log("🚀 [PASSAGER] Redirection via StatutMisAJour (EN_COURS)");
+          onGlobalStarted({ ...payload, message: "Le trajet commence !" });
+        }
+        if (message) toast.success(message, { id: "tp-status" });
+      } else {
+        // Même si ce n'est pas moi, si je suis dans le même groupe, je veux voir l'évolution
+        const gId = payload.groupeId || groupe?._id || groupe?.id;
+        if (gId && sameRid(trip?.groupeTaxiPartage, gId)) {
+          console.log("👥 [PASSAGER] Mise à jour groupe (autre passager):", reservationId, nouveauStatut);
+          // On pourrait rafraîchir l'UI ici si on affichait la liste des passagers
+        }
+      }
     };
 
     const onArrived = (payload = {}) => {
@@ -436,14 +487,86 @@ export const PassengerProvider = ({ children }) => {
 
     };
 
-    const onGlobalStarted = ({ reservationId, message } = {}) => {
+    const onGlobalStarted = (payload = {}) => {
+      console.log("📨 [PASSAGER] Réception START global:", payload);
+      const { reservationId, reservationIds, message, groupe, groupeId } = payload;
       const trip = currentTripRef.current;
-      if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
 
-      console.log(`📩 [CONTEXT] course:demarre_global reçu for RID=${reservationId}`);
+      const tripRid = trip?.reservationId;
+      const tripGid = trip?.groupeTaxiPartage;
+
+      console.log(`📍 [PASSAGER] Matching START: MonRID=${tripRid}, MonGID=${tripGid}`);
+
+      if (!tripRid) {
+        console.warn("⚠️ [PASSAGER] START reçu mais pas de reservationId local.");
+        return;
+      }
+
+      let matches = false;
+
+      // 1. Match par reservationId direct
+      if (reservationId && sameRid(tripRid, reservationId)) {
+        console.log("✅ Match: reservationId direct");
+        matches = true;
+      }
+
+      // 2. Match par liste d'IDs (broadcast chauffeur)
+      if (!matches && Array.isArray(reservationIds)) {
+        matches = reservationIds.some(id => sameRid(tripRid, id));
+        if (matches) console.log("✅ Match: reservationIds list");
+      }
+
+      // 3. Match par groupeId
+      const targetGroupId = groupeId || groupe?._id || groupe?.id;
+      if (!matches && targetGroupId && tripGid) {
+        if (sameRid(tripGid, targetGroupId)) {
+          console.log("✅ Match: groupeId match");
+          matches = true;
+        }
+      }
+
+      // 4. Match par contenu des réservations du groupe
+      if (!matches && groupe?.reservations && Array.isArray(groupe.reservations)) {
+        matches = groupe.reservations.some(r => {
+          const rId = r.reservation?._id || r.reservation;
+          return sameRid(tripRid, rId);
+        });
+        if (matches) console.log("✅ Match: groupe reservations list");
+      }
+
+      if (!matches) {
+        console.log("❌ [PASSAGER] Ce START ne semble pas me concerner.");
+        return;
+      }
+
+      console.log(`🚀 [PASSAGER] Basculement en_route pour RID=${tripRid}`);
+
+      // Mise à jour de l'état
       setTripStatus("en_route");
-      setCurrentTrip((prev) => (prev ? { ...prev, status: "en_route" } : prev));
-      toast.success(message || "🚀 Le trajet commence !", { id: "trip-status" });
+      setCurrentTrip((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status: "en_route",
+          groupeTaxiPartage: targetGroupId || prev.groupeTaxiPartage,
+          groupe: groupe || prev.groupe
+        };
+      });
+
+      // Feedback visuel
+      toast.success(message || "🚀 Le trajet commence !", {
+        id: "trip-status",
+        icon: "🚀",
+        duration: 5000
+      });
+
+      addNotification({
+        type: NOTIFICATION_TYPES.INFO,
+        category: NOTIFICATION_CATEGORIES.TRIP,
+        title: 'Trajet démarré 🚀',
+        message: message || 'Votre course a commencé. Bon voyage !',
+        id: `started-global-${tripRid}`
+      });
     };
 
     const onPosition = (data) => {
@@ -532,6 +655,17 @@ export const PassengerProvider = ({ children }) => {
     socketService.on("course:chauffeur_arrive", onArrived);
     socketService.on("course:demarre", onStarted);
     socketService.on("course:demarre_global", onGlobalStarted);
+    socketService.on("taxipartage:trajet_demarre", onGlobalStarted);
+    socketService.on("taxipartage:statut_mis_a_jour", onTPStatutMisAJour);
+    socketService.on("taxipartage:passager_ramasse", (data) => {
+      console.log("🚕 [PASSAGER] Passager ramassé (TP):", data);
+      if (sameRid(currentTripRef.current?.reservationId, data.reservationId)) {
+        setTripStatus("picked_up");
+        setCurrentTrip(prev => prev ? { ...prev, status: "picked_up" } : prev);
+        toast.success(data.message || "Vous avez été ramassé !");
+      }
+    });
+
     socketService.on("position:chauffeur", onPosition);
     socketService.on("course:terminee", onCompleted);
     socketService.on("course:annulee", onCancelled);
@@ -546,6 +680,9 @@ export const PassengerProvider = ({ children }) => {
       socketService.off("course:signaler_arrivee", onArrived);
       socketService.off("course:demarre", onStarted);
       socketService.off("course:demarre_global", onGlobalStarted);
+      socketService.off("taxipartage:trajet_demarre");
+      socketService.off("taxipartage:statut_mis_a_jour");
+      socketService.off("taxipartage:passager_ramasse");
       socketService.off("position:chauffeur", onPosition);
       socketService.off("course:terminee", onCompleted);
       socketService.off("course:annulee", onCancelled);
@@ -561,12 +698,17 @@ export const PassengerProvider = ({ children }) => {
       console.log(`🔄 [FIX] Re-Joining room for active trip: ${currentTrip.reservationId}`);
       socketService.emit("reservation:join", { reservationId: currentTrip.reservationId });
 
+      if (currentTrip.groupeTaxiPartage) {
+        console.log(`🔄 [FIX] Re-Joining group room: ${currentTrip.groupeTaxiPartage}`);
+        socketService.emit("taxipartage:rejoindre_groupe", { groupeId: currentTrip.groupeTaxiPartage });
+      }
+
       // Si on est "en_route", on s'assure que le status local est bon
       if (currentTrip.status === 'en_route' && tripStatus !== 'en_route') {
         setTripStatus('en_route');
       }
     }
-  }, [currentTrip?.reservationId, tripStatus]);
+  }, [currentTrip?.reservationId, currentTrip?.groupeTaxiPartage, tripStatus]);
 
   // ===================== 1) DEFINE TRIP =====================
   const defineTrip = (tripData) => {

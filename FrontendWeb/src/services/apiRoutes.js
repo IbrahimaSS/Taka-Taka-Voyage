@@ -161,6 +161,24 @@ export const API_ROUTES = {
     }
   },
 
+  // ===================== TAXI PARTAGÉ =====================
+  taxiPartage: {
+    // Gestion des groupes
+    creerGroupe: "/taxipartage/groupe/creer",
+    ajouterPassager: (groupeId) => `/taxipartage/groupe/${groupeId}/ajouter`,
+    detailsGroupe: (groupeId) => `/taxipartage/groupe/${groupeId}`,
+    fileRamassage: "/taxipartage/file-ramassage",
+    groupesActifs: "/taxipartage/groupes-actifs",
+    // Validation démarrage
+    peutDemarrer: (groupeId) => `/taxipartage/groupe/${groupeId}/peut-demarrer`,
+    // Actions passagers
+    enRoutePassager: (reservationId) => `/taxipartage/passager/${reservationId}/en-route`,
+    arriveePassager: (reservationId) => `/taxipartage/passager/${reservationId}/arrivee`,
+    // Gestion trajet
+    demarrerTrajet: (groupeId) => `/taxipartage/groupe/${groupeId}/demarrer`,
+    terminerTrajet: (groupeId) => `/taxipartage/groupe/${groupeId}/terminer`,
+  },
+
 
   // ===================== COMMUN =====================
   litiges: {

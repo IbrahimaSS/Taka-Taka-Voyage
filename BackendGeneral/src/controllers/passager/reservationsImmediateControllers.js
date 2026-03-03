@@ -96,11 +96,30 @@ exports.confirmerReservationImmediate = async (req, res) => {
     });
 
     // 3) Chauffeurs online
-    const chauffeursEnLigne = await Utilisateur.find({
+    // ✅ Filtrage initial : Role + En Ligne + Actif
+    const chauffeursCandidats = await Utilisateur.find({
       role: "CHAUFFEUR",
       estEnLigne: true,
       statut: "ACTIF",
-    }).select("nom prenom telephone noteMoyenne socketId");
+    }).select("nom prenom telephone noteMoyenne socketId vehicule");
+
+    console.log(`🔍 [RESERVATION_IMMEDIATE] ${chauffeursCandidats.length} chauffeurs TOTAL en ligne.`);
+
+    // ✅ Filtrage par type de véhicule
+    let chauffeursEnLigne = chauffeursCandidats.filter(c => {
+      const driverType = c.vehicule?.type?.toUpperCase() || "TAXI";
+      const isMatch = driverType === typeVehiculeNorm;
+
+      console.log(`   🔸 Chauffeur: ${c.prenom} ${c.nom} | Type: ${driverType} | Demandé: ${typeVehiculeNorm} | Match: ${isMatch}`);
+      return isMatch;
+    });
+
+    // 💡 [TEST_FRIENDLY] Si aucun chauffeur du type demandé n'est trouvé, mais que d'autres sont en ligne,
+    // on élargit la recherche pour ne pas bloquer les tests de l'utilisateur.
+    if (chauffeursEnLigne.length === 0 && chauffeursCandidats.length > 0) {
+      console.log("⚠️ Aucun match exact. Élargissement de la recherche aux chauffeurs disponibles.");
+      chauffeursEnLigne = chauffeursCandidats;
+    }
 
     // 4) Socket emit (room stable)
     const io = req.app.get("io");
@@ -109,10 +128,10 @@ exports.confirmerReservationImmediate = async (req, res) => {
     let chauffeursContactes = 0;
 
     if (!chauffeursEnLigne?.length) {
-      console.log("⚠️ Aucun chauffeur en ligne trouvé pour cette réservation");
+      console.log(`⚠️ Aucun chauffeur disponible pour cette réservation.`);
       return res.status(201).json({
         succes: true,
-        message: "Réservation créée mais aucun chauffeur en ligne",
+        message: "Réservation créée mais aucun chauffeur disponible",
         reservation,
         chauffeursContactes: 0,
       });

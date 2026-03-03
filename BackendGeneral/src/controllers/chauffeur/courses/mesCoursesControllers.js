@@ -1,5 +1,6 @@
 const Reservation = require("../../../models/Reservations");
 const Notification = require("../../../models/Notifications");
+const TaxiPartageService = require("../../../services/taxiPartageService");
 
 // ==================== LISTE DES RÉSERVATIONS DISPONIBLES (EN ATTENTE) ====================
 exports.listeDisponible = async (req, res) => {
@@ -17,9 +18,24 @@ exports.listeDisponible = async (req, res) => {
 
         const courses = await Reservation.find({
             statut: "EN_ATTENTE",
+            // 🚕 TAXI_PARTAGE : Logique spéciale pour taxi partagé
             $or: [
-                { chauffeur: null },
-                { chauffeur: chauffeurId }
+                // Courses normales : sans chauffeur ou assignées à ce chauffeur
+                { 
+                    $and: [
+                        { typeVehicule: { $ne: "TAXI_PARTAGE" } },
+                        { $or: [
+                            { chauffeur: null },
+                            { chauffeur: chauffeurId }
+                        ]}
+                    ]
+                },
+                // 🚕 TAXI_PARTAGE : TOUTES les réservations TAXI_PARTAGE en attente
+                // (même celles avec d'autres chauffeurs, pour permettre les groupes)
+                { 
+                    typeVehicule: "TAXI_PARTAGE",
+                    chauffeur: { $in: [null, chauffeurId] } // Seulement sans chauffeur ou ce chauffeur
+                }
             ],
             // ✅ FILTRE J-1 : Si c'est planifié, on n'affiche que si c'est pour aujourd'hui ou demain
             $or: [
@@ -55,9 +71,27 @@ exports.accepterReservation = async (req, res) => {
         const reservation = await Reservation.findOne({
             _id: reservationId,
             statut: "EN_ATTENTE",
+            // 🚕 TAXI_PARTAGE : Logique spéciale pour acceptation
             $or: [
-                { chauffeur: null },
-                { chauffeur: chauffeurId }
+                // Courses normales : sans chauffeur ou assignées à ce chauffeur
+                { 
+                    $and: [
+                        { typeVehicule: { $ne: "TAXI_PARTAGE" } },
+                        { $or: [
+                            { chauffeur: null },
+                            { chauffeur: chauffeurId }
+                        ]}
+                    ]
+                },
+                // 🚕 TAXI_PARTAGE : Peut être acceptée même si déjà assignée à ce chauffeur
+                // (pour ajouter au groupe existant)
+                { 
+                    typeVehicule: "TAXI_PARTAGE",
+                    $or: [
+                        { chauffeur: null },
+                        { chauffeur: chauffeurId }
+                    ]
+                }
             ]
         });
 
@@ -69,8 +103,10 @@ exports.accepterReservation = async (req, res) => {
             });
         }
 
-        // Assigner le chauffeur et changer le statut
-        reservation.chauffeur = chauffeurId;
+        // 🚕 TAXI_PARTAGE : Ne pas écraser le chauffeur si déjà assigné (pour les groupes)
+        if (reservation.typeVehicule !== "TAXI_PARTAGE" || !reservation.chauffeur) {
+            reservation.chauffeur = chauffeurId;
+        }
         reservation.statut = "ACCEPTEE";
 
         // Ajouter à l'historique des offres
@@ -81,6 +117,33 @@ exports.accepterReservation = async (req, res) => {
         });
 
         await reservation.save();
+
+        // 🚕 TAXI PARTAGÉ : Si c'est une réservation de taxi partagé, créer/gérer le groupe
+        if (reservation.typeVehicule === "TAXI_PARTAGE") {
+            try {
+                const resultatGroupe = await TaxiPartageService.creerOuAjouterGroupe(reservation, chauffeurId);
+                
+                // Socket.IO pour taxi partagé
+                if (io && resultatGroupe.groupe) {
+                    // Notifier le chauffeur
+                    io.to(`CHAUFFEUR_${chauffeurId}`).emit("taxipartage:groupe_cree", {
+                        groupe: resultatGroupe.groupe,
+                        message: resultatGroupe.message
+                    });
+
+                    // Notifier les passagers du groupe
+                    io.to(`GROUPE_${resultatGroupe.groupe._id}`).emit("taxipartage:groupe_mis_a_jour", {
+                        groupe: resultatGroupe.groupe,
+                        type: "creation"
+                    });
+                }
+                
+                console.log(`🚕 Taxi partagé accepté - Groupe ${resultatGroupe.groupe._id}`);
+            } catch (error) {
+                console.error("❌ Erreur création groupe taxi partagé:", error.message);
+                // Ne pas bloquer l'acceptation, mais logger l'erreur
+            }
+        }
 
         // Notification au passager
         await Notification.create({
@@ -185,6 +248,34 @@ exports.rejoindreCourse = async (req, res) => {
 
     if (!reservation) return res.status(400).json({ succes: false, message: "Course non trouvée ou déjà prise" });
 
+    // 🚕 TAXI PARTAGÉ : Si c'est un taxi partagé, utiliser la logique de groupe
+    if (reservation.typeVehicule === "TAXI_PARTAGE") {
+        try {
+            const resultat = await TaxiPartageService.passerEnCoursDeRamassage(reservationId, chauffeurId);
+            
+            // Socket.IO pour taxi partagé
+            const io = req.app.get("io");
+            if (io) {
+                // Notifier le passager concerné
+                io.to(`PASSAGER_${reservation.passager}`).emit("taxipartage:chauffeur_en_route", {
+                    reservationId: reservationId,
+                    message: "Le chauffeur est en route pour vous récupérer"
+                });
+
+                // Notifier le chauffeur
+                io.to(`CHAUFFEUR_${chauffeurId}`).emit("taxipartage:en_route_passager", {
+                    reservationId: reservationId,
+                    message: "En route vers le passager"
+                });
+            }
+            
+            return res.json({ succes: true, message: "En route vers le passager (taxi partagé)" });
+        } catch (error) {
+            return res.status(400).json({ succes: false, message: error.message });
+        }
+    }
+
+    // Logique normale pour course individuelle
     reservation.statut = "ASSIGNEE"; // ou "VERS_PASSAGER"
     await reservation.save();
 
@@ -216,6 +307,48 @@ exports.signalerArrivee = async (req, res) => {
 
     if (!reservation) return res.status(400).json({ succes: false, message: "Impossible" });
 
+    // 🚕 TAXI PARTAGÉ : Si c'est un taxi partagé, utiliser la logique de groupe
+    if (reservation.typeVehicule === "TAXI_PARTAGE") {
+        try {
+            const resultat = await TaxiPartageService.signalerArriveePassager(reservationId, chauffeurId);
+            
+            // Socket.IO pour taxi partagé
+            const io = req.app.get("io");
+            if (io) {
+                // Notifier le chauffeur
+                io.to(`CHAUFFEUR_${chauffeurId}`).emit("taxipartage:passager_ramasse", {
+                    groupeId: resultat.groupeId,
+                    reservationId: reservationId,
+                    passagersRestants: resultat.passagersEnAttente,
+                    peutDemarrer: resultat.peutDemarrer,
+                    message: "Passager ramassé"
+                });
+
+                // Notifier tous les passagers du groupe
+                io.to(`GROUPE_${resultat.groupeId}`).emit("taxipartage:passager_ramasse", {
+                    groupeId: resultat.groupeId,
+                    reservationId: reservationId,
+                    passagersRestants: resultat.passagersEnAttente,
+                    peutDemarrer: resultat.peutDemarrer,
+                    message: "Un passager a été ramassé"
+                });
+
+                // Si tout le monde est ramassé, notifier que le trajet peut démarrer
+                if (resultat.peutDemarrer) {
+                    io.to(`CHAUFFEUR_${chauffeurId}`).emit("taxipartage:peut_demarrer", {
+                        groupeId: resultat.groupeId,
+                        message: "✅ Tous les passagers sont à bord - prêt à démarrer !"
+                    });
+                }
+            }
+            
+            return res.json(resultat);
+        } catch (error) {
+            return res.status(400).json({ succes: false, message: error.message });
+        }
+    }
+
+    // Logique normale pour course individuelle
     reservation.statut = "ARRIVEE"; // nouveau statut (ajoute-le dans le modèle)
     await reservation.save();
 
@@ -238,6 +371,56 @@ exports.demarrerTrajet = async (req, res) => {
 
     if (!reservation) return res.status(400).json({ succes: false, message: "Impossible de démarrer" });
 
+    // 🚕 TAXI PARTAGÉ : Validation BACKEND OBLIGATOIRE avant démarrage
+    if (reservation.typeVehicule === "TAXI_PARTAGE") {
+        try {
+            // Validation backend obligatoire
+            if (!reservation.groupeTaxiPartage) {
+                return res.status(400).json({
+                    succes: false,
+                    message: "Cette réservation n'est pas associée à un groupe de taxi partagé"
+                });
+            }
+
+            const validation = await TaxiPartageService.validerDemarrageTrajet(reservation.groupeTaxiPartage);
+            
+            if (!validation.peutDemarrer) {
+                return res.status(400).json({
+                    succes: false,
+                    message: validation.message || "Impossible de démarrer - passagers en attente"
+                });
+            }
+
+            // Démarrer le trajet pour tout le groupe
+            const resultat = await TaxiPartageService.demarrerTrajetGroupe(reservation.groupeTaxiPartage, chauffeurId);
+            
+            // Socket.IO - BASCULEMENT MODE TRACKING POUR TOUT LE MONDE
+            const io = req.app.get("io");
+            if (io) {
+                // Notifier tous les passagers du groupe - BASCULEMENT MODE TRACKING
+                io.to(`GROUPE_${reservation.groupeTaxiPartage}`).emit("taxipartage:trajet_demarre", {
+                    groupeId: reservation.groupeTaxiPartage,
+                    message: "🚀 Le trajet commence ! Suivez le véhicule en temps réel",
+                    groupe: resultat.groupe
+                });
+
+                // Notifier le chauffeur
+                io.to(`CHAUFFEUR_${chauffeurId}`).emit("taxipartage:trajet_demarre", {
+                    groupeId: reservation.groupeTaxiPartage,
+                    message: "Trajet démarré - Mode tracking activé",
+                    groupe: resultat.groupe
+                });
+
+                console.log(`🚀 Socket.IO: Trajet démarré pour groupe ${reservation.groupeTaxiPartage} - Basculement mode tracking`);
+            }
+            
+            return res.json(resultat);
+        } catch (error) {
+            return res.status(400).json({ succes: false, message: error.message });
+        }
+    }
+
+    // Logique normale pour course individuelle
     reservation.statut = "EN_COURS";
     reservation.dateDebut = new Date();
     await reservation.save();

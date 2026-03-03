@@ -16,9 +16,10 @@ import { toast } from "react-hot-toast";
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from "./NotificationContext";
 import { offlineTripService } from "../services/offlineTripService";
 import { tripService } from "../services/tripService";
+import { taxiPartageApiService } from "../services/taxiPartageService";
 
 
-const DriverContext = createContext();
+const DriverContext = createContext(null);
 export const useDriverContext = () => useContext(DriverContext);
 
 // Util: détecter si un nombre ressemble à une latitude/longitude
@@ -105,6 +106,15 @@ export const DriverProvider = ({ children }) => {
 
   // Courses acceptées
   const [acceptedTrips, setAcceptedTrips] = useState([]);
+
+  // ==================== TAXI PARTAGÉ ====================
+  const [groupeTaxiPartage, setGroupeTaxiPartage] = useState(null);
+  const [fileRamassageTP, setFileRamassageTP] = useState([]);
+  const [peutDemarrerTP, setPeutDemarrerTP] = useState(false);
+  const [passagersEnAttenteTP, setPassagersEnAttenteTP] = useState(0);
+  const [passagersRamassesTP, setPassagersRamassesTP] = useState(0);
+  const groupeTaxiPartageRef = useRef(null);
+  useEffect(() => { groupeTaxiPartageRef.current = groupeTaxiPartage; }, [groupeTaxiPartage]);
 
   // Trip actif
   const [currentPickupTripId, setCurrentPickupTripId] = useState(null);
@@ -214,6 +224,32 @@ export const DriverProvider = ({ children }) => {
   // Utils
   const calculateDistance = useCallback(GeolocationService.calculateDistance, []);
 
+  // ==================== LOGIQUE TAXI PARTAGÉ (MÉTIER) ====================
+  const fetchFileRamassage = useCallback(async () => {
+    if (!user?._id) return;
+    try {
+      const res = await taxiPartageApiService.getFileRamassage();
+      if (res.data && res.data.succes) {
+        setGroupeTaxiPartage(res.data.groupe);
+        setFileRamassageTP(res.data.fileRamassage || []);
+        setPeutDemarrerTP(res.data.peutDemarrer || false);
+        setPassagersEnAttenteTP(res.data.passagersEnAttente || 0);
+        setPassagersRamassesTP(res.data.passagersRamasses || 0);
+      }
+    } catch (err) {
+      console.error("Erreur fetch file ramassage", err);
+    }
+  }, [user?._id]);
+
+  useEffect(() => {
+    if (fileRamassageTP && fileRamassageTP.length > 0) {
+      const aEncoreDesAttentes = fileRamassageTP.some(p => p.statut !== 'RAMASSE' && p.statut !== 'ARRIVE' && p.statut !== 'ABORD');
+      if (aEncoreDesAttentes && peutDemarrerTP) {
+        setPeutDemarrerTP(false);
+      }
+    }
+  }, [fileRamassageTP, peutDemarrerTP]);
+
   // ✅ Chauffeur authentifié (via AuthContext)
   const DRIVER = useMemo(
     () => ({
@@ -250,13 +286,13 @@ export const DriverProvider = ({ children }) => {
     driverLocationRef.current = driverLocation;
   }, [driverLocation]);
 
-  // ✅ Refs pour la robustesse du broadcast (Production Ready)
+  // Refs pour la robustesse du broadcast (Production Ready)
   const lastBroadcastRef = useRef(null);
   const lastBroadcastTimeRef = useRef(0);
 
   // Paramètres zone
   const MAX_DISTANCE_KM = 5;
-  const KEEP_FAR_REQUESTS = true; // ✅ IMPORTANT: ne pas drop
+  const KEEP_FAR_REQUESTS = true;
 
   // ────────────────────────────────────────────────
   // 1) Réception d'une nouvelle demande
@@ -317,6 +353,42 @@ export const DriverProvider = ({ children }) => {
     },
     [calculateDistance]
   );
+
+  // ────────────────────────────────────────────────
+  // 1.5) Handlers Taxi Partagé
+  // ────────────────────────────────────────────────
+  const onGroupeRejoint = useCallback((data) => {
+    console.log("🚕 [DRIVER] Groupe rejoint:", data);
+    setGroupeTaxiPartage(data.groupe);
+    setPeutDemarrerTP(data.peutDemarrer || false);
+    setPassagersEnAttenteTP(data.passagersEnAttente || 0);
+    setPassagersRamassesTP(data.passagersRamasses || 0);
+    fetchFileRamassage();
+  }, [fetchFileRamassage]);
+
+  const onStatutMisAJour = useCallback((data) => {
+    console.log("🚕 [DRIVER] Statut mis à jour:", data);
+    fetchFileRamassage();
+  }, [fetchFileRamassage]);
+
+  const onPeutDemarrer = useCallback((data) => {
+    console.log("✅ [DRIVER] Peut démarrer taxi partagé:", data);
+    setPeutDemarrerTP(true);
+    if (data.message) toast.success(data.message);
+  }, []);
+
+  const onDemarrageOk = useCallback((data) => {
+    console.log("🚀 [DRIVER] Démarrage confirmé:", data);
+    setAcceptedTrips(prev => prev.map(t => {
+      // Pour les taxis partagés, on marque tout le monde comme ramassé au démarrage global
+      if (t.typeCourse === 'TAXI_PARTAGE' || t.vehicleType === 'TAXI_PARTAGE') {
+        return { ...t, pickupStatus: 'picked_up' };
+      }
+      return t;
+    }));
+    setTripStep("in_progress");
+    setStatus("busy");
+  }, []);
 
   // ────────────────────────────────────────────────
   // 2) Connexion socket + listeners
@@ -426,6 +498,12 @@ export const DriverProvider = ({ children }) => {
     socketService.on("course:terminee", onTripFinished);
     socketService.on("course:finit_avec_paiement", onTripFinished);
     socketService.on("paiement:confirme", onTripFinished);
+    socketService.on("taxipartage:groupe_rejoint", onGroupeRejoint);
+    socketService.on("taxipartage:statut_mis_a_jour", onStatutMisAJour);
+    socketService.on("taxipartage:peut_demarrer", onPeutDemarrer);
+    socketService.on("taxipartage:demarrage_ok", onDemarrageOk);
+    socketService.on("taxipartage:trajet_demarre", onDemarrageOk);
+    socketService.on("course:demarrage_ok", onDemarrageOk);
 
     setIsConnecting(false);
 
@@ -440,8 +518,23 @@ export const DriverProvider = ({ children }) => {
       socketService.off("course:terminee", onTripFinished);
       socketService.off("course:finit_avec_paiement", onTripFinished);
       socketService.off("paiement:confirme", onTripFinished);
+      socketService.off("taxipartage:groupe_rejoint");
+      socketService.off("taxipartage:statut_mis_a_jour");
+      socketService.off("taxipartage:peut_demarrer");
+      socketService.off("taxipartage:demarrage_ok");
+      socketService.off("taxipartage:trajet_demarre");
+      socketService.off("course:demarrage_ok");
     };
-  }, [isOnline, DRIVER, handleNewTripRequest, refreshActiveTrips]);
+  }, [
+    isOnline,
+    DRIVER,
+    handleNewTripRequest,
+    refreshActiveTrips,
+    onGroupeRejoint,
+    onStatutMisAJour,
+    onPeutDemarrer,
+    onDemarrageOk
+  ]);
 
   // ────────────────────────────────────────────────
   // 3) GPS en continu (uniquement si course active)
@@ -467,7 +560,7 @@ export const DriverProvider = ({ children }) => {
     const ids = getTargetIds();
     if (ids.length === 0) return;
 
-    // ✅ Broadcast position intelligent (Production Ready)
+    // ✅ Broadcast position intelligent (Production Ready - High Reactivity)
     const interval = setInterval(() => {
       const currentIds = getTargetIds();
       if (currentIds.length === 0) return;
@@ -487,8 +580,9 @@ export const DriverProvider = ({ children }) => {
         const dist = calculateDistance(currentLoc.lat, currentLoc.lng, lastLoc.lat, lastLoc.lng);
         const timeSinceLast = now - lastTime;
 
-        // SEUILS: 10 mètres (0.01 km) OU 30 secondes (Heartbeat)
-        if (dist > 0.005 || timeSinceLast > 15000) {
+        // SEUILS: 2 mètres (0.002 km) OU 5 secondes (Heartbeat) pour une réactivité maximale
+        // Permet de voir les micro-déplacements lors des tests réels.
+        if (dist > 0.002 || timeSinceLast > 5000) {
           shouldBroadcast = true;
         }
       }
@@ -506,7 +600,7 @@ export const DriverProvider = ({ children }) => {
         lastBroadcastRef.current = currentLoc;
         lastBroadcastTimeRef.current = now;
       }
-    }, 4000);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [isOnline, currentPickupTripId, tripStep]);
@@ -607,22 +701,28 @@ export const DriverProvider = ({ children }) => {
     return { succes: true };
   }, []);
 
-  const signalArrival = () => {
+  const signalArrival = async () => {
     if (!currentPickupTripId) return;
+    const trip = acceptedTripsRef.current.find(t => t.id === currentPickupTripId);
+    const isTP = trip?.typeCourse === "TAXI_PARTAGE" || trip?.vehicleType === "TAXI_PARTAGE";
+
     socketService.emit("course:signaler_arrivee", { reservationId: currentPickupTripId });
     setAcceptedTrips((prev) =>
       prev.map((t) => (t.id === currentPickupTripId ? { ...t, pickupStatus: "arrived" } : t))
     );
     setTripStep("at_pickup");
+    if (isTP) await fetchFileRamassage();
   };
 
-  const confirmPassengerPickup = (reservationId) => {
+  const confirmPassengerPickup = async (reservationId) => {
+    const trip = acceptedTripsRef.current.find(t => t.id === reservationId);
+    const isTP = trip?.typeCourse === "TAXI_PARTAGE" || trip?.vehicleType === "TAXI_PARTAGE";
+
     setAcceptedTrips((prev) =>
       prev.map((t) => (t.id === reservationId ? { ...t, pickupStatus: "picked_up" } : t))
     );
-    // On reste dans l'état de ramassage jusqu'à ce que le chauffeur décide de démarrer globalement
-    // ou s'il y a d'autres passagers à récupérer.
     setTripStep("ready_to_start");
+    if (isTP) await fetchFileRamassage();
   };
 
   const startGlobalTrip = (specificTripIds = null) => {
@@ -638,17 +738,56 @@ export const DriverProvider = ({ children }) => {
     setStatus("busy");
   };
 
-  const startTripImmediately = (tripId) => {
-    if (!tripId) return;
-    // Mark as picked up locally
-    setAcceptedTrips((prev) =>
-      prev.map((t) => (t.id === tripId ? { ...t, pickupStatus: "picked_up" } : t))
-    );
-    // Emit start immediately
-    socketService.emit("course:demarrer_global", { reservationIds: [tripId] });
-    setTripStep("in_progress");
-    setStatus("busy");
-  };
+  const startTripImmediately = useCallback(async (reservationId) => {
+    const trip = acceptedTripsRef.current.find(t => t.id === reservationId);
+    if (!trip) return false;
+
+    const isTP = trip.typeCourse === "TAXI_PARTAGE" || trip.vehicleType === "TAXI_PARTAGE";
+
+    if (isTP) {
+      if (!peutDemarrerTP) {
+        toast.error("⏳ En attente des autres passagers...");
+        return false;
+      }
+      try {
+        console.log("🚀 [DRIVER] Démarrage trajet TP, groupe:", groupeTaxiPartage?._id);
+        const res = await taxiPartageApiService.demarrerTrajet(groupeTaxiPartage?._id);
+        console.log("📦 [DRIVER] Réponse API demarrerTrajet:", res.data);
+
+        if (res.data?.succes) {
+          const reservations = groupeTaxiPartage?.reservations || res.data.groupe?.reservations || [];
+          // Extraction robuste des IDs de réservation (string)
+          const reservationIds = reservations
+            .map(r => (r.reservation?._id || r.reservation || "").toString())
+            .filter(id => id !== "");
+
+          console.log("📤 [DRIVER] Émission course:demarrer_global:", reservationIds);
+          if (reservationIds.length > 0) {
+            socketService.emit("course:demarrer_global", { reservationIds });
+          }
+          toast.success("🚀 Trajet démarré !");
+          if (typeof fetchFileRamassage === 'function') await fetchFileRamassage();
+        } else {
+          return false;
+        }
+      } catch (err) {
+        console.error("Erreur démarrage TP", err);
+        toast.error("Erreur serveur lors du démarrage");
+        return false;
+      }
+    } else {
+      // Pour les courses immédiates (Carpooling), on démarre TOUS les passagers vers lesquels on est arrivé/qu'on a ramassé
+      const allReadyIds = acceptedTripsRef.current
+        .filter(t => t.pickupStatus === 'picked_up' || t.pickupStatus === 'arrived' || t.id === reservationId)
+        .map(t => t.id);
+
+      console.log("📤 [DRIVER] Démarrage global (Immediate):", allReadyIds);
+      socketService.emit("course:demarrer_global", { reservationIds: allReadyIds });
+
+      setTripStep("in_progress");
+      setStatus("busy");
+    }
+  }, [peutDemarrerTP, groupeTaxiPartage?._id, fetchFileRamassage]);
 
   const startCourse = () => {
     if (!currentPickupTripId) return;
@@ -672,6 +811,11 @@ export const DriverProvider = ({ children }) => {
       currentPickupTripId,
       tripStep,
       stats,
+      peutDemarrerTP,
+      groupeTaxiPartage,
+      fileRamassageTP,
+      passagersEnAttenteTP,
+      passagersRamassesTP,
 
       setOnline,
       toggleOnline,
@@ -690,22 +834,17 @@ export const DriverProvider = ({ children }) => {
       maxDistanceKm: MAX_DISTANCE_KM,
       refreshActiveTrips,
       startPlannedTrip,
+      fetchFileRamassage
     }),
     [
-      isOnline,
-      isConnecting,
-      status,
-      driverLocation,
-      tripRequests,
-      acceptedTrips,
-      currentPickupTripId,
-      tripStep,
-      stats,
-      calculateDistance,
-      refreshActiveTrips,
-      startPlannedTrip,
+      isOnline, isConnecting, status, driverLocation, tripRequests, acceptedTrips,
+      currentPickupTripId, tripStep, stats, peutDemarrerTP, groupeTaxiPartage,
+      fileRamassageTP, passagersEnAttenteTP, passagersRamassesTP, calculateDistance,
+      refreshActiveTrips, startPlannedTrip, fetchFileRamassage
     ]
   );
 
   return <DriverContext.Provider value={value}>{children}</DriverContext.Provider>;
 };
+
+export default DriverProvider;
