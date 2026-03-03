@@ -274,8 +274,8 @@ exports.annulerReservationPlanifiee = async (req, res) => {
         const reservation = await Reservation.findOne({
             _id: reservationId,
             passager: userId,
-            typeCourse: "PLANIFIEE",
-            statut: { $in: ["EN_ATTENTE", "ASSIGNEE"] },
+            // On permet d'annuler n'importe quel type de réservation (IMMEDIATE ou PLANIFIEE)
+            statut: { $in: ["EN_ATTENTE", "ASSIGNEE", "ACCEPTEE"] },
         });
 
         if (!reservation) {

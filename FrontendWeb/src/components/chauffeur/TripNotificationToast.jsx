@@ -277,6 +277,11 @@ const TripNotificationToast = () => {
     stopNotificationSound();
     acceptTripRequest(reservationId);
     navigate("/chauffeur/tracking");
+    
+    // Réactiver les boutons après 3 secondes pour permettre d'autres acceptations
+    setTimeout(() => {
+      setIsAccepting(false);
+    }, 3000);
   };
 
   const handleReject = (reservationId) => {

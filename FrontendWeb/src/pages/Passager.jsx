@@ -325,7 +325,7 @@ const Passenger = () => {
     setIsOnMapView(false);
     setCurrentDriver(null);
     setCurrentTrip(null);
-    toast.info('Course annulée');
+    toast('Course annulée', { icon: 'ℹ️' });
     setShowTripStatusModal(false);
   };
 

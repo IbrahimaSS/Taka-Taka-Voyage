@@ -27,7 +27,7 @@ import TrajetComplete from "../components/suivisTrajet/TrajetComplete";
 import { tripService } from "../services/tripService";
 import TripNotificationToast from "../components/chauffeur/TripNotificationToast";
 
-import { DriverProvider, useDriverContext } from '../context/DriverContext';
+import DriverProvider, { useDriverContext } from '../context/DriverContext';
 import { Toaster } from 'react-hot-toast';
 import { ROLES } from '../config/navConfig';
 import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
@@ -109,12 +109,16 @@ const LiveTrackingWrapper = () => {
 };
 
 const DriverAutoOnline = () => {
-  const { isOnline, setOnline } = useDriverContext();
+  const context = useDriverContext();
+  const isOnline = context?.isOnline;
+  const setOnline = context?.setOnline;
 
   useEffect(() => {
-    if (!isOnline) setOnline(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (setOnline && !isOnline) {
+      console.log("♻️ [ChauffeurApp] Passage en ligne automatique");
+      setOnline(true);
+    }
+  }, [isOnline, setOnline]);
 
   return null;
 };

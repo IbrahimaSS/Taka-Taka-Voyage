@@ -31,7 +31,7 @@ const reservationSchema = new mongoose.Schema(
 
         typeVehicule: {
             type: String,
-            enum: ["MOTO", "TAXI", "VOITURE", "BUS"],
+            enum: ["MOTO", "TAXI", "VOITURE", "BUS", "TAXI_PARTAGE"],
             required: true,
         },
 
@@ -43,7 +43,9 @@ const reservationSchema = new mongoose.Schema(
                 "EN_ATTENTE",
                 "ACCEPTEE",
                 "ASSIGNEE",
+                "EN_COURS_DE_RECUPERATION",
                 "ARRIVEE",
+                "RECUPERE",
                 "EN_COURS",
                 "TERMINEE",
                 "ANNULEE",
@@ -111,6 +113,32 @@ const reservationSchema = new mongoose.Schema(
 
         derniereOffreExpireeLe: Date,
         nbToursAttribution: { type: Number, default: 0 },   // si > 1 → augmentation prix possible
+
+        // === TAXI PARTAGÉ SPÉCIFIQUE ===
+        estTaxiPartage: {
+            type: Boolean,
+            default: false
+        },
+
+        // Groupe de taxi partagé (plusieurs réservations liées)
+        groupeTaxiPartage: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "GroupeTaxiPartage",
+            default: null
+        },
+
+        // Ordre de ramassage dans le groupe
+        ordreRamassage: {
+            type: Number,
+            default: 1
+        },
+
+        // Statut de récupération spécifique pour taxi partagé
+        statutRecuperation: {
+            type: String,
+            enum: ["EN_ATTENTE_RAMASSAGE", "EN_COURS_DE_RAMASSAGE", "RAMASSE"],
+            default: "EN_ATTENTE_RAMASSAGE"
+        }
     },
     { timestamps: true }
 );
@@ -119,5 +147,10 @@ const reservationSchema = new mongoose.Schema(
 reservationSchema.index({ passager: 1, createdAt: -1 });
 reservationSchema.index({ chauffeur: 1, statut: 1 });
 reservationSchema.index({ datePlanifiee: 1 });
+
+// Index pour taxi partagé
+reservationSchema.index({ estTaxiPartage: 1, statut: 1 });
+reservationSchema.index({ groupeTaxiPartage: 1, statutRecuperation: 1 });
+reservationSchema.index({ chauffeur: 1, estTaxiPartage: 1, statut: 1 });
 
 module.exports = mongoose.model("Reservation", reservationSchema);
