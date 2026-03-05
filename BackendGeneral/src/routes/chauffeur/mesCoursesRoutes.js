@@ -225,4 +225,36 @@ router.get(
     mesCoursesCtrl.listePlannings
 );
 
+/**
+ * @swagger
+ * /api/chauffeur/planifiee/{reservationId}/commencer:
+ *   patch:
+ *     summary: Démarrer une réservation planifiée (transférer dans la file de ramassage)
+ *     description: |
+ *       C'est le déclencheur officiel pour qu'une réservation planifiée
+ *       passe du planning à la file de ramassage active.
+ *       Transition de statut : ACCEPTEE → EN_COURS_DE_RECUPERATION.
+ *       Vérification : le chauffeur ne peut commencer que 15 min avant l'heure prévue.
+ *     tags: [2 - Chauffeurs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reservationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Réservation planifiée démarrée, passager ajouté à la file de ramassage
+ *       400:
+ *         description: Trop tôt ou réservation introuvable
+ */
+router.patch(
+    "/planifiee/:reservationId/commencer",
+    verifierToken,
+    autoriserRoles("CHAUFFEUR"),
+    mesCoursesCtrl.commencerPlanifiee
+);
+
 module.exports = router;

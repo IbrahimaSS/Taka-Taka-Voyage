@@ -17,7 +17,7 @@ exports.connexion = async (req, res) => {
                 erreurs: erreurs.array(),
             });
         }
-        const { identifiant, motDePasse } = req.body;
+        const { identifiant, motDePasse, deviceId, otpCode } = req.body;
 
         // Vérification mot de passe
         if (!motDePasse || motDePasse.length < 8) {
@@ -32,6 +32,72 @@ exports.connexion = async (req, res) => {
             motDePasse
         );
         const utilisateur = resultat.utilisateur;
+
+        // ====== NOUVELLE LOGIQUE 2FA ADAPTATIF ======
+        const clientIp = req.ip || req.connection.remoteAddress;
+        const clientUserAgent = req.headers["user-agent"] || "Unknown";
+        let finalDeviceId = deviceId;
+
+        const AppareilApprouve = require("../../models/AppareilApprouve");
+
+        if (otpCode) {
+            // verifier OTP
+            try {
+                await otpService.verifierOtp(utilisateur.telephone, otpCode);
+            } catch (err) {
+                return res.status(400).json({ succes: false, requires2FA: true, message: err.message, deviceId: finalDeviceId });
+            }
+
+            if (!finalDeviceId) {
+                finalDeviceId = require("crypto").randomUUID();
+            }
+
+            // Mark new device as approved
+            await AppareilApprouve.findOneAndUpdate(
+                { utilisateur: utilisateur._id, deviceId: finalDeviceId },
+                { isApprouve: true, userAgent: clientUserAgent, derniereIp: clientIp, derniereConnexion: new Date() },
+                { upsert: true, new: true }
+            );
+        } else {
+            let isDeviceApprouve = false;
+            const countAppareils = await AppareilApprouve.countDocuments({ utilisateur: utilisateur._id, isApprouve: true });
+
+            if (finalDeviceId && countAppareils > 0) {
+                const device = await AppareilApprouve.findOne({ utilisateur: utilisateur._id, deviceId: finalDeviceId, isApprouve: true });
+                if (device) {
+                    isDeviceApprouve = true;
+                    device.derniereIp = clientIp;
+                    device.derniereConnexion = new Date();
+                    await device.save();
+                }
+            } else if (countAppareils === 0) {
+                isDeviceApprouve = true;
+                if (!finalDeviceId) finalDeviceId = require("crypto").randomUUID();
+
+                await AppareilApprouve.create({
+                    utilisateur: utilisateur._id,
+                    deviceId: finalDeviceId,
+                    userAgent: clientUserAgent,
+                    isApprouve: true,
+                    derniereIp: clientIp
+                });
+            }
+
+            if (!isDeviceApprouve) {
+                // NOUVEL APPAREIL DETECTE ! 
+                await otpService.genererOtp({ telephone: utilisateur.telephone, email: utilisateur.email });
+
+                return res.status(200).json({
+                    succes: false, // Ne pas connecter
+                    requires2FA: true, // Tag spécial frontend 
+                    message: "Nouvel appareil détecté. Veuillez confirmer votre identité avec le code OTP.",
+                    deviceId: finalDeviceId || require("crypto").randomUUID(),
+                    telephoneMasked: utilisateur.telephone.replace(/.(?=.{4})/g, '*'),
+                    emailMasked: utilisateur.email.replace(/(.{2})(.*)(?=@)/, (m, p1, p2) => p1 + '*'.repeat(p2.length))
+                });
+            }
+        }
+        // ============================================
 
         // Vérifier le Statut (Utilisateurs)
         if (utilisateur.statut === "SUSPENDU") {
@@ -90,6 +156,7 @@ exports.connexion = async (req, res) => {
             message: "=====CONNEXION REUSSIE=====",
             token: resultat.token,
             statut: statutFinal,
+            deviceId: finalDeviceId,
             utilisateur: {
                 id: resultat.utilisateur._id,
                 nom: resultat.utilisateur.nom,

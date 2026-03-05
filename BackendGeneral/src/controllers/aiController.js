@@ -244,8 +244,17 @@ ACTIONS ADMIN (uniquement si rôle ADMIN) :
 - "voir_admin_documents" → Gestion des documents
 - "voir_admin_rapports" → Rapports et statistiques
 - "voir_admin_commissions" → Gestion des commissions
+- "valider_chauffeur" → Valider définitivement un compte chauffeur (Admin) — NÉCESSITE CONFIRMATION
+- "exporter_donnees" → Exporter des listes (dataType: 'passagers'|'chauffeurs'|'trajets', format: 'pdf'|'word'|'csv') — NÉCESSITE CONFIRMATION
+- "voir_facture" → Afficher les reçus ou factures d'un trajet
 
 EXEMPLES SUPPLÉMENTAIRES :
+Client : "Valide le compte de ce chauffeur"
+Réponse : {"action":"valider_chauffeur","confirmation_message":"Souhaitez-vous vraiment valider ce chauffeur ? Il pourra alors commencer ses trajets."}
+Client : "Exporte la liste des passagers en PDF"
+Réponse : {"action":"exporter_donnees","dataType":"passagers","format":"pdf","confirmation_message":"Souhaitez-vous générer un export PDF pour la liste des passagers ?"}
+Client : "Je veux voir mon reçu"
+Réponse : {"action":"voir_facture","confirmation_message":"Je vous redirige vers vos factures et reçus."}
 Client : "AU SECOURS ! SOS !"
 Réponse : {"action":"bouton_sos","confirmation_message":"Voulez-vous déclencher une alerte SOS immédiate ?"}
 
@@ -320,18 +329,18 @@ RÈGLE CRITIQUE : Si l'utilisateur pose juste une question informative (ex: "Com
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
             {
                 systemInstruction: {
-                    parts: [{ text: SYSTEM_PROMPT }]
+                    parts: [{ text: SYSTEM_PROMPT + `\n\nCONTEXTE ACTUEL DE L'UTILISATEUR (À RESPECTER IMPÉRATIVEMENT) :\n${smartContext}\n\nCONSIGNE DE LANGUE : Tu DOIS répondre dans la langue spécifiée dans le contexte ci-dessus (ex: si Langue: en, réponds en anglais).\n\nIMPORTANT : \n1. Ne tronque jamais tes réponses. Finis toujours tes explications jusqu'au bout.\n2. Termine TOUJOURS tes réponses par une question proactive (ex: "Souhaitez-vous autre chose ?", "Comment puis-je vous aider davantage ?").\n3. N'utilise JAMAIS de Markdown (astérisques **, balises #, etc.) dans tes réponses textuelles pour ne pas perturber la lecture vocale. Écris en texte brut fluide.` }]
                 },
                 contents: [
                     ...history,
                     {
                         role: "user",
-                        parts: [{ text: `Client : ${message}` }]
+                        parts: [{ text: message }]
                     }
                 ],
                 generationConfig: {
-                    maxOutputTokens: 1500,
-                    temperature: 0.6
+                    maxOutputTokens: 2048,
+                    temperature: 0.5
                 }
             },
             { headers: { "Content-Type": "application/json" } }
@@ -369,13 +378,24 @@ RÈGLE CRITIQUE : Si l'utilisateur pose juste une question informative (ex: "Com
 
     } catch (error) {
         if (error.response) {
-            if (error.response.status === 429) {
+            const status = error.response.status;
+
+            if (status === 429) {
                 console.error("⚠️ [TAKA-ASSISTANT] Quota Gemini épuisé (Erreur 429).");
                 return res.status(429).json({
                     succes: false,
                     message: "Oups ! J'ai reçu trop de questions aujourd'hui. Mes circuits ont besoin d'une petite pause (Quota API épuisé). Réessayez dans un instant."
                 });
             }
+
+            if (status === 503) {
+                console.error("⚠️ [TAKA-ASSISTANT] Gemini en forte demande (Erreur 503).");
+                return res.status(503).json({
+                    succes: false,
+                    message: "L'intelligence artificielle de Taka-Taka reçoit énormément de demandes en ce moment. Elle sera de nouveau disponible dans quelques secondes. Merci de votre patience !"
+                });
+            }
+
             console.error("🚨 [TAKA-ASSISTANT] Erreur API (réponse détaillée):", JSON.stringify(error.response.data, null, 2));
         } else {
             console.error("🚨 [TAKA-ASSISTANT] Erreur:", error.message);

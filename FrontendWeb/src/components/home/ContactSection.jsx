@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
 import {
   Headphones,
   MapPin,
@@ -8,16 +9,88 @@ import {
   ExternalLink,
   Apple,
   Download,
-  Play
+  Play,
+  Loader2,
+  CheckCircle
 } from 'lucide-react';
 import Button from '../../ui/Buttons';
 import Card from '../../ui/Card';
+import { apiClient } from '../../services/apiClient';
 
 const ContactSection = () => {
-  const handleContactSubmit = (e) => {
+  const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [adminReply, setAdminReply] = useState(null);
+  const [sentMessageId, setSentMessageId] = useState(null);
+  const [contactSettings, setContactSettings] = useState({
+    phone: '+224 123 45 67 89',
+    email: 'support@takataka.gn',
+    address: 'Rue du Commerce, Kaloum, Conakry, Guinée'
+  });
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    subject: '',
+    message: ''
+  });
+
+  useEffect(() => {
+    const fetchContactSettings = async () => {
+      try {
+        const { data } = await apiClient.get('/common/contact/settings');
+        if (data.succes) {
+          setContactSettings(data.settings);
+        }
+      } catch (err) {
+        console.error("Erreur chargement settings contact:", err);
+      }
+    };
+    fetchContactSettings();
+  }, []);
+
+  useEffect(() => {
+    let socket;
+    if (showSuccessModal && sentMessageId) {
+      // Connexion socket temporaire pour écouter la réponse
+      const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+      socket = io(SOCKET_URL, {
+        path: "/socket.io/",
+        transports: ["websocket", "polling"],
+      });
+
+      socket.on(`contact:reply:${sentMessageId}`, (data) => {
+        setAdminReply(data.reply);
+      });
+    }
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, [showSuccessModal, sentMessageId]);
+
+  const handleInputChange = (e) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleContactSubmit = async (e) => {
     e.preventDefault();
-    alert('✅ Message envoyé avec succès !\nNotre équipe vous répondra dans les plus brefs délais.');
-    e.target.reset();
+    setLoading(true);
+    setAdminReply(null); // Reset
+    try {
+      const { data } = await apiClient.post('/common/contact', formData);
+      if (data.succes) {
+        setShowSuccessModal(true);
+        setSentMessageId(data.messageId);
+        setFormData({ name: '', email: '', subject: '', message: '' });
+      }
+    } catch (err) {
+      alert('❌ Une erreur est survenue. Veuillez réessayer.');
+      console.error("Erreur envoi contact:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -53,6 +126,8 @@ const ContactSection = () => {
                   <input
                     type="text"
                     id="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
                     className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primaryGreen-start/50 focus:border-transparent transition-all"
                     placeholder="Votre nom"
                     required
@@ -67,6 +142,8 @@ const ContactSection = () => {
                   <input
                     type="email"
                     id="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
                     className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primaryGreen-start/50 focus:border-transparent transition-all"
                     placeholder="votre@email.com"
                     required
@@ -80,6 +157,8 @@ const ContactSection = () => {
                   </label>
                   <select
                     id="subject"
+                    value={formData.subject}
+                    onChange={handleInputChange}
                     className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primaryGreen-start/50 focus:border-transparent transition-all"
                     required
                   >
@@ -99,6 +178,8 @@ const ContactSection = () => {
                   <textarea
                     id="message"
                     rows="5"
+                    value={formData.message}
+                    onChange={handleInputChange}
                     className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primaryGreen-start/50 focus:border-transparent transition-all resize-none"
                     placeholder="Votre message..."
                     required
@@ -111,9 +192,10 @@ const ContactSection = () => {
                   variant="gradientMix"
                   size="lg"
                   fullWidth
-                  icon={<Send size={20} />}
+                  disabled={loading}
+                  icon={loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
                 >
-                  Envoyer le message
+                  {loading ? 'Envoi en cours...' : 'Envoyer le message'}
                 </Button>
               </form>
             </Card>
@@ -132,7 +214,7 @@ const ContactSection = () => {
                   <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primaryGreen-start/20 to-primaryBlue-start/20 flex items-center justify-center flex-shrink-0">
                     <Headphones
                       size={24}
-                      className="text-white"
+                      className="text-gray-600 dark:text-gray-400"
                     />
 
                   </div>
@@ -144,11 +226,11 @@ const ContactSection = () => {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Phone size={18} className="text-primaryGreen-start" />
-                        <span className="text-primaryGreen-start font-bold">+224 123 45 67 89</span>
+                        <span className="text-primaryGreen-start font-bold">{contactSettings.phone}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Mail size={18} className="text-primaryBlue-start" />
-                        <span className="text-primaryBlue-start font-bold">support@takataka.gn</span>
+                        <span className="text-primaryBlue-start font-bold">{contactSettings.email}</span>
                       </div>
                     </div>
                   </div>
@@ -159,17 +241,18 @@ const ContactSection = () => {
               <Card hover={true}>
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primaryBlue-start/20 to-primaryGreen-start/20 flex items-center justify-center flex-shrink-0">
-                    <MapPin className="" size={24} />
+                    <MapPin className="text-gray-600 dark:text-gray-400" size={24} />
                   </div>
                   <div className="flex-grow">
                     <h3 className="font-bold text-xl mb-2 text-gray-800 dark:text-white">Notre Siège en Guinée</h3>
                     <p className="text-gray-600 dark:text-gray-400 mb-3">
-                      Rue du Commerce, Kaloum<br />Conakry, Guinée
+                      {contactSettings.address}
                     </p>
                     <Button
                       variant="ghost"
                       size="sm"
                       icon={<ExternalLink size={16} />}
+                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contactSettings.address)}`, '_blank')}
                     >
                       Voir sur la carte
                     </Button>
@@ -227,6 +310,51 @@ const ContactSection = () => {
           </div>
         </div>
       </div>
+
+      {/* Modale de succès personnalisée */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-sm w-full transform transition-all">
+            <div className="flex flex-col items-center text-center">
+
+              {!adminReply ? (
+                <>
+                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+                    <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Message envoyé !</h3>
+                  <p className="text-gray-600 dark:text-gray-300 mb-8">
+                    Votre message a été transmis avec succès. Notre équipe vous répondra par email ou directement ici. Restez sur cette page si vous attendez une réponse rapide !
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4 animate-bounce">
+                    <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">L'équipe vous a répondu !</h3>
+                  <div className="w-full text-left p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 mb-6 font-medium text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                    {adminReply}
+                  </div>
+                </>
+              )}
+
+              <Button
+                variant="gradientMix"
+                fullWidth
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setAdminReply(null);
+                  setSentMessageId(null);
+                }}
+              >
+                C'est compris
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </section>
   );
 };

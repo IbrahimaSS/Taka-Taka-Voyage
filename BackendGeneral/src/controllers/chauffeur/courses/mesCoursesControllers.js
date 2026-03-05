@@ -214,26 +214,95 @@ exports.listeRamassage = async (req, res) => {
     try {
         const chauffeurId = req.utilisateur._id;
 
-        const demain = new Date();
-        demain.setDate(demain.getDate() + 1);
-        demain.setHours(23, 59, 59, 999);
-
         const courses = await Reservation.find({
             chauffeur: chauffeurId,
-            statut: { $in: ["ACCEPTEE", "ASSIGNEE", "ARRIVEE", "EN_COURS"] },
-            // ✅ FILTRE J-1 : Un trajet planifié n'entre dans la "liste de ramassage" qu'à J-1
-            $or: [
-                { typeCourse: "IMMEDIATE" },
-                {
-                    typeCourse: "PLANIFIEE",
-                    datePlanifiee: { $lte: demain }
-                }
-            ]
+            // Courses en cours de récupération ou plus avancées
+            statut: { $in: ["EN_COURS_DE_RECUPERATION", "ASSIGNEE", "ARRIVEE", "EN_COURS"] },
+            // ✅ FIX : Les PLANIFIEES en statut ACCEPTEE ne doivent PAS apparaître ici
+            // Elles n'entrent dans la file qu'après que le chauffeur clique "Commencer"
         })
             .populate("passager", "nom prenom telephone photoUrl")
             .sort({ datePlanifiee: 1, createdAt: -1 });
 
-        res.json({ succes: true, courses });
+        // Ajouter aussi les courses IMMEDIATE acceptées (qui entrent directement dans la file)
+        const coursesImmediate = await Reservation.find({
+            chauffeur: chauffeurId,
+            statut: "ACCEPTEE",
+            typeCourse: "IMMEDIATE",
+        })
+            .populate("passager", "nom prenom telephone photoUrl")
+            .sort({ createdAt: -1 });
+
+        const toutesLesCourses = [...coursesImmediate, ...courses];
+
+        res.json({ succes: true, courses: toutesLesCourses });
+    } catch (err) {
+        res.status(500).json({ succes: false, message: err.message });
+    }
+};
+
+// ==================== COMMENCER UNE RÉSERVATION PLANIFIÉE ====================
+// C'est le déclencheur officiel : transfère la réservation planifiée dans la file de ramassage
+exports.commencerPlanifiee = async (req, res) => {
+    try {
+        const { reservationId } = req.params;
+        const chauffeurId = req.utilisateur._id;
+
+        const reservation = await Reservation.findOne({
+            _id: reservationId,
+            chauffeur: chauffeurId,
+            typeCourse: "PLANIFIEE",
+            statut: "ACCEPTEE",
+        });
+
+        if (!reservation) {
+            return res.status(400).json({
+                succes: false,
+                message: "Réservation planifiée introuvable ou déjà en cours.",
+            });
+        }
+
+        // Vérification de l'heure : marge de 15 minutes avant l'heure prévue
+        if (reservation.datePlanifiee) {
+            const scheduledTime = new Date(reservation.datePlanifiee);
+            const now = new Date();
+            const EARLY_MARGIN_MS = 15 * 60 * 1000; // 15 minutes
+
+            if (scheduledTime - now > EARLY_MARGIN_MS) {
+                const heures = scheduledTime.getHours().toString().padStart(2, '0');
+                const minutes = scheduledTime.getMinutes().toString().padStart(2, '0');
+                return res.status(400).json({
+                    succes: false,
+                    message: `Trop tôt ! Ce trajet est prévu à ${heures}:${minutes}. Vous pourrez le démarrer 15 min avant l'heure.`,
+                });
+            }
+        }
+
+        // ✅ Transition : ACCEPTEE → EN_COURS_DE_RECUPERATION
+        // C'est ici que le passager entre officiellement dans la file de ramassage
+        reservation.statut = "EN_COURS_DE_RECUPERATION";
+        await reservation.save();
+
+        // Notification au passager
+        await Notification.create({
+            utilisateur: reservation.passager,
+            message: `Le chauffeur a démarré votre course planifiée ! Il arrive bientôt 🚗`,
+        });
+
+        const pid = String(reservation.passager);
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`PASSAGER_${pid}`).emit("reservation:planifiee_commencee", {
+                reservationId,
+                chauffeurId,
+                message: "Le chauffeur a démarré votre course planifiée",
+            });
+        }
+
+        res.json({
+            succes: true,
+            message: "Course planifiée démarrée ! Le passager a été ajouté à votre file de ramassage.",
+        });
     } catch (err) {
         res.status(500).json({ succes: false, message: err.message });
     }
@@ -247,7 +316,8 @@ exports.rejoindreCourse = async (req, res) => {
     const reservation = await Reservation.findOne({
         _id: reservationId,
         chauffeur: chauffeurId,
-        statut: "ACCEPTEE",
+        // ✅ FIX: Accepter aussi EN_COURS_DE_RECUPERATION (après "Commencer" sur une planifiée)
+        statut: { $in: ["ACCEPTEE", "EN_COURS_DE_RECUPERATION"] },
     });
 
     if (!reservation) return res.status(400).json({ succes: false, message: "Course non trouvée ou déjà prise" });
@@ -564,7 +634,9 @@ exports.listePlannings = async (req, res) => {
         const plannings = await Reservation.find({
             chauffeur: chauffeurId,
             typeCourse: "PLANIFIEE",
-            statut: { $in: ["ACCEPTEE", "ASSIGNEE", "ARRIVEE", "EN_COURS"] },
+            // ✅ FIX: Ne montrer que les ACCEPTEE (pas encore commencées)
+            // Les EN_COURS_DE_RECUPERATION et + sont dans la file de ramassage
+            statut: "ACCEPTEE",
         })
             .populate("passager", "nom prenom telephone photoUrl")
             .sort({ datePlanifiee: 1 });
