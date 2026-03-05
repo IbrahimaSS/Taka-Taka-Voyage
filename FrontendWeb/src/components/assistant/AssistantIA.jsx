@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     MessageSquare, X, Send, Bot, User, Sparkles,
     ChevronDown, Minus, Maximize2, Headset,
@@ -11,11 +12,14 @@ import LanguageSwitcher from '../common/LanguageSwitcher';
 import { useAuth } from '../../context/AuthContext';
 import { usePassenger } from '../../context/PassengerContext';
 import { useDriverContext } from '../../context/DriverContext';
+import { useTheme } from '../../context/ThemeContext';
 import './AssistantIA.css';
 
 const AssistantIA = () => {
     const { t, i18n } = useTranslation();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const { setTheme, theme } = useTheme();
 
     // Tentative d'accès aux contextes (peuvent être undefined si hors provider)
     const passengerCtx = usePassenger();
@@ -140,6 +144,7 @@ const AssistantIA = () => {
     const [isTyping, setIsTyping] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [error, setError] = useState(null);
+    const [pendingAction, setPendingAction] = useState(null); // { name, message, reservationId, needsConfirmation }
     const messagesEndRef = useRef(null);
 
     // --- Fonctionnalité : Text-To-Speech (Lire le message) ---
@@ -178,6 +183,238 @@ const AssistantIA = () => {
         };
 
         recognition.start();
+    };
+
+    // --- EXECUTION DES ACTIONS REELLES ---
+    const executeAction = async (actionData) => {
+        try {
+            const { name, reservationId, groupeId } = actionData;
+            setIsTyping(true);
+
+            let success = false;
+            let finalMessage = "";
+
+            switch (name) {
+                case 'demarrer_trajet':
+                    if (driverCtx?.startTripImmediately) {
+                        await driverCtx.startTripImmediately(reservationId);
+                        success = true;
+                        finalMessage = "✅ Trajet démarré avec succès ! Bonne route.";
+                    }
+                    break;
+                case 'signaler_arrivee':
+                    if (driverCtx?.signalArrival) {
+                        await driverCtx.signalArrival();
+                        success = true;
+                        finalMessage = "✅ Arrivée signalée au passager.";
+                    }
+                    break;
+                case 'rejoindre_course':
+                    if (driverCtx?.rejoindreCourse) {
+                        await driverCtx.rejoindreCourse(reservationId);
+                        success = true;
+                        finalMessage = "✅ Vous êtes maintenant enregistré en route vers le passager.";
+                    }
+                    break;
+                case 'terminer_trajet':
+                    // On peut utiliser le service directement ou via le contexte
+                    const { tripService } = await import('../../services/tripService');
+                    const { taxiPartageApiService } = await import('../../services/taxiPartageService');
+
+                    if (groupeId) {
+                        await taxiPartageApiService.terminerTrajet(groupeId);
+                    } else {
+                        await tripService.complete(reservationId);
+                    }
+                    success = true;
+                    finalMessage = "✅ Course terminée ! N'oubliez pas l'évaluation.";
+                    break;
+                case 'activer_maintenance':
+                case 'desactiver_maintenance':
+                    await apiClient.patch('/admin/parametres', {
+                        maintenanceMode: name === 'activer_maintenance'
+                    });
+                    success = true;
+                    finalMessage = name === 'activer_maintenance'
+                        ? "✅ Mode maintenance activé."
+                        : "✅ Mode maintenance désactivé.";
+                    break;
+                case 'changer_theme':
+                    let targetTheme = theme === 'dark' ? 'light' : 'dark';
+                    const userMsg = actionData.contextMsg?.toLowerCase() || "";
+                    if (userMsg.includes('clair') || userMsg.includes('light')) targetTheme = 'light';
+                    if (userMsg.includes('sombre') || userMsg.includes('dark') || userMsg.includes('noir')) targetTheme = 'dark';
+
+                    setTheme(targetTheme);
+                    success = true;
+                    finalMessage = targetTheme === 'dark' ? "✅ Mode sombre activé." : "✅ Mode clair activé.";
+                    break;
+                case 'changer_langue':
+                    let targetLang = i18n.language === 'fr' ? 'en' : 'fr';
+                    const langMsg = actionData.contextMsg?.toLowerCase() || "";
+                    if (langMsg.includes('anglais') || langMsg.includes('english') || langMsg.includes('en')) targetLang = 'en';
+                    if (langMsg.includes('français') || langMsg.includes('french') || langMsg.includes('fr')) targetLang = 'fr';
+
+                    i18n.changeLanguage(targetLang);
+                    success = true;
+                    finalMessage = targetLang === 'en' ? "✅ Language changed to English." : "✅ Langue changée en Français.";
+                    break;
+                case 'passer_en_ligne':
+                    if (driverCtx?.setOnline) {
+                        driverCtx.setOnline(true);
+                        success = true;
+                        finalMessage = "✅ Vous êtes maintenant EN LIGNE. Les passagers peuvent vous voir !";
+                    }
+                    break;
+                case 'passer_hors_ligne':
+                    if (driverCtx?.setOnline) {
+                        driverCtx.setOnline(false);
+                        success = true;
+                        finalMessage = "✅ Vous êtes maintenant HORS LIGNE.";
+                    }
+                    break;
+                case 'annuler_reservation':
+                    if (user?.role === 'PASSAGER' && passengerCtx?.cancelTripByPassenger) {
+                        await passengerCtx.cancelTripByPassenger({ reason: "Annulation par assistant IA" });
+                        success = true;
+                        finalMessage = "✅ Votre réservation a été annulée comme demandé.";
+                    } else if (user?.role === 'CHAUFFEUR' && driverCtx) {
+                        // Pour le chauffeur, on utilise le tripService ou l'API via le context
+                        const { tripService } = await import('../../services/tripService');
+                        await tripService.cancel(reservationId, { raison: "Annulation par assistant IA" });
+                        success = true;
+                        finalMessage = "✅ La course a été annulée.";
+                    }
+                    break;
+                case 'accepter_demande':
+                    if (driverCtx?.acceptTripRequest && driverCtx.tripRequests?.length > 0) {
+                        const firstReqId = driverCtx.tripRequests[0].reservationId || driverCtx.tripRequests[0].id;
+                        await driverCtx.acceptTripRequest(firstReqId);
+                        success = true;
+                        finalMessage = "✅ Demande acceptée ! En route pour récupérer le passager.";
+                    } else {
+                        finalMessage = "❌ Aucune demande de course en attente actuellement.";
+                    }
+                    break;
+                case 'refuser_demande':
+                    if (driverCtx?.rejectTripRequest && driverCtx.tripRequests?.length > 0) {
+                        const firstReqId = driverCtx.tripRequests[0].reservationId || driverCtx.tripRequests[0].id;
+                        await driverCtx.rejectTripRequest(firstReqId);
+                        success = true;
+                        finalMessage = "✅ Demande refusée.";
+                    } else {
+                        finalMessage = "❌ Aucune demande à refuser.";
+                    }
+                    break;
+                case 'deconnexion':
+                    await logout();
+                    navigate('/connexion');
+                    success = true;
+                    finalMessage = "👋 Déconnexion réussie. À bientôt !";
+                    break;
+                case 'voir_mon_solde':
+                    if (user?.role === 'CHAUFFEUR') {
+                        navigate('/chauffeur/revenus');
+                    } else if (user?.role === 'PASSAGER') {
+                        navigate('/passager/paiements');
+                    }
+                    success = true;
+                    finalMessage = "💰 Voici votre solde et vos dernières transactions.";
+                    break;
+                case 'rechercher_taxi':
+                    navigate('/passager/reservation');
+                    success = true;
+                    finalMessage = "🚕 Je vous ouvre l'écran de réservation. Où souhaitez-vous aller ?";
+                    break;
+                case 'voir_planning':
+                    if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/planning');
+                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('planning');
+                    success = true;
+                    finalMessage = "📅 Voici votre planning de réservation.";
+                    break;
+                case 'voir_historique':
+                    if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/history');
+                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('history');
+                    success = true;
+                    finalMessage = "📜 Je vous affiche l'historique de vos trajets.";
+                    break;
+                case 'voir_profil':
+                    if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/profil');
+                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('profile');
+                    success = true;
+                    finalMessage = "👤 Voici votre profil utilisateur.";
+                    break;
+                case 'voir_parametres':
+                    if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/settings');
+                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('settings');
+                    success = true;
+                    finalMessage = "⚙️ J'ouvre vos paramètres.";
+                    break;
+                case 'voir_support':
+                    if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/support');
+                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('support');
+                    success = true;
+                    finalMessage = "🎧 Bienvenue au support Taka-Taka. Comment puis-je vous aider ?";
+                    break;
+                case 'voir_evaluations':
+                    if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/evaluations');
+                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('evaluations');
+                    success = true;
+                    finalMessage = "⭐ Voici vos avis et évaluations.";
+                    break;
+                case 'rechercher_taxi':
+                    if (passengerCtx?.setCurrentPage) {
+                        passengerCtx.setCurrentPage('home');
+                        success = true;
+                        finalMessage = "🚕 Je vous ouvre l'écran de réservation. Où souhaitez-vous aller ?";
+                    }
+                    break;
+                case 'identite_ia':
+                    finalMessage = "Je suis Taka-Assistant, votre guide intelligent pour la plateforme Taka-Taka Voyage. Je peux vous aider à gérer vos trajets, changer vos paramètres ou répondre à vos questions sur le service.";
+                    success = true;
+                    break;
+                default:
+                    finalMessage = "Désolé, je ne peux pas encore exécuter cette action automatiquement.";
+            }
+
+            if (success) {
+                setMessages(prev => [...prev, {
+                    id: Date.now(),
+                    role: 'model',
+                    content: finalMessage,
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                }]);
+            }
+        } catch (err) {
+            console.error("Erreur exécution action IA:", err);
+            setMessages(prev => [...prev, {
+                id: Date.now(),
+                role: 'model',
+                content: "❌ Une erreur est survenue lors de l'exécution de l'action.",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                isError: true
+            }]);
+        } finally {
+            setIsTyping(false);
+            setPendingAction(null);
+        }
+    };
+
+    // --- CONFIRMATION D'ACTION ---
+    const handleConfirmAction = () => {
+        if (pendingAction) {
+            executeAction(pendingAction);
+        }
+    };
+
+    const handleCancelAction = () => {
+        setMessages(prev => [...prev, {
+            id: Date.now(),
+            role: 'model',
+            content: "Compris, j'ai annulé l'action.",
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+        setPendingAction(null);
     };
 
     const scrollToBottom = () => {
@@ -219,7 +456,7 @@ const AssistantIA = () => {
                     const ct = passengerCtx.currentTrip;
                     smartContext += `ETAT PASSAGER: Trajet en cours. `;
                     smartContext += `Statut exact: ${passengerCtx.tripStatus}. Type: ${ct.typeCourse}. `;
-                    smartContext += `Paiement: ${ct.typePaiement}. `;
+                    smartContext += `Paiement: ${ct.typePaiement}. ID Réservation: ${ct._id || ct.id}. `;
                     if (passengerCtx.selectedDriver) {
                         smartContext += `Chauffeur assigné: ${passengerCtx.selectedDriver.nom || passengerCtx.selectedDriver.name}. `;
                     }
@@ -234,9 +471,13 @@ const AssistantIA = () => {
 
                     if (driverCtx.acceptedTrips && driverCtx.acceptedTrips.length > 0) {
                         smartContext += `Passagers actuels dans le véhicule ou assignés: ${driverCtx.acceptedTrips.length}. `;
+                        const activeTrip = driverCtx.acceptedTrips[0]; // On prend le premier pour le contexte ID
+                        smartContext += `ID Réservation active: ${activeTrip.id || activeTrip._id}. `;
+
                         const isShared = driverCtx.acceptedTrips.some(t => t.typeCourse === 'TAXI_PARTAGE' || t.groupeTaxiPartage);
                         if (isShared) {
                             smartContext += `MODE ACTUEL: TAXI PARTAGÉ. `;
+                            if (driverCtx.groupeTaxiPartage) smartContext += `ID Groupe: ${driverCtx.groupeTaxiPartage._id}. `;
                             const unpicked = driverCtx.acceptedTrips.filter(t => t.statut === 'EN_ATTENTE_DE_RECUPERATION');
                             const picked = driverCtx.acceptedTrips.filter(t => t.statut === 'RECUPERE');
                             smartContext += `Passagers à récupérer: ${unpicked.length}. Passagers à bord: ${picked.length}. `;
@@ -264,13 +505,56 @@ const AssistantIA = () => {
             });
 
             if (response.data.succes) {
+                const { reponse, actionDetected } = response.data;
+
                 const aiMessage = {
                     id: Date.now() + 1,
                     role: 'model',
-                    content: response.data.reponse,
+                    content: reponse,
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 };
                 setMessages(prev => [...prev, aiMessage]);
+
+                // 🔥 DETECTION ET VALIDATION D'ACTION
+                if (actionDetected) {
+                    setIsTyping(true);
+                    try {
+                        const valRes = await apiClient.post('/ai/validate', { action: actionDetected.name });
+
+                        if (valRes.data.succes && valRes.data.canExecute) {
+                            if (valRes.data.needsConfirmation) {
+                                setPendingAction({
+                                    name: actionDetected.name,
+                                    message: actionDetected.confirmationMessage,
+                                    reservationId: valRes.data.reservationId,
+                                    groupeId: valRes.data.groupeId,
+                                    contextMsg: userMessage.content,
+                                    needsConfirmation: true
+                                });
+                            } else {
+                                // Exécution automatique immédiate
+                                await executeAction({
+                                    name: actionDetected.name,
+                                    reservationId: valRes.data.reservationId,
+                                    groupeId: valRes.data.groupeId,
+                                    contextMsg: userMessage.content
+                                });
+                            }
+                        } else {
+                            // Erreur métier ou blocage
+                            setMessages(prev => [...prev, {
+                                id: Date.now() + 2,
+                                role: 'model',
+                                content: `⚠️ Impossible : ${valRes.data.raison || "Les conditions ne sont pas remplies."}`,
+                                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            }]);
+                        }
+                    } catch (vErr) {
+                        console.error("Erreur validation action IA:", vErr);
+                    } finally {
+                        setIsTyping(false);
+                    }
+                }
             } else {
                 throw new Error(response.data.message || 'Erreur inconnue');
             }
@@ -395,6 +679,30 @@ const AssistantIA = () => {
                             )}
                             <div ref={messagesEndRef} />
                         </div>
+
+                        {pendingAction && (
+                            <div className="action-confirmation-overlay p-4 bg-white/10 backdrop-blur-sm border-t border-white/20">
+                                <div className="flex flex-col gap-3">
+                                    <p className="text-xs font-medium text-slate-700 dark:text-slate-200 text-center">
+                                        Confirmez-vous l'exécution de cette action ?
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleConfirmAction}
+                                            className="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 px-4 rounded-xl transition-all"
+                                        >
+                                            OUI, EXÉCUTER
+                                        </button>
+                                        <button
+                                            onClick={handleCancelAction}
+                                            className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2 px-4 rounded-xl transition-all"
+                                        >
+                                            NON, ANNULER
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         <form className="assistant-footer" onSubmit={handleSend}>
                             <button
