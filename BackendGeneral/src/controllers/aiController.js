@@ -227,9 +227,39 @@ ACTIONS DISPONIBLES (utilise exactement ces noms) :
 - "voir_parametres" → Ouvrir les paramètres/réglages
 - "voir_support" → Aller à l'aide ou au support client
 - "voir_evaluations" → Voir mes avis et notes
+- "voir_mon_vehicule" → Voir les infos du véhicule (Chauffeur)
+- "bouton_sos" → DÉCLENCHER SOS / ALERTE URGENCE — NÉCESSITE CONFIRMATION
+- "contacter_chauffeur" → Appeler mon chauffeur (Passager)
+- "confirmer_ramassage" → Confirmer qu'un passager a été récupéré (Chauffeur)
 - "identite_ia" → Qui es-tu ? Quelle est ton identité ?
 
+ACTIONS ADMIN (uniquement si rôle ADMIN) :
+- "voir_admin_dashboard" → Dashboard Principal
+- "voir_admin_utilisateurs" → Liste des passagers
+- "voir_admin_chauffeurs" → Liste des chauffeurs
+- "voir_admin_trajets" → Liste de tous les trajets
+- "voir_admin_paiements" → Liste de tous les paiements
+- "voir_admin_validations" → Validations chauffeurs en attente
+- "voir_admin_litiges" → Gestion des litiges et signalements
+- "voir_admin_documents" → Gestion des documents
+- "voir_admin_rapports" → Rapports et statistiques
+- "voir_admin_commissions" → Gestion des commissions
+
 EXEMPLES SUPPLÉMENTAIRES :
+Client : "AU SECOURS ! SOS !"
+Réponse : {"action":"bouton_sos","confirmation_message":"Voulez-vous déclencher une alerte SOS immédiate ?"}
+
+Client : "Appelle mon chauffeur"
+Réponse : {"action":"contacter_chauffeur","confirmation_message":"Je lance l'appel vers votre chauffeur."}
+
+Client : "Montre-moi les chauffeurs en attente de validation"
+Réponse : {"action":"voir_admin_validations","confirmation_message":"J'ouvre la liste des validations en attente."}
+
+Client : "Combien de trajets aujourd'hui ?"
+Réponse : {"action":"voir_admin_trajets","confirmation_message":"J'affiche la liste complète des trajets."}
+
+Client : "Affiche mon véhicule"
+Réponse : {"action":"voir_mon_vehicule","confirmation_message":"Voici les détails de votre véhicule."}
 Client : "Je veux commander un taxi"
 Réponse : {"action":"rechercher_taxi","confirmation_message":"Je vous redirige vers l'écran de réservation."}
 

@@ -133,6 +133,38 @@ const ACTION_MAP = {
         needsConfirmation: false,
         description: "Voir les avis et notes"
     },
+    voir_mon_vehicule: {
+        roles: ["CHAUFFEUR"],
+        needsConfirmation: false,
+        description: "Voir les informations du véhicule"
+    },
+    bouton_sos: {
+        roles: ["CHAUFFEUR", "PASSAGER"],
+        needsConfirmation: true,
+        description: "DÉCLENCHER UNE ALERTE SOS"
+    },
+    contacter_chauffeur: {
+        roles: ["PASSAGER"],
+        needsConfirmation: false,
+        description: "Appeler le chauffeur du trajet en cours"
+    },
+    confirmer_ramassage: {
+        roles: ["CHAUFFEUR"],
+        needsConfirmation: false,
+        description: "Confirmer la récupération d'un passager"
+    },
+    // --- ACTIONS ADMIN ---
+    voir_admin_dashboard: { roles: ["ADMIN"], needsConfirmation: false },
+    voir_admin_utilisateurs: { roles: ["ADMIN"], needsConfirmation: false },
+    voir_admin_chauffeurs: { roles: ["ADMIN"], needsConfirmation: false },
+    voir_admin_trajets: { roles: ["ADMIN"], needsConfirmation: false },
+    voir_admin_paiements: { roles: ["ADMIN"], needsConfirmation: false },
+    voir_admin_validations: { roles: ["ADMIN"], needsConfirmation: false },
+    voir_admin_litiges: { roles: ["ADMIN"], needsConfirmation: false },
+    voir_admin_documents: { roles: ["ADMIN"], needsConfirmation: false },
+    voir_admin_rapports: { roles: ["ADMIN"], needsConfirmation: false },
+    voir_admin_commissions: { roles: ["ADMIN"], needsConfirmation: false },
+
     identite_ia: {
         roles: ["CHAUFFEUR", "PASSAGER", "ADMIN"],
         needsConfirmation: false,
@@ -307,6 +339,20 @@ async function validerAction(actionName, userId, userRole, params = {}) {
         case "voir_parametres":
         case "voir_support":
         case "voir_evaluations":
+        case "voir_mon_vehicule":
+        case "bouton_sos":
+        case "contacter_chauffeur":
+        case "confirmer_ramassage":
+        case "voir_admin_dashboard":
+        case "voir_admin_utilisateurs":
+        case "voir_admin_chauffeurs":
+        case "voir_admin_trajets":
+        case "voir_admin_paiements":
+        case "voir_admin_validations":
+        case "voir_admin_litiges":
+        case "voir_admin_documents":
+        case "voir_admin_rapports":
+        case "voir_admin_commissions":
         case "identite_ia":
         case "changer_langue":
         case "changer_theme":

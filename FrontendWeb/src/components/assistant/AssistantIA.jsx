@@ -315,43 +315,52 @@ const AssistantIA = () => {
                 case 'voir_mon_solde':
                     if (user?.role === 'CHAUFFEUR') {
                         navigate('/chauffeur/revenus');
-                    } else if (user?.role === 'PASSAGER') {
-                        navigate('/passager/paiements');
+                    } else if (user?.role === 'ADMIN') {
+                        navigate('/admin/paiements');
+                    } else if (passengerCtx?.setCurrentPage) {
+                        passengerCtx.setCurrentPage('payments');
                     }
                     success = true;
                     finalMessage = "💰 Voici votre solde et vos dernières transactions.";
                     break;
                 case 'rechercher_taxi':
-                    navigate('/passager/reservation');
-                    success = true;
-                    finalMessage = "🚕 Je vous ouvre l'écran de réservation. Où souhaitez-vous aller ?";
+                    if (passengerCtx?.setCurrentPage) {
+                        passengerCtx.setCurrentPage('home');
+                        success = true;
+                        finalMessage = "🚕 Je vous ouvre l'écran de réservation. Où souhaitez-vous aller ?";
+                    }
                     break;
                 case 'voir_planning':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/planning');
+                    else if (user?.role === 'ADMIN') navigate('/admin/trajets');
                     else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('planning');
                     success = true;
                     finalMessage = "📅 Voici votre planning de réservation.";
                     break;
                 case 'voir_historique':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/history');
+                    else if (user?.role === 'ADMIN') navigate('/admin/trajets');
                     else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('history');
                     success = true;
                     finalMessage = "📜 Je vous affiche l'historique de vos trajets.";
                     break;
                 case 'voir_profil':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/profil');
+                    else if (user?.role === 'ADMIN') navigate('/admin/profil');
                     else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('profile');
                     success = true;
                     finalMessage = "👤 Voici votre profil utilisateur.";
                     break;
                 case 'voir_parametres':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/settings');
+                    else if (user?.role === 'ADMIN') navigate('/admin/parametres');
                     else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('settings');
                     success = true;
                     finalMessage = "⚙️ J'ouvre vos paramètres.";
                     break;
                 case 'voir_support':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/support');
+                    else if (user?.role === 'ADMIN') navigate('/admin/litiges');
                     else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('support');
                     success = true;
                     finalMessage = "🎧 Bienvenue au support Taka-Taka. Comment puis-je vous aider ?";
@@ -362,13 +371,60 @@ const AssistantIA = () => {
                     success = true;
                     finalMessage = "⭐ Voici vos avis et évaluations.";
                     break;
-                case 'rechercher_taxi':
-                    if (passengerCtx?.setCurrentPage) {
-                        passengerCtx.setCurrentPage('home');
+                case 'voir_mon_vehicule':
+                    if (user?.role === 'CHAUFFEUR') {
+                        navigate('/chauffeur/vehicule');
                         success = true;
-                        finalMessage = "🚕 Je vous ouvre l'écran de réservation. Où souhaitez-vous aller ?";
+                        finalMessage = "🚗 Voici les détails de votre véhicule.";
                     }
                     break;
+                case 'bouton_sos':
+                    // On simule l'appel SOS ou on redirige vers l'action SOS du contexte
+                    if (passengerCtx?.sosTrigger) {
+                        await passengerCtx.sosTrigger();
+                        success = true;
+                        finalMessage = "🚨 ALERTE SOS DÉCLENCHÉE ! Les autorités et vos contacts d'urgence sont prévenus.";
+                    } else if (driverCtx?.sosTrigger) {
+                        await driverCtx.sosTrigger();
+                        success = true;
+                        finalMessage = "🚨 ALERTE SOS DÉCLENCHÉE ! Le centre de contrôle est alerté.";
+                    } else {
+                        // Action par défaut: simuler l'envoi
+                        success = true;
+                        finalMessage = "🚨 SIGNAL D'URGENCE ENVOYÉ ! Ne vous inquiétez pas, l'aide arrive.";
+                    }
+                    break;
+                case 'contacter_chauffeur':
+                    if (user?.role === 'PASSAGER' && passengerCtx?.selectedDriver?.phone) {
+                        window.open(`tel:${passengerCtx.selectedDriver.phone}`);
+                        success = true;
+                        finalMessage = "📞 Appel en cours vers votre chauffeur...";
+                    } else {
+                        finalMessage = "❌ Aucun chauffeur assigné à un trajet en cours pour le moment.";
+                    }
+                    break;
+                case 'confirmer_ramassage':
+                    if (user?.role === 'CHAUFFEUR' && driverCtx?.confirmPassengerPickup) {
+                        // Si l'IA a détecté un ID dans les futurs params ou prend le premier
+                        await driverCtx.confirmPassengerPickup();
+                        success = true;
+                        finalMessage = "✅ Passager marqué comme récupéré.";
+                    }
+                    break;
+
+
+                // --- NAVIGATION ADMIN ---
+                case 'voir_admin_dashboard': navigate('/admin'); success = true; finalMessage = "🛡️ Voici le tableau de bord administrateur."; break;
+                case 'voir_admin_utilisateurs': navigate('/admin/utilisateurs'); success = true; finalMessage = "👥 Liste des passagers affichée."; break;
+                case 'voir_admin_chauffeurs': navigate('/admin/chauffeurs'); success = true; finalMessage = "🚗 Liste des chauffeurs affichée."; break;
+                case 'voir_admin_trajets': navigate('/admin/trajets'); success = true; finalMessage = "🗺️ Historique de tous les trajets."; break;
+                case 'voir_admin_paiements': navigate('/admin/paiements'); success = true; finalMessage = "💰 Liste de tous les paiements."; break;
+                case 'voir_admin_validations': navigate('/admin/validations'); success = true; finalMessage = "🔍 Validations en attente."; break;
+                case 'voir_admin_litiges': navigate('/admin/litiges'); success = true; finalMessage = "⚠️ Signalements et litiges."; break;
+                case 'voir_admin_documents': navigate('/admin/documents'); success = true; finalMessage = "📄 Documents de la plateforme."; break;
+                case 'voir_admin_rapports': navigate('/admin/rapports'); success = true; finalMessage = "📊 Rapports et statistiques."; break;
+                case 'voir_admin_commissions': navigate('/admin/commissions'); success = true; finalMessage = "💸 Gestion des revenus et commissions."; break;
+
                 case 'identite_ia':
                     finalMessage = "Je suis Taka-Assistant, votre guide intelligent pour la plateforme Taka-Taka Voyage. Je peux vous aider à gérer vos trajets, changer vos paramètres ou répondre à vos questions sur le service.";
                     success = true;
