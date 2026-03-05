@@ -152,7 +152,7 @@
     @apply -translate-y-0.5 shadow-md;
   }
 
- 
+
   .chart-container {
     @apply rounded-2xl surface shadow-sm p-6;
   }
@@ -234,7 +234,7 @@
   }
 
   .status-error {
-    @apply status-badge bg-rose-100 text-rose-800 dark:bg-rose-950/30 dark:text-rose-300;
+    @apply status-badge bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-300;
   }
 
   .status-info {

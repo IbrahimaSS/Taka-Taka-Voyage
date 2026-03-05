@@ -38,7 +38,6 @@ import TrajetComplete from '../components/suivisTrajet/TrajetComplete';
 import TrajetNote from '../components/suivisTrajet/TrajetNote';
 import SearchIndicator from '../components/passager/SearchIndicator';
 import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
-import MaintenanceBanner from '../components/common/MaintenanceBanner';
 import usePlatformNotifications from '../hooks/usePlatformNotifications';
 import { useSettings } from '../context/SettingsContext';
 
@@ -454,8 +453,6 @@ const Passenger = () => {
 
   return (
     <>
-      {/* Bannière de maintenance — par-dessus tout */}
-      <MaintenanceBanner />
       <AnimatePresence mode="wait">
         {/* ... existing Tracking and Complete modals ... */}
         {isOnTrackingView && tripStatus === 'en_route' && (
@@ -640,12 +637,6 @@ const Passenger = () => {
           </div>
         </footer>
       </div>
-
-      <FloatingDisputeButton
-        currentTrip={currentTrip}
-        role="passager"
-        offset={6}
-      />
     </>
   );
 };

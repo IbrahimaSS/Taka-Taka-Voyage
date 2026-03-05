@@ -21,18 +21,20 @@ exports.listeDisponible = async (req, res) => {
             // 🚕 TAXI_PARTAGE : Logique spéciale pour taxi partagé
             $or: [
                 // Courses normales : sans chauffeur ou assignées à ce chauffeur
-                { 
+                {
                     $and: [
                         { typeVehicule: { $ne: "TAXI_PARTAGE" } },
-                        { $or: [
-                            { chauffeur: null },
-                            { chauffeur: chauffeurId }
-                        ]}
+                        {
+                            $or: [
+                                { chauffeur: null },
+                                { chauffeur: chauffeurId }
+                            ]
+                        }
                     ]
                 },
                 // 🚕 TAXI_PARTAGE : TOUTES les réservations TAXI_PARTAGE en attente
                 // (même celles avec d'autres chauffeurs, pour permettre les groupes)
-                { 
+                {
                     typeVehicule: "TAXI_PARTAGE",
                     chauffeur: { $in: [null, chauffeurId] } // Seulement sans chauffeur ou ce chauffeur
                 }
@@ -74,18 +76,20 @@ exports.accepterReservation = async (req, res) => {
             // 🚕 TAXI_PARTAGE : Logique spéciale pour acceptation
             $or: [
                 // Courses normales : sans chauffeur ou assignées à ce chauffeur
-                { 
+                {
                     $and: [
                         { typeVehicule: { $ne: "TAXI_PARTAGE" } },
-                        { $or: [
-                            { chauffeur: null },
-                            { chauffeur: chauffeurId }
-                        ]}
+                        {
+                            $or: [
+                                { chauffeur: null },
+                                { chauffeur: chauffeurId }
+                            ]
+                        }
                     ]
                 },
                 // 🚕 TAXI_PARTAGE : Peut être acceptée même si déjà assignée à ce chauffeur
                 // (pour ajouter au groupe existant)
-                { 
+                {
                     typeVehicule: "TAXI_PARTAGE",
                     $or: [
                         { chauffeur: null },
@@ -122,7 +126,7 @@ exports.accepterReservation = async (req, res) => {
         if (reservation.typeVehicule === "TAXI_PARTAGE") {
             try {
                 const resultatGroupe = await TaxiPartageService.creerOuAjouterGroupe(reservation, chauffeurId);
-                
+
                 // Socket.IO pour taxi partagé
                 if (io && resultatGroupe.groupe) {
                     // Notifier le chauffeur
@@ -137,7 +141,7 @@ exports.accepterReservation = async (req, res) => {
                         type: "creation"
                     });
                 }
-                
+
                 console.log(`🚕 Taxi partagé accepté - Groupe ${resultatGroupe.groupe._id}`);
             } catch (error) {
                 console.error("❌ Erreur création groupe taxi partagé:", error.message);
@@ -252,7 +256,7 @@ exports.rejoindreCourse = async (req, res) => {
     if (reservation.typeVehicule === "TAXI_PARTAGE") {
         try {
             const resultat = await TaxiPartageService.passerEnCoursDeRamassage(reservationId, chauffeurId);
-            
+
             // Socket.IO pour taxi partagé
             const io = req.app.get("io");
             if (io) {
@@ -268,7 +272,7 @@ exports.rejoindreCourse = async (req, res) => {
                     message: "En route vers le passager"
                 });
             }
-            
+
             return res.json({ succes: true, message: "En route vers le passager (taxi partagé)" });
         } catch (error) {
             return res.status(400).json({ succes: false, message: error.message });
@@ -311,7 +315,7 @@ exports.signalerArrivee = async (req, res) => {
     if (reservation.typeVehicule === "TAXI_PARTAGE") {
         try {
             const resultat = await TaxiPartageService.signalerArriveePassager(reservationId, chauffeurId);
-            
+
             // Socket.IO pour taxi partagé
             const io = req.app.get("io");
             if (io) {
@@ -341,7 +345,7 @@ exports.signalerArrivee = async (req, res) => {
                     });
                 }
             }
-            
+
             return res.json(resultat);
         } catch (error) {
             return res.status(400).json({ succes: false, message: error.message });
@@ -383,7 +387,7 @@ exports.demarrerTrajet = async (req, res) => {
             }
 
             const validation = await TaxiPartageService.validerDemarrageTrajet(reservation.groupeTaxiPartage);
-            
+
             if (!validation.peutDemarrer) {
                 return res.status(400).json({
                     succes: false,
@@ -393,7 +397,7 @@ exports.demarrerTrajet = async (req, res) => {
 
             // Démarrer le trajet pour tout le groupe
             const resultat = await TaxiPartageService.demarrerTrajetGroupe(reservation.groupeTaxiPartage, chauffeurId);
-            
+
             // Socket.IO - BASCULEMENT MODE TRACKING POUR TOUT LE MONDE
             const io = req.app.get("io");
             if (io) {
@@ -413,7 +417,7 @@ exports.demarrerTrajet = async (req, res) => {
 
                 console.log(`🚀 Socket.IO: Trajet démarré pour groupe ${reservation.groupeTaxiPartage} - Basculement mode tracking`);
             }
-            
+
             return res.json(resultat);
         } catch (error) {
             return res.status(400).json({ succes: false, message: error.message });
@@ -448,19 +452,104 @@ exports.terminerTrajet = async (req, res) => {
         });
 
         if (!reservation) {
-            return res.status(400).json({
+            return res.status(404).json({
                 succes: false,
                 message: "Impossible de terminer (course non trouvée ou statut incorrect)"
             });
         }
 
+        // 🚕 TAXI PARTAGÉ : Si c'est un taxi partagé, utiliser la logique de groupe
+        if (reservation.typeVehicule === "TAXI_PARTAGE" || reservation.groupeTaxiPartage) {
+            try {
+                const gid = reservation.groupeTaxiPartage;
+                if (!gid) throw new Error("ID de groupe manquant pour taxi partagé");
+
+                const result = await TaxiPartageService.terminerTrajetGroupe(gid, chauffeurId);
+
+                // Socket.IO
+                const io = req.app.get("io");
+                if (io) {
+                    io.to(`GROUPE_${gid}`).emit("taxipartage:trajet_termine", {
+                        groupeId: gid,
+                        message: "🏁 Trajet terminé ! Merci.",
+                        result
+                    });
+
+                    // Notifier individuellement chaque passager pour le basculement d'interface (redondance)
+                    for (const rid of result.reservationIds) {
+                        io.to(`RESERVATION_${rid.toString()}`).emit("course:finit_avec_paiement", {
+                            reservationId: rid.toString(),
+                            message: "Trajet terminé !",
+                            paymentStatus: "PAYE"
+                        });
+                    }
+                }
+
+                return res.json(result);
+            } catch (error) {
+                return res.status(400).json({ succes: false, message: error.message });
+            }
+        }
+
+        // --- Cas Standard (Individuelle) ---
         reservation.statut = "TERMINEE";
         reservation.dateFin = new Date();
         await reservation.save();
 
+        // 1. Persister dans Trajet model
+        await Trajet.findOneAndUpdate(
+            { reservation: reservationId },
+            {
+                statut: "TERMINEE",
+                dateFin: reservation.dateFin,
+                passager: reservation.passager,
+                chauffeur: chauffeurId,
+                depart: reservation.depart,
+                destination: reservation.destination,
+                distanceKm: reservation.distanceKm,
+                dureeMin: reservation.dureeMin,
+                prix: reservation.prix
+            },
+            { upsert: true, new: true }
+        );
+
+        // 2. Créer Paiement record
+        try {
+            const commissionRate = 0.20;
+            const commissionPlateforme = Math.round(reservation.prix * commissionRate);
+            const montantChauffeur = reservation.prix - commissionPlateforme;
+
+            await Paiement.findOneAndUpdate(
+                { reservation: reservationId },
+                {
+                    passager: reservation.passager,
+                    chauffeur: chauffeurId,
+                    statut: reservation.paiement?.statut === "PAYE" ? "PAYE" : "EN_ATTENTE",
+                    montantTotal: reservation.prix,
+                    commissionPlateforme,
+                    montantChauffeur,
+                    methode: reservation.paiement?.methode || "CASH",
+                    verse: false
+                },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+        } catch (pErr) {
+            console.error("❌ Erreur Paiement REST (Standard):", pErr.message);
+        }
+
+        // 3. Libérer chauffeur
+        await Utilisateurs.findByIdAndUpdate(chauffeurId, { trajetEnCours: false });
+
         const pid = String(reservation.passager);
-        req.app.get("io").to(`PASSAGER_${pid}`).emit("course:terminee", { reservationId });
-        req.app.get("io").to(`CHAUFFEUR_${chauffeurId}`).emit("course:terminee", { reservationId });
+        const io = req.app.get("io");
+        if (io) {
+            // Unifier l'événement socket avec celui du socket.js
+            io.to(`PASSAGER_${pid}`).emit("course:finit_avec_paiement", {
+                reservationId,
+                paymentStatus: reservation.paiement?.statut || "EN_ATTENTE"
+            });
+            io.to(`CHAUFFEUR_${chauffeurId}`).emit("course:finit_avec_paiement", { reservationId });
+        }
 
         res.json({ succes: true, message: "Course terminée avec succès" });
     } catch (error) {

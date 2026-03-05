@@ -171,7 +171,7 @@ export default function Dashboard() {
             <Bell className="w-5 h-5 text-blue-500" />
             <span className="font-medium text-gray-800 dark:text-white">{t('dashboard.view_requests')}</span>
             {pendingRequestsCount > 0 && (
-              <span className="absolute -top-2 -right-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-bold text-white shadow-lg animate-pulse">
+              <span className="absolute -top-2 -right-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white shadow-lg animate-pulse">
                 {pendingRequestsCount}
               </span>
             )}

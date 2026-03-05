@@ -53,7 +53,7 @@ const AvailabilityToggle = ({ className = '' }) => {
                     animate={{ scale: 1 }}
                     className="relative"
                 >
-                    <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-bold text-white shadow-lg">
+                    <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white shadow-lg">
                         {pendingRequestsCount}
                     </span>
                 </motion.div>

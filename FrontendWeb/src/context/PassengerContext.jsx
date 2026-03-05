@@ -109,7 +109,7 @@ export const PassengerProvider = ({ children }) => {
       // Endpoint hypothetique - à adapter selon API réelle.
       // Si n'existe pas, il faudra le créer ou utiliser une liste filtrée
       const baseURL = getApiBaseURL();
-      const { data } = await axios.get(`${baseURL}/api/reservations/active`, { withCredentials: true });
+      const { data } = await axios.get(`${baseURL}/reservations/active`, { withCredentials: true });
 
       if (data?.success && data?.reservation) {
         const r = data.reservation;
@@ -242,6 +242,7 @@ export const PassengerProvider = ({ children }) => {
     const onAccepted = (payload) => {
       console.log("📩 [CONTEXT] course:acceptee reçu", payload);
       const reservationId = payload?.reservationId || payload?._id || payload?.reservation?._id;
+      const groupeId = payload?.groupeTaxiPartage?._id || payload?.groupeTaxiPartage || payload?.groupeId;
 
       const eventKey = `accepted-${reservationId}`;
       if (notifiedEvents.current.has(eventKey)) return;
@@ -249,6 +250,12 @@ export const PassengerProvider = ({ children }) => {
       const chauffeur = payload?.chauffeur || payload?.driver;
 
       if (!reservationId) return;
+
+      // ✅ Joindre automatiquement la room de groupe si c'est un taxi partagé
+      if (groupeId) {
+        console.log(`🔌 [CONTEXT] Joining group room on accept: GROUPE_${groupeId}`);
+        socketService.emit("taxipartage:rejoindre_groupe", { groupeId });
+      }
 
       const trip = currentTripRef.current;
 
@@ -295,7 +302,7 @@ export const PassengerProvider = ({ children }) => {
           id: base.id || reservationId,
           status: "driver_found",
           driver: chauffeur || null,
-          groupeTaxiPartage: payload.groupeTaxiPartage?._id || payload.groupeTaxiPartage || payload.groupeId
+          groupeTaxiPartage: groupeId || base.groupeTaxiPartage
         };
       });
 
@@ -377,7 +384,16 @@ export const PassengerProvider = ({ children }) => {
 
       // 1. Mise à jour de l'objet groupe si fourni
       if (groupe) {
-        setCurrentTrip(prev => (prev ? { ...prev, groupeTaxiPartageObject: groupe } : prev));
+        setCurrentTrip(prev => {
+          if (!prev) return prev;
+          // Si on n'avait pas de groupe, on l'ajoute et on rejoint la room
+          const gId = groupe?._id || groupe?.id;
+          if (gId && !prev.groupeTaxiPartage) {
+            console.log(`🔌 [CONTEXT] Joining group room on update: GROUPE_${gId}`);
+            socketService.emit("taxipartage:rejoindre_groupe", { groupeId: gId });
+          }
+          return { ...prev, groupeTaxiPartageObject: groupe, groupeTaxiPartage: gId || prev.groupeTaxiPartage };
+        });
       }
 
       // 2. Si c'est ma réservation qui change de statut spécifique
@@ -489,84 +505,37 @@ export const PassengerProvider = ({ children }) => {
 
     const onGlobalStarted = (payload = {}) => {
       console.log("📨 [PASSAGER] Réception START global:", payload);
-      const { reservationId, reservationIds, message, groupe, groupeId } = payload;
+      const { reservationId, reservationIds, message, groupeId, groupe } = payload;
       const trip = currentTripRef.current;
-
       const tripRid = trip?.reservationId;
       const tripGid = trip?.groupeTaxiPartage;
 
-      console.log(`📍 [PASSAGER] Matching START: MonRID=${tripRid}, MonGID=${tripGid}`);
-
-      if (!tripRid) {
-        console.warn("⚠️ [PASSAGER] START reçu mais pas de reservationId local.");
-        return;
-      }
-
       let matches = false;
-
-      // 1. Match par reservationId direct
-      if (reservationId && sameRid(tripRid, reservationId)) {
-        console.log("✅ Match: reservationId direct");
+      if (reservationId && sameRid(tripRid, reservationId)) matches = true;
+      if (!matches && Array.isArray(reservationIds)) {
+        matches = reservationIds.some(id => sameRid(tripRid, id));
+      }
+      if (!matches && (groupeId || groupe?._id) && tripGid) {
+        matches = sameRid(tripGid, groupeId || groupe?._id);
+      }
+      if (!matches && trip?.driver?.id === payload?.chauffeurId) {
         matches = true;
       }
 
-      // 2. Match par liste d'IDs (broadcast chauffeur)
-      if (!matches && Array.isArray(reservationIds)) {
-        matches = reservationIds.some(id => sameRid(tripRid, id));
-        if (matches) console.log("✅ Match: reservationIds list");
-      }
-
-      // 3. Match par groupeId
-      const targetGroupId = groupeId || groupe?._id || groupe?.id;
-      if (!matches && targetGroupId && tripGid) {
-        if (sameRid(tripGid, targetGroupId)) {
-          console.log("✅ Match: groupeId match");
-          matches = true;
-        }
-      }
-
-      // 4. Match par contenu des réservations du groupe
-      if (!matches && groupe?.reservations && Array.isArray(groupe.reservations)) {
-        matches = groupe.reservations.some(r => {
-          const rId = r.reservation?._id || r.reservation;
-          return sameRid(tripRid, rId);
-        });
-        if (matches) console.log("✅ Match: groupe reservations list");
-      }
-
       if (!matches) {
-        console.log("❌ [PASSAGER] Ce START ne semble pas me concerner.");
+        console.log("❌ Ce START ne me concerne pas.");
         return;
       }
 
       console.log(`🚀 [PASSAGER] Basculement en_route pour RID=${tripRid}`);
-
-      // Mise à jour de l'état
       setTripStatus("en_route");
-      setCurrentTrip((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          status: "en_route",
-          groupeTaxiPartage: targetGroupId || prev.groupeTaxiPartage,
-          groupe: groupe || prev.groupe
-        };
-      });
+      setCurrentTrip((prev) => (prev ? {
+        ...prev,
+        status: "en_route",
+        groupeTaxiPartage: groupeId || groupe?._id || prev.groupeTaxiPartage
+      } : prev));
 
-      // Feedback visuel
-      toast.success(message || "🚀 Le trajet commence !", {
-        id: "trip-status",
-        icon: "🚀",
-        duration: 5000
-      });
-
-      addNotification({
-        type: NOTIFICATION_TYPES.INFO,
-        category: NOTIFICATION_CATEGORIES.TRIP,
-        title: 'Trajet démarré 🚀',
-        message: message || 'Votre course a commencé. Bon voyage !',
-        id: `started-global-${tripRid}`
-      });
+      toast.success(message || "🚀 Le trajet commence !");
     };
 
     const onPosition = (data) => {
@@ -584,12 +553,18 @@ export const PassengerProvider = ({ children }) => {
     };
 
     // ✅ Fix 3 : écouter la fin de course côté backend
-    const onCompleted = ({ reservationId } = {}) => {
+    const onCompleted = (payload = {}) => {
+      const { reservationId, message, paymentStatus } = payload;
       const trip = currentTripRef.current;
       if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
 
-      console.log(`📩 [CONTEXT] course:terminee reçu for RID=${reservationId}`);
+      console.log(`📩 [CONTEXT] course:terminee/finit reçu for RID=${reservationId}`);
       setTripStatus("completed");
+
+      // Mettre à jour le statut paiement si fourni
+      if (paymentStatus) {
+        setCurrentTrip(prev => prev ? { ...prev, paymentStatus, payment: { ...prev.payment, statut: paymentStatus } } : prev);
+      }
 
       const eventKey = `completed-${reservationId}`;
       if (notifiedEvents.current.has(eventKey)) return;
@@ -598,13 +573,22 @@ export const PassengerProvider = ({ children }) => {
         type: NOTIFICATION_TYPES.SUCCESS,
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Trajet terminé 🏁',
-        message: 'Vous êtes arrivé à destination. Merci d\'avoir choisi TakaTaka !',
+        message: message || 'Vous êtes arrivé à destination. Merci d\'avoir choisi TakaTaka !',
         id: 'trip-completion'
       });
 
       // Note: On ne met PAS currentTrip à null ici, car l'écran de résumé/note en a besoin.
       // Le nettoyage se fera à la fin du processus d'évaluation.
       notifiedEvents.current.add(eventKey);
+    };
+
+    const onArrivedDestination = ({ reservationId, message } = {}) => {
+      const trip = currentTripRef.current;
+      if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
+
+      console.log(`📩 [CONTEXT] course:arrive_destination reçu for RID=${reservationId}`);
+      setTripStatus("completed"); // On bascule en completed pour montrer l'écran de fin
+      if (message) toast.success(message);
     };
 
     // ✅ Fix 4 : écouter l'annulation côté backend
@@ -668,6 +652,8 @@ export const PassengerProvider = ({ children }) => {
 
     socketService.on("position:chauffeur", onPosition);
     socketService.on("course:terminee", onCompleted);
+    socketService.on("course:finit_avec_paiement", onCompleted);
+    socketService.on("course:arrive_destination", onArrivedDestination);
     socketService.on("course:annulee", onCancelled);
     socketService.on("reservation:planifiee_non_acceptee", onPlannedNotAccepted);
     socketService.on("litige:status_update", onDisputeUpdate);
@@ -685,6 +671,8 @@ export const PassengerProvider = ({ children }) => {
       socketService.off("taxipartage:passager_ramasse");
       socketService.off("position:chauffeur", onPosition);
       socketService.off("course:terminee", onCompleted);
+      socketService.off("course:finit_avec_paiement", onCompleted);
+      socketService.off("course:arrive_destination", onArrivedDestination);
       socketService.off("course:annulee", onCancelled);
       socketService.off("reservation:planifiee_non_acceptee", onPlannedNotAccepted);
       socketService.off("litige:status_update", onDisputeUpdate);

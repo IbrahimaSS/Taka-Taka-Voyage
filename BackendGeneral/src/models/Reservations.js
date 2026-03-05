@@ -94,7 +94,7 @@ const reservationSchema = new mongoose.Schema(
             },
             methode: {
                 type: String,
-                enum: ["CASH", "ORANGE_MONEY", "MTN_MONEY"],
+                enum: ["CASH", "ORANGE_MONEY", "MTN_MONEY", "WALLET", "CARD", "ORANGE", "MTN", "ESPECES"],
             },
         },
 

@@ -16,7 +16,8 @@ exports.creerReservationPlanifiee = async (req, res) => {
             prix,
             date,
             heure,
-            momentPaiement
+            momentPaiement,
+            paymentResult
         } = req.body;
 
         const typeVehiculeNorm = String(typeVehicule || "TAXI").trim().toUpperCase();
@@ -51,8 +52,11 @@ exports.creerReservationPlanifiee = async (req, res) => {
             datePlanifiee,
 
             paiement:
-                momentPaiement === "AVANT"
-                    ? { statut: "EN_ATTENTE" }
+                (momentPaiement === "AVANT" || momentPaiement === "MAINTENANT")
+                    ? {
+                        statut: paymentResult?.success ? "PAYE" : "EN_ATTENTE",
+                        methode: paymentResult?.paymentMethod ? String(paymentResult.paymentMethod).toUpperCase() : "CASH"
+                    }
                     : null,
         });
 

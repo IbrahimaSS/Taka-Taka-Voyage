@@ -32,6 +32,9 @@ import socketService from '../../services/socketService';
 import toast from 'react-hot-toast';
 
 import { useSettings } from '../../context/SettingsContext';
+import AppLogo from "../../assets/logo.jpeg";
+import MtnLogo from "../../assets/mtn_logo.png";
+import CardLogo from "../../assets/card_logo.png";
 
 const TripComplete = ({
   trip,
@@ -356,6 +359,15 @@ const TripComplete = ({
       if (receivedId === targetId && role === 'driver') {
         toast.dismiss();
         setWaitingForDriverConfirmation(true);
+        // ✅ NOTIFICATION TEMPS RÉEL POUR LE CHAUFFEUR
+        toast.success("💰 Le passager a validé son paiement !\nVeuillez vérifier la réception et confirmer.", {
+          duration: 8000,
+          position: "top-center",
+          id: 'payment-received-alert'
+        });
+
+        // Petit son ou vibration si possible
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       }
     };
 
@@ -705,42 +717,54 @@ const TripComplete = ({
                 {/* Espèces */}
                 <button
                   onClick={() => handlePaymentMethodSelect('cash')}
-                  className={`payment-option p-6 rounded-xl border-2 transition-all ${selectedPayment === 'cash' ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : 'border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700'}`}
+                  className={`payment-option p-4 rounded-xl border-2 transition-all ${selectedPayment === 'cash' ? 'border-green-500 bg-green-50 dark:bg-green-900/30 shadow-md ring-2 ring-green-500/20' : 'border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700'}`}
                 >
                   <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mb-4">
-                      <CreditCard className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    <div className="w-12 h-12 mb-3 flex items-center justify-center rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800">
+                      <img
+                        src="https://cdn-icons-png.flaticon.com/512/261/261906.png"
+                        alt="Espèces"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Espèces</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Paiement direct au chauffeur</p>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100 text-sm mb-1">Espèces</h4>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Paiement direct</p>
                   </div>
                 </button>
 
                 {/* Orange Money */}
                 <button
                   onClick={() => handlePaymentMethodSelect('orange')}
-                  className={`payment-option p-6 rounded-xl border-2 transition-all ${selectedPayment === 'orange' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30' : 'border-gray-200 dark:border-gray-800 hover:border-orange-300 dark:hover:border-orange-700'}`}
+                  className={`payment-option p-4 rounded-xl border-2 transition-all ${selectedPayment === 'orange' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30 shadow-md ring-2 ring-orange-500/20' : 'border-gray-200 dark:border-gray-800 hover:border-orange-300 dark:hover:border-orange-700'}`}
                 >
                   <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/40 rounded-full flex items-center justify-center mb-4">
-                      <Smartphone className="w-8 h-8 text-orange-600" />
+                    <div className="w-12 h-12 mb-3 flex items-center justify-center rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800">
+                      <img
+                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Orange_logo.svg/120px-Orange_logo.svg.png"
+                        alt="Orange Money"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Orange Money</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Paiement sécurisé via Telco</p>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100 text-sm mb-1">Orange Money</h4>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Mobile Money</p>
                   </div>
                 </button>
 
-                {/* Portefeuille */}
+                {/* MTN Money */}
                 <button
-                  onClick={() => handlePaymentMethodSelect('wallet')}
-                  className={`payment-option p-6 rounded-xl border-2 transition-all ${selectedPayment === 'wallet' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700'}`}
+                  onClick={() => handlePaymentMethodSelect('mtn')}
+                  className={`payment-option p-4 rounded-xl border-2 transition-all ${selectedPayment === 'mtn' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 shadow-md ring-2 ring-yellow-500/20' : 'border-gray-200 dark:border-gray-800 hover:border-yellow-300 dark:hover:border-yellow-700'}`}
                 >
                   <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center mb-4">
-                      <Wallet className="w-8 h-8 text-blue-600" />
+                    <div className="w-12 h-12 mb-3 flex items-center justify-center rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800">
+                      <img
+                        src={MtnLogo}
+                        alt="MTN Money"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Portefeuille</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Utilisez votre solde TakaTaka</p>
+                    <h4 className="font-bold text-gray-800 dark:text-gray-100 text-sm mb-1">MTN Money</h4>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Mobile Money</p>
                   </div>
                 </button>
               </div>
@@ -871,10 +895,12 @@ const TripComplete = ({
             >
               <Clock className="w-12 h-12 text-blue-600 mx-auto mb-4 animate-pulse" />
               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Paiement en cours</h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                {waitingForDriverConfirmation || isProcessing
-                  ? "Traitement du paiement... Veuillez patienter quelques instants."
-                  : "Le passager règle son trajet. Vous pouvez confirmer dès que vous recevez le montant."}
+              <p className="text-gray-600 dark:text-gray-400 font-medium">
+                {isProcessing
+                  ? "Validation en cours... ⏳"
+                  : waitingForDriverConfirmation
+                    ? "💰 Le passager a validé le paiement ! Veuillez cliquer sur le bouton ci-dessous pour confirmer la réception du montant."
+                    : "Le passager règle son trajet. Vous pourrez confirmer dès qu'il aura validé son paiement de son côté."}
               </p>
             </motion.div>
           )}

@@ -22,9 +22,9 @@ const FloatingDisputeButton = ({ currentTrip, role, offset = 6 }) => {
                 style={{ bottom: bottomPos }}
             >
                 <Button
-                    variant="warning"
+                    variant="solid"
                     size="large"
-                    className="!rounded-full !w-16 !h-16 !p-0 shadow-2xl hover:shadow-3xl flex items-center justify-center transition-all bg-amber-500 hover:bg-amber-600 border-none"
+                    className="!rounded-full !w-16 !h-16 !p-0 shadow-2xl hover:shadow-3xl flex items-center justify-center transition-all !bg-orange-500 hover:!bg-orange-600 border-none text-white"
                     onClick={() => setShowModal(true)}
                     icon={Flag}
                 />

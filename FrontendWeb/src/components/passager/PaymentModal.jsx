@@ -5,6 +5,9 @@ import { X, Smartphone, CreditCard, Wallet, Loader, Shield, Lock, AlertCircle } 
 import toast from "react-hot-toast";
 import { PaymentService } from "../../services/paymentService";
 import { useSettings } from "../../context/SettingsContext";
+import AppLogo from "../../assets/logo.jpeg";
+import MtnLogo from "../../assets/mtn_logo.png";
+import CardLogo from "../../assets/card_logo.png";
 
 const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, user }) => {
   const { settings, isLoading: settingsLoading } = useSettings();
@@ -23,7 +26,7 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
       {
         id: "orange_money",
         name: "Orange Money",
-        icon: Smartphone,
+        image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Orange_logo.svg/120px-Orange_logo.svg.png",
         color: "text-orange-600",
         description: "Paiement instantané",
         enabled: methods.orangeMoney?.enabled ?? true
@@ -31,7 +34,7 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
       {
         id: "mtn_money",
         name: "MTN Mobile Money",
-        icon: Smartphone,
+        image: MtnLogo,
         color: "text-yellow-600",
         description: "Paiement instantané",
         enabled: methods.mtnMoney?.enabled ?? true
@@ -39,15 +42,15 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
       {
         id: "wallet",
         name: "Portefeuille TakaTaka",
-        icon: Wallet,
+        image: AppLogo,
         color: "text-green-600",
         description: "Solde disponible",
-        enabled: true // Toujours activé sauf si précisé autrement
+        enabled: true
       },
       {
         id: "card",
         name: "Carte bancaire",
-        icon: CreditCard,
+        image: CardLogo,
         color: "text-indigo-600",
         description: "Visa / Mastercard",
         enabled: methods.stripe?.enabled ?? true
@@ -55,7 +58,7 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
       {
         id: "cash",
         name: "Espèces",
-        icon: Wallet,
+        image: "https://cdn-icons-png.flaticon.com/512/261/261906.png",
         color: "text-emerald-600",
         description: "Payer au chauffeur",
         enabled: methods.cash?.enabled ?? true
@@ -340,9 +343,9 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
 
             <div className="grid grid-cols-2 gap-3">
               {paymentMethods.map((method) => {
-                const Icon = method.icon;
                 const active = selectedMethod === method.id;
                 const isDisabled = !method.enabled;
+                const Icon = method.icon;
 
                 return (
                   <button
@@ -350,23 +353,44 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
                     onClick={() => !isDisabled && setSelectedMethod(method.id)}
                     disabled={isProcessing || (isDisabled && !active)}
                     className={`relative p-3 rounded-xl border-2 transition-all ${isDisabled
-                        ? "border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-700/30 opacity-60 grayscale cursor-not-allowed"
-                        : active
-                          ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 shadow-md"
-                          : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
+                      ? "border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-700/30 opacity-60 grayscale cursor-not-allowed"
+                      : active
+                        ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 shadow-md ring-2 ring-green-500/20"
+                        : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
                       } disabled:opacity-50 transition-all duration-300`}
                   >
                     {isDisabled && (
-                      <div className="absolute -top-1 -right-1">
+                      <div className="absolute -top-1 -right-1 z-10">
                         <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 border border-gray-200 dark:border-gray-700 uppercase">
                           Indisponible
                         </span>
                       </div>
                     )}
                     <div className="flex flex-col items-center">
-                      <Icon className={`w-6 h-6 ${isDisabled ? 'text-gray-400 shadow-none' : method.color} mb-2 transition-colors`} />
-                      <span className={`text-sm font-medium ${isDisabled ? 'text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>{method.name}</span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-1">{method.description}</span>
+                      {method.image ? (
+                        <div className={`w-10 h-10 mb-2 flex items-center justify-center rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 ${isDisabled ? 'grayscale opacity-50' : ''}`}>
+                          <img
+                            src={method.image}
+                            alt={method.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'block';
+                            }}
+                          />
+                          <div style={{ display: 'none' }}>
+                            <Smartphone className={`w-10 h-10 ${isDisabled ? 'text-gray-400' : method.color}`} />
+                          </div>
+                        </div>
+                      ) : (
+                        <Icon className={`w-10 h-10 ${isDisabled ? 'text-gray-400 shadow-none' : method.color} mb-2 transition-colors`} />
+                      )}
+                      <span className={`text-sm font-bold text-center leading-tight ${isDisabled ? 'text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                        {method.name}
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-1 mt-1">
+                        {method.description}
+                      </span>
                     </div>
                   </button>
                 );

@@ -26,8 +26,9 @@ class SocketService {
 
     const nextIdentity = { userId, role, nom, prenom };
 
-    // Si déjà connecté avec la même identité, on ne fait rien
+    // Si déjà connecté avec la même identité, on s'assure juste d'émettre client:online pour le serveur
     if (this.socket?.connected && this.identity?.userId === userId && this.identity?.role === role) {
+      this.socket.emit("client:online", { role, userId, nom, prenom });
       return;
     }
 
