@@ -216,10 +216,11 @@ exports.listeRamassage = async (req, res) => {
 
         const courses = await Reservation.find({
             chauffeur: chauffeurId,
-            // Courses en cours de récupération ou plus avancées
-            statut: { $in: ["EN_COURS_DE_RECUPERATION", "ASSIGNEE", "ARRIVEE", "EN_COURS"] },
-            // ✅ FIX : Les PLANIFIEES en statut ACCEPTEE ne doivent PAS apparaître ici
-            // Elles n'entrent dans la file qu'après que le chauffeur clique "Commencer"
+            // On veut voir les courses en cours mais AUSSI les planifiées acceptées
+            $or: [
+                { statut: { $in: ["EN_COURS_DE_RECUPERATION", "ASSIGNEE", "ARRIVEE", "EN_COURS"] } },
+                { statut: "ACCEPTEE", typeCourse: "PLANIFIEE" }
+            ]
         })
             .populate("passager", "nom prenom telephone photoUrl")
             .sort({ datePlanifiee: 1, createdAt: -1 });
@@ -283,25 +284,17 @@ exports.commencerPlanifiee = async (req, res) => {
         reservation.statut = "EN_COURS_DE_RECUPERATION";
         await reservation.save();
 
-        // Notification au passager
+        // On ne notifie pas encore le passager par socket (il le sera au "Rejoindre" manuel)
+        // Mais on crée une notification interne pour son historique
         await Notification.create({
             utilisateur: reservation.passager,
-            message: `Le chauffeur a démarré votre course planifiée ! Il arrive bientôt 🚗`,
+            message: `Votre course planifiée est prête ! Le chauffeur va bientôt se mettre en route.`,
         });
-
-        const pid = String(reservation.passager);
-        const io = req.app.get("io");
-        if (io) {
-            io.to(`PASSAGER_${pid}`).emit("reservation:planifiee_commencee", {
-                reservationId,
-                chauffeurId,
-                message: "Le chauffeur a démarré votre course planifiée",
-            });
-        }
 
         res.json({
             succes: true,
-            message: "Course planifiée démarrée ! Le passager a été ajouté à votre file de ramassage.",
+            message: "Course planifiée activée ! Elle est maintenant dans votre file de ramassage.",
+            reservation: reservation
         });
     } catch (err) {
         res.status(500).json({ succes: false, message: err.message });

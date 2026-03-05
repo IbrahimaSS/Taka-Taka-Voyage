@@ -98,9 +98,8 @@ export const NAV_CONFIG = {
             },
             {
                 icon: Car,
-                label: 'Mes Trajets',
+                label: 'Mes Demandes',
                 path: 'trips',
-                count: 3,
             },
             {
                 icon: Clock,
@@ -140,7 +139,7 @@ export const NAV_CONFIG = {
         ],
         titles: {
             '': 'Tableau de bord',
-            trips: 'Mes Trajets',
+            trips: 'Mes Demandes',
             history: 'Historique des trajets',
             revenues: 'Mes Revenus',
             planning: 'Planning',

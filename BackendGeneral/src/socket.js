@@ -354,6 +354,7 @@ module.exports = (io) => {
 
         socket.emit("course:acceptee_confirmation", {
           reservationId: rid,
+          typeCourse: reservation.typeCourse, // ✅ Indispensable pour le frontend
           message: "Course acceptée avec succès",
         });
 
@@ -487,7 +488,7 @@ module.exports = (io) => {
         const reservation = await Reservation.findOne({
           _id: reservationId,
           chauffeur: socket.user.id,
-          statut: { $in: ["ACCEPTEE", "ASSIGNEE"] }
+          statut: { $in: ["ACCEPTEE", "ASSIGNEE", "EN_COURS_DE_RECUPERATION"] }
         }).populate("passager");
 
         if (!reservation) {
@@ -816,12 +817,16 @@ module.exports = (io) => {
     });
 
     // ✅ NOUVEAU: Terminer Auto (Triggeré par progression 100%)
-    socket.on("course:terminer_auto", async ({ reservationId } = {}) => {
+    socket.on("course:terminer_auto", async ({ reservationId, reservationIds } = {}) => {
       try {
         if (!socket.user?.id || socket.user.role !== "CHAUFFEUR") return;
-        if (!reservationId) return;
-        console.log(`📡 [SOCKET] Terminaison auto pour RID=${reservationId}`);
-        await handleTerminerCourse(reservationId, socket.user.id);
+
+        const idsToProcess = Array.isArray(reservationIds) ? reservationIds : (reservationId ? [reservationId] : []);
+        console.log(`📡 [SOCKET] Terminaison auto pour RIDs=[${idsToProcess.join(', ')}]`);
+
+        for (const rid of idsToProcess) {
+          await handleTerminerCourse(rid, socket.user.id);
+        }
       } catch (e) {
         console.error("❌ course:terminer_auto:", e);
       }

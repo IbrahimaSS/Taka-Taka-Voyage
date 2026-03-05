@@ -129,7 +129,17 @@ const RealTimeTracking = ({
     const distTotalVal = (() => {
       const val = trip?.estimatedDistance || trip?.distanceKm || trip?.distance;
       if (typeof val === 'number') return val;
-      return parseFloat(String(val || '').replace(' km', '')) || 8.0;
+      const parsed = parseFloat(String(val || '').replace(' km', ''));
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+
+      // Fallback: calculer la distance réelle entre départ et destination
+      if (departure.coords && destination.coords) {
+        return GeolocationService.calculateDistance(
+          departure.coords[0], departure.coords[1],
+          destination.coords[0], destination.coords[1]
+        ) || 5.0;
+      }
+      return 8.0;
     })();
 
     const durationTotalVal = (() => {
@@ -302,16 +312,17 @@ const RealTimeTracking = ({
     if (isSimulating && role === 'driver') {
       simulationIntervalRef.current = setInterval(() => {
         setSimulatedProgress(prev => {
-          const next = Math.min(100, prev + 2.0); // +2.0% par seconde pour une démo plus rapide
+          // Vitesse de simulation plus réaliste (+0.5% par seconde -> 200s pour 100%)
+          const step = 1.0;
+          const next = Math.min(100, prev + step);
 
-          // Simulation d'une vitesse vivante (entre 40 et 60 km/h)
-          const liveSpeed = next >= 100 ? 0 : Math.round(40 + Math.random() * 15);
+          // Simulation d'une vitesse vivante (entre 30 et 70 km/h)
+          const liveSpeed = next >= 100 ? 0 : Math.round(35 + Math.random() * 25);
           setSpeed(liveSpeed);
 
           if (next >= 100) {
             clearInterval(simulationIntervalRef.current);
             setIsSimulating(false);
-            // ✅ Déclencher la fin du trajet quand la simulation arrive à 100%
             if (onEndTrip) {
               onEndTrip();
               toast.success('🏁 Arrivée à destination !');
@@ -374,7 +385,7 @@ const RealTimeTracking = ({
 
         // ✅ SÉCURITÉ FIN DE TRAJET : Si on arrive au bout, on envoie un signal de fin explicite
         if (simulatedProgress >= 100) {
-          socketService.emit('course:terminee', {
+          socketService.emit('course:terminer_auto', {
             reservationIds: Array.from(allTargetRids),
             groupeId: gid
           });
@@ -505,20 +516,17 @@ const RealTimeTracking = ({
     };
   }, [role, onEndTrip]);
 
-  // ✅ FIX: Auto-zoom pour tout voir (Chauffeur + Départ + Arrivée)
+  // ✅ FIX: Auto-zoom initial SEULEMENT
   useEffect(() => {
-    if (mapRef.current && driverPosition && tripData.departure.coords) {
+    if (mapRef.current && driverPosition && tripData.departure.coords && !window.hasInitiallyCentered) {
       const bounds = L.latLngBounds([
         driverPosition,
         tripData.departure.coords,
         tripData.destination.coords
       ]);
 
-      mapRef.current.flyToBounds(bounds, {
-        padding: [50, 50],
-        animate: true,
-        duration: 2
-      });
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      window.hasInitiallyCentered = true;
     }
   }, [driverPosition, tripData.departure.coords, tripData.destination.coords]);
 
@@ -913,8 +921,8 @@ const RealTimeTracking = ({
                   <MapController
                     center={isValidCoords(driverPosition) ? driverPosition : tripData.departure.coords}
                     zoom={15}
-                    animate={true}
-                    duration={0.8}
+                    animate={!(isSimulating || isSimulatingRemote)} // Pas d'animation pendant simulation pour éviter lag
+                    duration={isSimulating || isSimulatingRemote ? 0.3 : 0.8}
                   />
 
                   {/* Marqueurs avec Halo pour visibilité "GROS" */}

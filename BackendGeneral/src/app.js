@@ -103,6 +103,10 @@ app.use("/api/passager/reservations-planifiees", reservationPlanifieeRoutesP);
 const trajetsRoutesP = require("./routes/passager/trajetsRoutes");
 app.use("/api/passager", trajetsRoutesP);
 
+//Passager - Réservations Générales (Active, etc.)
+const reservationRoutesP = require("./routes/passager/reservationRoutes");
+app.use("/api/passager/reservations", reservationRoutesP);
+
 //Passager - Historiques des Paiements
 const listesPaiements = require("./routes/passager/listesPaimentsRoutes");
 app.use("/api/passager/paiements", listesPaiements);
