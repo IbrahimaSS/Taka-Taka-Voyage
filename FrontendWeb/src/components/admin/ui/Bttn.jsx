@@ -25,7 +25,7 @@ const Button = ({
     perso: 'bg-gradient-to-br from-primary-500 to-secondary-600  text-white',
     primary: 'btn-primary hover:shadow-md hover:-translate-y-0.5 active:translate-y-0',
     secondary: 'btn-secondary hover:shadow-sm',
-    danger: 'bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700 focus:ring-red-500/50 shadow-sm hover:shadow-md',
+    danger: 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 focus:ring-red-500/50 shadow-sm hover:shadow-md',
     warning: 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 focus:ring-amber-500/50',
     success: 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 focus:ring-emerald-500/50',
     ghost: 'btn-ghost hover:shadow-sm',

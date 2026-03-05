@@ -305,6 +305,21 @@ module.exports = (io) => {
         const chauffeurDoc = await Utilisateurs.findById(socket.user.id);
         const chauffeurProfile = await ChauffeurProfile.findOne({ utilisateur: socket.user.id });
 
+        // ✅ Gérer le taxi partagé si nécessaire (Liaison à un groupe)
+        let groupeId = null;
+        if (reservation.typeVehicule === "TAXI_PARTAGE" || reservation.typeCourse === "TAXI_PARTAGE") {
+          try {
+            const tpResult = await TaxiPartageService.creerOuAjouterGroupe(reservation, socket.user.id);
+            if (tpResult.succes) {
+              groupeId = tpResult.groupe._id;
+              console.log(`🚕 Passager ${pid} ajouté au groupe ${groupeId}`);
+            }
+          } catch (tpErr) {
+            console.error("⚠️ Erreur ajout groupe taxi partagé:", tpErr.message);
+            // On continue quand même l'acceptation simple
+          }
+        }
+
         // Normalisation ultra-robuste du véhicule (Backend -> Frontend)
         const vehicleInfo = {
           marque: chauffeurDoc?.vehicule?.marque || chauffeurProfile?.marqueVehicule || "N/A",
@@ -316,6 +331,7 @@ module.exports = (io) => {
 
         const payload = {
           reservationId: rid,
+          groupeTaxiPartage: groupeId,
           chauffeur: {
             id: socket.user.id,
             nom: chauffeurDoc?.nom || socket.user.nom,
@@ -428,36 +444,33 @@ module.exports = (io) => {
     // ────────────────────────────────────────────────
     // 3) Position chauffeur
     // ────────────────────────────────────────────────
-    socket.on("position:update", ({ reservationId, lat, lng, heading = 0, speed = 0 } = {}) => {
-      // console.log(`📍 [SOCKET] position:update received for RID=${reservationId} from ${socket.id}`);
-      if (!reservationId || lat == null || lng == null) {
-        // console.warn("⚠️ [SOCKET] position:update rejected: missing data", { reservationId, lat, lng });
+    socket.on("position:update", (data = {}) => {
+      const { reservationId, groupeId, lat, lng, heading = 0, speed = 0, isSimulation } = data;
+
+      if ((!reservationId && !groupeId) || lat == null || lng == null) {
         return;
       }
 
-      const rid = String(reservationId);
-
-      // ✅ Cache the position for late joiners (Admins)
-      lastKnownPositions.set(rid, { lat, lng, heading, speed, timestamp: Date.now() });
-
-      // ✅ FIX: Lock soft - si pas dans map, on laisse passer si c'est le bon socket (via reservation:join qui a repeuplé)
-      if (courseChauffeur.has(rid) && courseChauffeur.get(rid) !== socket.id) {
-        return;
+      // Si c'est un taxi partagé (via groupeId), on diffuse à tout le groupe
+      if (groupeId) {
+        console.log(`📡 [SOCKET] Broadcast position vers GROUPE_${groupeId} (Sim:${!!isSimulation})`);
+        io.to(`GROUPE_${String(groupeId)}`).emit("position:chauffeur", {
+          ...data,
+          timestamp: Date.now(),
+        });
       }
 
-      io.to(`RESERVATION_${rid}`).emit("position:chauffeur", {
-        reservationId: rid,
-        lat,
-        lng,
-        heading,
-        speed,
-        timestamp: Date.now(),
-      });
+      // Toujours diffuser à la room de réservation spécifique
+      if (reservationId) {
+        const rid = String(reservationId);
+        lastKnownPositions.set(rid, { ...data, timestamp: Date.now() });
 
-      // Optional: periodic log for position update to avoid flood
-      if (Math.random() < 0.1) {
-        const room = io.sockets.adapter.rooms.get(`RESERVATION_${rid}`);
-        console.log(`📍 [SOCKET] Position emitted for RID=${rid} to ${room ? room.size : 0} clients`);
+        console.log(`📡 [SOCKET] Broadcast position vers RESERVATION_${rid} (Sim:${!!isSimulation})`);
+        io.to(`RESERVATION_${rid}`).emit("position:chauffeur", {
+          ...data,
+          reservationId: rid,
+          timestamp: Date.now(),
+        });
       }
     });
 
@@ -638,6 +651,7 @@ module.exports = (io) => {
         io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:demarre", {
           reservationId,
           message: "Trajet démarré – suivi en temps réel activé",
+          chauffeurId: socket.user.id,
           pickupCoords: [reservation.departLat, reservation.departLng],
           destinationCoords: [reservation.destinationLat, reservation.destinationLng],
           depart: reservation.depart,
@@ -700,6 +714,7 @@ module.exports = (io) => {
             const startPayload = {
               reservationId: rid,
               message: "Le trajet global commence ! Redirection vers le suivi...",
+              chauffeurId: socket.user.id
             };
 
             // Notifier via son ID passager perso
@@ -727,8 +742,14 @@ module.exports = (io) => {
         statut: "EN_COURS",
       }).populate("passager");
 
-      if (!reservation) return;
+      if (!reservation) {
+        console.warn(`⚠️ [SOCKET] handleTerminerCourse: RID=${reservationId} introuvable ou pas EN_COURS`);
+        return;
+      }
 
+      // (Retiré : GESTION TAXI PARTAGÉ (GLOBAL) - on laisse le flow standard gérer l'arrivée individuelle)
+
+      // --- Cas Standard (Individuel) ---
       const estDejaPaye = reservation.paiement?.statut === "PAYE";
 
       if (estDejaPaye) {
@@ -739,7 +760,7 @@ module.exports = (io) => {
         await Trajet.findOneAndUpdate(
           { reservation: reservationId },
           { statut: "TERMINEE", dateFin: reservation.dateFin },
-          { new: true }
+          { upsert: true, new: true }
         );
 
         // ✅ PERSISTANCE PAIEMENT 
@@ -818,9 +839,14 @@ module.exports = (io) => {
         const reservation = await Reservation.findById(reservationId);
         if (!reservation || String(reservation.passager) !== String(socket.user.id)) return;
 
-        // ✅ Sauvegarder la méthode de paiement dans la réservation
+        // ✅ Sauvegarder la méthode de paiement dans la réservation avec normalisation
         if (!reservation.paiement) reservation.paiement = {};
-        reservation.paiement.methode = method.toUpperCase();
+        let normalizedMethod = method.toUpperCase();
+        if (normalizedMethod === 'ORANGE') normalizedMethod = 'ORANGE_MONEY';
+        if (normalizedMethod === 'MTN') normalizedMethod = 'MTN_MONEY';
+        if (normalizedMethod === 'ESPECES') normalizedMethod = 'CASH';
+
+        reservation.paiement.methode = normalizedMethod;
         await reservation.save();
 
         const label = method.toUpperCase() === "CASH" || method.toUpperCase() === "ESPECES" ? "en espèces" : `via ${method.toUpperCase()}`;
@@ -865,9 +891,9 @@ module.exports = (io) => {
 
         if (!reservation) return;
 
-        console.log(`✅ [PAYMENT] Chauffeur ${socket.user.id} confirme réception espèce pour RID=${reservationId}`);
+        console.log(`✅ [PAYMENT] Chauffeur ${socket.user.id} confirme réception pour RID=${reservationId}`);
 
-        // Mise à jour DB
+        // ✅ 1. Toujours mettre à jour la réservation courante à PAYE
         if (!reservation.paiement) {
           reservation.paiement = {};
         }
@@ -876,12 +902,14 @@ module.exports = (io) => {
         reservation.dateFin = new Date();
         await reservation.save();
 
-        // Finalisation Trajet & Paiement Model
+        // ✅ 2. Mettre à jour le Trajet
         await Trajet.findOneAndUpdate(
           { reservation: reservationId },
-          { statut: "TERMINEE", dateFin: reservation.dateFin }
+          { statut: "TERMINEE", dateFin: reservation.dateFin },
+          { upsert: true, new: true }
         );
 
+        // ✅ 3. Créer ou Mettre à jour le Paiement
         const commissionRate = 0.20;
         const commissionPlateforme = Math.round(reservation.prix * commissionRate);
         const montantChauffeur = reservation.prix - commissionPlateforme;
@@ -901,15 +929,53 @@ module.exports = (io) => {
           { upsert: true, new: true, setDefaultsOnInsert: true }
         );
 
+        // ✅ GESTION TAXI PARTAGÉ (GLOBAL) - Si c'est un taxi partagé on ne fait que libérer pour cet ID
+        if (reservation.groupeTaxiPartage || reservation.typeVehicule === "TAXI_PARTAGE") {
+          const gid = reservation.groupeTaxiPartage;
+          if (gid) {
+            console.log(`🚕 [PAYMENT] Taxi Partagé: Confirmation individuelle pour RID=${reservationId}`);
+
+            // On vérifie s'il y a d'autres réservations non payées dans le groupe pour savoir si on libère le chauffeur
+            const GroupeTaxiPartage = require("../models/GroupeTaxiPartage");
+            const groupe = await GroupeTaxiPartage.findById(gid).populate('reservations.reservation');
+
+            let allPaidOrDone = true;
+            if (groupe) {
+              for (const r of groupe.reservations) {
+                if (r.reservation && String(r.reservation._id) !== String(reservationId)) {
+                  const resToCheck = await Reservation.findById(r.reservation._id);
+                  if (resToCheck && resToCheck.statut !== "TERMINEE" && resToCheck.paiement?.statut !== "PAYE") {
+                    allPaidOrDone = false;
+                  }
+                }
+              }
+            }
+
+            if (allPaidOrDone) {
+              await groupe.terminerTrajet();
+              await Utilisateurs.findByIdAndUpdate(socket.user.id, { trajetEnCours: false });
+              socket.emit("paiement:confirme_global", { groupeId: gid });
+            }
+
+            io.to(`RESERVATION_${reservationId}`).emit("course:finit_avec_paiement", {
+              reservationId: reservationId,
+              message: "Paiement confirmé, merci !",
+              paymentStatus: "PAYE"
+            });
+            releaseReservationLock(reservationId);
+            return;
+          }
+        }
+
+        // --- Cas Standard (Individuel) ---
         await Utilisateurs.findByIdAndUpdate(socket.user.id, { trajetEnCours: false });
 
-        // Notification globale de fin de flux
+        // Notification de fin de flux pour ce passager
         io.to(`RESERVATION_${reservationId}`).emit("course:finit_avec_paiement", {
           reservationId,
           message: "Paiement confirmé, trajet terminé !",
           paymentStatus: "PAYE"
         });
-
         releaseReservationLock(reservationId);
 
       } catch (e) {
@@ -1106,6 +1172,10 @@ module.exports = (io) => {
         }
 
         socket.join(`GROUPE_${groupeId}`);
+        console.log(`🚕 [SOCKET] Socket ${socket.id} a rejoint GROUPE_${groupeId}`);
+
+        const room = io.sockets.adapter.rooms.get(`GROUPE_${groupeId}`);
+        console.log(`📊 [SOCKET] Room GROUPE_${groupeId} contient maintenant ${room ? room.size : 0} membres`);
 
         const validation = await TaxiPartageService.validerDemarrageTrajet(groupeId);
 
@@ -1259,6 +1329,7 @@ module.exports = (io) => {
                 groupeId,
                 reservationId: String(resa._id),
                 message: "🚀 Le trajet commence ! Suivez le véhicule en temps réel",
+                chauffeurId: socket.user.id,
                 depart: resa.depart,
                 destination: resa.destination
               };

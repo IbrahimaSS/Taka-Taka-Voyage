@@ -1,5 +1,5 @@
 // components/passager/RealTimeTracking.jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet';
 import L from 'leaflet';
@@ -9,40 +9,16 @@ import MapController from '../maps/MapController';
 import { GeolocationService } from '../../services/geolocation';
 import { socketService } from '../../services/socketService';
 import {
-  Car,
-  User,
-  Phone,
-  ArrowLeft,
-  Clock,
-  Navigation,
-  MapPin,
-  Shield,
-  HelpCircle,
-  FileText,
-  Share2,
-  AlertTriangle,
-  Gauge,
-  CheckCircle,
-  Flag,
-  RefreshCw,
-  CreditCard,
-  Smartphone,
-  Battery,
-  Target,
-  ChevronRight,
-  XCircle,
-  Star,
-  ShieldCheck,
-  ChevronLeft,
-  Bell,
-  MessageCircle,
-  BatteryCharging,
-  Zap
+  Car, User, Phone, ArrowLeft, Clock, Navigation, MapPin, Shield,
+  HelpCircle, FileText, Share2, AlertTriangle, Gauge, CheckCircle,
+  Flag, RefreshCw, CreditCard, Smartphone, Battery, Target,
+  ChevronRight, XCircle, Star, ShieldCheck, ChevronLeft, Bell,
+  MessageCircle, BatteryCharging, Zap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import FloatingDisputeButton from '../shared/FloatingDisputeButton';
-import EmergencyButton from '../passager/EmergencyButton';
 import { useDriverContext } from '../../context/DriverContext';
+import EmergencyButton from '../passager/EmergencyButton';
+import FloatingDisputeButton from '../shared/FloatingDisputeButton';
 
 // MapController is now imported from shared components
 
@@ -86,6 +62,8 @@ const RealTimeTracking = ({
   const [batteryLevel, setBatteryLevel] = useState(85);
   const [connectionStatus, setConnectionStatus] = useState('excellent');
   const [estimatedArrival, setEstimatedArrival] = useState('14:45');
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulatedProgress, setSimulatedProgress] = useState(0);
 
   // Références
   const mapRef = useRef();
@@ -93,91 +71,113 @@ const RealTimeTracking = ({
   const timeInterval = useRef();
   const driverStartPositionRef = useRef(null); // Position du chauffeur au démarrage du suivi
   const lastStatusRef = useRef(trip?.status);
+  const isSimulatingRef = useRef(isSimulating);
+  const remoteIsSimulatingRef = useRef(false); // Verrou pour le passager (détecte la simulation du chauffeur)
+  const remoteSimTimeoutRef = useRef(null);
+
+  // Synchroniser la ref avec l'état
+  useEffect(() => {
+    isSimulatingRef.current = isSimulating;
+  }, [isSimulating]);
 
   // ✅ Reset de la référence si le statut change (ex: de 'approaching' à 'in_progress')
   useEffect(() => {
-    if (trip?.status !== lastStatusRef.current) {
+    // Ne pas reset la référence si on est en train de simuler, pour éviter le saut à 0%
+    if (trip?.status !== lastStatusRef.current && !isSimulating) {
       console.log("🔄 [Tracking] Changement de statut:", lastStatusRef.current, "->", trip?.status);
       driverStartPositionRef.current = null;
       lastStatusRef.current = trip?.status;
     }
-  }, [trip?.status]);
+  }, [trip?.status, isSimulating]);
 
-  // Données calculées à partir des props
-  const tripData = {
-    departure: {
+  // Données calculées à partir des props (Mémoïsées pour une meilleure stabilité)
+  const tripData = useMemo(() => {
+    const d = driver || trip?.chauffeur || {};
+    const vRaw = d.vehicle || d.vehicule || d.vehiculeDetail || {};
+    const v = (vRaw && typeof vRaw === 'object') ? vRaw : {};
+
+    const departure = {
       coords: trip?.pickupCoords || [9.6412, -13.5784],
       name: trip?.pickup || trip?.depart || trip?.pickupAddress || 'Point de départ',
       address: trip?.pickup || trip?.depart || trip?.pickupAddress || ''
-    },
-    destination: {
+    };
+
+    const destination = {
       coords: trip?.destinationCoords || [9.6412, -13.5784],
       name: trip?.destination || trip?.destinationAddress || 'Destination',
       address: trip?.destination || trip?.destinationAddress || ''
-    },
-    driver: (() => {
-      const d = driver || trip?.chauffeur || {};
-      const vRaw = d.vehicle || d.vehicule || d.vehiculeDetail || {};
-      const v = (vRaw && typeof vRaw === 'object') ? vRaw : {};
+    };
 
-      return {
-        ...d,
-        name: d.name || d.nom || (d.prenom ? `${d.prenom} ${d.nom}` : "Ib Tara Barry"),
-        phone: d.phone || d.telephone || d.phoneNumber || "+224 000 00 00 00",
-        rating: d.rating || 5.0,
-        totalTrips: d.totalTrips || d.nombreCourses || 0,
-        experience: d.experience || '1 an',
-        vehicle: {
-          brand: v.brand || v.marque || d.vehicleBrand || d.marque || trip?.vehicleBrand || trip?.marque || (typeof vRaw === 'string' ? vRaw : "Véhicule"),
-          model: v.model || v.modele || d.vehicleModel || d.modele || trip?.vehicleModel || trip?.modele || "Taka-Taka",
-          plate: v.plate || v.immatriculation || d.vehiclePlate || d.immatriculation || trip?.vehiclePlate || trip?.immatriculation || "N/A",
-          color: v.color || v.couleur || d.vehicleColor || d.couleur || trip?.vehicleColor || trip?.couleur || "Inconnue",
-          type: v.type || trip?.vehicleType || 'taxi',
-          year: v.year || 2023,
-          capacity: v.capacity || 4
-        }
-      };
-    })(),
-    trip: {
-      totalDistance: (() => {
-        const val = trip?.estimatedDistance || trip?.distanceKm || trip?.distance;
-        if (typeof val === 'number') return val;
-        return parseFloat(String(val || '').replace(' km', '')) || 8.0;
-      })(),
-      traveledDistance: 0,
-      totalDuration: (() => {
-        const val = trip?.estimatedDuration || trip?.dureeMin || trip?.estimatedTime;
-        if (typeof val === 'number') return val;
-        return parseInt(String(val || '').replace(' min', '')) || 20;
-      })(),
-      elapsedMinutes: 0,
-      remainingMinutes: (() => {
-        const val = trip?.estimatedDuration || trip?.dureeMin || trip?.estimatedTime;
-        if (typeof val === 'number') return val;
-        return parseInt(String(val || '').replace(' min', '')) || 20;
-      })(),
-      price: {
-        total: (() => {
-          const priceRaw = trip?.estimatedPrice || trip?.estimatedFare || trip?.prix || trip?.price || '0';
-          const priceTotal = parseInt(String(priceRaw).replace(/[^0-9]/g, '')) || 0;
-          return priceTotal > 0 ? priceTotal : 15000;
-        })(),
-        estimated: (() => {
-          const priceRaw = trip?.estimatedPrice || trip?.estimatedFare || trip?.prix || trip?.price || '0';
-          const priceTotal = parseInt(String(priceRaw).replace(/[^0-9]/g, '')) || 0;
-          const fee = trip?.fraisService || trip?.serviceFee || 500;
-          const feeVal = parseInt(String(fee).replace(/[^0-9]/g, '')) || 500;
-          return priceTotal > feeVal ? priceTotal - feeVal : priceTotal;
-        })() || 15000,
-        serviceFee: (() => {
-          const fee = trip?.fraisService || trip?.serviceFee || 500;
-          return parseInt(String(fee).replace(/[^0-9]/g, '')) || 500;
-        })(),
-        trafficSurcharge: 0,
-      },
-      paymentMethod: (trip?.paymentMethod && trip.paymentMethod !== 'Non spécifié') ? trip.paymentMethod : null
+    const driverInfo = {
+      ...d,
+      name: d.name || d.nom || (d.prenom ? `${d.prenom} ${d.nom}` : "Ib Tara Barry"),
+      phone: d.phone || d.telephone || d.phoneNumber || "+224 000 00 00 00",
+      rating: d.rating || 5.0,
+      totalTrips: d.totalTrips || d.nombreCourses || 0,
+      experience: d.experience || '1 an',
+      vehicle: {
+        brand: v.brand || v.marque || d.vehicleBrand || d.marque || trip?.vehicleBrand || trip?.marque || (typeof vRaw === 'string' ? vRaw : "Véhicule"),
+        model: v.model || v.modele || d.vehicleModel || d.modele || trip?.vehicleModel || trip?.modele || "Taka-Taka",
+        plate: v.plate || v.immatriculation || d.vehiclePlate || d.immatriculation || trip?.vehiclePlate || trip?.immatriculation || "N/A",
+        color: v.color || v.couleur || d.vehicleColor || d.couleur || trip?.vehicleColor || trip?.couleur || "Inconnue",
+        type: v.type || trip?.vehicleType || 'taxi',
+        year: v.year || 2023,
+        capacity: v.capacity || 4
+      }
+    };
+
+    const distTotalVal = (() => {
+      const val = trip?.estimatedDistance || trip?.distanceKm || trip?.distance;
+      if (typeof val === 'number') return val;
+      return parseFloat(String(val || '').replace(' km', '')) || 8.0;
+    })();
+
+    const durationTotalVal = (() => {
+      const val = trip?.estimatedDuration || trip?.dureeMin || trip?.estimatedTime;
+      if (typeof val === 'number') return val;
+      return parseInt(String(val || '').replace(' min', '')) || 25;
+    })();
+
+    const isSharedTaxi = trip?.typeCourse === 'TAXI_PARTAGE' || trip?.vehicleType === 'TAXI_PARTAGE' || !!trip?.groupeTaxiPartage || !!trip?.groupeId;
+    const groupId = trip?.groupeTaxiPartage?._id || trip?.groupeTaxiPartage || trip?.groupeId || null;
+
+    const priceRaw = trip?.estimatedPrice || trip?.estimatedFare || trip?.montant || trip?.prix || trip?.price || '0';
+    let priceTotal = parseInt(String(priceRaw).replace(/[^0-9]/g, '')) || 0;
+    const fee = trip?.fraisService || trip?.serviceFee || 0;
+    let feeVal = parseInt(String(fee).replace(/[^0-9]/g, '')) || 0;
+
+    // ✅ FIX : Si on est un chauffeur en taxi partagé (ou simplement avec plusieurs courses), 
+    // on fait la somme de tous les paiements des passagers pour le total
+    if (role === 'driver' && driverCtx?.acceptedTrips?.length > 0) {
+      priceTotal = driverCtx.acceptedTrips.reduce((acc, t) => {
+        const p = t.estimatedPrice || t.estimatedFare || t.montant || t.prix || t.price || '0';
+        return acc + (parseInt(String(p).replace(/[^0-9]/g, '')) || 0);
+      }, 0);
+
+      feeVal = driverCtx.acceptedTrips.reduce((acc, t) => {
+        const f = t.fraisService || t.serviceFee || 0;
+        return acc + (parseInt(String(f).replace(/[^0-9]/g, '')) || 0);
+      }, 0);
     }
-  };
+
+    return {
+      departure,
+      destination,
+      driver: driverInfo,
+      trip: {
+        totalDistance: distTotalVal,
+        totalDuration: durationTotalVal,
+        isSharedTaxi,
+        groupId,
+        price: {
+          total: priceTotal > 0 ? priceTotal : (isSharedTaxi ? 0 : 15000),
+          estimated: priceTotal > feeVal ? priceTotal - feeVal : priceTotal,
+          serviceFee: feeVal,
+        },
+        paymentMethod: (trip?.paymentMethod && trip.paymentMethod !== 'Non spécifié') ? trip.paymentMethod : trip?.paiement?.methode || 'CASH'
+      }
+    };
+  }, [trip, driver, role, driverCtx?.acceptedTrips]);
 
   // Mise à jour de l'heure
   const updateTime = useCallback(() => {
@@ -281,7 +281,109 @@ const RealTimeTracking = ({
 
 
 
-  // Effets
+  // --- LOGIQUE DE SIMULATION ---
+  const simulationIntervalRef = useRef(null);
+
+  const toggleSimulation = () => {
+    if (isSimulating) {
+      clearInterval(simulationIntervalRef.current);
+      setIsSimulating(false);
+      setSpeed(0);
+      toast.success('⏹️ Simulation arrêtée');
+    } else {
+      setIsSimulating(true);
+      setSimulatedProgress(progress);
+      setSpeed(45); // Vitesse initiale pour la simulation
+      toast.success('🚀 Simulation démarrée');
+    }
+  };
+
+  useEffect(() => {
+    if (isSimulating && role === 'driver') {
+      simulationIntervalRef.current = setInterval(() => {
+        setSimulatedProgress(prev => {
+          const next = Math.min(100, prev + 2.0); // +2.0% par seconde pour une démo plus rapide
+
+          // Simulation d'une vitesse vivante (entre 40 et 60 km/h)
+          const liveSpeed = next >= 100 ? 0 : Math.round(40 + Math.random() * 15);
+          setSpeed(liveSpeed);
+
+          if (next >= 100) {
+            clearInterval(simulationIntervalRef.current);
+            setIsSimulating(false);
+            // ✅ Déclencher la fin du trajet quand la simulation arrive à 100%
+            if (onEndTrip) {
+              onEndTrip();
+              toast.success('🏁 Arrivée à destination !');
+            }
+          }
+          return next;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(simulationIntervalRef.current);
+  }, [isSimulating, role, onEndTrip]);
+
+  useEffect(() => {
+    if (isSimulating) {
+      const departure = tripData.departure.coords;
+      const destination = tripData.destination.coords;
+      const [simLat, simLng] = [
+        departure[0] + (destination[0] - departure[0]) * (simulatedProgress / 100),
+        departure[1] + (destination[1] - departure[1]) * (simulatedProgress / 100)
+      ];
+      const simulatedLoc = { lat: simLat, lng: simLng, speed: 12.5, isSimulation: true };
+      setDriverPosition(simulatedLoc);
+
+      // ✅ BROADCAST SYNCHRONISÉ (Chauffeur -> Tous les Passagers)
+      if (role === 'driver') {
+        // ✅ VERROU CRITIQUE : Dit au DriverContext de couper le GPS réel
+        window.isTravelingSimulationActive = isSimulating;
+
+        const isShared = tripData.trip.isSharedTaxi;
+        const simulationPayload = {
+          lat: simLat,
+          lng: simLng,
+          speed: 12.5,
+          isSimulation: true,
+          progress: simulatedProgress,
+          isSimulationFinish: simulatedProgress >= 100
+        };
+
+        const allTargetRids = new Set();
+        // Récupération de tous les IDs possibles du groupe
+        if (driverCtx?.acceptedTrips) {
+          driverCtx.acceptedTrips.forEach(t => {
+            const id = t.id || t.reservationId || t._id;
+            if (id) allTargetRids.add(String(id));
+          });
+        }
+
+        const currentRid = trip?.reservationId || trip?.id;
+        if (currentRid) allTargetRids.add(String(currentRid));
+
+        const gid = tripData.trip.groupId || trip?.groupeTaxiPartage?._id || trip?.groupeTaxiPartage;
+
+        if (gid) {
+          socketService.emit('position:update', { ...simulationPayload, groupeId: String(gid) });
+        }
+
+        allTargetRids.forEach(rid => {
+          socketService.emit('position:update', { ...simulationPayload, reservationId: rid });
+        });
+
+        // ✅ SÉCURITÉ FIN DE TRAJET : Si on arrive au bout, on envoie un signal de fin explicite
+        if (simulatedProgress >= 100) {
+          socketService.emit('course:terminee', {
+            reservationIds: Array.from(allTargetRids),
+            groupeId: gid
+          });
+        }
+      }
+    } else {
+      window.isTravelingSimulationActive = false;
+    }
+  }, [simulatedProgress, isSimulating, role, trip, tripData.departure.coords, tripData.destination.coords, tripData.trip.isSharedTaxi, driverCtx?.acceptedTrips]);
   useEffect(() => {
     ensureLeafletIcons();
     // Initialisation de l'heure
@@ -299,24 +401,34 @@ const RealTimeTracking = ({
       });
     }, 30000);
 
-    // Initialisation de la room socket
+    // Initialisation des rooms socket (Individuelle + Groupe)
     const rid = trip?.reservationId || trip?.id;
+    const gid = tripData.trip.groupId;
+
     if (rid) {
-      console.log(`📡 [SOCKET] Tentative de connexion à la room RESERVATION_${rid}`);
+      console.log(`📡 [SOCKET] Room Individuelle: RESERVATION_${rid}`);
       socketService.emit('reservation:join', { reservationId: rid });
+    }
+
+    if (gid) {
+      console.log(`📡 [SOCKET] Room Groupe: GROUPE_${gid}`);
+      socketService.emit('taxipartage:rejoindre_groupe', { groupeId: gid });
     }
 
     return () => {
       clearInterval(timeInterval.current);
       clearInterval(batteryInterval);
     };
-  }, [updateTime, trip?.reservationId, trip?.id]);
+  }, [updateTime, trip?.reservationId, trip?.id, tripData.trip.groupId]);
 
-  // ✅ Mise à jour de la position et de la vitesse
   useEffect(() => {
     if (driver?.location || driver?.currentLocation) {
+      // Priorité simulation locale (chauffeur) OU simulation distance (passager)
+      if (isSimulatingRef.current || remoteIsSimulatingRef.current) return;
+
       const loc = driver.location || driver.currentLocation;
       setDriverPosition(loc);
+      // Mise à jour de la vitesse...
 
       // Mise à jour de la vitesse si disponible (speed est en m/s par défaut via browser API)
       if (loc && typeof loc.speed === 'number') {
@@ -331,12 +443,52 @@ const RealTimeTracking = ({
   // ✅ FIX: Écouter les mises à jour de position via Socket (pour le chauffeur en mode simulation/test)
   useEffect(() => {
     const onPositionUpdate = (data) => {
-      if (data && data.lat && data.lng) {
-        setDriverPosition({ lat: data.lat, lng: data.lng });
+      if (!data) return;
+      console.log(`📥 [SOCKET] Reçu position:`, data);
+
+      // ✅ Utilisation de la ref pour éviter le stale closure sans recréer le listener
+      if (isSimulatingRef.current && role === 'driver') return;
+
+      // Verrou spécial passager : si on reçoit une simulation, on ignore les data réelles pendant 5s
+      if (data.isSimulation) {
+        remoteIsSimulatingRef.current = true;
+        if (remoteSimTimeoutRef.current) clearTimeout(remoteSimTimeoutRef.current);
+        remoteSimTimeoutRef.current = setTimeout(() => {
+          remoteIsSimulatingRef.current = false;
+        }, 5000); // 5 secondes de patience entre deux signaux de simulation
+      } else if (remoteIsSimulatingRef.current) {
+        // On ignore les données réelles (DB/GPS statique) si une simulation est en cours à distance
+        return;
+      }
+
+      if ((data.isSimulationFinish || (data.progress && data.progress > 98)) && role === 'passenger') {
+        // Force la fin pour le passager si le chauffeur dit que c'est fini ou si on approche de 100%
+        setDriverPosition(prev => ({ ...prev, lat: data.lat, lng: data.lng, isSimulation: true, progress: 100 }));
+        setProgress(100);
+        if (onEndTrip) {
+          console.log("🏁 Fin de trajet détectée (Signal 100%)");
+          onEndTrip();
+        }
+        return;
+      }
+
+      // Mise à jour du progrès avec lissage pour éviter de rester bloqué à 98-99%
+      if (data.progress !== undefined) {
+        const effectiveProgress = (data.progress > 96 && data.progress < 100) ? 100 : data.progress;
+        setProgress(effectiveProgress);
+      }
+
+      if (data.lat && data.lng) {
+        setDriverPosition({
+          lat: data.lat,
+          lng: data.lng,
+          isSimulation: !!data.isSimulation,
+          progress: data.progress !== undefined ? data.progress : data.progression,
+          speed: data.speed
+        });
 
         // Mise à jour de la vitesse via le socket
         if (typeof data.speed === 'number') {
-          // On assume que le serveur transmet les m/s du GPS
           const speedKmh = Math.round(data.speed * 3.6);
           setSpeed(speedKmh > 0 ? speedKmh : 0);
         }
@@ -351,7 +503,7 @@ const RealTimeTracking = ({
     return () => {
       socketService.off('position:chauffeur', onPositionUpdate);
     };
-  }, [role]);
+  }, [role, onEndTrip]);
 
   // ✅ FIX: Auto-zoom pour tout voir (Chauffeur + Départ + Arrivée)
   useEffect(() => {
@@ -385,74 +537,77 @@ const RealTimeTracking = ({
       const getLat = (pos) => parseFloat(pos?.lat || pos?.[0]);
       const getLng = (pos) => parseFloat(pos?.lng || pos?.[1]);
 
+      // ✅ SI SIMULATION : On utilise directement le progrès simulé pour éviter les sauts
+      // (Soit localement pour le chauffeur, soit via socket pour le passager)
+      const isRemoteSim = driverPosition?.isSimulation && driverPosition?.progress !== undefined;
+
+      if (isSimulating || isRemoteSim) {
+        const pct = isSimulating ? simulatedProgress : driverPosition.progress;
+        const distTotal = tripData.trip.totalDistance || 5;
+        const distTraveled = (pct / 100) * distTotal;
+        const distRemaining = distTotal - distTraveled;
+        const timeRemaining = Math.max(0, Math.round(((100 - pct) / 100) * tripData.trip.totalDuration));
+
+        const formattedDuration = pct >= 100 ? "0 min" : (timeRemaining >= 60
+          ? `${Math.floor(timeRemaining / 60)}h ${timeRemaining % 60} min`
+          : `${timeRemaining} min`);
+
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + timeRemaining);
+        const newEta = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+        setRealTimeMetrics({
+          distanceTraveled: parseFloat(distTraveled.toFixed(2)),
+          distanceRemaining: parseFloat(distRemaining.toFixed(2)),
+          progress: pct,
+          durationRemaining: timeRemaining,
+          formattedDuration
+        });
+        setProgress(pct);
+        setEstimatedArrival(newEta);
+        return;
+      }
+
       const driverLat = getLat(driverPosition);
       const driverLng = getLng(driverPosition);
       const destLat = getLat(tripData.destination.coords);
       const destLng = getLng(tripData.destination.coords);
-      const depLat = getLat(tripData.departure.coords);
-      const depLng = getLng(tripData.departure.coords);
 
-      // On ignore le point de départ théorique s'il est utilisé comme simple placeholder au début.
-      const isPlaceholder = depLat === driverLat && depLng === driverLng;
+      // ✅ FIX: Calcul stable basé sur la distance totale du trajet
+      // On évite d'utiliser driverStartPositionRef pour le calcul continu,
+      // ce qui stoppe les flickers et les désynchronisations.
+      const distTotal = tripData.trip.totalDistance || 5;
+      const distRemaining = GeolocationService.calculateDistance(driverLat, driverLng, destLat, destLng) || 0;
 
-      // ✅ FIX: Initialiser la position de départ (référence 0%) dès que possible
-      if (!driverStartPositionRef.current) {
-        // Idéalement on utilise la position réelle du chauffeur au moment du START,
-        // sinon on fallback sur le point de départ théorique du trajet.
-        if (driverPosition && !isPlaceholder) {
-          driverStartPositionRef.current = { lat: driverLat, lng: driverLng };
-        } else {
-          driverStartPositionRef.current = { lat: depLat, lng: depLng };
-        }
-      }
-
-      const startLat = driverStartPositionRef.current.lat;
-      const startLng = driverStartPositionRef.current.lng;
-
-      // 1. Distance totale du trajet = position initiale du chauffeur → destination
-      // On réduit le fallback à 5 mètres (0.005 km) pour les démos en salle
-      const distTotal = GeolocationService.calculateDistance(startLat, startLng, destLat, destLng) || Math.max(0.005, tripData.trip.totalDistance);
-
-      // 2. Distance restante = position actuelle du chauffeur → destination
-      const distRemaining = GeolocationService.calculateDistance(driverLat, driverLng, destLat, destLng);
-
-      // 3. Distance parcourue = Total - Restant (bornée à 0 minimum)
+      // Distance parcourue = Total estimé - Reste à parcourir
       let distTraveled = Math.max(0, distTotal - distRemaining);
 
-      // 4. Pourcentage — précision accrue pour fluidité visuelle (1 décimale)
-      let pct = (distTraveled / distTotal) * 100;
-
-      // ✅ [FIX] Pour la démo en salle ou test à pied, on réduit le seuil d'arrivée à 2 mètres (0.002 km)
-      if (distRemaining < 0.002) {
-        pct = 100;
-      }
-
+      // Si on est à moins de 20m, on considère qu'on est arrivé (100%)
+      let pct = distRemaining < 0.02 ? 100 : (distTraveled / distTotal) * 100;
       pct = Math.min(100, Math.max(0, pct));
 
-      // 5. Temps restant — Règle de 3 sur la durée initiale estimée
+      // Temps restant proportionnel
       const timeRemaining = pct >= 100 ? 0 : Math.max(1, Math.round((distRemaining / distTotal) * tripData.trip.totalDuration));
 
-      // 5b. Format lisible
       const formattedDuration = pct >= 100 ? "0 min" : (timeRemaining >= 60
         ? `${Math.floor(timeRemaining / 60)}h ${timeRemaining % 60} min`
         : `${timeRemaining} min`);
 
-      // 6. Mise à jour de l'ETA
       const now = new Date();
       now.setMinutes(now.getMinutes() + timeRemaining);
       const newEta = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
       setRealTimeMetrics({
-        distanceTraveled: parseFloat(distTraveled.toFixed(3)),
-        distanceRemaining: parseFloat(distRemaining.toFixed(3)),
+        distanceTraveled: parseFloat(distTraveled.toFixed(2)),
+        distanceRemaining: parseFloat(distRemaining.toFixed(2)),
         progress: parseFloat(pct.toFixed(1)),
         durationRemaining: timeRemaining,
         formattedDuration
       });
-      setProgress(parseFloat(pct.toFixed(1))); // Permet un mouvement plus fluide de la barre
-      setEstimatedArrival(newEta);   // Sync avec l'état existant pour l'ETA
+      setProgress(parseFloat(pct.toFixed(1)));
+      setEstimatedArrival(newEta);
     }
-  }, [driverPosition, tripData.destination.coords, tripData.departure.coords, tripData.trip.totalDistance, tripData.trip.totalDuration, trip?.status]);
+  }, [driverPosition, tripData.destination.coords, tripData.departure.coords, tripData.trip.totalDistance, tripData.trip.totalDuration, trip?.status, isSimulating, simulatedProgress]);
 
   // ✅ AUTO-TERMINER : Si progress === 100%, on finit automatiquement
   useEffect(() => {
@@ -713,6 +868,20 @@ const RealTimeTracking = ({
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Position en temps réel</h3>
                 <div className="flex items-center gap-3">
+                  {role === 'driver' && !isTripEnded && (
+                    <motion.button
+                      whileHold={{ scale: 0.95 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={toggleSimulation}
+                      className={`flex items-center text-sm font-medium px-3 py-1 rounded-full border transition-all ${isSimulating
+                        ? 'bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 border-transparent'
+                        }`}
+                    >
+                      <Zap className={`w-4 h-4 mr-2 ${isSimulating ? 'animate-pulse fill-current' : ''}`} />
+                      {isSimulating ? 'Simulation en cours...' : 'Simulation'}
+                    </motion.button>
+                  )}
                   <motion.button
                     whileHover={{ rotate: 180 }}
                     whileTap={{ scale: 0.95 }}
@@ -727,15 +896,25 @@ const RealTimeTracking = ({
 
               <div className="h-[400px] rounded-xl overflow-hidden shadow-lg border border-gray-100">
                 <MapContainer
-                  center={isValidCoords(driverPosition) ? driverPosition : (isValidCoords(passengerPosition) ? passengerPosition : [0, 0])}
+                  center={isValidCoords(tripData.departure.coords) ? tripData.departure.coords : [9.6412, -13.5784]}
                   zoom={15}
                   style={{ height: '100%', width: '100%' }}
                   ref={mapRef}
                   className="rounded-xl"
+                  zoomControl={true}
+                  scrollWheelZoom={true}
                 >
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+
+                  {/* Contrôleur de vue pour le suivi fluide du chauffeur */}
+                  <MapController
+                    center={isValidCoords(driverPosition) ? driverPosition : tripData.departure.coords}
+                    zoom={15}
+                    animate={true}
+                    duration={0.8}
                   />
 
                   {/* Marqueurs avec Halo pour visibilité "GROS" */}
@@ -964,28 +1143,12 @@ const RealTimeTracking = ({
         )}
       </AnimatePresence>
 
-      {/* Bouton d'urgence */}
-      {/* <motion.button
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={handleEmergency}
-        className="fixed bottom-8 right-8 z-40 w-16 h-16 bg-gradient-to-r from-red-500 to-red-600 rounded-full shadow-2xl flex items-center justify-center animate-pulse"
-        title="Signal d'urgence"
-      >
-        <AlertTriangle className="w-7 h-7 text-white" />
-      </motion.button> */}
-
       <FloatingDisputeButton
-        currentTrip={{ ...tripData.trip, reservationId: trip?.reservationId || trip?.id }}
-        role={role}
-        offset={6}
+        currentTrip={trip}
+        role={role === 'driver' ? 'chauffeur' : 'passager'}
+        offset={10}
       />
-
       <EmergencyButton />
-
-      {/* Bouton d'annulation */}
     </div>
   );
 };

@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Phone, Shield, Users, AlertTriangle, X, Heart, MapPin, Bell } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Phone, Shield, Users, AlertTriangle, X, Heart, MapPin, Bell, PhoneOff, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 import { GeolocationService } from '../../services/geolocation';
+import { API_ROUTES } from '../../services/apiRoutes';
+import { getApiBaseURL } from '../../utils/urlHelper';
 
 // Composants réutilisables
 import Button from '../admin/ui/Bttn';
@@ -11,6 +14,9 @@ import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../admin/u
 import Badge from '../admin/ui/Badge';
 import ConfirmModal from '../admin/ui/ConfirmModal';
 
+// URL d'une sonnerie réaliste (tonalité d'appel)
+const RINGTONE_URL = "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3";
+
 const EmergencyButton = () => {
   const [showModal, setShowModal] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -18,11 +24,55 @@ const EmergencyButton = () => {
   const [lastLocation, setLastLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState('idle');
 
+  // États pour l'appel actif
+  const [isCalling, setIsCalling] = useState(false);
+  const [callingService, setCallingService] = useState(null);
+  const [isLogging, setIsLogging] = useState(false);
+
+  // Récurrences et Timers
+  const audioRef = useRef(null);
+  const callTimerRef = useRef(null);
+
+  // Cleanup au démontage
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (callTimerRef.current) clearTimeout(callTimerRef.current);
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  // Fonction pour jouer le message vocal (Voix féminine style Orange/Opérateur)
+  const playUnavailableMessage = () => {
+    if (audioRef.current) audioRef.current.pause(); // Arrêter la sonnerie
+
+    const message = "Désolé, le service Taka Taka est injoignable pour le moment. Veuillez réessayer plus tard.";
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.9; // Rythme légèrement lent pour plus de clarté
+    utterance.pitch = 1.1; // Ton un peu plus haut pour une voix plus féminine
+
+    // Essayer de trouver une voix féminine française dans le navigateur
+    const voices = window.speechSynthesis.getVoices();
+    const femaleVoice = voices.find(v => v.lang.includes('fr') && (v.name.includes('Hortense') || v.name.includes('Julie') || v.name.includes('Google') || v.name.includes('Female')));
+    if (femaleVoice) utterance.voice = femaleVoice;
+
+    window.speechSynthesis.speak(utterance);
+
+    // Fermer l'UI automatiquement après le message
+    utterance.onend = () => {
+      setTimeout(() => stopCall(), 1000);
+    };
+  };
+
   const contacts = [
     {
       id: 1,
       name: 'Centre de sécurité TakaTaka',
-      number: '+224 623 09 07 41',
+      number: '+224 629 02 16 34',
       icon: Shield,
       color: 'text-red-600 dark:text-red-400',
       bgColor: 'bg-red-100 dark:bg-red-900/30',
@@ -71,12 +121,10 @@ const EmergencyButton = () => {
       };
       setLastLocation(location);
       setLocationStatus('success');
-      toast.success('Position récupérée avec succès');
       return location;
     } catch (error) {
       console.error('Erreur de géolocalisation:', error);
       setLocationStatus('error');
-      toast.error('Impossible de récupérer la position');
       return null;
     }
   };
@@ -86,9 +134,9 @@ const EmergencyButton = () => {
 
     try {
       // Récupérer la position actuelle
-      if (!lastLocation) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        getCurrentLocation();
+      let loc = lastLocation;
+      if (!loc) {
+        loc = await getCurrentLocation();
       }
 
       // Simuler l'envoi de l'alerte
@@ -103,18 +151,6 @@ const EmergencyButton = () => {
         },
       });
 
-      // Notification aux autorités simulée
-      setTimeout(() => {
-        toast('Les autorités ont été alertées. Restez calme.', {
-          icon: '👮',
-        });
-      }, 3000);
-
-      // Envoyer la position aux contacts d'urgence
-      if (lastLocation) {
-        console.log('Position envoyée aux secours:', lastLocation);
-      }
-
       setShowConfirm(false);
       setShowModal(false);
     } catch (error) {
@@ -124,13 +160,67 @@ const EmergencyButton = () => {
     }
   };
 
-  const handleQuickCall = (contact) => {
-    // Simuler l'appel
-    console.log(`Appel vers ${contact.name}: ${contact.number}`);
-    toast(`Appel vers ${contact.name} en cours...`, {
-      icon: '📞',
-      duration: 2000
-    });
+  const handleQuickCall = async (contact) => {
+    setCallingService(contact);
+    setIsCalling(true);
+    setIsLogging(true);
+
+    // 🔊 Lancement de la sonnerie
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new Audio(RINGTONE_URL);
+        audioRef.current.loop = true;
+        audioRef.current.volume = 1.0;
+      }
+      audioRef.current.play().catch(e => console.log("Audio play blocked"));
+
+      // ⏱️ Lancement du timer de 30 secondes pour le message d'indisponibilité
+      if (callTimerRef.current) clearTimeout(callTimerRef.current);
+      callTimerRef.current = setTimeout(() => {
+        playUnavailableMessage();
+      }, 30000);
+
+    } catch (e) {
+      console.error("Erreur audio:", e);
+    }
+
+    try {
+      // 1. Déclenchement de l'appel système
+      const cleanNumber = contact.number.replace(/\s+/g, '');
+      window.location.href = `tel:${cleanNumber}`;
+
+      // 2. Logging
+      const loc = lastLocation || await getCurrentLocation().catch(() => null);
+      const baseURL = getApiBaseURL();
+
+      await axios.post(`${baseURL}${API_ROUTES.alertes.logAppel}`, {
+        service: contact.name,
+        numero: contact.number,
+        lat: loc?.lat,
+        lng: loc?.lng
+      }, { withCredentials: true });
+
+    } catch (error) {
+      console.error("❌ Erreur logging:", error);
+    } finally {
+      setIsLogging(false);
+    }
+  };
+
+  const stopCall = () => {
+    setIsCalling(false);
+    setCallingService(null);
+
+    // 🔇 Arrêt de tout (Audio + Timer + Voix)
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    if (callTimerRef.current) {
+      clearTimeout(callTimerRef.current);
+      callTimerRef.current = null;
+    }
+    window.speechSynthesis.cancel();
   };
 
   const locationInfo = {
@@ -148,17 +238,17 @@ const EmergencyButton = () => {
         animate={{ scale: 1, opacity: 1 }}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
-        className="fixed bottom-8 right-8 z-40"
+        className="fixed bottom-28 right-8 z-40"
       >
         <Button
-          variant="danger"
+          variant="solid"
           size="large"
-          className="!rounded-full !w-16 !h-16 !p-0 shadow-2xl hover:shadow-3xl relative"
+          className="!rounded-full !w-16 !h-16 !p-0 shadow-2xl hover:shadow-3xl relative !bg-red-600 hover:!bg-red-700 border-none text-white flex items-center justify-center transition-all"
           onClick={() => setShowModal(true)}
           icon={Phone}
         >
-          <span className="absolute -top-1 -right-1 w-6 h-6 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center animate-ping">
-            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+          <span className="absolute -top-1 -right-1 w-6 h-6 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center">
+            <span className="w-2 h-2 bg-red-600 rounded-full animate-ping"></span>
           </span>
         </Button>
       </motion.div>
@@ -190,51 +280,104 @@ const EmergencyButton = () => {
 
           </div>
 
-          {/* Contacts d'urgence */}
-          <Card>
-            <CardHeader>
-              <CardTitle size="sm">Contacts d'urgence</CardTitle>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Appeler directement un service de secours
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {contacts.map((contact) => {
-                  const Icon = contact.icon;
-                  return (
-                    <div
-                      key={contact.id}
-                      className={`p-4 ${contact.bgColor} rounded-xl flex items-center justify-between hover:shadow-md transition-shadow dark:border dark:border-white/5`}
-                    >
-                      <div className="flex items-center">
-                        <div className={`w-10 h-10 rounded-full ${contact.bgColor} flex items-center justify-center mr-3`}>
-                          <Icon className={`w-5 h-5 ${contact.color}`} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-gray-100">
-                            {contact.name}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {contact.number}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="small"
-                        onClick={() => handleQuickCall(contact)}
-                        className={`!px-4 !py-2 ${contact.bgColor} ${contact.color} hover:bg-opacity-30 border-none`}
-                        icon={Phone}
-                      >
-                        Appeler
-                      </Button>
+          {/* Contacts d'urgence ou Appel en cours */}
+          <AnimatePresence mode="wait">
+            {!isCalling ? (
+              <motion.div
+                key="list"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle size="sm">Contacts d'urgence</CardTitle>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">
+                      Appeler directement un service de secours
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {contacts.map((contact) => {
+                        const Icon = contact.icon;
+                        return (
+                          <div
+                            key={contact.id}
+                            className={`p-4 ${contact.bgColor} rounded-xl flex items-center justify-between hover:shadow-md transition-shadow dark:border dark:border-white/5`}
+                          >
+                            <div className="flex items-center">
+                              <div className={`w-10 h-10 rounded-full ${contact.bgColor} flex items-center justify-center mr-3`}>
+                                <Icon className={`w-5 h-5 ${contact.color}`} />
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">
+                                  {contact.name}
+                                </p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  {contact.number}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="small"
+                              onClick={() => handleQuickCall(contact)}
+                              className={`!px-4 !py-2 ${contact.bgColor} ${contact.color} hover:bg-opacity-30 border-none font-bold`}
+                              icon={Phone}
+                            >
+                              Appeler
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="calling"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+              >
+                <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 shadow-xl overflow-hidden relative">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-blue-500 animate-pulse" />
+                  <CardContent className="p-10 text-center flex flex-col items-center">
+                    <div className="w-24 h-24 bg-blue-100 dark:bg-blue-800/50 rounded-full flex items-center justify-center mb-8 relative">
+                      <Phone className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-pulse rotate-12" />
+                      <div className="absolute -inset-4 rounded-full bg-blue-400/20 animate-ping" />
+                      <div className="absolute -inset-8 rounded-full bg-blue-300/10 animate-ping [animation-delay:0.5s]" />
+                    </div>
+
+                    <h3 className="text-2xl font-black text-blue-900 dark:text-blue-100 mb-2">📞 Appel en cours...</h3>
+                    <div className="space-y-1 mb-8">
+                      <p className="text-lg font-bold text-blue-800 dark:text-blue-300">Service : {callingService?.name}</p>
+                      <p className="text-blue-600 dark:text-blue-400 font-mono tracking-widest">{callingService?.number}</p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full max-w-[200px]">
+                      <Button
+                        variant="danger"
+                        fullWidth
+                        className="!rounded-2xl !py-4 shadow-lg shadow-red-500/20"
+                        icon={PhoneOff}
+                        onClick={stopCall}
+                      >
+                        Raccrocher
+                      </Button>
+                      {isLogging && (
+                        <div className="flex items-center justify-center gap-2 text-xs text-blue-500">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Enregistrement du log...</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Message d'avertissement */}
           <Card className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-200 dark:border-amber-800">

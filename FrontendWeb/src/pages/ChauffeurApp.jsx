@@ -131,7 +131,7 @@ const ChauffeurDisputeButton = () => {
     <FloatingDisputeButton
       currentTrip={mainTrip}
       role="chauffeur"
-      offset={6}
+      offset={10}
     />
   );
 };
@@ -325,7 +325,6 @@ function ChauffeurApp() {
   return (
     <DriverProvider>
       <DriverAutoOnline />
-      <ChauffeurDisputeButton />
       <DriverAppContent />
     </DriverProvider>
   );

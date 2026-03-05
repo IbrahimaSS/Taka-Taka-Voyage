@@ -32,41 +32,98 @@ const AssistantIA = () => {
         }
     ]);
 
+    // --- ASSISTANCE PROACTIVE ---
+    const inactivityTimerRef = useRef(null);
+    const [hasSentProactiveHelp, setHasSentProactiveHelp] = useState(false);
+
+    useEffect(() => {
+        // Logique métier proactive pour le Chauffeur
+        const role = user?.role?.toUpperCase();
+        if (role === 'CHAUFFEUR' || role === 'DRIVER') {
+            if (driverCtx?.acceptedTrips?.length > 0 && !driverCtx.trajetEnCours) {
+                // S'il a des passagers en attente mais n'a pas démarré la course
+                if (!inactivityTimerRef.current && !hasSentProactiveHelp) {
+                    inactivityTimerRef.current = setTimeout(() => {
+                        setMessages(prev => [...prev, {
+                            id: Date.now(),
+                            role: 'model',
+                            content: "Je vois que vous avez des passagers en attente depuis un moment. Avez-vous besoin d'aide pour naviguer vers eux ou démarrer le trajet ?",
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            isProactive: true
+                        }]);
+                        setHasSentProactiveHelp(true);
+                        setIsOpen(true); // Ouvre l'assistant pour attirer l'attention
+                    }, 45000); // 45 secondes sans action = aide
+                }
+            } else {
+                // Reset si la situation change
+                if (inactivityTimerRef.current) {
+                    clearTimeout(inactivityTimerRef.current);
+                    inactivityTimerRef.current = null;
+                }
+            }
+        } else if (role === 'PASSAGER' || role === 'PASSENGER') {
+            if (passengerCtx?.tripStatus === 'driver_found' || passengerCtx?.tripStatus === 'approaching') {
+                if (!inactivityTimerRef.current && !hasSentProactiveHelp) {
+                    inactivityTimerRef.current = setTimeout(() => {
+                        setMessages(prev => [...prev, {
+                            id: Date.now(),
+                            role: 'model',
+                            content: "Votre chauffeur est en route. Êtes-vous prêt au point de rendez-vous ? Si vous avez un problème, vous pouvez le contacter directement ou utiliser le bouton d'urgence.",
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                            isProactive: true
+                        }]);
+                        setHasSentProactiveHelp(true);
+                        setIsOpen(true);
+                    }, 60000); // 1 minute après assignation sans changement
+                }
+            } else {
+                if (inactivityTimerRef.current) {
+                    clearTimeout(inactivityTimerRef.current);
+                    inactivityTimerRef.current = null;
+                }
+            }
+        }
+        return () => {
+            if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+        };
+    }, [driverCtx?.acceptedTrips, driverCtx?.trajetEnCours, passengerCtx?.tripStatus, hasSentProactiveHelp, user?.role]);
+
     const suggestions = useMemo(() => {
         const role = user?.role?.toUpperCase();
 
         // --- Suggestions pour l'ADMIN ---
         if (role === 'ADMIN') {
             return [
-                { label: "Statistiques plateforme 📊", query: "Quelles sont les statistiques de la plateforme aujourd'hui ?" },
-                { label: "Chauffeurs actifs 🚗", query: "Combien de chauffeurs sont actuellement en ligne ?" },
-                { label: "Validations en attente ⏳", query: "Y a-t-il des chauffeurs en attente de validation ?" }
+                { label: "Que dois-je vérifier ? 🛡️", query: "Y a-t-il des actions urgentes comme des validations ou signalements en attente ?" },
+                { label: "Activité Globale 📊", query: "Fais-moi un point sur l'activité des chauffeurs et trajets en cours." },
+                { label: "Mode Maintenance 🔧", query: "Comment activer le mode maintenance en douceur ?" }
             ];
         }
 
         // --- Suggestions pour le CHAUFFEUR ---
         if (role === 'CHAUFFEUR' || role === 'DRIVER') {
             return [
-                { label: "Mes revenus 💰", query: "Quels sont mes revenus aujourd'hui ?" },
-                { label: "État du compte ✅", query: "Mon compte est-il actif ?" },
-                { label: "Support Chauffeur 📞", query: "Comment contacter le support pour un chauffeur ?" }
+                { label: "Ma prochaine action ? 🎯", query: "Selon mon statut actuel et mes passagers assignés, que dois-je faire maintenant ?" },
+                { label: "Règles Taxi Partagé 🚕", query: "Rappelle-moi comment gérer la récupération multiple en taxi partagé." },
+                { label: "Paiement en attente 💳", query: "Un passager refuse de payer ou n'a pas finalisé, que dois-je faire ?" }
             ];
         }
 
-        // --- Suggestions pour le PASSAGER (Défaut si connecté mais pas admin/chauffeur) ---
+        // --- Suggestions pour le PASSAGER ---
         if (role === 'PASSAGER' || role === 'PASSENGER') {
             return [
-                { label: "Où est mon chauffeur ? 🚗", query: "Pouvez-vous me dire où se trouve mon chauffeur ?" },
-                { label: "Réserver un trajet 📅", query: "Comment faire une réservation planifiée ?" },
-                { label: "Mes factures 📄", query: "Où puis-je voir mes factures ?" }
+                { label: "Où en est mon trajet ? 📍", query: "Analyse mon statut actuel et dis-moi quoi faire en une phrase." },
+                { label: "Problème Paiement ❌", query: "Mon paiement a échoué. Comment le relancer ?" },
+                { label: "Urgence / Support 🚨", query: "J'ai un problème urgent avec la voiture ou le chauffeur." }
             ];
         }
 
         // --- Suggestions pour les VISITEURS ---
         return [
-            { label: "C'est quoi TakaTaka ? 🤔", query: "Qu'est-ce que la plateforme TakaTaka ?" },
-            { label: "Comment s'inscrire ? ✨", query: "Comment puis-je m'inscrire sur TakaTaka ?" },
-            { label: "Tarifs 💳", query: "Quels sont vos tarifs de transport ?" }
+            { label: "C'est quoi Taka-Taka ? 🤔", query: "Qu'est-ce que Taka-Taka, et quelle est la différence avec les autres ?" },
+            { label: "Devenir Chauffeur 🚗", query: "Quels sont les avantages et les documents requis pour devenir chauffeur ?" },
+            { label: "Tarifs & Paiements 💳", query: "Quels sont les méthodes de paiement acceptées sur l'application ?" }
         ];
     }, [user, t]);
 
@@ -153,21 +210,45 @@ const AssistantIA = () => {
         setError(null);
 
         try {
-            // 🧠 Récupération du contexte intelligent pour l'IA
-            const role = user?.role || 'visiteur';
-            let smartContext = `L'utilisateur est un ${role}. Prénom: ${user?.prenom || 'Client'}. Langue: ${i18n.language}. `;
+            // 🧠 Récupération du contexte métier ultra-détaillé pour l'IA
+            const role = user?.role?.toUpperCase() || 'VISITEUR';
+            let smartContext = `Rôle: ${role}. Prénom: ${user?.prenom || 'Client'}. Langue: ${i18n.language}.\n`;
 
-            // Contexte Passager
-            if (passengerCtx?.currentTrip) {
-                smartContext += `Trajet en cours (ID: ${passengerCtx.currentTrip.id}). Statut: ${passengerCtx.tripStatus}. `;
-                if (passengerCtx.selectedDriver) smartContext += `Chauffeur: ${passengerCtx.selectedDriver.name}. `;
-            }
+            if (role === 'PASSAGER' || role === 'PASSENGER') {
+                if (passengerCtx?.currentTrip) {
+                    const ct = passengerCtx.currentTrip;
+                    smartContext += `ETAT PASSAGER: Trajet en cours. `;
+                    smartContext += `Statut exact: ${passengerCtx.tripStatus}. Type: ${ct.typeCourse}. `;
+                    smartContext += `Paiement: ${ct.typePaiement}. `;
+                    if (passengerCtx.selectedDriver) {
+                        smartContext += `Chauffeur assigné: ${passengerCtx.selectedDriver.nom || passengerCtx.selectedDriver.name}. `;
+                    }
+                } else {
+                    smartContext += `ETAT PASSAGER: Aucun trajet en cours. En attente de réservation.\n`;
+                }
+            } else if (role === 'CHAUFFEUR' || role === 'DRIVER') {
+                if (driverCtx) {
+                    smartContext += `ETAT CHAUFFEUR: ${driverCtx.isOnline ? 'EN LIGNE' : 'HORS LIGNE'}. `;
+                    if (driverCtx.trajetEnCours) smartContext += `Statut: Occupé (Trajet en cours). `;
+                    else smartContext += `Statut: Disponible. `;
 
-            // Contexte Chauffeur
-            if (driverCtx?.isOnline) {
-                smartContext += `Le chauffeur est EN LIGNE. `;
-                if (driverCtx.acceptedTrips?.length > 0) {
-                    smartContext += `Il a ${driverCtx.acceptedTrips.length} courses acceptées. `;
+                    if (driverCtx.acceptedTrips && driverCtx.acceptedTrips.length > 0) {
+                        smartContext += `Passagers actuels dans le véhicule ou assignés: ${driverCtx.acceptedTrips.length}. `;
+                        const isShared = driverCtx.acceptedTrips.some(t => t.typeCourse === 'TAXI_PARTAGE' || t.groupeTaxiPartage);
+                        if (isShared) {
+                            smartContext += `MODE ACTUEL: TAXI PARTAGÉ. `;
+                            const unpicked = driverCtx.acceptedTrips.filter(t => t.statut === 'EN_ATTENTE_DE_RECUPERATION');
+                            const picked = driverCtx.acceptedTrips.filter(t => t.statut === 'RECUPERE');
+                            smartContext += `Passagers à récupérer: ${unpicked.length}. Passagers à bord: ${picked.length}. `;
+                            if (unpicked.length > 0) {
+                                smartContext += `(ACTION REQUISE: Récupérer tous les passagers 'en attente' avant de démarrer le trajet principal). `;
+                            } else {
+                                smartContext += `(ACTION REQUISE: Vous pouvez démarrer le trajet principal car tout le monde est à bord). `;
+                            }
+                        } else {
+                            smartContext += `MODE ACTUEL: COURSE STANDARD. `;
+                        }
+                    }
                 }
             }
 
@@ -195,12 +276,12 @@ const AssistantIA = () => {
             }
         } catch (err) {
             console.error('Erreur Assistant IA:', err);
-            setError(t('common.error'));
+            setError(null); // On ne met pas l'alerte statique, on utilise la bulle.
 
             const errorMessage = {
                 id: Date.now() + 1,
                 role: 'model',
-                content: t('assistant.error_msg'),
+                content: "Erreur, veuillez vérifier votre connexion réseau.",
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 isError: true
             };

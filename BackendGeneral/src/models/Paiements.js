@@ -44,7 +44,7 @@ const paiementSchema = new mongoose.Schema(
 
         methode: {
             type: String,
-            enum: ["CASH", "MTN_MONEY", "ORANGE_MONEY"],
+            enum: ["CASH", "MTN_MONEY", "ORANGE_MONEY", "WALLET", "CARD", "ORANGE", "MTN", "ESPECES"],
             required: true,
         },
 

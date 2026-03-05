@@ -21,32 +21,12 @@ const usePlatformNotifications = ({
 } = {}) => {
 
     const handleMaintenanceOn = useCallback((data) => {
-        console.log('🔧 [PLATFORM] Maintenance activée:', data);
-        // Toast persistant rouge
-        toast.error(data.message || 'Plateforme en maintenance', {
-            id: 'platform-maintenance',
-            duration: Infinity,
-            icon: '🔧',
-            style: {
-                background: '#1a1a2e',
-                color: '#ff6b6b',
-                border: '1px solid #ff6b6b',
-                fontWeight: 'bold',
-                maxWidth: '400px',
-            },
-        });
+        console.log('🔧 [PLATFORM] Maintenance activée (hook):', data);
         onMaintenanceOn?.(data);
     }, [onMaintenanceOn]);
 
     const handleMaintenanceOff = useCallback((data) => {
-        console.log('✅ [PLATFORM] Maintenance terminée:', data);
-        // Fermer le toast maintenance permanent
-        toast.dismiss('platform-maintenance');
-        toast.success(data.message || 'Plateforme de nouveau disponible !', {
-            id: 'platform-back',
-            duration: 6000,
-            icon: '🎉',
-        });
+        console.log('✅ [PLATFORM] Maintenance terminée (hook):', data);
         onMaintenanceOff?.(data);
     }, [onMaintenanceOff]);
 

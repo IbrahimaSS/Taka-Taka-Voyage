@@ -17,7 +17,7 @@ export default function Badge({
   border = false,
   ...props
 }) {
-  
+
   // Classes de taille
   const sizeClasses = {
     xs: 'px-2 py-0.5 text-xs',
@@ -40,7 +40,7 @@ export default function Badge({
     primary: 'bg-gradient-to-r from-blue-500/15 to-blue-600/15 text-blue-600 border-blue-500/30 dark:from-blue-900/30 dark:to-blue-800/30 dark:text-blue-300 dark:border-blue-700/50',
     secondary: 'bg-gradient-to-r from-green-500/15 to-green-600/15 text-green-600 border-green-500/30 dark:from-green-900/30 dark:to-green-800/30 dark:text-green-300 dark:border-green-700/50',
     success: 'bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700 border-emerald-200 dark:from-green-900/30 dark:to-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
-    error: 'bg-gradient-to-r from-red-50 to-rose-50 text-red-700 border-red-200 dark:from-red-900/30 dark:to-rose-900/30 dark:text-red-300 dark:border-red-700',
+    error: 'bg-gradient-to-r from-red-50 to-red-100 text-red-700 border-red-200 dark:from-red-900/30 dark:to-red-900/20 dark:text-red-300 dark:border-red-700',
     warning: 'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200 dark:from-amber-900/30 dark:to-yellow-900/30 dark:text-amber-300 dark:border-amber-700',
     info: 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700 border-blue-200 dark:from-blue-900/30 dark:to-cyan-900/30 dark:text-blue-300 dark:border-blue-700',
     outline: 'bg-transparent text-gray-700 border-gray-300 dark:text-gray-300 dark:border-gray-600',
@@ -57,10 +57,10 @@ export default function Badge({
 
   // Animation de pulsation
   const pulseClass = pulse ? 'animate-pulse' : '';
-  
+
   // Ombre
   const shadowClass = shadow ? 'shadow-md' : '';
-  
+
   // Bordure
   const borderClass = border ? 'border' : '';
 
@@ -108,8 +108,8 @@ export default function Badge({
           }}
           className={`
             ml-1 -mr-1 p-0.5 rounded-full
-            ${variant === 'gradient' 
-              ? 'text-white/80 hover:bg-white/20 hover:text-white' 
+            ${variant === 'gradient'
+              ? 'text-white/80 hover:bg-white/20 hover:text-white'
               : 'text-gray-400 hover:bg-gray-600 hover:text-white'
             }
             transition-colors

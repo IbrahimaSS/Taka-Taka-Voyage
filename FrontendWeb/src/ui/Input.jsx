@@ -33,14 +33,14 @@ const Input = React.forwardRef(function Input(
             'border-slate-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20',
             'dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:focus:border-primary-400 dark:focus:ring-primary-400/20',
             icon && 'pl-10',
-            error && 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 dark:border-rose-700',
+            error && 'border-red-300 focus:border-red-500 focus:ring-red-500/20 dark:border-red-700',
             className
           )}
           {...props}
         />
       </div>
       {error ? (
-        <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{error}</p>
+        <p className="mt-2 text-xs text-red-600 dark:text-red-300">{error}</p>
       ) : hint ? (
         <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{hint}</p>
       ) : null}

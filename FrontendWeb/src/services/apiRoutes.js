@@ -184,6 +184,9 @@ export const API_ROUTES = {
   litiges: {
     creer: "/litiges",
   },
+  alertes: {
+    logAppel: "/alertes/log-appel",
+  },
 
   // ===================== UPLOADS =====================
   uploads: {

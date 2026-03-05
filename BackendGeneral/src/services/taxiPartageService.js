@@ -3,6 +3,8 @@ const GroupeTaxiPartage = require("../models/GroupeTaxiPartage");
 const ChauffeurProfile = require("../models/ChauffeurProfile");
 const Utilisateurs = require("../models/Utilisateurs");
 const Notification = require("../models/Notifications");
+const Trajet = require("../models/Trajets");
+const Paiement = require("../models/Paiements");
 
 class TaxiPartageService {
     // Créer ou ajouter une réservation à un groupe de taxi partagé
@@ -400,7 +402,8 @@ class TaxiPartageService {
     // Terminer un trajet de taxi partagé
     static async terminerTrajetGroupe(groupeId, chauffeurId) {
         try {
-            const groupe = await GroupeTaxiPartage.findById(groupeId);
+            const groupe = await GroupeTaxiPartage.findById(groupeId)
+                .populate('reservations.reservation');
 
             if (!groupe) {
                 throw new Error("Groupe introuvable");
@@ -410,30 +413,83 @@ class TaxiPartageService {
                 throw new Error("Ce chauffeur n'est pas responsable de ce groupe");
             }
 
-            // Terminer le groupe
+            const dateFin = new Date();
+
+            // 1. Terminer le groupe en DB
             await groupe.terminerTrajet();
 
-            // Mettre à jour toutes les réservations
-            await Reservation.updateMany(
-                { groupeTaxiPartage: groupeId },
-                {
-                    statut: "TERMINEE",
-                    dateFin: new Date()
-                }
-            );
+            // 2. Traiter chaque réservation du groupe
+            const reservations = groupe.reservations.map(r => r.reservation);
 
-            // Notifier tous les passagers
+            for (const res of reservations) {
+                // Mettre à jour la réservation
+                res.statut = "TERMINEE";
+                res.dateFin = dateFin;
+                await res.save();
+
+                // Persister dans le modèle Trajet
+                try {
+                    await Trajet.findOneAndUpdate(
+                        { reservation: res._id },
+                        {
+                            statut: "TERMINEE",
+                            dateFin: dateFin,
+                            // Sécurité: assurer que les autres champs sont là si le trajet n'existait pas
+                            passager: res.passager,
+                            chauffeur: chauffeurId,
+                            depart: res.depart,
+                            destination: res.destination,
+                            distanceKm: res.distanceKm,
+                            dureeMin: res.dureeMin,
+                            prix: res.prix
+                        },
+                        { upsert: true, new: true }
+                    );
+                } catch (tErr) {
+                    console.error(`❌ TaxiPartageService: erreur trajet RID=${res._id}:`, tErr.message);
+                }
+
+                // Créer le record Paiement si nécessaire
+                try {
+                    const commissionRate = 0.20;
+                    const commissionPlateforme = Math.round(res.prix * commissionRate);
+                    const montantChauffeur = res.prix - commissionPlateforme;
+
+                    await Paiement.findOneAndUpdate(
+                        { reservation: res._id },
+                        {
+                            passager: res.passager,
+                            chauffeur: chauffeurId,
+                            statut: res.paiement?.statut === "PAYE" ? "PAYE" : "EN_ATTENTE",
+                            montantTotal: res.prix,
+                            commissionPlateforme,
+                            montantChauffeur,
+                            methode: res.paiement?.methode || "CASH",
+                            verse: false
+                        },
+                        { upsert: true, new: true, setDefaultsOnInsert: true }
+                    );
+                } catch (pErr) {
+                    console.error(`❌ TaxiPartageService: erreur paiement RID=${res._id}:`, pErr.message);
+                }
+            }
+
+            // 3. Libérer le chauffeur
+            await Utilisateurs.findByIdAndUpdate(chauffeurId, { trajetEnCours: false });
+
+            // 4. Notifier tous les passagers
             await this.notifierPassagersGroupe(groupeId, {
                 type: "trajet_termine",
-                message: "Trajet terminé. Merci d'avoir utilisé Taka-Taka Voyage ! 🎉",
+                message: "Trajet terminé pour tout le groupe. Merci d'avoir utilisé Taka-Taka Voyage ! 🎉",
                 groupeId: groupeId
             });
 
-            console.log(`🏁 Trajet de taxi partagé terminé - Groupe ${groupeId}`);
+            console.log(`🏁 Trajet de taxi partagé terminé GLOBALEMENT - Groupe ${groupeId} (${reservations.length} passagers)`);
 
             return {
                 succes: true,
-                message: "Trajet de taxi partagé terminé avec succès"
+                message: "Trajet de taxi partagé terminé avec succès pour tout le groupe",
+                reservationIds: reservations.map(r => r._id)
             };
 
         } catch (error) {

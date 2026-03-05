@@ -177,7 +177,7 @@ export const DriverProvider = ({ children }) => {
           destinationAddress: c.destination,
           pickupCoords: c.departLat ? [c.departLat, c.departLng] : null,
           destinationCoords: c.destinationLat ? [c.destinationLat, c.destinationLng] : null,
-          pickupStatus: c.statut === 'EN_ROUTE' ? 'picked_up' : (c.statut === 'ARRIVE' ? 'arrived' : 'approaching'),
+          pickupStatus: ['EN_ROUTE', 'EN_COURS', 'RAMASSE', 'ABORD'].includes(c.statut) ? 'picked_up' : (c.statut === 'ARRIVE' ? 'arrived' : 'approaching'),
           estimatedFare: c.prix,
           momentPaiement: c.momentPaiement || c.paymentMoment,
           paymentMethod: c.paymentMethod || c.methodePaiement || c.modePaiement,
@@ -299,14 +299,25 @@ export const DriverProvider = ({ children }) => {
   // ────────────────────────────────────────────────
   const handleNewTripRequest = useCallback(
     (tripData) => {
+      console.log("📩 [DRIVER_CONTEXT] *** course:demande REÇUE ***", tripData);
+
       const reservationId = tripData?.reservationId || tripData?.id;
-      if (!reservationId) return;
+      if (!reservationId) {
+        console.warn("❌ [DRIVER_CONTEXT] Pas de reservationId dans tripData");
+        return;
+      }
 
       // si déjà en course, ignorer
-      if (tripStepRef.current === "in_progress") return;
+      if (tripStepRef.current === "in_progress") {
+        console.log(`❕ [DRIVER_CONTEXT] Chauffeur occupé (${tripStepRef.current}), on ignore.`);
+        return;
+      }
 
       // anti doublon (on laisse passer si c'est un rappel J-1)
-      if (processedRequestIds.current.has(reservationId) && !tripData.isRappel) return;
+      if (processedRequestIds.current.has(reservationId) && !tripData.isRappel) {
+        console.log(`❕ [DRIVER_CONTEXT] Demande ${reservationId} déjà traitée.`);
+        return;
+      }
 
       const pickup = normalizeCoords(tripData.pickupCoords);
       const dest = normalizeCoords(tripData.destinationCoords);
@@ -409,70 +420,54 @@ export const DriverProvider = ({ children }) => {
     setIsConnecting(true);
     setStatus("available");
 
+    console.log("🔌 [DRIVER_CONTEXT] Connexion socket CHAUFFEUR:", DRIVER.id);
     socketService.connect(DRIVER.id, "CHAUFFEUR", DRIVER.nom, DRIVER.prenom);
 
-    socketService.on("course:demande", handleNewTripRequest);
-
-    const onAcceptedOk = ({ reservationId } = {}) => {
+    console.log("👂 [DRIVER_CONTEXT] Enregistrement listener course:demande");
+    const onAcceptedOk = (data) => {
+      const reservationId = data?.reservationId;
       if (!reservationId) return;
-
       setStats((prev) => ({ ...prev, acceptedToday: prev.acceptedToday + 1 }));
-
       const req = tripRequestsRef.current.find((r) => r.id === reservationId);
-
       if (req) {
         setAcceptedTrips((prev) => {
           if (prev.some((t) => t.id === reservationId)) return prev;
           return [{ ...req, pickupStatus: "pending" }, ...prev];
         });
-      } else {
-        console.warn("⚠️ [DRIVER] Accept OK mais requête introuvable:", reservationId);
       }
-
       setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
     };
 
-    const onAlreadyTaken = ({ message, reservationId } = {}) => {
-      console.warn("⚠️ [DRIVER] course déjà prise:", message);
-      if (reservationId) {
-        setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
-        processedRequestIds.current.delete(reservationId);
+    const onAlreadyTaken = (data) => {
+      if (data?.reservationId) {
+        setTripRequests((prev) => prev.filter((r) => r.id !== data.reservationId));
+        processedRequestIds.current.delete(data.reservationId);
       }
     };
 
-    const onRefusedOk = ({ reservationId } = {}) => {
+    const onRefusedOk = (data) => {
+      const reservationId = data?.reservationId;
       if (!reservationId) return;
-
       setStats((prev) => ({ ...prev, rejectedToday: prev.rejectedToday + 1 }));
       setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
       processedRequestIds.current.delete(reservationId);
     };
 
-    const onTripCancelled = ({ reservationId } = {}) => {
-      if (!reservationId) return;
-
-      setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
-      setAcceptedTrips((prev) => prev.filter((t) => t.id !== reservationId));
-      processedRequestIds.current.delete(reservationId);
-
-      if (currentPickupTripIdRef.current === reservationId) {
+    const onTripCancelled = (data) => {
+      const rid = data?.reservationId;
+      if (!rid) return;
+      setTripRequests((prev) => prev.filter((r) => r.id !== rid));
+      setAcceptedTrips((prev) => prev.filter((t) => t.id !== rid));
+      processedRequestIds.current.delete(rid);
+      if (currentPickupTripIdRef.current === rid) {
         setCurrentPickupTripId(null);
         setTripStep("idle");
         setStatus("available");
       }
     };
 
-    socketService.on("course:acceptee_confirmation", onAcceptedOk);
-    socketService.on("course:deja_prise", onAlreadyTaken);
-    socketService.on("course:refusee_confirmation", onRefusedOk);
-    socketService.on("trip_cancelled", onTripCancelled);
-    socketService.on("course:annulee", onTripCancelled);
-
-    // ✅ Suggestion 1: Notification versement admin + Refresh automatique
-    socketService.on("paiement:verse", (data) => {
-      console.log("💰 [DRIVER] Versement admin reçu:", data);
+    const onPaiementVerse = (data) => {
       const montant = (data.montant || 0).toLocaleString('fr-FR');
-
       addNotification({
         type: NOTIFICATION_TYPES.SUCCESS,
         category: NOTIFICATION_CATEGORIES.FINANCIAL,
@@ -480,61 +475,98 @@ export const DriverProvider = ({ children }) => {
         message: `L'administration a versé ${montant} GNF sur votre compte.`,
         priority: 'high'
       });
-
-      // Déclencher un événement global pour que Revenues.jsx se rafraîchisse
       window.dispatchEvent(new CustomEvent('chauffeur:revenu_mis_a_jour'));
-    });
+    };
 
-    // ✅ Suggestion 2: Libérer le chauffeur quand le trajet se termine (via socket)
-    const onTripFinished = (data) => {
-      console.log("🏁 [DRIVER] Trajet terminé reçu par socket, libération du statut");
-      // On ne vide plus brutalement setAcceptedTrips([]) ici pour ne pas casser l'UI
+    const onPaymentRequested = (data) => {
+      console.log("💰 [DRIVER] Demande de confirmation de paiement reçue:", data);
+      toast.success("💰 Le passager confirme avoir payé !\nVeuillez vérifier la réception et valider.", {
+        id: 'payment-notif-cash',
+        duration: 8000
+      });
+      addNotification({
+        type: NOTIFICATION_TYPES.SUCCESS,
+        category: NOTIFICATION_CATEGORIES.FINANCIAL,
+        title: 'Paiement à confirmer 💰',
+        message: "Le passager a déclaré avoir payé en espèces. Veuillez confirmer sur votre interface.",
+        priority: 'high'
+      });
+    };
+
+    const onAutoPaymentConfirmed = (data) => {
+      console.log("✅ [DRIVER] Paiement automatique confirmé:", data);
+      toast.success("✅ Paiement reçu (Automatique) !\nLe trajet est maintenant réglé.", {
+        id: 'payment-notif-auto',
+        duration: 6000
+      });
+      addNotification({
+        type: NOTIFICATION_TYPES.SUCCESS,
+        category: NOTIFICATION_CATEGORIES.FINANCIAL,
+        title: 'Paiement reçu ✅',
+        message: "Le paiement électronique a été validé avec succès.",
+        priority: 'high'
+      });
+
+      const rid = data?.reservationId;
+      if (rid && acceptedTripsRef.current.length > 1 && !data?.groupeId) {
+        // Il reste d'autres réservations (Taxi Partagé)
+        setAcceptedTrips((prev) => {
+          const newTrips = prev.filter((t) => t.id !== rid && t.reservationId !== rid);
+          if (newTrips.length === 0) {
+            onTripFinished();
+          } else if (currentPickupTripIdRef.current === rid) {
+            setCurrentPickupTripId(newTrips[0].id);
+          }
+          return newTrips;
+        });
+      } else {
+        // Dernier passager ou terminaison globale
+        onTripFinished();
+      }
+    };
+
+    const onTripFinished = () => {
       setCurrentPickupTripId(null);
       setTripStep("idle");
       setStatus("available");
-      // refreshActiveTrips() est commenté car il viderait acceptedTrips si le trajet n'est plus actif
     };
 
+    // Inscription des listeners
+    socketService.on("course:demande", handleNewTripRequest);
+    socketService.on("course:acceptee_confirmation", onAcceptedOk);
+    socketService.on("course:deja_prise", onAlreadyTaken);
+    socketService.on("course:refusee_confirmation", onRefusedOk);
+    socketService.on("trip_cancelled", onTripCancelled);
+    socketService.on("course:annulee", onTripCancelled);
+    socketService.on("paiement:verse", onPaiementVerse);
+    socketService.on("paiement:reception_a_confirmer", onPaymentRequested);
     socketService.on("course:terminee", onTripFinished);
-    socketService.on("course:finit_avec_paiement", onTripFinished);
-    socketService.on("paiement:confirme", onTripFinished);
+    socketService.on("course:finit_avec_paiement", onAutoPaymentConfirmed);
+    socketService.on("paiement:confirme", onAutoPaymentConfirmed);
     socketService.on("taxipartage:groupe_rejoint", onGroupeRejoint);
     socketService.on("taxipartage:statut_mis_a_jour", onStatutMisAJour);
     socketService.on("taxipartage:peut_demarrer", onPeutDemarrer);
-    socketService.on("taxipartage:demarrage_ok", onDemarrageOk);
-    socketService.on("taxipartage:trajet_demarre", onDemarrageOk);
     socketService.on("course:demarrage_ok", onDemarrageOk);
 
     setIsConnecting(false);
 
     return () => {
       socketService.off("course:demande", handleNewTripRequest);
-      socketService.off("course:acceptee_confirmation", onAcceptedOk);
-      socketService.off("course:deja_prise", onAlreadyTaken);
-      socketService.off("course:refusee_confirmation", onRefusedOk);
-      socketService.off("trip_cancelled", onTripCancelled);
-      socketService.off("course:annulee", onTripCancelled);
+      socketService.off("course:acceptee_confirmation");
+      socketService.off("course:deja_prise");
+      socketService.off("course:refusee_confirmation");
+      socketService.off("trip_cancelled");
+      socketService.off("course:annulee");
       socketService.off("paiement:verse");
-      socketService.off("course:terminee", onTripFinished);
-      socketService.off("course:finit_avec_paiement", onTripFinished);
-      socketService.off("paiement:confirme", onTripFinished);
+      socketService.off("course:terminee");
+      socketService.off("course:finit_avec_paiement");
+      socketService.off("paiement:confirme");
       socketService.off("taxipartage:groupe_rejoint");
       socketService.off("taxipartage:statut_mis_a_jour");
       socketService.off("taxipartage:peut_demarrer");
-      socketService.off("taxipartage:demarrage_ok");
-      socketService.off("taxipartage:trajet_demarre");
       socketService.off("course:demarrage_ok");
     };
-  }, [
-    isOnline,
-    DRIVER,
-    handleNewTripRequest,
-    refreshActiveTrips,
-    onGroupeRejoint,
-    onStatutMisAJour,
-    onPeutDemarrer,
-    onDemarrageOk
-  ]);
+  }, [isOnline, DRIVER?.id]); // On réduit les dépendances au strict minimum
 
   // ────────────────────────────────────────────────
   // 3) GPS en continu (uniquement si course active)
@@ -546,10 +578,10 @@ export const DriverProvider = ({ children }) => {
 
     // Déterminer les reservationIds à broadcaster
     const getTargetIds = () => {
+      // ✅ CORRECTIF CRITIQUE: En trajet, on diffuse à TOUS les passagers du groupe
+      // même si leur statut individuel n'est pas encore 'picked_up' en DB.
       if (tripStepRef.current === "in_progress") {
-        return acceptedTripsRef.current
-          .filter((t) => t.pickupStatus === "picked_up" || t.id === currentPickupTripIdRef.current)
-          .map((t) => t.id);
+        return acceptedTripsRef.current.map((t) => t.id || t.reservationId);
       }
       if (currentPickupTripIdRef.current) {
         return [currentPickupTripIdRef.current];
@@ -562,16 +594,19 @@ export const DriverProvider = ({ children }) => {
 
     // ✅ Broadcast position intelligent (Production Ready - High Reactivity)
     const interval = setInterval(() => {
+      // 🛑 STOP GPS RÉEL SI SIMULATION ACTIVE : Évite "l'un bouge et l'autre non"
+      if (window.isTravelingSimulationActive) {
+        return;
+      }
+
       const currentIds = getTargetIds();
       if (currentIds.length === 0) return;
 
       const lastLoc = lastBroadcastRef.current;
       const lastTime = lastBroadcastTimeRef.current;
-
       const currentLoc = driverLocationRef.current || driverLocation;
       const now = Date.now();
 
-      // Logique de filtrage
       let shouldBroadcast = false;
 
       if (!lastLoc) {
@@ -579,9 +614,6 @@ export const DriverProvider = ({ children }) => {
       } else {
         const dist = calculateDistance(currentLoc.lat, currentLoc.lng, lastLoc.lat, lastLoc.lng);
         const timeSinceLast = now - lastTime;
-
-        // SEUILS: 2 mètres (0.002 km) OU 5 secondes (Heartbeat) pour une réactivité maximale
-        // Permet de voir les micro-déplacements lors des tests réels.
         if (dist > 0.002 || timeSinceLast > 5000) {
           shouldBroadcast = true;
         }
@@ -589,12 +621,12 @@ export const DriverProvider = ({ children }) => {
 
       if (shouldBroadcast) {
         for (const rid of currentIds) {
+          const targetTrip = acceptedTripsRef.current.find(t => t.id === rid);
           socketService.emit("position:update", {
             reservationId: rid,
             lat: currentLoc.lat,
             lng: currentLoc.lng,
-            speed: currentLoc.speed || 0,
-            heading: currentLoc.heading || 0
+            isSimulation: false
           });
         }
         lastBroadcastRef.current = currentLoc;
@@ -765,6 +797,11 @@ export const DriverProvider = ({ children }) => {
           if (reservationIds.length > 0) {
             socketService.emit("course:demarrer_global", { reservationIds });
           }
+
+          // ✅ FORCE: Activer la diffusion GPS vers tout le groupe
+          setTripStep("in_progress");
+          setStatus("busy");
+
           toast.success("🚀 Trajet démarré !");
           if (typeof fetchFileRamassage === 'function') await fetchFileRamassage();
         } else {

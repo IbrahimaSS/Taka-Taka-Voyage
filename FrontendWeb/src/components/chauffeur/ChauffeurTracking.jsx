@@ -180,7 +180,7 @@ const TrackingMap = ({
 
                                         <div className="p-2">
 
-                                            <p className="font-bold text-rose-600">{t('tracking.destination_label')}</p>
+                                            <p className="font-bold text-red-600">{t('tracking.destination_label')}</p>
 
                                             <p className="text-sm">{trip.destinationAddress}</p>
 

@@ -51,13 +51,13 @@ export const leafletIcons = {
   end: L.divIcon({
     html: `
       <div class="relative">
-        <div class="w-10 h-10 bg-gradient-to-br from-rose-500 to-rose-700 rounded-full border-[3px] border-white shadow-xl flex items-center justify-center">
+        <div class="w-10 h-10 bg-gradient-to-br from-red-500 to-red-700 rounded-full border-[3px] border-white shadow-xl flex items-center justify-center">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
             <circle cx="12" cy="10" r="3"/>
           </svg>
         </div>
-        <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-black uppercase tracking-wider text-white bg-rose-600 px-2 py-0.5 rounded shadow-sm border border-white/20">
+        <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-black uppercase tracking-wider text-white bg-red-600 px-2 py-0.5 rounded shadow-sm border border-white/20">
           Arrivée
         </div>
       </div>

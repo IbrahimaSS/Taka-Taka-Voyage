@@ -35,6 +35,7 @@ exports.confirmerReservationImmediate = async (req, res) => {
       typeVehicule,
       prix,
       momentPaiement = "MAINTENANT",
+      paymentResult,
     } = req.body;
 
     // 1) validations minimales
@@ -92,7 +93,12 @@ exports.confirmerReservationImmediate = async (req, res) => {
       statut: "EN_ATTENTE",
 
       paiement:
-        momentPaiement === "MAINTENANT" ? { statut: "EN_ATTENTE" } : null,
+        momentPaiement === "MAINTENANT"
+          ? {
+            statut: paymentResult?.success ? "PAYE" : "EN_ATTENTE",
+            methode: paymentResult?.paymentMethod ? String(paymentResult.paymentMethod).toUpperCase() : "CASH",
+          }
+          : null,
     });
 
     // 3) Chauffeurs online
@@ -100,7 +106,9 @@ exports.confirmerReservationImmediate = async (req, res) => {
     const chauffeursCandidats = await Utilisateur.find({
       role: "CHAUFFEUR",
       estEnLigne: true,
-      statut: "ACTIF",
+      // On retire statut: "ACTIF" ici car certains chauffeurs peuvent avoir un statut ACTIF 
+      // dans ChauffeurProfile mais rester EN_ATTENTE dans Utilisateurs (désynchronisation).
+      // La vérification de sécurité est déjà faite au niveau du socket.join("CHAUFFEURS").
     }).select("nom prenom telephone noteMoyenne socketId vehicule");
 
     console.log(`🔍 [RESERVATION_IMMEDIATE] ${chauffeursCandidats.length} chauffeurs TOTAL en ligne.`);
@@ -173,16 +181,26 @@ exports.confirmerReservationImmediate = async (req, res) => {
 
       const driverRoom = `CHAUFFEUR_${chauffeur._id.toString()}`;
 
-      // ✅ room stable
+      // 🔍 Diagnostic: vérifier qui est dans la room
+      const roomSockets = io?.sockets?.adapter?.rooms?.get(driverRoom);
+      console.log(`🔍 [EMIT] Room ${driverRoom} → ${roomSockets ? roomSockets.size : 0} socket(s):`, roomSockets ? [...roomSockets] : []);
+
+      // ✅ room stable (individuelle)
       io?.to(driverRoom).emit("course:demande", payload);
 
       // ✅ fallback socketId (ultra safe)
       if (chauffeur.socketId) {
+        console.log(`🔍 [EMIT] Fallback socketId: ${chauffeur.socketId}`);
         io?.to(chauffeur.socketId).emit("course:demande", payload);
       }
     }
 
-    console.log(`✅ Demande envoyée à ${chauffeursContactes} chauffeurs`);
+    // ✅ BROADCAST: envoyer aussi à la room globale CHAUFFEURS (filet de sécurité)
+    const chauffeurRoomSockets = io?.sockets?.adapter?.rooms?.get("CHAUFFEURS");
+    console.log(`🔍 [EMIT] Room CHAUFFEURS → ${chauffeurRoomSockets ? chauffeurRoomSockets.size : 0} socket(s)`);
+    io?.to("CHAUFFEURS").emit("course:demande", payload);
+
+    console.log(`✅ Demande envoyée à ${chauffeursContactes} chauffeurs (+ broadcast CHAUFFEURS)`);
 
     return res.status(201).json({
       succes: true,

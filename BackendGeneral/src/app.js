@@ -155,6 +155,10 @@ app.use("/api/litiges", commonLitigeRoutes);
 const servicesRoutes = require("./routes/common/servicesRoutes");
 app.use("/api/services-actifs", servicesRoutes);
 
+// Alertes et SOS
+const alerteRoutes = require("./routes/common/alerteRoutes");
+app.use("/api/alertes", alerteRoutes);
+
 // Assistant IA
 const aiRoutes = require("./routes/aiRoutes");
 app.use("/api/ai", aiRoutes);
