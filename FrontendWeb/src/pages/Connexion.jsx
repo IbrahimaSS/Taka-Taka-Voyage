@@ -40,6 +40,15 @@ const Connexion = () => {
   const [validationErrors, setValidationErrors] = useState({});
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showValidationModal, setShowValidationModal] = useState(false);
+
+  // 2FA states
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+  const [deviceId, setDeviceId] = useState(localStorage.getItem('takataka_deviceId') || '');
+  const [maskedPhone, setMaskedPhone] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   const { login: authLogin } = useAuth();
   const [toast, setToast] = useState({ show: false, title: '', message: '', type: 'info' });
 
@@ -56,6 +65,12 @@ const Connexion = () => {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const showToast = (title, message, type = 'info') => {
     setToast({ show: true, title, message, type });
@@ -107,7 +122,7 @@ const Connexion = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) {
+    if (!requires2FA && !validateForm()) {
       return;
     }
 
@@ -116,10 +131,29 @@ const Connexion = () => {
       const response = await authLogin({
         identifiant: formData.phone,
         motDePasse: formData.password,
+        deviceId: deviceId,
+        otpCode: requires2FA ? otpCode.join('') : undefined
       });
 
-      if (response.succes) {
+      // Gestion spécifique au 2FA
+      if (response && response.requires2FA) {
+        setRequires2FA(true);
+        if (response.deviceId) setDeviceId(response.deviceId);
+        if (response.telephoneMasked) setMaskedPhone(response.telephoneMasked);
+        if (response.emailMasked) setMaskedEmail(response.emailMasked);
+        if (!requires2FA) {
+          // Premier déclenchement 2FA → démarrer le cooldown
+          setResendCooldown(60);
+        }
+        showToast('Vérification requise', response.message || 'Veuillez entrer le code OTP reçu.', 'info');
+        return;
+      }
+
+      if (response && response.succes) {
         setLoginSuccess(true);
+        if (response.deviceId) {
+          localStorage.setItem('takataka_deviceId', response.deviceId);
+        }
 
         if (rememberMe) {
           localStorage.setItem('rememberLogin', 'true');
@@ -129,7 +163,6 @@ const Connexion = () => {
           localStorage.removeItem('userPhone');
         }
 
-        // Si chauffeur EN ATTENTE → page d'attente immédiatement
         const statut = response.statut;
         if (statut === 'EN_ATTENTE') {
           showToast('Compte en attente', 'Votre dossier est en cours de validation.', 'info');
@@ -139,24 +172,48 @@ const Connexion = () => {
 
         showToast('Connexion réussie', 'Redirection vers votre espace...', 'success');
 
-        // Redirection basée sur le rôle de l'utilisateur
         const user = response.utilisateur || response.user;
         setTimeout(() => {
-          if (user?.role === 'ADMIN') {
-            navigate('/admin');
-          } else if (user?.role === 'CHAUFFEUR' || user?.role === 'DRIVER') {
-            navigate('/chauffeur');
-          } else if (user?.role === 'PASSAGER' || user?.role === 'PASSENGER') {
-            navigate('/passager');
-          } else {
-            navigate('/');
-          }
+          if (user?.role === 'ADMIN') navigate('/admin');
+          else if (user?.role === 'CHAUFFEUR' || user?.role === 'DRIVER') navigate('/chauffeur');
+          else if (user?.role === 'PASSAGER' || user?.role === 'PASSENGER') navigate('/passager');
+          else navigate('/');
         }, 1000);
       }
     } catch (error) {
-      showToast('Erreur de connexion', error?.response?.data?.message || 'Connexion impossible', 'error');
+      const errMsg = error?.response?.data?.message || 'Connexion impossible';
+      if (error?.response?.data?.requires2FA) {
+        // OTP invalide ou expiré, rester sur l'écran OTP
+        setOtpCode(['', '', '', '', '', '']);
+        showToast('Code invalide', errMsg, 'error');
+        // Focus le premier input OTP
+        setTimeout(() => document.getElementById('otp-0')?.focus(), 100);
+      } else {
+        showToast('Erreur de connexion', errMsg, 'error');
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleOtpChange = (index, value) => {
+    if (value.length > 1) value = value.slice(-1); // Only 1 digit
+    if (!/^\d*$/.test(value)) return;
+    const newOtp = [...otpCode];
+    newOtp[index] = value;
+    setOtpCode(newOtp);
+
+    // Auto focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      if (prevInput) prevInput.focus();
     }
   };
 
@@ -361,108 +418,266 @@ const Connexion = () => {
 
               {/* Login Form */}
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Phone/Email Input */}
-                <div>
-                  <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium flex items-center">
-                    Numéro de téléphone / Adresse Email
-                    <button
-                      type="button"
-                      onClick={() => showToast('Format accepté', 'Utilisez votre numéro (9 chiffres) ou votre email', 'info')}
-                      className="ml-2 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
-                      title="Plus d'informations"
-                    >
-                      <Info size={14} />
-                    </button>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Smartphone className="text-gray-400" size={20} />
-                    </div>
-                    <input
-                      type="text"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className={`w-full pl-10 pr-4 py-3 rounded-xl border ${validationErrors.phone
-                        ? 'border-red-500 focus:ring-red-500/50'
-                        : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500/50'
-                        } bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
-                      placeholder="xxx xxx xxx / example@gmail.com"
-                    />
-                  </div>
-                  {validationErrors.phone && (
-                    <p className="text-red-500 text-sm mt-1">{validationErrors.phone}</p>
-                  )}
-                  <p className="text-gray-500 dark:text-gray-400 text-xs mt-2">
-                    Entrez votre numéro de téléphone (9 chiffres) ou votre adresse email
-                  </p>
-                </div>
 
-                {/* Password Input */}
-                <div>
-                  <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">
-                    Mot de passe
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Lock className="text-gray-400" size={20} />
-                    </div>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className={`w-full pl-10 pr-12 py-3 rounded-xl border ${validationErrors.password
-                        ? 'border-red-500 focus:ring-red-500/50'
-                        : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500/50'
-                        } bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
-                      placeholder="Votre mot de passe"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                      aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                    >
-                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
-                  </div>
-                  {validationErrors.password && (
-                    <p className="text-red-500 text-sm mt-1">{validationErrors.password}</p>
-                  )}
-                  <p className="text-gray-500 dark:text-gray-400 text-xs mt-2">
-                    Le mot de passe doit contenir au moins 8 caractères
-                  </p>
-                </div>
-
-                {/* Remember & Forgot */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
-                  <label className="flex items-center space-x-3 cursor-pointer group">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="hidden"
-                      />
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${rememberMe
-                        ? 'bg-green-600 border-green-600 shadow-inner'
-                        : 'border-gray-300 dark:border-gray-600 group-hover:border-green-500'
-                        }`}>
-                        {rememberMe && <Check className="text-white" size={14} />}
+                {requires2FA ? (
+                  <div className="text-center space-y-6">
+                    {/* Animated Shield Icon */}
+                    <div className="relative mx-auto w-20 h-20">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-green-500 rounded-full opacity-20 animate-ping" style={{ animationDuration: '2s' }}></div>
+                      <div className="relative w-20 h-20 bg-gradient-to-br from-blue-600 via-blue-500 to-green-500 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <Shield className="w-10 h-10 text-white" />
                       </div>
                     </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors">
-                      Se souvenir de moi
-                    </span>
-                  </label>
-                  <a
-                    href="/forgot-password"
-                    className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors hover:underline"
-                  >
-                    Mot de passe oublié ?
-                  </a>
-                </div>
+
+                    {/* Title */}
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                        Vérification de sécurité
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">
+                        Nouvel appareil détecté sur votre compte
+                      </p>
+                    </div>
+
+                    {/* Info Card */}
+                    <div className="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 rounded-2xl p-4 border border-blue-100 dark:border-blue-800/40">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-700 shadow-sm flex items-center justify-center flex-shrink-0">
+                          <Lock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                            Code envoyé par email
+                          </p>
+                          {(maskedPhone || maskedEmail) && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              {maskedPhone && <span>{maskedPhone}</span>}
+                              {maskedPhone && maskedEmail && <span className="mx-1">•</span>}
+                              {maskedEmail && <span>{maskedEmail}</span>}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* OTP Input Fields */}
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 font-medium uppercase tracking-wider">
+                        Entrez le code à 6 chiffres
+                      </p>
+                      <div className="flex justify-center gap-3">
+                        {otpCode.map((digit, i) => (
+                          <input
+                            key={`otp-${i}`}
+                            id={`otp-${i}`}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength="1"
+                            value={digit}
+                            onChange={(e) => handleOtpChange(i, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                            onFocus={(e) => e.target.select()}
+                            className={`w-13 h-14 text-center text-2xl font-bold rounded-xl border-2 transition-all duration-200 outline-none
+                              ${digit
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-md shadow-blue-500/10'
+                                : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                              }
+                              focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:shadow-lg focus:shadow-blue-500/10
+                              hover:border-blue-300 dark:hover:border-blue-500`}
+                            style={{ width: '52px' }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Timer Progress */}
+                    <div className="px-4">
+                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} />
+                          Code valable 5 min
+                        </span>
+                        {resendCooldown > 0 && (
+                          <span className="text-blue-600 dark:text-blue-400 font-medium">
+                            {resendCooldown}s
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-1000"
+                          style={{ width: resendCooldown > 0 ? `${(resendCooldown / 60) * 100}%` : '100%' }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col gap-3 pt-2">
+                      <button
+                        type="button"
+                        disabled={resendCooldown > 0 || isLoading}
+                        onClick={async () => {
+                          setOtpCode(['', '', '', '', '', '']);
+                          setRequires2FA(false);
+                          setResendCooldown(60);
+                          setIsLoading(true);
+                          try {
+                            const response = await authLogin({
+                              identifiant: formData.phone,
+                              motDePasse: formData.password,
+                              deviceId: deviceId,
+                            });
+                            if (response && response.requires2FA) {
+                              setRequires2FA(true);
+                              if (response.deviceId) setDeviceId(response.deviceId);
+                              if (response.telephoneMasked) setMaskedPhone(response.telephoneMasked);
+                              if (response.emailMasked) setMaskedEmail(response.emailMasked);
+                              showToast('Code renvoyé', 'Un nouveau code vous a été envoyé.', 'success');
+                            }
+                          } catch (err) {
+                            showToast('Erreur', err?.response?.data?.message || 'Impossible de renvoyer le code.', 'error');
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }}
+                        className={`inline-flex items-center justify-center gap-2 text-sm font-medium py-2.5 px-4 rounded-xl transition-all duration-200
+                          ${resendCooldown > 0
+                            ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed bg-gray-50 dark:bg-gray-800'
+                            : 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer'
+                          }`}
+                      >
+                        <Mail size={16} />
+                        {resendCooldown > 0
+                          ? `Renvoyer dans ${resendCooldown}s`
+                          : 'Renvoyer un nouveau code'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRequires2FA(false);
+                          setOtpCode(['', '', '', '', '', '']);
+                          setResendCooldown(0);
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors py-2"
+                      >
+                        <ArrowLeft size={14} />
+                        Retour à la connexion
+                      </button>
+                    </div>
+
+                    {/* Trust Badge */}
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-400 dark:text-gray-500 pt-2">
+                      <Shield size={12} className="text-green-500" />
+                      <span>Protection renforcée pour votre sécurité</span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Phone/Email Input */}
+                    <div>
+                      <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium flex items-center">
+                        Numéro de téléphone / Adresse Email
+                        <button
+                          type="button"
+                          onClick={() => showToast('Format accepté', 'Utilisez votre numéro (9 chiffres) ou votre email', 'info')}
+                          className="ml-2 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+                          title="Plus d'informations"
+                        >
+                          <Info size={14} />
+                        </button>
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Smartphone className="text-gray-400" size={20} />
+                        </div>
+                        <input
+                          type="text"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          className={`w-full pl-10 pr-4 py-3 rounded-xl border ${validationErrors.phone
+                            ? 'border-red-500 focus:ring-red-500/50'
+                            : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500/50'
+                            } bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
+                          placeholder="xxx xxx xxx / example@gmail.com"
+                        />
+                      </div>
+                      {validationErrors.phone && (
+                        <p className="text-red-500 text-sm mt-1">{validationErrors.phone}</p>
+                      )}
+                      <p className="text-gray-500 dark:text-gray-400 text-xs mt-2">
+                        Entrez votre numéro de téléphone (9 chiffres) ou votre adresse email
+                      </p>
+                    </div>
+
+                    {/* Password Input */}
+                    <div>
+                      <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">
+                        Mot de passe
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Lock className="text-gray-400" size={20} />
+                        </div>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          name="password"
+                          value={formData.password}
+                          onChange={handleInputChange}
+                          className={`w-full pl-10 pr-12 py-3 rounded-xl border ${validationErrors.password
+                            ? 'border-red-500 focus:ring-red-500/50'
+                            : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500/50'
+                            } bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all`}
+                          placeholder="Votre mot de passe"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                          aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
+                      {validationErrors.password && (
+                        <p className="text-red-500 text-sm mt-1">{validationErrors.password}</p>
+                      )}
+                      <p className="text-gray-500 dark:text-gray-400 text-xs mt-2">
+                        Le mot de passe doit contenir au moins 8 caractères
+                      </p>
+                    </div>
+
+                    {/* Remember & Forgot */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
+                      <label className="flex items-center space-x-3 cursor-pointer group">
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="hidden"
+                          />
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${rememberMe
+                            ? 'bg-green-600 border-green-600 shadow-inner'
+                            : 'border-gray-300 dark:border-gray-600 group-hover:border-green-500'
+                            }`}>
+                            {rememberMe && <Check className="text-white" size={14} />}
+                          </div>
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors">
+                          Se souvenir de moi
+                        </span>
+                      </label>
+                      <a
+                        href="/forgot-password"
+                        className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors hover:underline"
+                      >
+                        Mot de passe oublié ?
+                      </a>
+                    </div>
+                  </>
+                )}
 
                 {/* Submit Button */}
                 <Button
@@ -471,86 +686,91 @@ const Connexion = () => {
                   size="lg"
                   fullWidth
                   loading={isLoading}
+                  disabled={requires2FA && otpCode.join('').length < 6}
                   className={loginSuccess ? '!bg-gradient-to-r !from-green-600 !to-green-700' : ''}
                 >
-                  {isLoading ? 'Connexion...' : loginSuccess ? 'Connecté !' : 'Se connecter'}
+                  {isLoading ? 'Vérification...' : loginSuccess ? 'Connecté !' : requires2FA ? 'Valider le code' : 'Se connecter'}
                 </Button>
 
-                {/* Divider */}
-                <div className="relative my-8">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
-                  </div>
-                  <div className="relative flex justify-center">
-                    <span className="px-4 bg-white dark:bg-gray-800 text-gray-500 text-sm font-medium">
-                      Ou continuer avec
-                    </span>
-                  </div>
-                </div>
-
-                {/* Social Login Buttons */}
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleSocialLogin('Google')}
-                    icon={() => (
-                      <svg className="w-5 h-5 text-red-500" viewBox="0 0 24 24">
-                        <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      </svg>
-                    )}
-                  >
-                    Google
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleSocialLogin('Facebook')}
-                    icon={() => (
-                      <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24">
-                        <path fill="currentColor" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                      </svg>
-                    )}
-                  >
-                    Facebook
-                  </Button>
-                </div>
-
-                {/* Signup Links */}
-                <div className="text-center mb-8">
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    Nouveau sur {platform.name || 'Taka Taka'} ?
-                    <button
-                      onClick={() => navigate('/inscription')}
-                      className="font-bold text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 ml-2 transition-colors hover:underline"
-                    >
-                      Créer un compte
-                    </button>
-                  </p>
-                  <div className="flex flex-col justify-center sm:flex-row gap-4">
-                    <Button
-                      onClick={() => navigate('/inscription?type=passenger')}
-                      variant="outline"
-                      className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
-                    >
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">Passager</span>
-                        <span className="text-xs opacity-75">Réserver des trajets</span>
+                {!requires2FA && (
+                  <>
+                    {/* Divider */}
+                    <div className="relative my-8">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
                       </div>
-                    </Button>
-                    <Button
-                      onClick={() => navigate('/inscription?type=driver')}
-                      variant="outline"
-                      className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800"
-                    >
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold">Chauffeur</span>
-                        <span className="text-xs opacity-75">Offrir des trajets</span>
+                      <div className="relative flex justify-center">
+                        <span className="px-4 bg-white dark:bg-gray-800 text-gray-500 text-sm font-medium">
+                          Ou continuer avec
+                        </span>
                       </div>
-                    </Button>
-                  </div>
-                </div>
+                    </div>
+
+                    {/* Social Login Buttons */}
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleSocialLogin('Google')}
+                        icon={() => (
+                          <svg className="w-5 h-5 text-red-500" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                          </svg>
+                        )}
+                      >
+                        Google
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleSocialLogin('Facebook')}
+                        icon={() => (
+                          <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                          </svg>
+                        )}
+                      >
+                        Facebook
+                      </Button>
+                    </div>
+
+                    {/* Signup Links */}
+                    <div className="text-center mb-8">
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">
+                        Nouveau sur {platform.name || 'Taka Taka'} ?
+                        <button
+                          onClick={() => navigate('/inscription')}
+                          className="font-bold text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 ml-2 transition-colors hover:underline"
+                        >
+                          Créer un compte
+                        </button>
+                      </p>
+                      <div className="flex flex-col justify-center sm:flex-row gap-4">
+                        <Button
+                          onClick={() => navigate('/inscription?type=passenger')}
+                          variant="outline"
+                          className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
+                        >
+                          <div className="flex flex-col items-center">
+                            <span className="font-bold">Passager</span>
+                            <span className="text-xs opacity-75">Réserver des trajets</span>
+                          </div>
+                        </Button>
+                        <Button
+                          onClick={() => navigate('/inscription?type=driver')}
+                          variant="outline"
+                          className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                        >
+                          <div className="flex flex-col items-center">
+                            <span className="font-bold">Chauffeur</span>
+                            <span className="text-xs opacity-75">Offrir des trajets</span>
+                          </div>
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </form>
 
               {/* Security Footer */}

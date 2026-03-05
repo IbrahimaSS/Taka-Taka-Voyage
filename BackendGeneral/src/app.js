@@ -167,5 +167,13 @@ app.use("/api/ai", aiRoutes);
 const taxiPartageRoutes = require("./routes/taxiPartageRoutes");
 app.use("/api/taxipartage", taxiPartageRoutes);
 
+// Statistiques publiques
+const statsRoutes = require("./routes/common/statsRoutes");
+app.use("/api/common", statsRoutes);
+
+// Contact et support public
+const contactRoutes = require("./routes/common/contactRoutes");
+app.use("/api/common", contactRoutes);
+
 module.exports = app;
 

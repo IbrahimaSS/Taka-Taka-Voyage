@@ -4,12 +4,40 @@ import Button from '../../ui/Buttons';
 import Card from '../../ui/Card';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
+import { apiClient } from '../../services/apiClient';
 
 const HeroSection = () => {
   const { settings } = useSettings();
   const platform = settings?.platform || {};
   const navigate = useNavigate();
+  const [statsData, setStatsData] = React.useState({
+    utilisateurs: '10K+',
+    chauffeurs: '5K+',
+    trajets: '50K+'
+  });
+
   useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { data } = await apiClient.get('/common/stats');
+        if (data.succes) {
+          const formatNumber = (num) => {
+            if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M+`;
+            if (num >= 1000) return `${(num / 1000).toFixed(1)}K+`;
+            return `${num}+`;
+          };
+
+          setStatsData({
+            utilisateurs: formatNumber(data.stats.utilisateurs),
+            chauffeurs: formatNumber(data.stats.chauffeurs),
+            trajets: formatNumber(data.stats.trajets)
+          });
+        }
+      } catch (err) {
+        console.error("Erreur lors de la récupération des statistiques:", err);
+      }
+    };
+
     const createParticles = () => {
       const particlesContainer = document.getElementById('particles');
       if (!particlesContainer) return;
@@ -30,14 +58,14 @@ const HeroSection = () => {
       }
     };
 
-
+    fetchStats();
     createParticles();
   }, []);
 
   const stats = [
-    { value: '10K+', label: 'Utilisateurs satisfaits', icon: Users },
-    { value: '5K+', label: 'Chauffeurs vérifiés', icon: Car },
-    { value: '50K+', label: 'Trajets effectués', icon: MapPin }
+    { value: statsData.utilisateurs, label: 'Utilisateurs satisfaits', icon: Users },
+    { value: statsData.chauffeurs, label: 'Chauffeurs vérifiés', icon: Car },
+    { value: statsData.trajets, label: 'Trajets effectués', icon: MapPin }
   ];
 
   return (

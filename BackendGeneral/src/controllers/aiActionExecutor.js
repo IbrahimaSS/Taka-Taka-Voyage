@@ -6,7 +6,7 @@
  */
 
 const Reservation = require("../models/Reservations");
-const Parametres = require("../models/ParametresPlateforme");
+const ChauffeurProfile = require("../models/ChauffeurProfile");
 const GroupeTaxiPartage = require("../models/GroupeTaxiPartage");
 
 // ═══════════════════════════════════════════════
@@ -165,6 +165,23 @@ const ACTION_MAP = {
     voir_admin_rapports: { roles: ["ADMIN"], needsConfirmation: false },
     voir_admin_commissions: { roles: ["ADMIN"], needsConfirmation: false },
 
+    exporter_donnees: {
+        roles: ["ADMIN"],
+        needsConfirmation: true,
+        description: "Exporter une liste de données (PDF, Word, CSV)"
+    },
+    voir_facture: {
+        roles: ["ADMIN", "PASSAGER", "CHAUFFEUR"],
+        needsConfirmation: false,
+        description: "Afficher le reçu ou la facture d'un trajet"
+    },
+
+    valider_chauffeur: {
+        roles: ["ADMIN"],
+        needsConfirmation: true,
+        description: "Valider définitivement un compte chauffeur"
+    },
+
     identite_ia: {
         roles: ["CHAUFFEUR", "PASSAGER", "ADMIN"],
         needsConfirmation: false,
@@ -292,6 +309,22 @@ async function validerConfirmerPaiement(userId) {
     return { ok: true, reservationId: reservation._id.toString() };
 }
 
+async function validerValidationChauffeur(params) {
+    const { chauffeurId } = params;
+    if (!chauffeurId) {
+        // Si pas d'ID, on cherche le dernier en attente
+        const dernier = await ChauffeurProfile.findOne({ statut: "EN_ATTENTE" }).sort({ createdAt: -1 });
+        if (!dernier) return { ok: false, raison: "Aucun chauffeur en attente de validation trouvé." };
+        return { ok: true, chauffeurId: dernier._id.toString() };
+    }
+
+    const chauffeur = await ChauffeurProfile.findById(chauffeurId);
+    if (!chauffeur) return { ok: false, raison: "Le profil du chauffeur est introuvable." };
+    if (chauffeur.statut === "ACTIF") return { ok: false, raison: "Ce chauffeur est déjà validé." };
+
+    return { ok: true, chauffeurId: chauffeur._id.toString() };
+}
+
 // ═══════════════════════════════════════════════
 // FONCTION PRINCIPALE DE VALIDATION
 // ═══════════════════════════════════════════════
@@ -324,6 +357,8 @@ async function validerAction(actionName, userId, userRole, params = {}) {
             return await validerAnnulerReservation(userId, userRole);
         case "confirmer_paiement":
             return await validerConfirmerPaiement(userId);
+        case "valider_chauffeur":
+            return await validerValidationChauffeur(params);
         case "activer_maintenance":
         case "desactiver_maintenance":
         case "passer_en_ligne":

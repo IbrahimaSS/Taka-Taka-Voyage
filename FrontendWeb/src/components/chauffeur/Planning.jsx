@@ -117,41 +117,33 @@ const Planning = () => {
   };
 
   const handleStartTrip = async (reservationId) => {
-    // 🔍 Vérification de l'heure avant de démarrer
-    const allRes = Object.values(reservationsData).flat();
-    const reservation = allRes.find(r => r.id === reservationId);
-
-    if (reservation && reservation.raw) {
-      const scheduledTime = new Date(reservation.raw.datePlanifiee);
-      const now = new Date();
-
-      // Marge d'avance autorisée : 15 minutes
-      const EARLY_MARGIN_MS = 15 * 60 * 1000;
-
-      if (scheduledTime - now > EARLY_MARGIN_MS) {
-        toast.error(`Trop tôt ! Ce trajet est prévu à ${reservation.time}. Vous pourrez le démarrer 15 min avant l'heure.`);
-        setEditingReservation(null);
-        return;
-      }
-    }
-
     try {
       setLoading(true);
 
-      // ✅ Utiliser la logique Socket pour activer le trajet planifié
-      const result = startPlannedTrip(reservation.raw);
+      // ✅ Appel API backend : ACCEPTEE → EN_COURS_DE_RECUPERATION
+      // Le backend valide l'heure (15 min avant max) et transfère dans la file de ramassage
+      const response = await apiClient.patch(`/chauffeur/planifiee/${reservationId}/commencer`);
 
-      if (result && result.succes) {
-        toast.success(t('planning.trip_started_success'));
+      if (response.data.succes) {
+        toast.success(response.data.message || 'Course planifiée démarrée !');
 
-        // Redirection après un court délai pour charger le tracking
+        // Rafraîchir le planning (la réservation disparaîtra car elle n'est plus ACCEPTEE)
+        fetchPlannings(true);
+
+        // Rafraîchir les courses actives dans le contexte chauffeur
+        if (refreshActiveTrips) refreshActiveTrips();
+
+        // Redirection vers l'écran de ramassage après un court délai
         setTimeout(() => {
-          navigate('/chauffeur/tracking');
-        }, 500);
+          navigate('/chauffeur');
+        }, 800);
+      } else {
+        toast.error(response.data.message || 'Impossible de démarrer');
       }
     } catch (error) {
-      console.error("Erreur start trip:", error);
-      toast.error(t('planning.error_starting_trip'));
+      console.error("Erreur commencer planifiée:", error);
+      const msg = error?.response?.data?.message || 'Erreur lors du démarrage';
+      toast.error(msg);
     } finally {
       setLoading(false);
       setEditingReservation(null);

@@ -63,6 +63,19 @@ export const AuthProvider = ({ children }) => {
     const login = async (credentials) => {
         try {
             const response = await authService.login(credentials);
+
+            // Gestion 2FA adaptatif : le backend renvoie requires2FA
+            if (response.data.requires2FA) {
+                return {
+                    succes: false,
+                    requires2FA: true,
+                    message: response.data.message,
+                    deviceId: response.data.deviceId,
+                    telephoneMasked: response.data.telephoneMasked,
+                    emailMasked: response.data.emailMasked,
+                };
+            }
+
             if (response.data.succes) {
                 setUser(response.data.utilisateur);
                 localStorage.setItem('user', JSON.stringify(response.data.utilisateur));
@@ -75,11 +88,21 @@ export const AuthProvider = ({ children }) => {
                     succes: true,
                     statut: response.data.statut || response.data.utilisateur?.statut || 'ACTIF',
                     utilisateur: response.data.utilisateur,
-                    user: response.data.utilisateur
+                    user: response.data.utilisateur,
+                    deviceId: response.data.deviceId,
                 };
             }
             return { succes: false };
         } catch (error) {
+            // Si l'erreur 400 contient requires2FA (OTP invalide), la propager proprement
+            if (error?.response?.data?.requires2FA) {
+                return {
+                    succes: false,
+                    requires2FA: true,
+                    message: error.response.data.message,
+                    deviceId: error.response.data.deviceId,
+                };
+            }
             throw error;
         }
     };

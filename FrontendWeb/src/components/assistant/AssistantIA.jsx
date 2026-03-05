@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { usePassenger } from '../../context/PassengerContext';
 import { useDriverContext } from '../../context/DriverContext';
 import { useTheme } from '../../context/ThemeContext';
+import PremiumInvoice from '../admin/ui/PremiumInvoice';
 import './AssistantIA.css';
 
 const AssistantIA = () => {
@@ -141,23 +142,38 @@ const AssistantIA = () => {
         }
     }, [i18n.language]);
     const [inputValue, setInputValue] = useState('');
+    const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [isTyping, setIsTyping] = useState(false);
     const [isListening, setIsListening] = useState(false);
+    const [isAutoVoice, setIsAutoVoice] = useState(false);
+    const [usedVoiceThisTurn, setUsedVoiceThisTurn] = useState(false);
     const [error, setError] = useState(null);
-    const [pendingAction, setPendingAction] = useState(null); // { name, message, reservationId, needsConfirmation }
+    const [pendingAction, setPendingAction] = useState(null);
     const messagesEndRef = useRef(null);
 
     // --- Fonctionnalité : Text-To-Speech (Lire le message) ---
-    const speakMessage = (text) => {
+    const speakMessage = (text, onEndCallback) => {
         if (!window.speechSynthesis) return;
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
 
-        // Adaptation de la langue pour la synthèse
+        // Nettoyer le markdown (étoiles, dièses, etc.) pour la voix
+        const cleanText = text
+            .replace(/\*\*(.*?)\*\*/g, '$1') // Supprime les gras **...**
+            .replace(/\*(.*?)\*/g, '$1')     // Supprime les italiques *...*
+            .replace(/#/g, '')               // Supprime les titres #
+            .replace(/- /g, '')              // Supprime les puces
+            .trim();
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+
         const langMap = { 'fr': 'fr-FR', 'en': 'en-GB' };
         utterance.lang = langMap[i18n.language] || 'fr-FR';
-
         utterance.rate = 1;
+
+        if (onEndCallback) {
+            utterance.onend = onEndCallback;
+        }
+
         window.speechSynthesis.speak(utterance);
     };
 
@@ -180,9 +196,53 @@ const AssistantIA = () => {
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
             setInputValue(transcript);
+            setUsedVoiceThisTurn(true);
+            setIsAutoVoice(true);
+            // Envoyer automatiquement après avoir parlé en forçant le flag vocal
+            processMessage(transcript, true);
         };
 
         recognition.start();
+    };
+
+    // --- MAPPAGE DES DONNEES PAIEMENT ---
+    const mapBackendPaymentToFrontend = (p) => {
+        if (!p) return null;
+        const r = p.reservation || {};
+        const passager = r.passager || {};
+        const chauffeur = r.chauffeur || {};
+
+        const dateObj = new Date(p.createdAt);
+        const formatMoney = (amount) => `${(amount || 0).toLocaleString('fr-FR')} GNF`;
+
+        return {
+            id: `PAY-${p._id?.slice(-6).toUpperCase()}`,
+            _id: p._id,
+            transactionId: p.transactionId || `TXN-${p._id?.slice(-8).toUpperCase()}`,
+            amount: formatMoney(p.montantTotal),
+            rawAmount: p.montantTotal,
+            commission: formatMoney(p.commissionPlateforme),
+            netAmount: formatMoney(p.montantChauffeur),
+            status: p.statut === 'PAYE' ? 'paid' : 'pending',
+            method: p.methode?.toLowerCase() || 'cash',
+            date: dateObj.toLocaleDateString('fr-FR'),
+            time: dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            invoiceNumber: `INV-${dateObj.getFullYear()}-${p._id?.slice(-6).toUpperCase()}`,
+            reference: (r.paiement && r.paiement.reference) || p.reference || '-',
+            passenger: {
+                name: passager.nomComplet || (passager.nom ? `${passager.prenom || ''} ${passager.nom}`.trim() : 'Utilisateur Client'),
+                phone: passager.telephone || '-',
+                email: passager.email || '-'
+            },
+            driver: {
+                name: chauffeur.nom ? `${chauffeur.prenom || ''} ${chauffeur.nom}`.trim() : 'Chauffeur',
+                phone: chauffeur.telephone || '-',
+                email: chauffeur.email || '-',
+                vehicle: (chauffeur.vehicule && typeof chauffeur.vehicule === 'object')
+                    ? `${chauffeur.vehicule.marque || ''} ${chauffeur.vehicule.modele || ''}`.trim()
+                    : (r.typeVehicule || '-')
+            }
+        };
     };
 
     // --- EXECUTION DES ACTIONS REELLES ---
@@ -425,6 +485,112 @@ const AssistantIA = () => {
                 case 'voir_admin_rapports': navigate('/admin/rapports'); success = true; finalMessage = "📊 Rapports et statistiques."; break;
                 case 'voir_admin_commissions': navigate('/admin/commissions'); success = true; finalMessage = "💸 Gestion des revenus et commissions."; break;
 
+                case 'valider_chauffeur':
+                    const { adminService } = await import('../../services/adminService');
+                    // chauffeurId peut être passé via actionData (params backend)
+                    await adminService.validateDriver(actionData.chauffeurId, { commentaire: "Validé par l'assistant IA" });
+                    success = true;
+                    finalMessage = "✅ Le chauffeur a été validé avec succès. Il a reçu une notification de confirmation.";
+                    break;
+                case 'exporter_donnees':
+                    if (user?.role === 'ADMIN') {
+                        const dataType = actionData.dataType || 'passagers';
+                        const format = (actionData.format || 'pdf').toLowerCase();
+
+                        success = true; // On marque success pour déclencher le message final après l'export
+
+                        try {
+                            const { adminService } = await import('../../services/adminService');
+                            const exporters = await import('../../utils/exporters');
+
+                            let data = [];
+                            let columns = [];
+                            let exportTitle = `Export ${dataType.charAt(0).toUpperCase() + dataType.slice(1)} - Taka Taka`;
+                            let fileName = `export_${dataType}_${new Date().getTime()}`;
+
+                            if (dataType === 'passagers' || dataType === 'utilisateurs') {
+                                const { data: res } = await adminService.getPassengers({ limit: 1000 });
+                                data = res.passagers || res.utilisateurs || [];
+                                columns = [
+                                    { header: 'Nom', accessor: (u) => `${u.prenom || ''} ${u.nom || ''}` },
+                                    { header: 'Email', accessor: 'email' },
+                                    { header: 'Téléphone', accessor: 'telephone' },
+                                    { header: 'Statut', accessor: 'statut' },
+                                    { header: 'Trajets', accessor: (u) => u.nombreTrajets || 0 }
+                                ];
+                            } else if (dataType === 'chauffeurs') {
+                                const { data: res } = await adminService.getDrivers({ limit: 1000 });
+                                data = res.chauffeurs || [];
+                                columns = [
+                                    { header: 'Nom', accessor: (c) => c.utilisateur ? `${c.utilisateur.prenom || ''} ${c.utilisateur.nom || ''}` : 'N/A' },
+                                    { header: 'Téléphone', accessor: (c) => c.utilisateur?.telephone || 'N/A' },
+                                    { header: 'Véhicule', accessor: (c) => c.vehicule ? `${c.vehicule.marque || ''} ${c.vehicule.modele || ''}` : 'N/A' },
+                                    { header: 'Statut', accessor: 'statut' },
+                                    { header: 'Note', accessor: 'noteMoyenne' }
+                                ];
+                            } else if (dataType === 'trajets' || dataType === 'geographic') {
+                                const { data: res } = await adminService.getTrips({ limit: 1000 });
+                                data = res.trajets || [];
+                                columns = [
+                                    { header: 'ID', accessor: '_id' },
+                                    { header: 'Départ', accessor: (t) => t.depart || t.pointDepart?.adresse || (t.reservation?.depart) || 'N/A' },
+                                    { header: 'Arrivée', accessor: (t) => t.destination || t.pointArrivee?.adresse || (t.reservation?.destination) || 'N/A' },
+                                    { header: 'Prix', accessor: (t) => `${t.prix || t.montant || (t.reservation?.prix) || 0} GNF` },
+                                    { header: 'Statut', accessor: 'statut' }
+                                ];
+                            }
+
+                            if (data.length > 0) {
+                                const exportOptions = { data, columns, fileName, title: exportTitle };
+                                if (format === 'pdf') await exporters.exportToPDF(exportOptions);
+                                else if (format === 'word') await exporters.exportToWord(exportOptions);
+                                else await exporters.exportToCSV(exportOptions);
+
+                                finalMessage = `✅ L'export ${format.toUpperCase()} des ${dataType} a été généré et téléchargé avec succès.`;
+                            } else {
+                                finalMessage = `⚠️ Aucune donnée n'a été trouvée pour exporter la liste des ${dataType}.`;
+                            }
+                        } catch (err) {
+                            console.error("Erreur Export Assistant:", err);
+                            finalMessage = "❌ Oups, une erreur est survenue lors de la tentative d'exportation. Veuillez réessayer via le menu des rapports.";
+                        }
+                    }
+                    break;
+                case 'voir_facture':
+                    try {
+                        const { adminService } = await import('../../services/adminService');
+                        let lastPayment = null;
+
+                        if (user?.role === 'ADMIN') {
+                            const { data: res } = await adminService.getPaymentList({ limit: 1 });
+                            if (res.paiements?.length > 0) lastPayment = mapBackendPaymentToFrontend(res.paiements[0]);
+                        } else if (user?.role === 'CHAUFFEUR') {
+                            const { data: res } = await adminService.getCommissionList({ limit: 1 });
+                            if (res.paiements?.length > 0) lastPayment = mapBackendPaymentToFrontend(res.paiements[0]);
+                        } else {
+                            // Pour les passagers, on utilise l'apiClient directement si besoin ou un service dédié
+                            const { data: res } = await apiClient.get(API_ROUTES.passager.paiements.list, { params: { limit: 1 } });
+                            if (res.paiements?.length > 0) lastPayment = mapBackendPaymentToFrontend(res.paiements[0]);
+                        }
+
+                        if (lastPayment) {
+                            setSelectedInvoice(lastPayment);
+                            success = true;
+                            finalMessage = "🧾 Voici l'aperçu premium de votre dernière facture. Vous pouvez l'imprimer ou la télécharger.";
+                        } else {
+                            // Fallback si aucun paiement trouvé
+                            if (user?.role === 'ADMIN') navigate('/admin/paiements');
+                            else if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/history');
+                            else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('payments');
+                            success = true;
+                            finalMessage = "🧾 Aucun paiement récent n'a été trouvé pour afficher une facture immédiate. Je vous redirige vers votre historique.";
+                        }
+                    } catch (err) {
+                        console.error("Erreur Facture Assistant:", err);
+                        finalMessage = "❌ Impossible de récupérer la facture pour le moment. Veuillez réessayer plus tard.";
+                    }
+                    break;
+
                 case 'identite_ia':
                     finalMessage = "Je suis Taka-Assistant, votre guide intelligent pour la plateforme Taka-Taka Voyage. Je peux vous aider à gérer vos trajets, changer vos paramètres ou répondre à vos questions sur le service.";
                     success = true;
@@ -486,14 +652,21 @@ const AssistantIA = () => {
         setIsMinimized(false);
     };
 
-    const handleSend = async (e) => {
+    const handleSend = (e) => {
         if (e) e.preventDefault();
-        if (!inputValue.trim() || isTyping) return;
+        processMessage();
+    };
+
+    const processMessage = async (textOverride = null, isVocalOverride = false) => {
+        const msgText = textOverride || inputValue;
+        if (!msgText.trim() || isTyping) return;
+
+        const isVocalTurn = isVocalOverride || isAutoVoice || usedVoiceThisTurn;
 
         const userMessage = {
             id: Date.now(),
             role: 'user',
-            content: inputValue,
+            content: msgText,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
@@ -555,9 +728,9 @@ const AssistantIA = () => {
             }));
 
             const response = await apiClient.post('/ai/chat', {
-                message: inputValue,
+                message: msgText, // ✅ Correction : Utiliser msgText au lieu de inputValue
                 context: chatContext,
-                smartContext: smartContext // Envoyer le contexte métier au backend
+                smartContext: smartContext
             });
 
             if (response.data.succes) {
@@ -570,6 +743,17 @@ const AssistantIA = () => {
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 };
                 setMessages(prev => [...prev, aiMessage]);
+
+                // 🔊 Réponse vocale automatique si le mode est activé
+                if (isVocalTurn) {
+                    speakMessage(reponse, () => {
+                        // Si le mode auto-vocal est actif, on relance l'écoute après avoir parlé
+                        if (isAutoVoice || isVocalOverride) {
+                            setTimeout(() => startListening(), 500);
+                        }
+                    });
+                    setUsedVoiceThisTurn(false);
+                }
 
                 // 🔥 DETECTION ET VALIDATION D'ACTION
                 if (actionDetected) {
@@ -763,12 +947,19 @@ const AssistantIA = () => {
                         <form className="assistant-footer" onSubmit={handleSend}>
                             <button
                                 type="button"
-                                className={`voice-btn ${isListening ? 'listening' : ''}`}
-                                onClick={startListening}
+                                className={`voice-btn ${isListening ? 'listening' : ''} ${isAutoVoice ? 'active-vocal' : ''}`}
+                                onClick={() => {
+                                    if (isAutoVoice) {
+                                        setIsAutoVoice(false);
+                                        window.speechSynthesis.cancel();
+                                    } else {
+                                        startListening();
+                                    }
+                                }}
                                 disabled={isTyping}
-                                title={t('assistant.voice_start')}
+                                title={isAutoVoice ? "Désactiver le mode vocal" : t('assistant.voice_start')}
                             >
-                                {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                                {isListening ? <MicOff size={18} /> : (isAutoVoice ? <Volume2 size={18} className="text-green-500" /> : <Mic size={18} />)}
                             </button>
                             <input
                                 type="text"
@@ -804,6 +995,16 @@ const AssistantIA = () => {
                         </span>
                         <Maximize2 size={16} className="text-white/80 ml-2" />
                     </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal Facture Premium via Assistant */}
+            <AnimatePresence>
+                {selectedInvoice && (
+                    <PremiumInvoice
+                        payment={selectedInvoice}
+                        onClose={() => setSelectedInvoice(null)}
+                    />
                 )}
             </AnimatePresence>
         </div>

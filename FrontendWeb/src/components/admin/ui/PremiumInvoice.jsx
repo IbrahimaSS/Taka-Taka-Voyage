@@ -31,7 +31,7 @@ const PremiumInvoice = ({ payment, onClose }) => {
         printWindow.document.write(`
       <html>
         <head>
-          <title>Facture ${payment.invoiceNumber || payment.reference || 'TakaTaka'}</title>
+          <title>Facture {payment?.invoiceNumber || payment?.reference || 'TakaTaka'}</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
           <style>
@@ -175,7 +175,7 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                 </div>
                                 <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl shadow-sm">
                                     <div className={`px-4 py-1.5 ${softGradient} text-white font-black text-[10px] uppercase tracking-widest rounded-lg`}>Facture</div>
-                                    <div className="px-3 py-1.5 text-slate-800 font-extrabold text-xs tracking-tight">{payment.reference || payment.invoiceNumber}</div>
+                                    <div className="px-3 py-1.5 text-slate-800 font-extrabold text-xs tracking-tight">{payment?.reference || payment?.invoiceNumber || '-'}</div>
                                 </div>
                             </div>
 
@@ -193,24 +193,24 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                     <div className="flex gap-6 pt-2">
                                         <div>
                                             <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Date d'émission</h4>
-                                            <p className="text-[10px] font-bold text-slate-700">{payment.date}</p>
+                                            <p className="text-[10px] font-bold text-slate-700">{payment?.date || '-'}</p>
                                         </div>
                                         <div>
                                             <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Mode de Paiement</h4>
-                                            <p className="text-[10px] font-bold text-slate-700">{payment.method?.toUpperCase() || 'CASH'}</p>
+                                            <p className="text-[10px] font-bold text-slate-700">{payment?.method?.toUpperCase() || 'CASH'}</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-200 flex flex-col justify-center items-center">
                                     <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total à Régler</h4>
-                                    <p className="text-3xl font-black tracking-tight text-blue-600 mb-2">{payment.amount}</p>
-                                    <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 ${payment.status === 'confirmed' || payment.status === 'paid' || payment.status === 'completed'
+                                    <p className="text-3xl font-black tracking-tight text-blue-600 mb-2">{payment?.amount || '0 GNF'}</p>
+                                    <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 ${payment?.status === 'confirmed' || payment?.status === 'paid' || payment?.status === 'completed'
                                         ? 'bg-emerald-500 text-white'
                                         : 'bg-amber-500 text-white'
                                         }`}>
-                                        {payment.status === 'confirmed' || payment.status === 'paid' || payment.status === 'completed' ? <Check className="w-2.5 h-2.5" /> : <Hourglass className="w-2.5 h-2.5" />}
-                                        {payment.status === 'confirmed' || payment.status === 'paid' || payment.status === 'completed' ? 'Paiement Confirmé' : 'Attente'}
+                                        {payment?.status === 'confirmed' || payment?.status === 'paid' || payment?.status === 'completed' ? <Check className="w-2.5 h-2.5" /> : <Hourglass className="w-2.5 h-2.5" />}
+                                        {payment?.status === 'confirmed' || payment?.status === 'paid' || payment?.status === 'completed' ? 'Paiement Confirmé' : 'Attente'}
                                     </div>
                                 </div>
                             </div>
@@ -224,10 +224,10 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                         <h3 className="font-black text-slate-800 text-[9px] uppercase tracking-widest">Client (Destinataire)</h3>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-sm font-black text-slate-900 tracking-tight truncate">{payment.passenger.name || '-'}</p>
+                                        <p className="text-sm font-black text-slate-900 tracking-tight truncate">{(payment?.passenger?.name || payment?.passenger?.nomComplet) || '-'}</p>
                                         <div className="text-[10px] text-slate-500 space-y-1">
-                                            <p className="flex items-center gap-2 font-semibold"><Phone className="w-3 h-3 text-blue-400" /> {payment.passenger.phone || '-'}</p>
-                                            <p className="flex items-center gap-2 font-semibold truncate"><Mail className="w-3 h-3 text-blue-400" /> {payment.passenger.email || '-'}</p>
+                                            <p className="flex items-center gap-2 font-semibold"><Phone className="w-3 h-3 text-blue-400" /> {payment?.passenger?.phone || payment?.passenger?.telephone || '-'}</p>
+                                            <p className="flex items-center gap-2 font-semibold truncate"><Mail className="w-3 h-3 text-blue-400" /> {payment?.passenger?.email || '-'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -239,11 +239,11 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                         <h3 className="font-black text-slate-800 text-[9px] uppercase tracking-widest">Chauffeur (Prestataire)</h3>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-sm font-black text-slate-900 tracking-tight truncate">{payment.driver.name || '-'}</p>
+                                        <p className="text-sm font-black text-slate-900 tracking-tight truncate">{payment?.driver?.name || '-'}</p>
                                         <div className="text-[10px] text-slate-500 space-y-1">
-                                            <p className="flex items-center gap-2 font-semibold"><Car className="w-3 h-3 text-emerald-400" /> {payment.driver.vehicle || 'Véhicule standard'}</p>
-                                            <p className="flex items-center gap-2 font-semibold"><Phone className="w-3 h-3 text-emerald-400" /> {payment.driver.phone || '-'}</p>
-                                            <p className="flex items-center gap-2 font-semibold truncate"><Mail className="w-3 h-3 text-emerald-400" /> {payment.driver.email || '-'}</p>
+                                            <p className="flex items-center gap-2 font-semibold"><Car className="w-3 h-3 text-emerald-400" /> {payment?.driver?.vehicle || 'Véhicule standard'}</p>
+                                            <p className="flex items-center gap-2 font-semibold"><Phone className="w-3 h-3 text-emerald-400" /> {payment?.driver?.phone || payment?.driver?.telephone || '-'}</p>
+                                            <p className="flex items-center gap-2 font-semibold truncate"><Mail className="w-3 h-3 text-emerald-400" /> {payment?.driver?.email || '-'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -270,24 +270,24 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                                             <div className="w-1 h-1 rounded-full bg-blue-500 mt-1.5"></div>
                                                             <div className="flex flex-col">
                                                                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Départ</span>
-                                                                <span className="text-[10px] font-bold text-slate-700">{payment.trip.route.split('→')[0].trim() || 'Région de Mamou'}</span>
+                                                                <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[0]?.trim() || 'Région de Mamou'}</span>
                                                             </div>
                                                             <div className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5"></div>
                                                             <div className="flex flex-col">
                                                                 <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Arrivée</span>
-                                                                <span className="text-[10px] font-bold text-slate-700">{payment.trip.route.split('→')[1]?.trim() || 'Dalaba'}</span>
+                                                                <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[1]?.trim() || 'Dalaba'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-6 text-center align-top pt-8 border-l border-slate-100">
-                                                    <span className="text-xs font-black text-slate-800">{payment.trip.distance}</span>
+                                                    <span className="text-xs font-black text-slate-800">{payment?.trip?.distance || '-'}</span>
                                                 </td>
                                                 <td className="px-4 py-6 text-center align-top pt-8 border-l border-slate-100">
-                                                    <span className="text-xs font-black text-slate-800">{payment.trip.duration === '-' ? '0 min' : payment.trip.duration}</span>
+                                                    <span className="text-xs font-black text-slate-800">{payment?.trip?.duration === '-' ? '0 min' : (payment?.trip?.duration || '0 min')}</span>
                                                 </td>
                                                 <td className="px-6 py-6 text-right align-top pt-8 border-l border-slate-100">
-                                                    <span className="text-sm font-black text-slate-950">{payment.amount}</span>
+                                                    <span className="text-sm font-black text-slate-950">{payment?.amount || '0 GNF'}</span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -300,9 +300,9 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                 <div className="w-full max-w-xs space-y-2">
                                     <div className="grid grid-cols-2 gap-2 text-[10px]">
                                         <span className="text-slate-400 font-black uppercase tracking-widest text-[8px]">Sous-total</span>
-                                        <span className="text-right font-bold text-slate-700">{payment.amount}</span>
+                                        <span className="text-right font-bold text-slate-700">{payment?.amount || '0 GNF'}</span>
 
-                                        {payment.fees?.platform && (
+                                        {payment?.fees?.platform && (
                                             <>
                                                 <span className="text-slate-400 font-black uppercase tracking-widest text-[8px]">Commission Plateforme</span>
                                                 <span className="text-right font-bold text-red-500">-{payment.fees.platform}</span>
@@ -314,7 +314,7 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                     </div>
                                     <div className="pt-2 border-t border-slate-200 border-dashed flex justify-between items-center">
                                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Total TTC</span>
-                                        <span className="text-xl font-black tracking-tighter text-blue-600">{payment.amount}</span>
+                                        <span className="text-xl font-black tracking-tighter text-blue-600">{payment?.amount || '0 GNF'}</span>
                                     </div>
                                 </div>
                             </div>
