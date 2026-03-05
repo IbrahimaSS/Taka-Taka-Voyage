@@ -55,12 +55,6 @@ const Passenger = () => {
   const { t } = useTranslation();
   const { settings } = useSettings();
   const platform = settings?.platform || {};
-  const [activeTab, setActiveTab] = useState('home');
-  const [showTripModal, setShowTripModal] = useState(false);
-  const [showTripStatusModal, setShowTripStatusModal] = useState(false);
-  const [showTripComplete, setShowTripComplete] = useState(false);
-  const [showTripRating, setShowTripRating] = useState(false);
-
   const {
     passenger: user,
     currentTrip,
@@ -70,7 +64,14 @@ const Passenger = () => {
     selectedDriver: currentDriver,
     setSelectedDriver: setCurrentDriver,
     isLoadingProfile,
+    currentPage: activeTab,
+    setCurrentPage: setActiveTab,
   } = usePassenger();
+
+  const [showTripModal, setShowTripModal] = useState(false);
+  const [showTripStatusModal, setShowTripStatusModal] = useState(false);
+  const [showTripComplete, setShowTripComplete] = useState(false);
+  const [showTripRating, setShowTripRating] = useState(false);
 
   // ⚡ Notifications temps réel plateforme (maintenance, services)
   usePlatformNotifications();
