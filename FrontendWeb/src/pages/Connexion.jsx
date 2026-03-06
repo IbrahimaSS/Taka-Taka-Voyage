@@ -77,6 +77,20 @@ const Connexion = () => {
     setTimeout(() => setToast({ ...toast, show: false }), 5000);
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    if (error === 'auth_failed') {
+      showToast('Échec de connexion', 'L’authentification avec votre réseau social a échoué.', 'error');
+    } else if (error === 'server_error') {
+      showToast('Erreur serveur', 'Une erreur technique est survenue sur le serveur.', 'error');
+    }
+    // Nettoyer l'URL
+    if (error) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -218,7 +232,8 @@ const Connexion = () => {
   };
 
   const handleSocialLogin = (provider) => {
-    setShowInfoModal(true);
+    const baseURL = authService.getBaseURL(); // On récupère l'URL du backend via le service original
+    window.location.href = `${baseURL}/auth/${provider.toLowerCase()}`;
   };
 
   const stats = [

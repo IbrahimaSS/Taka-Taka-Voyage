@@ -24,6 +24,10 @@ app.use(helmet({
 
 app.use(morgan("dev"));
 
+// Configuration Passport (Social Login)
+const setupPassport = require('./config/passport');
+setupPassport(app);
+
 // Setup de la documentation Swagger (openapi)
 const setupSwagger = require('./config/swagger');
 setupSwagger(app);
@@ -75,6 +79,10 @@ app.use("/api/admin", rapportRoutes);
 app.use("/api/admin", litigeRoutes);
 app.use("/api/admin", profileRoutes);
 app.use("/api/admin/parametres", parametresRoutes);
+
+// Sauvegardes
+const backupRoutes = require("./routes/admin/backupRoutes");
+app.use("/api/admin/backups", backupRoutes);
 
 //Personnel
 app.use("/api/admin/personnels", personnelRoutes);

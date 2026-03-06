@@ -5,6 +5,27 @@ const authController = require("../../controllers/compte/authControllers");
 const { validerConnexion } = require("../../validators/connexionValidators");
 const { validerInscription } = require("../../validators/inscriptionValidators");
 const { verifierToken } = require("../../middlewares/authMiddlewares");
+const passport = require("passport");
+
+/**
+ * @swagger
+ * /api/auth/google:
+ *   get:
+ *     summary: Se connecter avec Google
+ *     tags: [1 - Authentification]
+ */
+router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+router.get("/google/callback", passport.authenticate("google", { session: false }), authController.socialCallback);
+
+/**
+ * @swagger
+ * /api/auth/facebook:
+ *   get:
+ *     summary: Se connecter avec Facebook
+ *     tags: [1 - Authentification]
+ */
+router.get("/facebook", passport.authenticate("facebook", { scope: ["email"] }));
+router.get("/facebook/callback", passport.authenticate("facebook", { session: false }), authController.socialCallback);
 
 /**
  * @swagger
@@ -145,6 +166,9 @@ router.post("/connexion", validerConnexion, authController.connexion);
  */
 // Récupérer l'utilisateur connecté
 router.get("/me", verifierToken, authController.getMe);
+
+// Finalisation profil social (Ajout téléphone/rôle)
+router.put("/social-finalize", verifierToken, authController.socialFinalize);
 
 /**
  * @swagger

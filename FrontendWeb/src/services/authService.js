@@ -19,5 +19,8 @@ export const authService = {
   me: () => apiClient.get(API_ROUTES.auth.me),
 
   // Déconnexion
-  logout: () => apiClient.post(API_ROUTES.auth.logout)
+  logout: () => apiClient.post(API_ROUTES.auth.logout),
+
+  // Récupérer l'URL de base pour les redirections (Social Auth)
+  getBaseURL: () => apiClient.defaults.baseURL
 };

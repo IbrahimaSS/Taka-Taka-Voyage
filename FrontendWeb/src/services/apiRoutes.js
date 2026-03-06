@@ -8,6 +8,7 @@ export const API_ROUTES = {
     finaliserInscription: "/auth/finaliser-inscription",
     login: "/auth/connexion",
     me: "/auth/me",
+    socialFinalize: "/auth/social-finalize",
     logout: "/auth/logout"
   },
 
@@ -141,6 +142,12 @@ export const API_ROUTES = {
       password: "/admin/security/password",
     },
     parametres: "/admin/parametres",
+    backups: {
+      list: "/admin/backups",
+      create: "/admin/backups",
+      restore: (id) => `/admin/backups/restore/${id}`,
+      delete: (id) => `/admin/backups/${id}`,
+    },
   },
 
   // ===================== CHAUFFEUR =====================

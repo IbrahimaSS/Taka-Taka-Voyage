@@ -12,6 +12,7 @@ import ChauffeurApp from './pages/ChauffeurApp';
 import Connexion from './pages/Connexion';
 import Inscription from './pages/Inscription';
 import Passenger from './pages/Passager';
+import FinaliserProfil from './pages/FinaliserProfil';
 import { PassengerProvider } from './context/PassengerContext';
 
 import NotFound from './pages/NotFound';
@@ -58,6 +59,11 @@ export default function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/connexion" element={<Connexion />} />
               <Route path="/inscription" element={<Inscription />} />
+              <Route path="/finaliser-profil" element={
+                <AuthGuard allowedRoles={[]}>
+                  <FinaliserProfil />
+                </AuthGuard>
+              } />
 
               {/* Chauffeur */}
               <Route path="/chauffeur/*" element={

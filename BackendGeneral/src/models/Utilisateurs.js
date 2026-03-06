@@ -7,8 +7,9 @@ const utilisateurSchema = new mongoose.Schema(
 
         telephone: {
             type: String,
-            required: true,
+            required: false, // Rendu optionnel pour les logins sociaux
             unique: true,
+            sparse: true, // Pour autoriser plusieurs valeurs nulles (si on n'a pas de téléphone)
         },
 
         email: {
@@ -19,7 +20,9 @@ const utilisateurSchema = new mongoose.Schema(
             trim: true,
         },
 
-        motDePasse: { type: String, required: true },
+        motDePasse: { type: String }, // Rendu optionnel pour les logins sociaux
+        googleId: { type: String, unique: true, sparse: true },
+        facebookId: { type: String, unique: true, sparse: true },
         passwordChangedAt: {
             type: Date,
             default: null,
