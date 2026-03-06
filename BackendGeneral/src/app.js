@@ -24,6 +24,10 @@ app.use(helmet({
 
 app.use(morgan("dev"));
 
+// Configuration Passport (Social Login)
+const setupPassport = require('./config/passport');
+setupPassport(app);
+
 // Setup de la documentation Swagger (openapi)
 const setupSwagger = require('./config/swagger');
 setupSwagger(app);
@@ -76,6 +80,10 @@ app.use("/api/admin", litigeRoutes);
 app.use("/api/admin", profileRoutes);
 app.use("/api/admin/parametres", parametresRoutes);
 
+// Sauvegardes
+const backupRoutes = require("./routes/admin/backupRoutes");
+app.use("/api/admin/backups", backupRoutes);
+
 //Personnel
 app.use("/api/admin/personnels", personnelRoutes);
 
@@ -102,6 +110,10 @@ app.use("/api/passager/reservations-planifiees", reservationPlanifieeRoutesP);
 //Passager - Trajets
 const trajetsRoutesP = require("./routes/passager/trajetsRoutes");
 app.use("/api/passager", trajetsRoutesP);
+
+//Passager - Réservations Générales (Active, etc.)
+const reservationRoutesP = require("./routes/passager/reservationRoutes");
+app.use("/api/passager/reservations", reservationRoutesP);
 
 //Passager - Historiques des Paiements
 const listesPaiements = require("./routes/passager/listesPaimentsRoutes");

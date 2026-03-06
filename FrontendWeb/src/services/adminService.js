@@ -83,4 +83,10 @@ export const adminService = {
   // Paramètres de la plateforme
   getParametres: () => apiClient.get(API_ROUTES.admin.parametres),
   updateParametres: (data) => apiClient.patch(API_ROUTES.admin.parametres, data),
+
+  // Backups
+  getBackups: () => apiClient.get(API_ROUTES.admin.backups.list),
+  createBackup: (nom) => apiClient.post(API_ROUTES.admin.backups.create, { nom }),
+  restoreBackup: (id) => apiClient.post(API_ROUTES.admin.backups.restore(id)),
+  deleteBackup: (id) => apiClient.delete(API_ROUTES.admin.backups.delete(id)),
 };

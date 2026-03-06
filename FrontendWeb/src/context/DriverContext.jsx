@@ -20,7 +20,11 @@ import { taxiPartageApiService } from "../services/taxiPartageService";
 
 
 const DriverContext = createContext(null);
-export const useDriverContext = () => useContext(DriverContext);
+export const useDriverContext = () => {
+  const context = useContext(DriverContext);
+  // Retourner null au lieu de planter si on est hors du provider (ex: AssistantIA global)
+  return context || null;
+};
 
 // Util: détecter si un nombre ressemble à une latitude/longitude
 const isLat = (v) => typeof v === "number" && v >= -90 && v <= 90;
@@ -177,7 +181,9 @@ export const DriverProvider = ({ children }) => {
           destinationAddress: c.destination,
           pickupCoords: c.departLat ? [c.departLat, c.departLng] : null,
           destinationCoords: c.destinationLat ? [c.destinationLat, c.destinationLng] : null,
-          pickupStatus: ['EN_ROUTE', 'EN_COURS', 'RAMASSE', 'ABORD'].includes(c.statut) ? 'picked_up' : (c.statut === 'ARRIVE' ? 'arrived' : 'approaching'),
+          pickupStatus: ['EN_ROUTE', 'EN_COURS', 'RAMASSE', 'ABORD'].includes(c.statut) ? 'picked_up' :
+            (c.statut === 'ARRIVE' || c.statut === 'ARRIVEE' ? 'arrived' :
+              (c.statut === 'ASSIGNEE' ? 'approaching' : 'pending')),
           estimatedFare: c.prix,
           momentPaiement: c.momentPaiement || c.paymentMoment,
           paymentMethod: c.paymentMethod || c.methodePaiement || c.modePaiement,
@@ -404,6 +410,12 @@ export const DriverProvider = ({ children }) => {
   // ────────────────────────────────────────────────
   // 2) Connexion socket + listeners
   // ────────────────────────────────────────────────
+  const onTripFinished = useCallback(() => {
+    setCurrentPickupTripId(null);
+    setTripStep("idle");
+    setStatus("available");
+  }, []);
+
   useEffect(() => {
     if (!isOnline || !DRIVER.id) {
       socketService.disconnect();
@@ -426,15 +438,24 @@ export const DriverProvider = ({ children }) => {
     console.log("👂 [DRIVER_CONTEXT] Enregistrement listener course:demande");
     const onAcceptedOk = (data) => {
       const reservationId = data?.reservationId;
+      const typeCourse = data?.typeCourse; // ✅ Reçu du backend suite à ma modif socket.js
+
       if (!reservationId) return;
       setStats((prev) => ({ ...prev, acceptedToday: prev.acceptedToday + 1 }));
+
       const req = tripRequestsRef.current.find((r) => r.id === reservationId);
-      if (req) {
+
+      // ✅ LOGIQUE CRITIQUE: Si c'est une course PLANIFIEE, on ne l'ajoute PAS à la file de ramassage (acceptedTrips)
+      // Elle doit rester dans le Planning. Elle n'entrera dans acceptedTrips que via "Commencer"
+      const isPlanned = typeCourse === "PLANIFIEE" || req?.typeCourse === "PLANIFIEE";
+
+      if (req && !isPlanned) {
         setAcceptedTrips((prev) => {
           if (prev.some((t) => t.id === reservationId)) return prev;
           return [{ ...req, pickupStatus: "pending" }, ...prev];
         });
       }
+
       setTripRequests((prev) => prev.filter((r) => r.id !== reservationId));
     };
 
@@ -523,12 +544,6 @@ export const DriverProvider = ({ children }) => {
         // Dernier passager ou terminaison globale
         onTripFinished();
       }
-    };
-
-    const onTripFinished = () => {
-      setCurrentPickupTripId(null);
-      setTripStep("idle");
-      setStatus("available");
     };
 
     // Inscription des listeners

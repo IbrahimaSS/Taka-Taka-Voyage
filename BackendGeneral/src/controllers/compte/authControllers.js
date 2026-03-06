@@ -389,4 +389,83 @@ exports.logout = async (req, res) => {
     }
 };
 
+//============================= CALLBACK SOCIAL (GOOGLE/FACEBOOK) =============================
+exports.socialCallback = async (req, res) => {
+    try {
+        const utilisateur = req.user;
+        if (!utilisateur) {
+            return res.redirect(`${process.env.FRONTEND_ORIGIN || 'http://localhost:3000'}/connexion?error=auth_failed`);
+        }
+
+        const jwt = require("jsonwebtoken");
+        const token = jwt.sign(
+            { id: utilisateur._id, role: utilisateur.role },
+            process.env.JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        const isProduction = process.env.NODE_ENV === "production";
+        const cookieOptions = {
+            httpOnly: true,
+            sameSite: isProduction ? "none" : "lax",
+            secure: isProduction,
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+        };
+        res.cookie("takataka_token", token, cookieOptions);
+
+        // Rediriger vers le dashboard avec le token dans l'URL pour que le frontend puisse le stocker
+        let target = "/";
+        if (utilisateur.role === 'ADMIN') target = "/admin";
+        else if (utilisateur.role === 'CHAUFFEUR') target = "/chauffeur";
+        else if (utilisateur.role === 'PASSAGER') target = "/passager";
+
+        const redirectUrl = `${process.env.FRONTEND_ORIGIN || 'http://localhost:3000'}${target}?social_login=success&token=${token}`;
+        return res.redirect(redirectUrl);
+    } catch (erreur) {
+        console.error("SOCIAL_CALLBACK ERROR:", erreur);
+        return res.redirect(`${process.env.FRONTEND_ORIGIN || 'http://localhost:3000'}/connexion?error=server_error`);
+    }
+};
+
+//============================= FINALISER PROFIL SOCIAL =============================
+exports.socialFinalize = async (req, res) => {
+    try {
+        const { telephone, role } = req.body;
+        const utilisateur = await Utilisateurs.findById(req.utilisateur.id);
+
+        if (!utilisateur) {
+            return res.status(404).json({ succes: false, message: "Utilisateur non trouvé" });
+        }
+
+        // Si l'utilisateur est déjà complet, on évite les changements de rôle arbitraires
+        if (utilisateur.telephone) {
+            return res.status(400).json({ succes: false, message: "Profil déjà finalisé" });
+        }
+
+        // Vérifier si le téléphone est déjà utilisé par un autre compte
+        const telephoneExiste = await Utilisateurs.findOne({ telephone });
+        if (telephoneExiste) {
+            return res.status(400).json({ succes: false, message: "Ce numéro de téléphone est déjà utilisé" });
+        }
+
+        utilisateur.telephone = telephone;
+
+        // On n'autorise que PASSAGER ou CHAUFFEUR
+        if (role === 'CHAUFFEUR' || role === 'PASSAGER') {
+            utilisateur.role = role;
+        }
+
+        await utilisateur.save();
+
+        res.json({
+            succes: true,
+            message: "Profil finalisé avec succès",
+            utilisateur
+        });
+    } catch (erreur) {
+        console.error("SOCIAL_FINALIZE ERROR:", erreur);
+        res.status(500).json({ succes: false, message: "Erreur serveur" });
+    }
+};
+
 

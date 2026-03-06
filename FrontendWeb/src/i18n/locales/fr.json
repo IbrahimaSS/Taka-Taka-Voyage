@@ -392,7 +392,7 @@
         "status": {
             "completed": "Terminé",
             "in_progress": "En cours",
-            "pending": "En attente",
+            "pending": "Demandes",
             "accepted": "Accepté",
             "arrived": "Arrivé",
             "cancelled": "Annulé"
@@ -500,7 +500,8 @@
         "documents": "Documents",
         "litiges": "Litiges",
         "rapports": "Rapports",
-        "mes_trajets": "Mes Trajets",
+        "mes_trajets": "Mes Demandes",
+        "mes_demandes": "Mes Demandes",
         "historique": "Historique",
         "revenus": "Revenus",
         "mes_course": "Mes Courses",

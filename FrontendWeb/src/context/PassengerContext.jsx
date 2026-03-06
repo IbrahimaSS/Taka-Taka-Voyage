@@ -10,7 +10,10 @@ import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } fr
 import { getApiBaseURL } from "../utils/urlHelper";
 
 const PassengerContext = createContext();
-export const usePassenger = () => useContext(PassengerContext);
+export const usePassenger = () => {
+  const context = useContext(PassengerContext);
+  return context || null;
+};
 
 export const PassengerProvider = ({ children }) => {
   const { user, updateUser: updateAuthUser } = useAuth();
@@ -109,7 +112,7 @@ export const PassengerProvider = ({ children }) => {
       // Endpoint hypothetique - à adapter selon API réelle.
       // Si n'existe pas, il faudra le créer ou utiliser une liste filtrée
       const baseURL = getApiBaseURL();
-      const { data } = await axios.get(`${baseURL}/reservations/active`, { withCredentials: true });
+      const { data } = await axios.get(`${baseURL}/passager/reservations/active`, { withCredentials: true });
 
       if (data?.success && data?.reservation) {
         const r = data.reservation;

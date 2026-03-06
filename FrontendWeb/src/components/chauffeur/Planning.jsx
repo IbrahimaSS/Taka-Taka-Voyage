@@ -16,7 +16,11 @@ import {
   MapPin,
   MoreVertical,
   CheckCircle,
-  XCircle
+  XCircle,
+  Info,
+  CreditCard,
+  Navigation,
+  Eye
 } from "lucide-react";
 import { tripService } from "../../services/tripService";
 import { socketService } from "../../services/socketService";
@@ -32,6 +36,7 @@ const Planning = () => {
   const [actionPosition, setActionPosition] = useState({ x: 0, y: 0 });
   const [reservationsData, setReservationsData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [viewingDetails, setViewingDetails] = useState(null);
 
   const actionMenuRef = useRef(null);
 
@@ -135,7 +140,7 @@ const Planning = () => {
 
         // Redirection vers l'écran de ramassage après un court délai
         setTimeout(() => {
-          navigate('/chauffeur');
+          navigate('/chauffeur/tracking');
         }, 800);
       } else {
         toast.error(response.data.message || 'Impossible de démarrer');
@@ -453,26 +458,39 @@ const Planning = () => {
                           {reservation.status}
                         </span>
                       </div>
-                      <div className="col-span-1 relative text-right">
-                        <button onClick={(e) => handleActionClick(e, reservation.id)} className="p-1 hover:bg-gray-100 rounded">
-                          <MoreVertical className="w-4 h-4 text-gray-400" />
+                      <div className="col-span-1 relative text-right flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setViewingDetails(reservation.raw)}
+                          className="p-1 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded text-blue-500 transition-colors"
+                          title={t('common.details')}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button onClick={(e) => handleActionClick(e, reservation.id)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors text-gray-400">
+                          <MoreVertical className="w-4 h-4" />
                         </button>
                         {editingReservation === reservation.id && (
                           <div
                             ref={actionMenuRef}
-                            className="absolute z-10 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl w-36 overflow-hidden"
-                            style={{ position: 'fixed', left: `${actionPosition.x}px`, top: `${actionPosition.y}px` }}
+                            className="absolute z-10 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl w-40 overflow-hidden"
+                            style={{ position: 'fixed', left: `${actionPosition.x - 20}px`, top: `${actionPosition.y}px` }}
                           >
-                            <button onClick={() => handleCall(reservation.phone)} className="flex items-center w-full px-3 py-2 text-xs text-blue-600 hover:bg-blue-50">
+                            <button
+                              onClick={() => { setViewingDetails(reservation.raw); setEditingReservation(null); }}
+                              className="flex items-center w-full px-3 py-2.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700"
+                            >
+                              <Info className="w-3.5 h-3.5 mr-2 text-primaryGreen-start" /> Détails
+                            </button>
+                            <button onClick={() => handleCall(reservation.phone)} className="flex items-center w-full px-3 py-2.5 text-xs text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 border-b border-gray-100 dark:border-gray-700 text-left">
                               <Phone className="w-3.5 h-3.5 mr-2" /> {t('planning.call')}
                             </button>
-                            <button onClick={() => handleStartTrip(reservation.id)} className="flex items-center w-full px-3 py-2 text-xs text-green-600 hover:bg-green-50">
+                            <button onClick={() => handleStartTrip(reservation.id)} className="flex items-center w-full px-3 py-2.5 text-xs text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 border-b border-gray-100 dark:border-gray-700 text-left">
                               <Play className="w-3.5 h-3.5 mr-2" /> {t('planning.start')}
                             </button>
-                            <button onClick={() => updateReservationStatus(reservation.id, 'confirmée')} className="flex items-center w-full px-3 py-2 text-xs text-emerald-600 hover:bg-emerald-50">
+                            <button onClick={() => updateReservationStatus(reservation.id, 'confirmée')} className="flex items-center w-full px-3 py-2.5 text-xs text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border-b border-gray-100 dark:border-gray-700 text-left text-left">
                               <CheckCircle className="w-3.5 h-3.5 mr-2" /> {t('common.confirm')}
                             </button>
-                            <button onClick={() => updateReservationStatus(reservation.id, 'annulée')} className="flex items-center w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50">
+                            <button onClick={() => updateReservationStatus(reservation.id, 'annulée')} className="flex items-center w-full px-3 py-2.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 text-left">
                               <XCircle className="w-3.5 h-3.5 mr-2" /> {t('common.cancel')}
                             </button>
                           </div>
@@ -491,6 +509,126 @@ const Planning = () => {
           </div>
         </div>
       </div>
+
+      {/* MODAL DE DÉTAILS - PREMIUM UI */}
+      {viewingDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100 dark:border-gray-700">
+            {/* Header Modal */}
+            <div className="relative h-32 bg-gradient-to-r from-primaryGreen-start to-primaryBlue-start p-6 flex items-end">
+              <button
+                onClick={() => setViewingDetails(null)}
+                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center border-2 border-white overflow-hidden">
+                  {viewingDetails.passager?.photo ? (
+                    <img src={viewingDetails.passager.photo} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon className="w-8 h-8 text-blue-500" />
+                  )}
+                </div>
+                <div className="text-white pb-1">
+                  <h3 className="text-xl font-bold leading-tight">
+                    {viewingDetails.passager?.prenom} {viewingDetails.passager?.nom}
+                  </h3>
+                  <p className="opacity-80 text-sm flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    {new Date(viewingDetails.datePlanifiee).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Corps Modal */}
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+              {/* Adresse et Trajet */}
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 w-6 h-6 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-3.5 h-3.5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Départ</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{viewingDetails.depart}</p>
+                  </div>
+                </div>
+
+                <div className="ml-3 border-l-2 border-dashed border-gray-200 dark:border-gray-700 h-6"></div>
+
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 w-6 h-6 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-3.5 h-3.5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Destination</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{viewingDetails.destination}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Infos Financières et Véhicule */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Prix Estimé</p>
+                  <p className="text-lg font-black text-blue-600 dark:text-blue-400">
+                    {(viewingDetails.prix || 0).toLocaleString()} GNF
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Véhicule</p>
+                  <p className="text-sm font-bold text-gray-700 dark:text-gray-200 capitalize flex items-center justify-center gap-1">
+                    <CarIcon className="w-4 h-4 text-primaryGreen-start" />
+                    {viewingDetails.typeVehicule?.toLowerCase() || 'Standard'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Détails complémentaires */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                  <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                    <CreditCard className="w-4 h-4" />
+                    <span className="text-sm">Méthode de Paiement</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-800 dark:text-white bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded uppercase">
+                    {viewingDetails.paiement?.methode || 'CASH'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                  <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-sm">Date de réservation</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-800 dark:text-white">
+                    {formatDisplayDate(new Date(viewingDetails.datePlanifiee))}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions Footer */}
+            <div className="p-6 bg-gray-50 dark:bg-gray-900/80 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+              <button
+                onClick={() => handleCall(viewingDetails.passager?.telephone)}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-white dark:bg-gray-800 border-2 border-primaryBlue-start text-primaryBlue-start hover:bg-primaryBlue-start hover:text-white rounded-xl font-bold transition-all active:scale-95"
+              >
+                <Phone className="w-4 h-4" /> Appeler
+              </button>
+              {viewingDetails.statut === 'ACCEPTEE' && (
+                <button
+                  onClick={() => handleStartTrip(viewingDetails._id)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-primaryGreen-start to-primaryBlue-start text-white rounded-xl font-bold transition-all shadow-lg shadow-primaryGreen-start/20 active:scale-95 border-0 hover:brightness-110"
+                >
+                  <Navigation className="w-4 h-4" /> Démarrer
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

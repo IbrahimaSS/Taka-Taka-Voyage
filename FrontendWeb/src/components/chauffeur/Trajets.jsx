@@ -35,7 +35,7 @@ const Trajets = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   // États pour les filtres
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('pending');
 
   const fetchTrips = useCallback(async (isRefreshing = false) => {
     try {
@@ -53,25 +53,22 @@ const Trajets = () => {
 
       // 1. Traiter les réservations "EN_ATTENTE" (disponibles)
       if (availableRes.data && availableRes.data.succes) {
-        const available = availableRes.data.courses
-          // FILTRE: Ne pas afficher les réservations prévues dans la file d'attente
-          .filter(c => c.typeCourse !== 'PREVUE')
-          .map(c => ({
-            id: c._id,
-            passengerName: c.passager ? `${c.passager.prenom} ${c.passager.nom}` : t('common.anonymous'),
-            passengerRating: c.passager?.noteMoyenne || 5,
-            passengerPhoto: formatPhotoUrl(c.passager?.photoUrl),
-            pickupAddress: c.depart,
-            destinationAddress: c.destination,
-            distance: `${c.distanceKm} km`,
-            estimatedTime: `${c.dureeMin} min`,
-            estimatedFare: c.prix,
-            status: 'pending',
-            requestedTime: new Date(c.createdAt),
-            typeVehicule: c.typeVehicule,
-            typeCourse: c.typeCourse,
-            priority: c.typeCourse === 'IMMEDIATE' ? 'high' : 'medium'
-          }));
+        const available = availableRes.data.courses.map(c => ({
+          id: c._id,
+          passengerName: c.passager ? `${c.passager.prenom} ${c.passager.nom}` : t('common.anonymous'),
+          passengerRating: c.passager?.noteMoyenne || 5,
+          passengerPhoto: formatPhotoUrl(c.passager?.photoUrl),
+          pickupAddress: c.depart,
+          destinationAddress: c.destination,
+          distance: `${c.distanceKm} km`,
+          estimatedTime: `${c.dureeMin} min`,
+          estimatedFare: c.prix,
+          status: 'pending',
+          requestedTime: new Date(c.createdAt),
+          typeVehicule: c.typeVehicule,
+          typeCourse: c.typeCourse,
+          priority: c.typeCourse === 'IMMEDIATE' ? 'high' : 'medium'
+        }));
         allTrips = [...allTrips, ...available];
       }
 
@@ -149,6 +146,7 @@ const Trajets = () => {
       case 'EN_COURS': return 'in_progress';
       case 'TERMINEE': return 'completed';
       case 'ANNULEE': return 'cancelled';
+      case 'EN_COURS_DE_RECUPERATION': return 'accepted';
       default: return 'pending';
     }
   };
@@ -455,11 +453,26 @@ const Trajets = () => {
                         </>
                       ) : (
                         <button
-                          onClick={() => navigate('/chauffeur/tracking')}
+                          onClick={() => {
+                            if (trip.typeCourse === 'PLANIFIEE' && trip.status === 'accepted') {
+                              navigate('/chauffeur/planning');
+                            } else {
+                              navigate('/chauffeur/tracking');
+                            }
+                          }}
                           className="flex-1 py-3.5 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-2xl font-black text-sm shadow-xl hover:opacity-90 transition-all flex items-center justify-center gap-3"
                         >
-                          <Navigation className="w-5 h-5" />
-                          {t('trips.continue_trip')}
+                          {trip.typeCourse === 'PLANIFIEE' && trip.status === 'accepted' ? (
+                            <>
+                              <Calendar className="w-5 h-5" />
+                              {t('nav.planning').toUpperCase()}
+                            </>
+                          ) : (
+                            <>
+                              <Navigation className="w-5 h-5" />
+                              {t('trips.continue_trip')}
+                            </>
+                          )}
                         </button>
                       )}
                     </div>

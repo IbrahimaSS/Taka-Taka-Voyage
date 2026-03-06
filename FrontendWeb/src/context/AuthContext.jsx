@@ -56,7 +56,23 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        checkAuth();
+        // Détection Login Social : Si un token est présent dans l'URL
+        const params = new URLSearchParams(window.location.search);
+        const socialToken = params.get('token');
+
+        if (socialToken) {
+            console.log("🔑 Social Login Token détecté !");
+            localStorage.setItem('authToken', socialToken);
+
+            // Nettoyer l'URL sans recharger la page
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+
+            // Relancer checkAuth pour charger les infos du user
+            checkAuth();
+        } else {
+            checkAuth();
+        }
     }, [checkAuth]);
 
     // Connexion

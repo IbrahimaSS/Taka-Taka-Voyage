@@ -26,6 +26,12 @@ const AuthGuard = ({ children, allowedRoles = [] }) => {
         return <Navigate to="/connexion" state={{ from: location }} replace />;
     }
 
+    // Rediriger vers la finalisation du profil si le téléphone est manquant (Login Social)
+    // Sauf si on est déjà sur la page de finalisation
+    if (user && !user.telephone && location.pathname !== '/finaliser-profil') {
+        return <Navigate to="/finaliser-profil" replace />;
+    }
+
     if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
         // Si le rôle n'est pas autorisé, afficher aussi 404
         return <NotFound />;

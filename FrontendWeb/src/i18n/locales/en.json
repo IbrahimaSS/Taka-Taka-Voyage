@@ -337,7 +337,7 @@
         "status": {
             "completed": "Completed",
             "in_progress": "In Progress",
-            "pending": "Pending",
+            "pending": "Requests",
             "accepted": "Accepted",
             "arrived": "Arrived",
             "cancelled": "Cancelled"
@@ -447,7 +447,8 @@
         "documents": "Documents",
         "litiges": "Disputes",
         "rapports": "Reports",
-        "mes_trajets": "My Trips",
+        "mes_trajets": "My Requests",
+        "mes_demandes": "My Requests",
         "revenus": "Earnings",
         "mes_course": "My Course",
         "historique_des_trajets": "Trip History",
