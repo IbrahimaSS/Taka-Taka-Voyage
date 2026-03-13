@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const ChauffeurProfile = require("../../models/ChauffeurProfile");
 const Document = require("../../models/Documents");
 const Utilisateurs = require("../../models/Utilisateurs");
@@ -58,6 +59,19 @@ exports.getProfil = async (req, res) => {
     }
     const heuresEnLigne = Math.floor(tempsTotalMs / (1000 * 60 * 60));
 
+    // Ajout : Récupération stricte des documents depuis la collection Document
+    let documentsList = [];
+    if (chauffeurProfile) {
+        documentsList = await Document.find({
+            $or: [
+                { chauffeur: chauffeurProfile._id },
+                { chauffeur: chauffeurProfile._id.toString() },
+                { chauffeur: chauffeurId },
+                { chauffeur: chauffeurId.toString() }
+            ]
+        }).lean();
+    }
+
     return res.status(200).json({
       succes: true,
       profil: {
@@ -94,6 +108,7 @@ exports.getProfil = async (req, res) => {
           promotionnelles: true,
           sms: false,
         },
+        documents: documentsList || [],
       },
     });
   } catch (error) {
