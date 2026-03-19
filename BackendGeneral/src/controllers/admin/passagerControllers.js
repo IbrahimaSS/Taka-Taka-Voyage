@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Utilisateurs = require("../../models/Utilisateurs");
 const Reservation = require("../../models/Reservations");
 const Evaluation = require("../../models/Evaluations");
+const { logActivity } = require("../../utils/logger");
 
 //================================= GESTION PASSAGERS =================================
 
@@ -198,6 +199,22 @@ exports.changerStatutUtilisateur = async (req, res) => {
 
         utilisateur.statut = statut;
         await utilisateur.save();
+
+        // LOG DE L'ACTION ADMIN
+        await logActivity({
+            utilisateurId: req.utilisateur.id,
+            nomUtilisateur: `${req.utilisateur.prenom} ${req.utilisateur.nom}`,
+            role: req.utilisateur.role,
+            action: `MODIFICATION_STATUT_${statut}`,
+            module: "UTILISATEURS",
+            details: {
+                cibleId: utilisateur._id,
+                cibleNom: `${utilisateur.prenom} ${utilisateur.nom}`,
+                nouveauStatut: statut
+            },
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown"
+        });
 
         return res.status(200).json({
             succes: true,

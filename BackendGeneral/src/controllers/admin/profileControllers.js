@@ -1,5 +1,6 @@
 const Utilisateurs = require("../../models/Utilisateurs");
 const { deleteFile } = require("../../utils/fileUtils");
+const { logActivity } = require("../../utils/logger");
 
 // VOIR MON PROFILE
 exports.getProfile = async (req, res) => {
@@ -81,6 +82,18 @@ exports.updateProfile = async (req, res) => {
         }
 
         await user.save();
+
+        // LOG DE L'ACTIVITÉ
+        await logActivity({
+            utilisateurId: user._id,
+            nomUtilisateur: `${user.prenom} ${user.nom}`,
+            role: user.role,
+            action: "MISE_A_JOUR_PROFIL_ADMIN",
+            module: "UTILISATEURS",
+            details: { nom: user.nom, prenom: user.prenom, email: user.email },
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown"
+        });
 
         return res.json({
             succes: true,

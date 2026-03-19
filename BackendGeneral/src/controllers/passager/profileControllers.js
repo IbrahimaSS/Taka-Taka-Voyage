@@ -3,6 +3,7 @@ const Trajet = require("../../models/Trajets");
 const Paiement = require("../../models/Paiements");
 const { validationResult } = require("express-validator");
 const { deleteFile } = require("../../utils/fileUtils");
+const { logActivity } = require("../../utils/logger");
 
 /* ===================== PROFIL ===================== */
 
@@ -105,6 +106,18 @@ exports.updateProfil = async (req, res) => {
             { new: true, runValidators: true }
         ).select("-motDePasse");
 
+        // LOG DE L'ACTIVITÉ
+        await logActivity({
+            utilisateurId: userId,
+            nomUtilisateur: `${utilisateurMisAJour.prenom} ${utilisateurMisAJour.nom}`,
+            role: utilisateurMisAJour.role,
+            action: "MISE_A_JOUR_PROFIL",
+            module: "UTILISATEURS",
+            details: { champsModifies: Object.keys(donnees) },
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown"
+        });
+
         return res.status(200).json({
             succes: true,
             message: "Profil mis à jour avec succès",
@@ -151,6 +164,18 @@ exports.updatePreferences = async (req, res) => {
 
         await Utilisateur.findByIdAndUpdate(userId, {
             $set: preferences,
+        });
+
+        // LOG DE L'ACTIVITÉ
+        await logActivity({
+            utilisateurId: userId,
+            nomUtilisateur: `${req.utilisateur.prenom} ${req.utilisateur.nom}`,
+            role: req.utilisateur.role,
+            action: "MISE_A_JOUR_PREFERENCES",
+            module: "UTILISATEURS",
+            details: req.body,
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown"
         });
 
         return res.status(200).json({

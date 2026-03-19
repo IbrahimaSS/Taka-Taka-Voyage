@@ -1,4 +1,5 @@
 const ParametresPlateforme = require("../../models/ParametresPlateforme");
+const { logActivity } = require("../../utils/logger");
 
 /**
  * Récupérer les paramètres de la plateforme
@@ -170,6 +171,20 @@ exports.updateParametres = async (req, res) => {
                 message: "Les paramètres de la plateforme ont été mis à jour."
             });
         }
+
+        // LOG DE L'ACTIVITÉ
+        await logActivity({
+            utilisateurId: req.utilisateur._id,
+            nomUtilisateur: `${req.utilisateur.prenom} ${req.utilisateur.nom}`,
+            role: req.utilisateur.role,
+            action: "MISE_A_JOUR_PARAMETRES",
+            module: "SYSTEME",
+            details: {
+                nouveauxParametres: req.body
+            },
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown"
+        });
 
         res.status(200).json({
             success: true,

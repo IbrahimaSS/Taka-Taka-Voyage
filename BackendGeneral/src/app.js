@@ -80,6 +80,10 @@ app.use("/api/admin", litigeRoutes);
 app.use("/api/admin", profileRoutes);
 app.use("/api/admin/parametres", parametresRoutes);
 
+// Journal d'Activités
+const activityLogRoutes = require("./routes/admin/activityLogRoutes");
+app.use("/api/admin/logs", activityLogRoutes);
+
 // Sauvegardes
 const backupRoutes = require("./routes/admin/backupRoutes");
 app.use("/api/admin/backups", backupRoutes);
@@ -186,6 +190,17 @@ app.use("/api/common", statsRoutes);
 // Contact et support public
 const contactRoutes = require("./routes/common/contactRoutes");
 app.use("/api/common", contactRoutes);
+
+// ===================== TÉLÉCHARGEMENT APK =====================
+app.get("/api/download/apk", (req, res) => {
+    const filePath = path.join(__dirname, "..", "downloads", "takataka-V1.apk");
+    res.download(filePath, "TakaTakaApp.apk", (err) => {
+        if (err && !res.headersSent) {
+            console.error("Erreur téléchargement APK:", err);
+            res.status(404).json({ message: "Fichier APK introuvable" });
+        }
+    });
+});
 
 module.exports = app;
 

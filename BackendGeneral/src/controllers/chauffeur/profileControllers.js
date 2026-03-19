@@ -5,6 +5,7 @@ const Utilisateurs = require("../../models/Utilisateurs");
 const Trajet = require("../../models/Trajets");
 const Paiement = require("../../models/Paiements");
 const { deleteFile } = require("../../utils/fileUtils");
+const { logActivity } = require("../../utils/logger");
 
 const mapTypeVehicule = (type) => {
   const v = String(type || "").toLowerCase();
@@ -172,6 +173,18 @@ exports.updateProfil = async (req, res) => {
       { new: true, runValidators: true }
     ).select("-motDePasse");
 
+    // LOG DE L'ACTIVITÉ
+    await logActivity({
+      utilisateurId: userId,
+      nomUtilisateur: `${utilisateurMisAJour.prenom} ${utilisateurMisAJour.nom}`,
+      role: utilisateurMisAJour.role,
+      action: "MISE_A_JOUR_PROFIL",
+      module: "UTILISATEURS",
+      details: { champsModifies: Object.keys(donnees) },
+      ip: req.ip || req.connection.remoteAddress,
+      navigateur: req.headers["user-agent"] || "Unknown"
+    });
+
     return res.status(200).json({
       succes: true,
       message: "Profil mis à jour avec succès",
@@ -230,6 +243,18 @@ exports.updateVehicule = async (req, res) => {
         type: typeFinal === "TAXI_PARTAGE" ? "TAXI" : typeFinal,
         places: profile.capaciteVehicule || 1,
       },
+    });
+
+    // LOG DE L'ACTIVITÉ
+    await logActivity({
+      utilisateurId: req.utilisateur._id,
+      nomUtilisateur: `${req.utilisateur.prenom} ${req.utilisateur.nom}`,
+      role: req.utilisateur.role,
+      action: "MISE_A_JOUR_VEHICULE",
+      module: "UTILISATEURS",
+      details: { plaque: profile.plaque, marque: profile.marqueVehicule },
+      ip: req.ip || req.connection.remoteAddress,
+      navigateur: req.headers["user-agent"] || "Unknown"
     });
 
     return res.json({
