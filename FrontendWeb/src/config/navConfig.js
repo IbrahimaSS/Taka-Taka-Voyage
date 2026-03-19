@@ -12,6 +12,7 @@ import {
     Calendar,
     Settings,
     User2,
+    History,
 } from 'lucide-react';
 
 export const ROLES = {
@@ -71,6 +72,11 @@ export const NAV_CONFIG = {
                 label: 'Rapports',
                 path: 'rapports',
             },
+            {
+                icon: History,
+                label: 'Journal d\'Activités',
+                path: 'logs',
+            },
         ],
         titles: {
             '': 'Tableau de bord',
@@ -83,6 +89,7 @@ export const NAV_CONFIG = {
             documents: 'Documents',
             litiges: 'Litiges',
             rapports: 'Rapports',
+            logs: 'Journal d\'Activités',
             parametres: 'Paramètres',
             profil: 'Profil',
         }

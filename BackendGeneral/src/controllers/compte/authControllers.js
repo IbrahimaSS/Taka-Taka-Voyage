@@ -6,6 +6,7 @@ const otpService = require("../../services/OtpService");
 const InscriptionTemporaire = require("../../models/InscriptionsTemporaire");
 const ChauffeurProfile = require("../../models/ChauffeurProfile");
 const Utilisateurs = require("../../models/Utilisateurs");
+const { logActivity } = require("../../utils/logger");
 
 //============================= CONNEXION =============================================
 exports.connexion = async (req, res) => {
@@ -151,6 +152,18 @@ exports.connexion = async (req, res) => {
         };
         res.cookie("takataka_token", resultat.token, cookieOptions);
 
+        // Log de l'activité réussie
+        await logActivity({
+            utilisateurId: resultat.utilisateur._id,
+            nomUtilisateur: `${resultat.utilisateur.prenom} ${resultat.utilisateur.nom}`,
+            role: resultat.utilisateur.role,
+            action: "CONNEXION",
+            module: "AUTH",
+            ip: clientIp,
+            navigateur: clientUserAgent,
+            statut: "REUSSI"
+        });
+
         return res.status(200).json({
             succes: true,
             message: "=====CONNEXION REUSSIE=====",
@@ -169,6 +182,18 @@ exports.connexion = async (req, res) => {
             },
         });
     } catch (erreur) {
+        // Optionnel : Loguer l'échec de connexion
+        await logActivity({
+            nomUtilisateur: req.body.identifiant || "Inconnu",
+            role: "VISITEUR",
+            action: "CONNEXION",
+            module: "AUTH",
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown",
+            statut: "ECHOUE",
+            details: { erreur: erreur.message }
+        });
+
         return res.status(401).json({
             succes: false,
             message: erreur.message,
@@ -314,6 +339,18 @@ exports.finaliserInscription = async (req, res) => {
         });
 
         await InscriptionTemporaire.deleteMany({ telephone });
+
+        // Log de la création de compte
+        await logActivity({
+            utilisateurId: utilisateur._id,
+            nomUtilisateur: `${utilisateur.prenom} ${utilisateur.nom}`,
+            role: utilisateur.role,
+            action: "CREATION_COMPTE",
+            module: "AUTH",
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown",
+            statut: "REUSSI"
+        });
 
         return res.status(201).json({
             succes: true,

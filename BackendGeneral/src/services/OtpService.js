@@ -23,7 +23,7 @@ exports.genererOtp = async ({ telephone, email }) => {
       throw new Error(`Veuillez patienter ${cooldownSec - diff}s avant de redemander un code.`);
     }
   }
-
+  
   const code = generateOtp6();
   const codeHash = sha256(code);
   const expireA = new Date(Date.now() + ttlMin * 60 * 1000);

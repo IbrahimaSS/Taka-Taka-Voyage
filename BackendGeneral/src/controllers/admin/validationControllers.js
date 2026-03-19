@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const ChauffeurProfile = require("../../models/ChauffeurProfile");
 const Utilisateurs = require("../../models/Utilisateurs");
+const { logActivity } = require("../../utils/logger");
 
 
 // ===============================VALIDATIONS========================================
@@ -146,6 +147,22 @@ exports.validerChauffeur = async (req, res) => {
             console.error("⚠️ Erreur notification socket chauffeur:", socketErr.message);
         }
 
+        // LOG DE L'ACTION ADMIN
+        await logActivity({
+            utilisateurId: req.utilisateur._id,
+            nomUtilisateur: `${req.utilisateur.prenom} ${req.utilisateur.nom}`,
+            role: req.utilisateur.role,
+            action: "VALIDATION_CHAUFFEUR",
+            module: "UTILISATEURS",
+            details: {
+                cibleId: chauffeur._id,
+                cibleNom: `${chauffeur.utilisateur.prenom} ${chauffeur.utilisateur.nom}`,
+                commentaire: commentaire
+            },
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown"
+        });
+
         return res.json({ succes: true, message: "Chauffeur validé" });
     } catch (e) {
         console.error(e);
@@ -193,6 +210,22 @@ exports.rejeterChauffeur = async (req, res) => {
         } catch (socketErr) {
             console.error("⚠️ Erreur notification socket chauffeur:", socketErr.message);
         }
+
+        // LOG DE L'ACTION ADMIN
+        await logActivity({
+            utilisateurId: req.utilisateur._id,
+            nomUtilisateur: `${req.utilisateur.prenom} ${req.utilisateur.nom}`,
+            role: req.utilisateur.role,
+            action: "REFUS_CHAUFFEUR",
+            module: "UTILISATEURS",
+            details: {
+                cibleId: chauffeur._id,
+                cibleNom: `${chauffeur.utilisateur.prenom} ${chauffeur.utilisateur.nom}`,
+                motif: motif
+            },
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown"
+        });
 
         return res.json({
             succes: true,

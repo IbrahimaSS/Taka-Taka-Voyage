@@ -98,7 +98,7 @@ const Navbar = () => {
               <Button
                 variant="gradientMix"
                 size="sm"
-                onClick={() => scrollToSection('telecharger')}
+                onClick={() => navigate('/telecharger')}
                 icon={<Download className="h-4 w-4" />}
               >
                 <span className="sm:inline">Télécharger</span>

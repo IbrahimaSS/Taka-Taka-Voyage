@@ -67,6 +67,7 @@ io.on("connection", (socket) => {
 
 // Rendre io accessible dans les controllers (tu l'utilises déjà)
 app.set("io", io);
+global.io = io;
 
 // Initialisation des events socket (ton fichier ./socket)
 initSocket(io);

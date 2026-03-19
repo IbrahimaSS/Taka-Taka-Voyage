@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interface Mobile avec Onglets</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-top: 80px; /* Espace pour les onglets fixes */
+        }
+
+        /* Conteneur principal */
+        .app-container {
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        /* En-tête avec titre */
+        .app-header {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .app-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .app-header p {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        /* Onglets */
+        .tabs-container {
+            display: flex;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #eaeaea;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 16px;
+            text-align: center;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab i {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+
+        .tab.active {
+            color: #6a11cb;
+            border-bottom: 3px solid #6a11cb;
+            background-color: rgba(106, 17, 203, 0.05);
+        }
+
+        /* Contenu des onglets */
+        .tab-content {
+            display: none;
+            padding: 20px;
+            min-height: 400px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .tab-content h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* Grille de cartes */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+            margin-top: 10px;
+        }
+
+        /* Cartes */
+        .card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid #f0f0f0;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-image {
+            height: 120px;
+            width: 100%;
+            object-fit: cover;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 36px;
+        }
+
+        .card-content {
+            padding: 15px;
+        }
+
+        .card-title {
+            font-weight: 700;
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .card-description {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .card-footer {
+            padding: 10px 15px;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* Pour les écrans plus petits */
+        @media (max-width: 480px) {
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            body {
+                padding: 10px;
+                padding-top: 70px;
+            }
+            
+            .tab {
+                padding: 14px 8px;
+                font-size: 14px;
+            }
+            
+            .tab i {
+                margin-right: 5px;
+            }
+        }
+
+        /* Indicateur de chargement */
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .loader.active {
+            display: block;
+        }
+
+        /* Animation pour le changement d'onglet */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tab-content.active {
+            animation: fadeIn 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- En-tête -->
+        <div class="app-header">
+            <h1><i class="fas fa-mobile-alt"></i> Code Genius Application</h1>
+            <p>Naviguez entre les sections avec les onglets</p>
+        </div>
+
+        <!-- Onglets de navigation -->
+        <div class="tabs-container">
+            <div class="tab active" data-tab="tab1">
+                <i class="fas fa-home"></i> Accueil
+            </div>
+            <div class="tab" data-tab="tab2">
+                <i class="fas fa-shopping-cart"></i> Boutique
+            </div>
+            <div class="tab" data-tab="tab3">
+                <i class="fas fa-user"></i> Profil
+            </div>
+            <div class="tab" data-tab="tab4">
+                <i class="fas fa-cog"></i> Réglages
+            </div>
+        </div>
+
+        <!-- Contenu de l'onglet Accueil -->
+        <div id="tab1" class="tab-content active">
+            <h2><i class="fas fa-home"></i> Dernières activités</h2>
+            
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-gamepad"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Jeu du jour</div>
+                        <div class="card-description">Découvrez le jeu recommandé spécialement pour vous aujourd'hui.</div>
+                    </div>
+                    <div class="card-footer">
+                        <span><i class="far fa-clock"></i> 5 min</span>
+                        <span><i class="fas fa-star"></i> 4.5</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-music"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Nouveaux titres</div>
+                        <div class="card-description">Écoutez les dernières sorties musicales de vos artistes préférés.</div>
+                    </div>
+                    <div class="card-footer">
+                        <span><i class="far fa-clock"></i> 15 min</span>
+                        <span><i class="fas fa-headphones"></i> 128</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-newspaper"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Actualités</div>
+                        <div class="card-description">Les dernières nouvelles du monde de la technologie et du divertissement.</div>
+                    </div>
+                    <div class="card-footer">
+                        <span><i class="far fa-clock"></i> 10 min</span>
+                        <span><i class="fas fa-eye"></i> 342</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-film"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Films tendance</div>
+                        <div class="card-description">Découvrez les films les plus populaires de la semaine.</div>
+                    </div>
+                    <div class="card-footer">
+                        <span><i class="far fa-clock"></i> 2h</span>
+                        <span><i class="fas fa-thumbs-up"></i> 89%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenu de l'onglet Boutique -->
+        <div id="tab2" class="tab-content">
+            <h2><i class="fas fa-shopping-cart"></i> Produits populaires</h2>
+            
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-laptop"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Ordinateur portable</div>
+                        <div class="card-description">Puissant ordinateur portable avec écran 15 pouces et 16 Go de RAM.</div>
+                    </div>
+                    <div class="card-footer">
+                        <span><i class="fas fa-tag"></i> $999</span>
+                        <span><i class="fas fa-box"></i> En stock</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Smartphone</div>
+                        <div class="card-description">Dernier modèle avec appareil photo haute résolution et batterie longue durée.</div>
+                    </div>
+                    <div class="card-footer">
+                        <span><i class="fas fa-tag"></i> $799</span>
+                        <span><i class="fas fa-box"></i> Limité</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenu de l'onglet Profil -->
+        <div id="tab3" class="tab-content">
+            <h2><i class="fas fa-user"></i> Mon profil</h2>
+            
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Informations personnelles</div>
+                        <div class="card-description">Gérez vos informations de compte et vos préférences.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Historique</div>
+                        <div class="card-description">Consultez votre historique d'activités et de consultations.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title>Sécurité</div>
+                        <div class="card-description">Modifiez votre mot de passe et paramètres de sécurité.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenu de l'onglet Réglages -->
+        <div id="tab4" class="tab-content">
+            <h2><i class="fas fa-cog"></i> Paramètres</h2>
+            
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Notifications</div>
+                        <div class="card-description">Configurez les notifications que vous souhaitez recevoir.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-image">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Mode sombre</div>
+                        <div class="card-description">Activez le mode sombre pour un confort visuel optimal.</div>
+                    </div>
+                    <div class="card-footer">
+                        <span>Désactivé</span>
+                        <button class="toggle-btn" style="background:#6a11cb;color:white;border:none;padding:5px 10px;border-radius:5px;">Activer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chargement -->
+    <div class="loader" id="loader">
+        <i class="fas fa-spinner fa-spin"></i> Chargement...
+    </div>
+
+    <script>
+        // Gestion des onglets
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Désactiver tous les onglets
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Activer l'onglet cliqué
+                this.classList.add('active');
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+                
+                // Simuler un chargement
+                const loader = document.getElementById('loader');
+                loader.classList.add('active');
+                setTimeout(() => {
+                    loader.classList.remove('active');
+                }, 300);
+            });
+        });
+
+        // Simulation d'interaction avec les cartes
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('click', function() {
+                const title = this.querySelector('.card-title').textContent;
+                alert(`Vous avez cliqué sur : ${title}`);
+            });
+        });
+
+        // Gestion du bouton mode sombre
+        document.querySelector('.toggle-btn')?.addEventListener('click', function() {
+            if(this.textContent === 'Activer') {
+                this.textContent = 'Désactiver';
+                this.style.background = '#666';
+                document.querySelector('.app-container').style.backgroundColor = '#333';
+                document.querySelector('.app-container').style.color = '#fff';
+            } else {
+                this.textContent = 'Activer';
+                this.style.background = '#6a11cb';
+                document.querySelector('.app-container').style.backgroundColor = 'white';
+                document.querySelector('.app-container').style.color = '#333';
+            }
+        });
+    </script>
+</body>
+</html>

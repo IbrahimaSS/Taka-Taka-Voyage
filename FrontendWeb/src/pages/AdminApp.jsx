@@ -23,6 +23,7 @@ import Documents from '../components/admin/sections/Documents';
 import Reports from '../components/admin/sections/Reports';
 import Commissions from '../components/admin/sections/Commissions';
 import Settings from '../components/admin/sections/Settings';
+import ActivityLogs from '../components/admin/sections/ActivityLogs';
 import UserProfile from '../components/admin/profile/UserProfile';
 import { useSettings } from '../context/SettingsContext';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../context/NotificationContext';
@@ -178,6 +179,20 @@ function AdminApp() {
 
       socketService.on('contact:new', onNewContact);
 
+      const onNewLog = (data) => {
+        playNotificationSound();
+        addNotification({
+          title: 'Activité Journal 📝',
+          message: data.message,
+          type: NOTIFICATION_TYPES.INFO,
+          category: NOTIFICATION_CATEGORIES.SYSTEM,
+          link: '/admin/logs',
+          priority: 'low'
+        });
+      };
+
+      socketService.on('admin:log:new', onNewLog);
+
       return () => {
         socketService.off('system:alert', onSystemAlert);
         socketService.off('dispute:new', onNewDispute);
@@ -186,6 +201,7 @@ function AdminApp() {
         socketService.off('report:generated', onReportGenerated);
         socketService.off('rapport:genere', onReportGenerated);
         socketService.off('contact:new', onNewContact);
+        socketService.off('admin:log:new', onNewLog);
       };
 
     }
@@ -261,7 +277,7 @@ function AdminApp() {
       />
 
       {/* Main Content */}
-      <div className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
+      <div className={`flex-1 min-w-0 flex flex-col transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
         }`}>
         {/* Header */}
         <Header
@@ -271,7 +287,7 @@ function AdminApp() {
           sidebarCollapsed={sidebarCollapsed}
           showToast={showToast}
         />
-        <main className="content-padding">
+        <main className="content-padding flex-1">
           <div className="content-container">
             {/* Main Content Area */}
             <AnimatePresence mode="wait">
@@ -377,6 +393,15 @@ function AdminApp() {
                     exit={{ opacity: 0, y: -20 }}
                   >
                     <Settings showToast={showToast} />
+                  </motion.div>
+                } />
+                <Route path="logs" element={
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <ActivityLogs showToast={showToast} />
                   </motion.div>
                 } />
                 <Route path="profil" element={
