@@ -97,13 +97,13 @@ const RealTimeTracking = ({
     const v = (vRaw && typeof vRaw === 'object') ? vRaw : {};
 
     const departure = {
-      coords: trip?.pickupCoords || [9.6412, -13.5784],
+      coords: isValidCoords(trip?.pickupCoords) ? trip.pickupCoords : [9.6412, -13.5784],
       name: trip?.pickup || trip?.depart || trip?.pickupAddress || 'Point de départ',
       address: trip?.pickup || trip?.depart || trip?.pickupAddress || ''
     };
 
     const destination = {
-      coords: trip?.destinationCoords || [9.6412, -13.5784],
+      coords: isValidCoords(trip?.destinationCoords) ? trip.destinationCoords : [9.6412, -13.5784],
       name: trip?.destination || trip?.destinationAddress || 'Destination',
       address: trip?.destination || trip?.destinationAddress || ''
     };
@@ -518,15 +518,16 @@ const RealTimeTracking = ({
 
   // ✅ FIX: Auto-zoom initial SEULEMENT
   useEffect(() => {
-    if (mapRef.current && driverPosition && tripData.departure.coords && !window.hasInitiallyCentered) {
-      const bounds = L.latLngBounds([
-        driverPosition,
-        tripData.departure.coords,
-        tripData.destination.coords
-      ]);
+    if (mapRef.current && !window.hasInitiallyCentered) {
+      const p1 = driverPosition;
+      const p2 = tripData.departure.coords;
+      const p3 = tripData.destination.coords;
 
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-      window.hasInitiallyCentered = true;
+      if (isValidCoords(p1) && isValidCoords(p2) && isValidCoords(p3)) {
+        const bounds = L.latLngBounds([p1, p2, p3]);
+        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+        window.hasInitiallyCentered = true;
+      }
     }
   }, [driverPosition, tripData.departure.coords, tripData.destination.coords]);
 
@@ -921,8 +922,8 @@ const RealTimeTracking = ({
                   <MapController
                     center={isValidCoords(driverPosition) ? driverPosition : tripData.departure.coords}
                     zoom={15}
-                    animate={!(isSimulating || isSimulatingRemote)} // Pas d'animation pendant simulation pour éviter lag
-                    duration={isSimulating || isSimulatingRemote ? 0.3 : 0.8}
+                    animate={!(isSimulating || remoteIsSimulatingRef.current)}
+                    duration={isSimulating || remoteIsSimulatingRef.current ? 0.3 : 0.8}
                   />
 
                   {/* Marqueurs avec Halo pour visibilité "GROS" */}

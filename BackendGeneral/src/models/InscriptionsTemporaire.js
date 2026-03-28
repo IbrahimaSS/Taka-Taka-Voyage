@@ -1,4 +1,4 @@
-//remplace le model initiInscription par sa :
+//Init Inscription
 const mongoose = require("mongoose");
 
 const inscriptionTemporaireSchema = new mongoose.Schema(

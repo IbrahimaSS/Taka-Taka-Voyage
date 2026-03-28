@@ -72,6 +72,10 @@ global.io = io;
 // Initialisation des events socket (ton fichier ./socket)
 initSocket(io);
 
+// 🤖 [AUTO-PAYOUT] Lancer le service de déversement automatique (Délai de 5 min)
+const autoPayoutService = require("./services/autoPayoutService");
+autoPayoutService(io);
+
 // Lancement du serveur
 server.listen(PORT, () => {
     console.log(`🚀 Serveur TAKA TAKA + Socket.IO démarré sur http://localhost:${PORT}`);

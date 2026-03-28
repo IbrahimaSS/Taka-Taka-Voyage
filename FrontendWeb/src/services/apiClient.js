@@ -53,10 +53,11 @@ apiClient.interceptors.response.use(
   (error) => {
     // If the backend says the token is invalid/expired, clear it and redirect.
     if (error.response && error.response.status === 401) {
-      // Si on est déjà sur la page de login, on ne redirige pas (évite les boucles)
-      const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/connexion';
+      // Éviter la redirection si on est déjà sur une page publique ou si c'est le check de session auth/me
+      const isPublicPage = ['/login', '/connexion', '/inscription', '/', '/telecharger'].includes(window.location.pathname);
+      const isAuthRequest = error.config && error.config.url && error.config.url.includes('auth/me');
 
-      if (!isLoginPage) {
+      if (!isPublicPage && !isAuthRequest) {
         console.warn('🔐 401 – unauthorized, clearing auth token and redirecting');
         localStorage.removeItem('authToken');
         if (typeof window !== 'undefined') {

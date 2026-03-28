@@ -232,6 +232,8 @@ ACTIONS DISPONIBLES (utilise exactement ces noms) :
 - "contacter_chauffeur" → Appeler mon chauffeur (Passager)
 - "confirmer_ramassage" → Confirmer qu'un passager a été récupéré (Chauffeur)
 - "identite_ia" → Qui es-tu ? Quelle est ton identité ?
+- "creer_reservation_immediate" → Réserver une course MAINTENANT — NÉCESSITE CONFIRMATION
+- "creer_reservation_planifiee" → Réserver une course FUTURE (avec date) — NÉCESSITE CONFIRMATION
 
 ACTIONS ADMIN (uniquement si rôle ADMIN) :
 - "voir_admin_dashboard" → Dashboard Principal
@@ -247,6 +249,34 @@ ACTIONS ADMIN (uniquement si rôle ADMIN) :
 - "valider_chauffeur" → Valider définitivement un compte chauffeur (Admin) — NÉCESSITE CONFIRMATION
 - "exporter_donnees" → Exporter des listes (dataType: 'passagers'|'chauffeurs'|'trajets', format: 'pdf'|'word'|'csv') — NÉCESSITE CONFIRMATION
 - "voir_facture" → Afficher les reçus ou factures d'un trajet
+
+═══════════════════════════════════════════════════════
+🔴 RÈGLE ABSOLUE POUR LES RÉSERVATIONS (SLOT FILLING)
+═══════════════════════════════════════════════════════
+Si l'utilisateur veut faire une nouvelle réservation, tu te comportes comme un formulaire interactif intelligent étape par étape.
+Tu NE DOIS EN AUCUN CAS renvoyer de JSON {"action": "creer_reservation_..."} TANT QUE tu n'as pas collecté TOUTES les informations de la checklist ci-dessous auprès du passager.
+CHECKLIST : 
+[1] Départ (sauf si "Ici" ou "Maintenant")
+[2] Destination
+[3] Type véhicule (Moto, Voiture Privée, Taxi Partagé)
+[4] Date et Heure (OBLIGATOIRE si la réservation est future)
+[5] Moment du paiement ("Maintenant" ou "À la fin de la course")
+[6] Mode de paiement (OBLIGATOIRE si "Maintenant" : Orange Money, Mobile Money, Carte)
+
+═══════════════════════════════════════════════════════
+🟢 DONNÉES PARTIELLES EN TEMPS RÉEL (SLOT_DATA)
+═══════════════════════════════════════════════════════
+À CHAQUE réponse intermédiaire pendant le slot filling (quand il te manque encore des informations), tu DOIS ajouter à la FIN de ta réponse textuelle un bloc de données partielles au format suivant :
+[SLOT_DATA]{"point_depart":"...","destination":"...","type_vehicule":"...","date":"...","heure":"...","moment_paiement":"...","mode_paiement":"..."}[/SLOT_DATA]
+Remplis uniquement les champs que tu connais déjà. Laisse les champs inconnus vides ("").
+Exemples :
+- Client dit "Je veux aller à Conakry en moto" → ta réponse texte + [SLOT_DATA]{"point_depart":"","destination":"Conakry","type_vehicule":"Moto","date":"","heure":"","moment_paiement":"","mode_paiement":""}[/SLOT_DATA]
+- Client ajoute "Je pars de Mamou" → ta réponse texte + [SLOT_DATA]{"point_depart":"Mamou","destination":"Conakry","type_vehicule":"Moto","date":"","heure":"","moment_paiement":"","mode_paiement":""}[/SLOT_DATA]
+Ce bloc [SLOT_DATA] ne sera PAS affiché à l'utilisateur, il sert uniquement à remplir le formulaire en temps réel.
+
+Tant qu'il manque un seul élément de la checklist, tu dois OBLIGATOIREMENT répondre textuellement pour demander l'information manquante (ex: "Bien sûr, pour aller à Conakry en moto, préférez-vous payer maintenant ou à la fin de la course ?").
+Une fois TOUTE la checklist complète, et SEULEMENT à ce moment-là, tu dois renvoyer l'action sous ce format (SANS [SLOT_DATA]) :
+{"action": "creer_reservation_planifiee" (ou "creer_reservation_immediate"), "confirmation_message": "Votre course est prête...", "payload": {"point_depart": "...", "destination": "...", "date": "...", "heure": "...", "type_vehicule": "...", "moment_paiement": "...", "mode_paiement": "..."}}
 
 EXEMPLES SUPPLÉMENTAIRES :
 Client : "Valide le compte de ce chauffeur"
@@ -269,6 +299,7 @@ Réponse : {"action":"voir_admin_trajets","confirmation_message":"J'affiche la l
 
 Client : "Affiche mon véhicule"
 Réponse : {"action":"voir_mon_vehicule","confirmation_message":"Voici les détails de votre véhicule."}
+
 Client : "Je veux commander un taxi"
 Réponse : {"action":"rechercher_taxi","confirmation_message":"Je vous redirige vers l'écran de réservation."}
 
@@ -307,6 +338,9 @@ Réponse : {"action":"changer_theme","confirmation_message":"Je passe l'applicat
 
 Client : "Change la langue en anglais"
 Réponse : {"action":"changer_langue","confirmation_message":"I am changing the language to English..."}
+
+Client : "Ok, je choisis Orange Money" (Suite d'une réservation)
+Réponse : {"action":"creer_reservation_immediate","confirmation_message":"Votre réservation de Moto de Mamou à Conakry est prête.","payload":{"destination":"Conakry","point_depart":"Mamou","type_vehicule":"MOTO","moment_paiement":"MAINTENANT","mode_paiement":"ORANGE_MONEY"}}
 
 RÈGLE CRITIQUE : Si l'utilisateur pose juste une question informative (ex: "Comment démarrer ?"), réponds NORMALEMENT avec du texte. NE renvoie le JSON que si l'utilisateur DEMANDE EXPLICITEMENT l'exécution.`;
 
@@ -363,7 +397,8 @@ RÈGLE CRITIQUE : Si l'utilisateur pose juste une question informative (ex: "Com
                         reponse: parsed.confirmation_message || "Exécution en cours...",
                         actionDetected: {
                             name: parsed.action,
-                            confirmationMessage: parsed.confirmation_message || ""
+                            confirmationMessage: parsed.confirmation_message || "",
+                            payload: parsed.payload || null
                         }
                     });
                 }
@@ -443,5 +478,194 @@ exports.validateAction = async (req, res) => {
     } catch (error) {
         console.error("🚨 [TAKA-ASSISTANT] Erreur validation:", error.message);
         return res.status(500).json({ succes: false, message: "Erreur lors de la validation." });
+    }
+};
+
+// ═══════════════════════════════════════════════
+// ENDPOINT : Exécuter l'action avec Payload (Ex: Réservation)
+// ═══════════════════════════════════════════════
+exports.executeAction = async (req, res) => {
+    try {
+        const { action, payload } = req.body;
+        const utilisateur = req.utilisateur;
+        const userId = utilisateur?._id || utilisateur?.id;
+
+        if (!userId) {
+            return res.status(401).json({ succes: false, message: "Utilisateur non authentifié." });
+        }
+
+        const Reservation = require("../models/Reservations");
+        const Paiement = require("../models/Paiements");
+        const Trajet = require("../models/Trajets");
+        const Utilisateur = require("../models/Utilisateurs");
+
+        if (action === "creer_reservation_immediate" || action === "creer_reservation_planifiee") {
+            const isPlanifie = action === "creer_reservation_planifiee";
+            
+            const point_depart = payload.point_depart || "Position actuelle";
+            const destination = payload.destination || "Destination non spécifiée";
+
+            // Calcul Date (immédiat ou planifié)
+            let dateReservation = null;
+            if (isPlanifie && payload.date && payload.heure) {
+                const dateParts = payload.date.includes('/') ? payload.date.split('/') : payload.date.split('-');
+                let year, month, day;
+                if (dateParts[0].length === 4) {
+                    [year, month, day] = dateParts;
+                } else {
+                    [day, month, year] = dateParts;
+                }
+                const [hour, min] = payload.heure.split(':');
+                dateReservation = new Date(year, month - 1, day, hour, min);
+            }
+
+            // Mappage du type véhicule vers l'enum du modèle
+            let typeVehicule = "TAXI";
+            const rawType = (payload.type_vehicule || "").toUpperCase().replace(/\s+/g, '_');
+            if (rawType.includes("MOTO")) typeVehicule = "MOTO";
+            else if (rawType.includes("VOITURE") || rawType.includes("PRIV")) typeVehicule = "VOITURE";
+            else if (rawType.includes("PARTAG")) typeVehicule = "TAXI_PARTAGE";
+            else if (rawType.includes("BUS")) typeVehicule = "BUS";
+
+            // Mappage méthode de paiement vers l'enum du modèle
+            let methodePaiement = "CASH";
+            const rawMode = (payload.mode_paiement || "").toUpperCase().replace(/\s+/g, '_');
+            if (rawMode.includes("ORANGE")) methodePaiement = "ORANGE_MONEY";
+            else if (rawMode.includes("MTN") || rawMode.includes("MOBILE")) methodePaiement = "MTN_MONEY";
+            else if (rawMode.includes("CARTE") || rawMode.includes("CARD")) methodePaiement = "CARD";
+            else if (rawMode.includes("WALLET")) methodePaiement = "WALLET";
+
+            // Coordonnées par défaut (Centre Guinée) — à remplacer par Geocoding réel
+            const defaultLng = -13.6773;
+            const defaultLat = 9.5370;
+
+            const reservation = new Reservation({
+                passager: userId,
+                depart: point_depart,
+                destination: destination,
+                departCoords: {
+                    type: "Point",
+                    coordinates: [defaultLng, defaultLat]
+                },
+                destinationCoords: {
+                    type: "Point",
+                    coordinates: [defaultLng, defaultLat]
+                },
+                distanceKm: 50,
+                dureeMin: 60,
+                typeVehicule: typeVehicule,
+                prix: 20000,
+                statut: "EN_ATTENTE",
+                typeCourse: isPlanifie ? "PLANIFIEE" : "IMMEDIATE",
+                datePlanifiee: dateReservation,
+                paiement: {
+                    statut: payload.moment_paiement === "MAINTENANT" ? "EN_ATTENTE" : "EN_ATTENTE",
+                    methode: methodePaiement
+                }
+            });
+
+            await reservation.save();
+            console.log(`✅ [TAKA-ASSISTANT] Réservation IA créée: ${reservation._id} (${typeVehicule}, ${point_depart} → ${destination})`);
+
+            // 💰 CRÉATION DU PAIEMENT (Simulation pour Admin/Chauffeur)
+            const prixTotal = 20000;
+            const tauxCommission = 0.10; // 10% comme sur tes captures
+            const commission = prixTotal * tauxCommission;
+            const netChauffeur = prixTotal - commission;
+
+            await Paiement.create({
+                reservation: reservation._id,
+                passager: userId,
+                chauffeur: userId, // Temporairement lui-même si aucun chauffeur n'est encore affecté, le service autoPayout corrigera cela lors de l'envoi réel
+                montantTotal: prixTotal,
+                commissionPlateforme: commission,
+                montantChauffeur: netChauffeur,
+                statut: "PAYE", // On simule que le paiement passager est OK (Orange Money/M-Pesa)
+                methode: methodePaiement,
+                verse: false, // Orange (À verser) dans ton admin
+            });
+            console.log(`💰 [TAKA-ASSISTANT] Paiement généré: ${prixTotal} GNF (Net Chauffeur: ${netChauffeur})`);
+
+            // 📡 NOTIFICATION CHAUFFEURS — Même pipeline que confirmerReservationImmediate
+            let chauffeursContactes = 0;
+            if (!isPlanifie) {
+                const io = req.app.get("io");
+                if (!io) {
+                    console.warn("⚠️ [TAKA-ASSISTANT] io introuvable : app.set('io', io) manquant ?");
+                } else {
+                    const Utilisateur = require("../models/Utilisateurs");
+
+                    // 1) Trouver les chauffeurs en ligne
+                    const chauffeursCandidats = await Utilisateur.find({
+                        role: "CHAUFFEUR",
+                        estEnLigne: true,
+                    }).select("nom prenom telephone noteMoyenne socketId vehicule");
+
+                    console.log(`🔍 [TAKA-ASSISTANT] ${chauffeursCandidats.length} chauffeurs en ligne.`);
+
+                    // 2) Filtrage par type de véhicule
+                    let chauffeursEnLigne = chauffeursCandidats.filter(c => {
+                        const driverType = c.vehicule?.type?.toUpperCase() || "TAXI";
+                        return driverType === typeVehicule;
+                    });
+
+                    // Fallback : élargir si aucun match exact
+                    if (chauffeursEnLigne.length === 0 && chauffeursCandidats.length > 0) {
+                        console.log("⚠️ [TAKA-ASSISTANT] Aucun match exact. Élargissement recherche.");
+                        chauffeursEnLigne = chauffeursCandidats;
+                    }
+
+                    if (chauffeursEnLigne.length > 0) {
+                        // 3) Construire le payload EXACT compatible TripNotificationToast + DriverContext
+                        const socketPayload = {
+                            id: reservation._id.toString(),
+                            reservationId: reservation._id.toString(),
+                            passengerName: `${utilisateur.nom || ""} ${utilisateur.prenom || ""}`.trim() || "Passager",
+                            passengerRating: utilisateur.noteMoyenne ?? 4.5,
+                            passengerPhone: utilisateur.telephone || null,
+                            pickupAddress: point_depart,
+                            destinationAddress: destination,
+                            pickupCoords: [defaultLat, defaultLng],
+                            destinationCoords: [defaultLat, defaultLng],
+                            distance: reservation.distanceKm ?? 50,
+                            estimatedTime: `${reservation.dureeMin ?? 60} min`,
+                            estimatedFare: reservation.prix,
+                            typeVehicule: typeVehicule,
+                            nombrePlaces: 1,
+                            expiresIn: 60,
+                            createdAt: new Date().toISOString(),
+                        };
+
+                        // 4) Envoi aux chauffeurs (rooms individuelles)
+                        for (const chauffeur of chauffeursEnLigne) {
+                            chauffeursContactes++;
+                            const driverRoom = `CHAUFFEUR_${chauffeur._id.toString()}`;
+                            io.to(driverRoom).emit("course:demande", socketPayload);
+                            if (chauffeur.socketId) {
+                                io.to(chauffeur.socketId).emit("course:demande", socketPayload);
+                            }
+                        }
+
+                        // 5) Broadcast global (filet de sécurité)
+                        io.to("CHAUFFEURS").emit("course:demande", socketPayload);
+                        console.log(`📡 [TAKA-ASSISTANT] Demande envoyée à ${chauffeursContactes} chauffeurs + broadcast CHAUFFEURS.`);
+                    } else {
+                        console.log("⚠️ [TAKA-ASSISTANT] Aucun chauffeur en ligne.");
+                    }
+                }
+            }
+
+            return res.json({
+                succes: true,
+                message: `✅ Réservation ${isPlanifie ? 'planifiée' : 'immédiate'} créée avec succès par Taka-Assistant ! De ${point_depart} à ${destination} en ${typeVehicule}.${!isPlanifie ? ` ${chauffeursContactes} chauffeur(s) notifié(s).` : ''}`,
+                reservationId: reservation._id
+            });
+        }
+
+        return res.status(400).json({ succes: false, message: "Action non gérée en exécution Backend." });
+
+    } catch (error) {
+        console.error("🚨 [TAKA-ASSISTANT] Erreur execution:", error);
+        return res.status(500).json({ succes: false, message: "Erreur serveur lors de la création IA de la course." });
     }
 };
