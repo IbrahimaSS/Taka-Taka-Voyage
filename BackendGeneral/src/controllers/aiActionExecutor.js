@@ -103,6 +103,16 @@ const ACTION_MAP = {
         needsConfirmation: false,
         description: "Ouvrir l'écran de réservation"
     },
+    creer_reservation_planifiee: {
+        roles: ["PASSAGER"],
+        needsConfirmation: false,
+        description: "Créer une réservation planifiée (nécessite payload via Chatbot IA)"
+    },
+    creer_reservation_immediate: {
+        roles: ["PASSAGER"],
+        needsConfirmation: false,
+        description: "Demander une course immédiatement (nécessite payload via Chatbot IA)"
+    },
     voir_planning: {
         roles: ["CHAUFFEUR", "PASSAGER"],
         needsConfirmation: false,

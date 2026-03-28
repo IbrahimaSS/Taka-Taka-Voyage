@@ -93,6 +93,45 @@ export const PassengerProvider = ({ children }) => {
     }
   }, [user, fetchProfile]);
 
+  // 🤖 [IA] Écouter les réservations créées par l'Assistant IA (global, hors Provider)
+  useEffect(() => {
+    const handleIAReservation = (event) => {
+      const { action, reservationId, pickup, destination, vehicleType, isPlanifie } = event.detail;
+      console.log(`🤖 [CONTEXT] Réservation IA reçue:`, event.detail);
+
+      setCurrentTrip({
+        reservationId,
+        id: reservationId,
+        pickup,
+        destination,
+        vehicleType,
+        status: isPlanifie ? 'scheduled' : 'searching',
+        typeCourse: isPlanifie ? 'PLANIFIEE' : 'IMMEDIATE',
+        createdAt: new Date().toISOString()
+      });
+
+      if (isPlanifie) {
+        setTripStatus('scheduled');
+        setCurrentPage('planning');
+        toast.success('📅 Réservation planifiée avec succès ! Consultez votre planning.', { id: 'ia-planned' });
+      } else {
+        setTripStatus('searching');
+        setCurrentPage('home');
+        toast.loading("🔍 Recherche d'un chauffeur...", { id: 'searching' });
+
+        // Rejoindre la room socket pour recevoir les events
+        if (reservationId) {
+          socketService.onceConnected(() => {
+            socketService.emit('reservation:join', { reservationId });
+          });
+        }
+      }
+    };
+
+    window.addEventListener('taka-ia-reservation', handleIAReservation);
+    return () => window.removeEventListener('taka-ia-reservation', handleIAReservation);
+  }, []);
+
   // 💾 [OFFLINE] Sauvegarde automatique à chaque changement
   useEffect(() => {
     if (currentTrip) {
@@ -118,16 +157,18 @@ export const PassengerProvider = ({ children }) => {
         const r = data.reservation;
         console.log("🔄 [CONTEXT] Restoring active trip:", r._id);
 
-        // Normalisation: EN_COURS (DB) -> en_route (Client)
-        const normalizedStatus = r.statut === 'EN_COURS' ? 'en_route' : r.statut?.toLowerCase();
+        // Normalisation: EN_COURS (DB) -> en_route (Client), EN_ATTENTE -> searching
+        let normalizedStatus = r.statut?.toLowerCase();
+        if (r.statut === 'EN_COURS') normalizedStatus = 'en_route';
+        if (r.statut === 'EN_ATTENTE') normalizedStatus = 'searching';
 
         setCurrentTrip({
           reservationId: r._id,
           id: r._id,
-          pickup: r.depart || r.pickupAddress,
-          destination: r.destination || r.destinationAddress,
-          pickupCoords: [r.departLat, r.departLng],
-          destinationCoords: [r.destinationLat, r.destinationLng],
+          pickup: r.depart?.libelle || r.depart || r.pickupAddress,
+          destination: r.destination?.libelle || r.destination || r.destinationAddress,
+          pickupCoords: r.depart?.coordonnees?.coordinates ? [r.depart.coordonnees.coordinates[1], r.depart.coordonnees.coordinates[0]] : [r.departLat, r.departLng],
+          destinationCoords: r.destination?.coordonnees?.coordinates ? [r.destination.coordonnees.coordinates[1], r.destination.coordonnees.coordinates[0]] : [r.destinationLat, r.destinationLng],
           status: normalizedStatus,
           driver: r.chauffeur,
           price: r.prix,

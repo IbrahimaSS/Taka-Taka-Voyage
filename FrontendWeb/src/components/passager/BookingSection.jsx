@@ -44,6 +44,11 @@ function MapEvents({ onPickupSelect, onDestinationSelect, selectionMode }) {
 import { tripService } from '../../services/tripService';
 import { platformService } from '../../services/platformService';
 
+// Helper pour éviter les crashs Leaflet (Invalid LatLng)
+const isValidLatLng = (loc) => {
+  return Array.isArray(loc) && loc.length >= 2 && loc[0] != null && loc[1] != null && !isNaN(loc[0]) && !isNaN(loc[1]);
+};
+
 const BookingSection = ({
   onBookTrip,
   currentTrip,
@@ -138,6 +143,52 @@ const BookingSection = ({
     ensureLeafletIcons();
   }, []);
 
+  // 🤖 [IA] Remplissage en direct depuis l'Assistant IA (Slot Filling progressif)
+  useEffect(() => {
+    const handleSlotUpdate = (event) => {
+      const data = event.detail;
+      console.log('🤖 [BOOKING] Slot Data reçu de l\'IA:', data);
+
+      // Remplir les champs texte du formulaire
+      setFormData(prev => ({
+        ...prev,
+        pickup: data.point_depart || prev.pickup,
+        destination: data.destination || prev.destination,
+        vehicleType: data.type_vehicule
+          ? data.type_vehicule.toLowerCase().replace(/\s+/g, '').replace('voitureprivée', 'voiture').replace('voitureprivee', 'voiture').replace('taxipartagé', 'taxi').replace('taxipartage', 'taxi')
+          : prev.vehicleType
+      }));
+
+      // Géocoder automatiquement les adresses pour placer les marqueurs sur la carte
+      if (data.point_depart && data.point_depart !== '') {
+        GeolocationService.geocodeAddress(data.point_depart + ', Guinée').then(results => {
+          if (results && results.length > 0) {
+            const loc = [parseFloat(results[0].lat), parseFloat(results[0].lon)];
+            if (!isNaN(loc[0]) && !isNaN(loc[1])) {
+              setPickupLocation(loc);
+              setMapCenter(loc);
+              if (mapRef.current) mapRef.current.setView(loc, 13);
+            }
+          }
+        }).catch(() => { });
+      }
+
+      if (data.destination && data.destination !== '') {
+        GeolocationService.geocodeAddress(data.destination + ', Guinée').then(results => {
+          if (results && results.length > 0) {
+            const loc = [parseFloat(results[0].lat), parseFloat(results[0].lon)];
+            if (!isNaN(loc[0]) && !isNaN(loc[1])) {
+              setDestinationLocation(loc);
+            }
+          }
+        }).catch(() => { });
+      }
+    };
+
+    window.addEventListener('taka-ia-slot-update', handleSlotUpdate);
+    return () => window.removeEventListener('taka-ia-slot-update', handleSlotUpdate);
+  }, []);
+
   // Initialiser les données si un trajet est en cours
   useEffect(() => {
     if (currentTrip) {
@@ -146,11 +197,11 @@ const BookingSection = ({
         destination: currentTrip.destination || '',
         vehicleType: currentTrip.vehicleType || 'taxi'
       });
-      if (currentTrip.pickupCoords) {
+      if (currentTrip.pickupCoords && isValidLatLng(currentTrip.pickupCoords)) {
         setPickupLocation(currentTrip.pickupCoords);
         setMapCenter(currentTrip.pickupCoords);
       }
-      if (currentTrip.destinationCoords) {
+      if (currentTrip.destinationCoords && isValidLatLng(currentTrip.destinationCoords)) {
         setDestinationLocation(currentTrip.destinationCoords);
       }
     }
@@ -158,7 +209,7 @@ const BookingSection = ({
 
   // Centrer la carte sur le chauffeur si disponible
   useEffect(() => {
-    if (currentDriver && currentDriver.location && mapRef.current) {
+    if (currentDriver && currentDriver.location && isValidLatLng(currentDriver.location) && mapRef.current) {
       setMapCenter(currentDriver.location);
       mapRef.current.setView(currentDriver.location, 16, {
         animate: true,
@@ -724,7 +775,7 @@ const BookingSection = ({
 
               <div className="relative rounded-xl overflow-hidden h-[350px] sm:h-[500px]">
                 <MapContainer
-                  center={mapCenter}
+                  center={isValidLatLng(mapCenter) ? mapCenter : [9.6412, -13.5784]}
                   zoom={13}
                   style={{ height: '100%', width: '100%' }}
                   ref={mapRef}
@@ -734,7 +785,7 @@ const BookingSection = ({
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  <MapController center={mapCenter} zoom={16} />
+                  <MapController center={isValidLatLng(mapCenter) ? mapCenter : [9.6412, -13.5784]} zoom={16} />
                   <MapEvents
                     onPickupSelect={(latlng) => handleMapSelection('pickup', latlng)}
                     onDestinationSelect={(latlng) => handleMapSelection('destination', latlng)}
@@ -742,7 +793,7 @@ const BookingSection = ({
                   />
 
                   {/* Marqueurs */}
-                  {userLocation && (
+                  {userLocation && isValidLatLng(userLocation) && (
                     <Marker position={userLocation} icon={leafletIcons.user}>
                       <Popup>
                         <div className="p-2">
@@ -751,7 +802,7 @@ const BookingSection = ({
                       </Popup>
                     </Marker>
                   )}
-                  {pickupLocation && (
+                  {pickupLocation && isValidLatLng(pickupLocation) && (
                     <Marker position={pickupLocation} icon={leafletIcons.start}>
                       <Popup>
                         <div className="p-2">
@@ -761,7 +812,7 @@ const BookingSection = ({
                       </Popup>
                     </Marker>
                   )}
-                  {destinationLocation && (
+                  {destinationLocation && isValidLatLng(destinationLocation) && (
                     <Marker position={destinationLocation} icon={leafletIcons.end}>
                       <Popup>
                         <div className="p-2">
@@ -771,7 +822,7 @@ const BookingSection = ({
                       </Popup>
                     </Marker>
                   )}
-                  {shouldShowDriver && currentDriver.location && (
+                  {shouldShowDriver && currentDriver.location && isValidLatLng(currentDriver.location) && (
                     <Marker position={currentDriver.location} icon={leafletIcons.driver}>
                       <Popup>
                         <div className="p-2">
@@ -789,7 +840,7 @@ const BookingSection = ({
                       </Popup>
                     </Marker>
                   )}
-                  {shouldShowDriver && currentDriver.location && pickupLocation && (
+                  {shouldShowDriver && currentDriver.location && isValidLatLng(currentDriver.location) && pickupLocation && isValidLatLng(pickupLocation) && (
                     <Polyline
                       positions={[currentDriver.location, pickupLocation]}
                       pathOptions={{ color: '#22c55e', weight: 5, opacity: 0.8, dashArray: '10, 15', lineCap: 'round' }}

@@ -255,6 +255,33 @@ const AssistantIA = () => {
             let finalMessage = "";
 
             switch (name) {
+                case 'creer_reservation_immediate':
+                case 'creer_reservation_planifiee':
+                    try {
+                        const resObj = await apiClient.post('/ai/execute', {
+                            action: name,
+                            payload: actionData.payload || {}
+                        });
+                        success = true;
+                        
+                        // ✅ Émettre un événement global pour que le PassengerContext le capte
+                        window.dispatchEvent(new CustomEvent('taka-ia-reservation', {
+                            detail: {
+                                action: name,
+                                reservationId: resObj.data.reservationId,
+                                pickup: actionData.payload?.point_depart || 'Position actuelle',
+                                destination: actionData.payload?.destination || 'Destination non spécifiée',
+                                vehicleType: actionData.payload?.type_vehicule || 'taxi',
+                                isPlanifie: name === 'creer_reservation_planifiee'
+                            }
+                        }));
+                        
+                        finalMessage = resObj.data.message || "✅ Commande de course validée et envoyée aux chauffeurs de Taka-Taka !";
+                    } catch (err) {
+                        success = false;
+                        finalMessage = "❌ Oups, impossible de finaliser la réservation IA pour le moment.";
+                    }
+                    break;
                 case 'demarrer_trajet':
                     if (driverCtx?.startTripImmediately) {
                         await driverCtx.startTripImmediately(reservationId);
@@ -736,17 +763,35 @@ const AssistantIA = () => {
             if (response.data.succes) {
                 const { reponse, actionDetected } = response.data;
 
+                // 🟢 Extraction des données partielles [SLOT_DATA] pour remplissage en direct du formulaire
+                let cleanResponse = reponse;
+                const slotMatch = reponse.match(/\[SLOT_DATA\](.*?)\[\/SLOT_DATA\]/s);
+                if (slotMatch) {
+                    // Retirer le bloc [SLOT_DATA] du message affiché
+                    cleanResponse = reponse.replace(/\[SLOT_DATA\].*?\[\/SLOT_DATA\]/s, '').trim();
+                    try {
+                        const slotData = JSON.parse(slotMatch[1]);
+                        console.log('🟢 [IA] Slot Data reçu:', slotData);
+                        // Émettre vers le formulaire de réservation
+                        window.dispatchEvent(new CustomEvent('taka-ia-slot-update', {
+                            detail: slotData
+                        }));
+                    } catch (e) {
+                        console.warn('⚠️ Slot Data parsing error:', e);
+                    }
+                }
+
                 const aiMessage = {
                     id: Date.now() + 1,
                     role: 'model',
-                    content: reponse,
+                    content: cleanResponse,
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 };
                 setMessages(prev => [...prev, aiMessage]);
 
                 // 🔊 Réponse vocale automatique si le mode est activé
                 if (isVocalTurn) {
-                    speakMessage(reponse, () => {
+                    speakMessage(cleanResponse, () => {
                         // Si le mode auto-vocal est actif, on relance l'écoute après avoir parlé
                         if (isAutoVoice || isVocalOverride) {
                             setTimeout(() => startListening(), 500);
@@ -768,6 +813,7 @@ const AssistantIA = () => {
                                     message: actionDetected.confirmationMessage,
                                     reservationId: valRes.data.reservationId,
                                     groupeId: valRes.data.groupeId,
+                                    payload: actionDetected.payload, // Transmission du payload vers executeAction
                                     contextMsg: userMessage.content,
                                     needsConfirmation: true
                                 });
@@ -777,6 +823,7 @@ const AssistantIA = () => {
                                     name: actionDetected.name,
                                     reservationId: valRes.data.reservationId,
                                     groupeId: valRes.data.groupeId,
+                                    payload: actionDetected.payload,
                                     contextMsg: userMessage.content
                                 });
                             }

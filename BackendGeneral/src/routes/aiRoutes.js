@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const aiController = require("../controllers/aiController");
-const { peuplerUtilisateur } = require("../middlewares/authMiddlewares");
+const { peuplerUtilisateur, verifierToken } = require("../middlewares/authMiddlewares");
 
 /**
  * @swagger
@@ -56,6 +56,18 @@ router.post("/chat", peuplerUtilisateur, aiController.chat);
  *         description: Non authentifié.
  */
 router.post("/validate", peuplerUtilisateur, aiController.validateAction);
+
+/**
+ * @swagger
+ * /api/ai/execute:
+ *   post:
+ *     summary: Exécuter une action IA avec Payload
+ *     description: "Finalise l'exécution en base de données via le chatbot (ex: Réservations)."
+ *     tags: [5 - Autres]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post("/execute", verifierToken, aiController.executeAction);
 
 module.exports = router;
 
