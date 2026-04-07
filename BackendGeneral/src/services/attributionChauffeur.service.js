@@ -29,6 +29,7 @@ exports.trouverChauffeursEligibles = async ({
         role: "CHAUFFEUR",
         statut: "ACTIF",
         estEnLigne: true,
+        solde: { $gte: 10000 }, // Le chauffeur doit avoir un minimum de 10.000 GNF
         "vehicule.type": typeVehicule,
         "vehicule.places": { $gte: nombrePlaces },
         trajetEnCours: false,

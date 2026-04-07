@@ -14,7 +14,7 @@ exports.getPublicStats = async (req, res) => {
 
         // Nombre TOTAL de trajets effectués (Toutes réservations non annulées)
         const trajetsEffectues = await Reservation.countDocuments({
-            statut: { $ne: "ANNULEE" }
+            statut: { $nin: ["ANNULEE", "ANNULEE_AVEC_FRAIS"] }
         });
 
         return res.status(200).json({

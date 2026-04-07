@@ -34,7 +34,7 @@ const Support = () => {
     {
       id: 1,
       question: "Comment annuler un trajet ?",
-      answer: "Vous pouvez annuler un trajet dans les 5 minutes suivant sa réservation sans frais. Passé ce délai, des frais d'annulation peuvent s'appliquer.",
+      answer: "L'annulation est gratuite tant qu'aucun chauffeur n'a accepté la course. Une fois le chauffeur en route, des frais d'annulation de 5 000 GNF sont appliqués pour compenser son déplacement. Le reste de votre paiement est remboursé sur votre portefeuille TakaTaka.",
       category: "trajets"
     },
     {

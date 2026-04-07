@@ -49,6 +49,7 @@ const reservationSchema = new mongoose.Schema(
                 "EN_COURS",
                 "TERMINEE",
                 "ANNULEE",
+                "ANNULEE_AVEC_FRAIS",
             ],
             default: "EN_ATTENTE",
         },
@@ -90,7 +91,7 @@ const reservationSchema = new mongoose.Schema(
         paiement: {
             statut: {
                 type: String,
-                enum: ["EN_ATTENTE", "PAYE", "ECHEC"],
+                enum: ["EN_ATTENTE", "PAYE", "ECHEC", "REMBOURSE", "REMBOURSE_PARTIEL"],
             },
             methode: {
                 type: String,
@@ -138,6 +139,14 @@ const reservationSchema = new mongoose.Schema(
             type: String,
             enum: ["EN_ATTENTE_RAMASSAGE", "EN_COURS_DE_RAMASSAGE", "RAMASSE"],
             default: "EN_ATTENTE_RAMASSAGE"
+        },
+
+        // Frais d'annulation (Option 2 - Style Uber)
+        fraisAnnulation: {
+            montant: { type: Number, default: 0 },
+            montantRembourse: { type: Number, default: 0 },
+            montantChauffeur: { type: Number, default: 0 },
+            raison: { type: String, default: null }
         }
     },
     { timestamps: true }

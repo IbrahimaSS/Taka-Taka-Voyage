@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Gift, User, MapPin, LogOut, Navigation, Moon, Sun, Car } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../common/LanguageSwitcher';
 import { getFullAssetURL } from '../../utils/urlHelper';
+import { PaymentService } from '../../services/paymentService';
 
 const PassengerNavbar = ({
   activeTab,
@@ -32,6 +33,16 @@ const PassengerNavbar = ({
   const { passenger } = usePassenger();
   const { theme, toggleTheme, isDark } = useTheme();
   const { logout } = useAuth();
+  
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  useEffect(() => {
+    if (passenger) {
+      PaymentService.checkWalletBalance(passenger.id || passenger._id)
+        .then(res => setWalletBalance(res.balance))
+        .catch(err => console.error("Erreur fetch wallet nav:", err));
+    }
+  }, [passenger]);
 
   const dateLocale = i18n.language === 'en' ? enUS : fr;
 
@@ -51,12 +62,12 @@ const PassengerNavbar = ({
   return (
     <nav className="sticky top-0 z-50 bg-white/90 dark:bg-gray-800  backdrop-blur-lg shadow-sm border-b-2   border-gray-200/30 dark:border-gray-900 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+        <div className="flex items-center h-20">
           {/* Logo */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center space-x-3 cursor-pointer"
+            className="flex items-center space-x-3 cursor-pointer shrink-0"
           >
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300">
               {platform.logo ? (
@@ -74,14 +85,14 @@ const PassengerNavbar = ({
           </motion.div>
 
           {/* Navigation Tabs */}
-          <div className="hidden md:flex items-center space-x-1 rounded-xl p-1">
+          <div className="hidden md:flex flex-1 items-center justify-center space-x-1 rounded-xl p-1">
             {tabs.slice(0, 4).map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => onTabChange(tab.id)}
-                  className={`px-6 py-3 text-sm font-medium rounded-lg transition-all duration-300 flex items-center ${activeTab === tab.id
+                  className={`px-3 lg:px-5 py-3 text-sm font-medium rounded-lg transition-all duration-300 flex items-center ${activeTab === tab.id
                     ? 'bg-white dark:bg-gray-800 text-green-600 dark:text-green-500 shadow-sm'
                     : 'text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                     }`}
@@ -94,7 +105,7 @@ const PassengerNavbar = ({
           </div>
 
           {/* User Actions */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-end space-x-1.5 md:space-x-3 shrink-0">
             {/* Bouton "Suivi actif" */}
             {isTripInProgress && (
               <motion.div
@@ -217,8 +228,19 @@ const PassengerNavbar = ({
               </AnimatePresence>
             </div>
 
-            {/* Profile Menu */}
-            <div className="relative">
+            {/* 💰 Wallet Quick Look (Dynamic Balance) */}
+            <button
+              onClick={() => onTabChange('wallet')}
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 transition-all shrink-0"
+            >
+              <Gift className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                {walletBalance.toLocaleString()} GNF
+              </span>
+            </button>
+
+            {/* Profile Menu (Poussé vers le coin avec espace optimisé) */}
+            <div className="relative pl-3 border-l border-gray-200 dark:border-gray-700/50 ml-1">
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center space-x-3 focus:outline-none group"

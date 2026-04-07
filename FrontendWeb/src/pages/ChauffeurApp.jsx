@@ -22,6 +22,7 @@ import ChauffeurSettings from "../components/chauffeur/shared/ChauffeurSettings"
 import ChauffeurSupport from "../components/chauffeur/shared/ChauffeurSupport";
 import ChauffeurEvaluations from "../components/chauffeur/shared/ChauffeurEvaluations";
 import ChauffeurTracking from "../components/chauffeur/ChauffeurTracking";
+import Wallet from "../components/chauffeur/Wallet";
 import TrajetEnTempReel from "../components/suivisTrajet/TrajetEnTempReel";
 import TrajetComplete from "../components/suivisTrajet/TrajetComplete";
 import { tripService } from "../services/tripService";
@@ -230,6 +231,7 @@ function DriverAppContent() {
                 <Route path="tracking" element={<ChauffeurTracking />} />
                 <Route path="live-tracking" element={<LiveTrackingWrapper />} />
                 <Route path="planning" element={<Planning onToast={showToast} onModal={showModal} />} />
+                <Route path="wallet" element={<Wallet />} />
                 <Route path="settings" element={<ChauffeurSettings onToast={showToast} onModal={showModal} />} />
                 <Route path="evaluations" element={<ChauffeurEvaluations onToast={showToast} onModal={showModal} />} />
                 <Route path="support" element={<ChauffeurSupport onToast={showToast} onModal={showModal} />} />

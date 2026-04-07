@@ -66,6 +66,7 @@ const profileRoutes = require("./routes/admin/profileRoutes");
 const personnelRoutes = require("./routes/admin/personnelRoutes");
 const securityRoutes = require("./routes/admin/securityRoutes");
 const parametresRoutes = require("./routes/admin/parametresRoutes");
+const activityLogRoutes = require("./routes/admin/activityLogRoutes");
 //Montage
 app.use("/api/admin", dashboardRoutes);
 app.use("/api/admin", passagerRoutes);
@@ -79,10 +80,11 @@ app.use("/api/admin", rapportRoutes);
 app.use("/api/admin", litigeRoutes);
 app.use("/api/admin", profileRoutes);
 app.use("/api/admin/parametres", parametresRoutes);
-
-// Journal d'Activités
-const activityLogRoutes = require("./routes/admin/activityLogRoutes");
 app.use("/api/admin/logs", activityLogRoutes);
+
+// Transaction Portefeuille
+const transactionRoutes = require("./routes/admin/transactionRoutes");
+app.use("/api/admin", transactionRoutes);
 
 // Sauvegardes
 const backupRoutes = require("./routes/admin/backupRoutes");
@@ -190,6 +192,10 @@ app.use("/api/common", statsRoutes);
 // Contact et support public
 const contactRoutes = require("./routes/common/contactRoutes");
 app.use("/api/common", contactRoutes);
+
+// 🏦 Portefeuille TakaTaka (Fintech)
+const walletRoutes = require("./routes/common/walletRoutes");
+app.use("/api/wallet", walletRoutes);
 
 // ===================== TÉLÉCHARGEMENT APK =====================
 app.get("/api/download/apk", (req, res) => {

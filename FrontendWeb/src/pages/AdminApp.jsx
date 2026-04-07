@@ -24,6 +24,7 @@ import Reports from '../components/admin/sections/Reports';
 import Commissions from '../components/admin/sections/Commissions';
 import Settings from '../components/admin/sections/Settings';
 import ActivityLogs from '../components/admin/sections/ActivityLogs';
+import Transactions from '../components/admin/sections/Transactions';
 import UserProfile from '../components/admin/profile/UserProfile';
 import { useSettings } from '../context/SettingsContext';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../context/NotificationContext';
@@ -402,6 +403,15 @@ function AdminApp() {
                     exit={{ opacity: 0, y: -20 }}
                   >
                     <ActivityLogs showToast={showToast} />
+                  </motion.div>
+                } />
+                <Route path="transactions" element={
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <Transactions showToast={showToast} />
                   </motion.div>
                 } />
                 <Route path="profil" element={

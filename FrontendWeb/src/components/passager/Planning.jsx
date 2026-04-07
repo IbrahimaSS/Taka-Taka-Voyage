@@ -74,6 +74,11 @@ const TripStatusBadge = ({ status }) => {
       icon: AlertCircle,
       label: t('planning.cancelled')
     },
+    ANNULEE_AVEC_FRAIS: {
+      variant: 'bg-orange-500/20 text-orange-700',
+      icon: AlertCircle,
+      label: t('planning.cancelled') + ' (frais)'
+    },
     TERMINEE: {
       variant: 'bg-blue-500/20 text-blue-700',
       icon: CheckCircle,
@@ -497,7 +502,7 @@ const Planning = ({ onBack, onBookNewTrip }) => {
                             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
                               {dayStat.includes('ACCEPTEE') && <div className="w-1 h-1 bg-emerald-500 rounded-full" />}
                               {dayStat.includes('EN_ATTENTE') && <div className="w-1 h-1 bg-amber-500 rounded-full" />}
-                              {dayStat.includes('ANNULEE') && <div className="w-1 h-1 bg-rose-500 rounded-full" />}
+                              {(dayStat.includes('ANNULEE') || dayStat.includes('ANNULEE_AVEC_FRAIS')) && <div className="w-1 h-1 bg-rose-500 rounded-full" />}
                             </div>
                           );
                         }

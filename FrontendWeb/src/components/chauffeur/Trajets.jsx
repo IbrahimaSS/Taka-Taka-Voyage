@@ -145,7 +145,7 @@ const Trajets = () => {
       case 'ARRIVEE': return 'in_progress';
       case 'EN_COURS': return 'in_progress';
       case 'TERMINEE': return 'completed';
-      case 'ANNULEE': return 'cancelled';
+      case 'ANNULEE': case 'ANNULEE_AVEC_FRAIS': return 'cancelled';
       case 'EN_COURS_DE_RECUPERATION': return 'accepted';
       default: return 'pending';
     }

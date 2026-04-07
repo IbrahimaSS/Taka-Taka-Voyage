@@ -437,7 +437,7 @@ export default function SearchScreen({ navigation, route }) {
                                 </View>
                                 <View style={styles.featureItem}>
                                     <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                                    <Text style={styles.featureText}>Annulation gratuite</Text>
+                                    <Text style={styles.featureText}>Annulation flexible</Text>
                                 </View>
                             </View>
                         </TouchableOpacity>

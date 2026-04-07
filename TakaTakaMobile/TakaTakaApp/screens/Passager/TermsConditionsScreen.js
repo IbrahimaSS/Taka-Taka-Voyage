@@ -35,7 +35,7 @@ export default function TermsConditionsScreen({ navigation }) {
         },
         {
             title: '5. Politique d\'Annulation',
-            content: 'Les passagers peuvent annuler sans frais jusqu\'à 5 minutes après la réservation. Les annulations tardives peuvent entraîner des frais. Les chauffeurs peuvent également annuler dans certaines conditions.',
+            content: 'Les passagers peuvent annuler sans frais tant qu\'aucun chauffeur n\'a accepté. Une fois le chauffeur en route, des frais d\'annulation de 5 000 GNF sont appliqués pour compenser son déplacement. Le reste du montant est remboursé sur le portefeuille TakaTaka.',
         },
         {
             title: '6. Responsabilités',

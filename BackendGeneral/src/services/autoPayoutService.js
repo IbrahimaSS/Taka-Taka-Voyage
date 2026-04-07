@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const Paiement = require("../models/Paiements");
 const ChauffeurProfile = require("../models/ChauffeurProfile");
 const Notification = require("../models/Notifications");
+const Utilisateur = require("../models/Utilisateurs");
+const Transaction = require("../models/Transaction");
 
 /**
  * 🤖 Service Automatisé de Déversement (Auto-Payout)
@@ -41,6 +43,24 @@ const autoPayoutService = (io) => {
                         }
                     );
 
+                    // 2.5 💰 CRÉDITER LE SOLDE WALLET DU CHAUFFEUR
+                    // C'est ici que l'argent devient réellement disponible pour le retrait
+                    await Utilisateur.findByIdAndUpdate(paiement.chauffeur._id, {
+                        $inc: { solde: netChauffeur }
+                    });
+
+                    // 2.6 📝 CRÉER UNE TRANSACTION POUR L'HISTORIQUE
+                    await Transaction.create({
+                        utilisateur: paiement.chauffeur._id,
+                        type: "VERSEMENT",
+                        montant: netChauffeur,
+                        methode: paiement.methode || "WALLET",
+                        reference: `AUTO-PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                        statut: "COMPLETE",
+                        commentaire: `Versement automatique (Auto-Payout) - Paiement #${paiement._id}`,
+                        metadata: { paiementId: paiement._id, reservationId: paiement.reservation }
+                    });
+
                     // 3. 🔔 Notification persistante pour le chauffeur
                     const montantFormate = netChauffeur.toLocaleString('fr-FR');
                     try {
@@ -53,7 +73,6 @@ const autoPayoutService = (io) => {
                     }
 
                     // 4. 📢 NOTIFICATION ADMIN (Temps réel et Persistante)
-                    const Utilisateur = require("../models/Utilisateurs");
                     const admin = await Utilisateur.findOne({ role: "ADMIN" });
 
                     if (admin) {

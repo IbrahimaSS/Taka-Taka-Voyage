@@ -1016,75 +1016,164 @@ module.exports = (io) => {
 
         console.log(`✅ [SOCKET] course:annuler AUTORISE par ${role}`);
 
-        const isAlreadyCancelled = ["TERMINEE", "ANNULEE"].includes(reservation.statut);
+        const isAlreadyCancelled = ["TERMINEE", "ANNULEE", "ANNULEE_AVEC_FRAIS"].includes(reservation.statut);
 
         if (!isAlreadyCancelled) {
-          reservation.statut = "ANNULEE";
-          reservation.annuleeLe = new Date(); // Champ correct selon le schéma Reservations.js
+          // ════════════════════════════════════════════════════
+          // 💰 OPTION 2 : FRAIS D'ANNULATION FIXES (5 000 GNF)
+          // ════════════════════════════════════════════════════
+          const FRAIS_ANNULATION_GNF = 5000;
+          let montantRembourse = reservation.prix;
+          let montantChauffeur = 0;
+          let avecFrais = false;
 
-          // ✅ FIX: annuleePar doit être un ObjectId (uid) et non une string "PASSAGER"
-          if (uid) {
-            reservation.annuleePar = uid;
+          // Si le passager annule APRÈS qu'un chauffeur a accepté → appliquer les frais
+          const statutsAssignes = ["ACCEPTEE", "ASSIGNEE", "EN_COURS_DE_RECUPERATION", "ARRIVEE"];
+          if (allowedPassenger && statutsAssignes.includes(reservation.statut) && reservation.chauffeur) {
+            avecFrais = true;
+            montantChauffeur = Math.min(FRAIS_ANNULATION_GNF, reservation.prix);
+            montantRembourse = reservation.prix - montantChauffeur;
+            console.log(`💰 [ANNULATION] Frais appliqués: ${montantChauffeur} GNF chauffeur, ${montantRembourse} GNF remboursé passager`);
           }
+
+          // Mettre à jour le statut
+          reservation.statut = avecFrais ? "ANNULEE_AVEC_FRAIS" : "ANNULEE";
+          reservation.annuleeLe = new Date();
+          if (uid) reservation.annuleePar = uid;
+
+          // Enregistrer les détails des frais
+          reservation.fraisAnnulation = {
+            montant: avecFrais ? FRAIS_ANNULATION_GNF : 0,
+            montantRembourse,
+            montantChauffeur,
+            raison: avecFrais 
+              ? "Annulation après acceptation du chauffeur (frais de déplacement)" 
+              : "Annulation avant acceptation (annulation gratuite)"
+          };
 
           try {
+            // === REMBOURSEMENT WALLET DU PASSAGER (si déjà payé via wallet) ===
+            if (reservation.paiement && reservation.paiement.statut === "PAYE") {
+              const Transaction = require("./models/Transaction");
+              const passagerId = reservation.passager._id;
+              const passagerUser = await Utilisateurs.findById(passagerId);
+
+              if (passagerUser && montantRembourse > 0) {
+                passagerUser.solde = (passagerUser.solde || 0) + montantRembourse;
+                await passagerUser.save();
+
+                await Transaction.create({
+                  utilisateur: passagerId,
+                  type: "REMBOURSEMENT",
+                  montant: montantRembourse,
+                  methode: "WALLET",
+                  reference: `REMB-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                  statut: "COMPLETE",
+                  commentaire: avecFrais 
+                    ? `Remboursement partiel course ${reservationId} (-${montantChauffeur.toLocaleString()} GNF frais)` 
+                    : `Remboursement total course ${reservationId}`,
+                  metadata: { reservationId: reservation._id }
+                });
+
+                console.log(`💸 [REMBOURSEMENT] ${montantRembourse} GNF remboursés au passager ${passagerId}`);
+              }
+
+              reservation.paiement.statut = avecFrais ? "REMBOURSE_PARTIEL" : "REMBOURSE";
+
+              // === COMPENSATION DU CHAUFFEUR (frais d'annulation) ===
+              if (montantChauffeur > 0 && reservation.chauffeur) {
+                const chauffeurUser = await Utilisateurs.findById(reservation.chauffeur);
+                if (chauffeurUser) {
+                  chauffeurUser.solde = (chauffeurUser.solde || 0) + montantChauffeur;
+                  chauffeurUser.trajetEnCours = false;
+                  await chauffeurUser.save();
+
+                  await Transaction.create({
+                    utilisateur: chauffeurUser._id,
+                    type: "COMPENSATION",
+                    montant: montantChauffeur,
+                    methode: "WALLET",
+                    reference: `COMPENS-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                    statut: "COMPLETE",
+                    commentaire: `Compensation frais d'annulation - Course ${reservationId}`,
+                    metadata: { reservationId: reservation._id }
+                  });
+
+                  console.log(`💰 [COMPENSATION] ${montantChauffeur} GNF versés au chauffeur ${chauffeurUser._id}`);
+                }
+              }
+            }
+
             await reservation.save();
-            console.log(`✅ [SOCKET] Reservation ${reservationId} marquée ANNULEE en base`);
+            console.log(`✅ [SOCKET] Reservation ${reservationId} marquée ${reservation.statut} en base`);
           } catch (saveErr) {
-            console.error("❌ [SOCKET] Erreur lors du save() de l'annulation:", saveErr.message);
-            // On continue quand même l'émission pour le real-time
-          }
-        }
-
-        const cancelMsg = message || "Course annulée par le passager";
-
-        // 1. Notifier le passager
-        console.log(`📡 [SOCKET] Emission course:annulee vers PASSAGER_${reservation.passager._id}`);
-        io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:annulee", {
-          reservationId,
-          message: cancelMsg,
-        });
-
-        // 2. Notifier le chauffeur (ou tous si recherche)
-        if (reservation.chauffeur) {
-          const chauffeurId = String(reservation.chauffeur);
-          console.log(`📡 [SOCKET] Emission course:annulee vers CHAUFFEUR_${chauffeurId}`);
-
-          // ✅ FIX Carpooling: ne libérer le chauffeur que s'il n'a plus AUCUNE course active
-          const activeOtherReservations = await Reservation.countDocuments({
-            chauffeur: chauffeurId,
-            _id: { $ne: reservationId },
-            statut: { $in: ["ACCEPTEE", "ASSIGNEE", "ARRIVEE", "EN_COURS"] }
-          });
-
-          if (activeOtherReservations === 0) {
-            console.log(`🧹 [SOCKET] Libération chauffeur ${chauffeurId}`);
-            await Utilisateurs.findByIdAndUpdate(chauffeurId, { trajetEnCours: false });
+            console.error("❌ [SOCKET] Erreur lors de la sauvegarde de l'annulation:", saveErr.message);
           }
 
-          io.to(`CHAUFFEUR_${chauffeurId}`).emit("course:annulee", {
+          // ════════════════════════════════════════════════════
+          // 📡 NOTIFICATIONS TEMPS RÉEL
+          // ════════════════════════════════════════════════════
+          const cancelMsg = avecFrais
+            ? `Course annulée. Frais d'annulation : ${montantChauffeur.toLocaleString()} GNF. ${montantRembourse > 0 ? `Remboursement : ${montantRembourse.toLocaleString()} GNF.` : ''}`
+            : message || "Course annulée par le passager";
+
+          // 1. Notifier le passager
+          console.log(`📡 [SOCKET] Emission course:annulee vers PASSAGER_${reservation.passager._id}`);
+          io.to(`PASSAGER_${String(reservation.passager._id)}`).emit("course:annulee", {
             reservationId,
             message: cancelMsg,
-            source: source || role
+            fraisAnnulation: montantChauffeur,
+            montantRembourse,
+            avecFrais
+          });
+
+          // 2. Notifier le chauffeur
+          if (reservation.chauffeur) {
+            const chauffeurId = String(reservation.chauffeur);
+            console.log(`📡 [SOCKET] Emission course:annulee vers CHAUFFEUR_${chauffeurId}`);
+
+            // Libérer le chauffeur seulement s'il n'a plus aucune course active
+            const activeOtherReservations = await Reservation.countDocuments({
+              chauffeur: chauffeurId,
+              _id: { $ne: reservationId },
+              statut: { $in: ["ACCEPTEE", "ASSIGNEE", "ARRIVEE", "EN_COURS"] }
+            });
+
+            if (activeOtherReservations === 0) {
+              console.log(`🧹 [SOCKET] Libération chauffeur ${chauffeurId}`);
+              await Utilisateurs.findByIdAndUpdate(chauffeurId, { trajetEnCours: false });
+            }
+
+            io.to(`CHAUFFEUR_${chauffeurId}`).emit("course:annulee", {
+              reservationId,
+              message: avecFrais 
+                ? `Le passager a annulé la course. Vous recevez ${montantChauffeur.toLocaleString()} GNF de compensation.`
+                : (message || "Course annulée par le passager"),
+              source: source || role,
+              montantGagne: montantChauffeur
+            });
+          }
+
+          // Notifier la room globale CHAUFFEURS
+          console.log("📡 [SOCKET] Emission course:annulee vers CHAUFFEURS");
+          io.to("CHAUFFEURS").emit("course:annulee", {
+            reservationId,
+            message: cancelMsg,
+            isSearching: !reservation.chauffeur
+          });
+
+          // 3. Notifier la room de la réservation
+          console.log(`📡 [SOCKET] Emission course:annulee vers RESERVATION_${reservationId}`);
+          io.to(`RESERVATION_${reservationId}`).emit("course:annulee", {
+            reservationId,
+            message: cancelMsg
           });
         }
 
-        // On notifie TOUJOURS la room CHAUFFEURS pour nettoyer aussi ceux qui sont en recherche
-        console.log("📡 [SOCKET] Emission course:annulee vers CHAUFFEURS");
-        io.to("CHAUFFEURS").emit("course:annulee", {
+        socket.emit("course:annulee_confirmation", { 
           reservationId,
-          message: cancelMsg,
-          isSearching: !reservation.chauffeur
+          fraisAnnulation: reservation.fraisAnnulation || null
         });
-
-        // 3. Notifier la room de la réservation (pour mise à jour map, etc.)
-        console.log(`📡 [SOCKET] Emission course:annulee vers RESERVATION_${reservationId}`);
-        io.to(`RESERVATION_${reservationId}`).emit("course:annulee", {
-          reservationId,
-          message: cancelMsg
-        });
-
-        socket.emit("course:annulee_confirmation", { reservationId });
         releaseReservationLock(reservationId);
       } catch (e) {
         console.error("❌ course:annuler:", e);

@@ -1,4 +1,6 @@
 // services/paymentService.js
+import apiClient from './apiClient';
+
 export class PaymentService {
   // Simulation des paiements mobile money
   static async processMobileMoneyPayment(amount, phoneNumber, operator) {
@@ -61,25 +63,58 @@ export class PaymentService {
 
   // Vérifier le solde du portefeuille
   static async checkWalletBalance(userId) {
-    // Simulation de vérification de solde
-    return {
-      balance: 45500,
-      currency: 'GNF',
-      lastUpdated: new Date().toISOString()
-    };
+    try {
+      const response = await apiClient.get('/wallet/solde');
+      return {
+        balance: response.data.solde,
+        currency: 'GNF',
+        lastUpdated: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error("Erreur solde wallet:", error);
+      throw error;
+    }
   }
 
-  // Débiter le portefeuille
+  // Débiter le portefeuille (lors du paiement d'un trajet)
+  // Note: On pourrait aussi utiliser une route dédiée au paiement de trajet
   static async debitWallet(userId, amount) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          newBalance: 45500 - amount,
-          transactionId: `WALLET-${Date.now()}`,
-          amount: amount
-        });
-      }, 1000);
-    });
+    try {
+      // Pour l'instant, on simule le débit côté frontend car le vrai débit se fait 
+      // lors de la confirmation de réservation au backend.
+      // Mais on peut appeler une route de pré-vérification si besoin.
+      return {
+        success: true,
+        amount: amount
+      };
+    } catch (error) {
+       throw error;
+    }
+  }
+
+  // Nouvelles méthodes pour le Wallet Hub
+  static async getHistorique() {
+    const response = await apiClient.get('/wallet/historique');
+    return response.data;
+  }
+
+  static async deposer(montant, methode, reference) {
+    const response = await apiClient.post('/wallet/depoter', { montant, methode, referenceExterne: reference });
+    return response.data;
+  }
+
+  static async envoyerOTP() {
+    const response = await apiClient.post('/wallet/envoyer-otp');
+    return response.data;
+  }
+
+  static async retirer(montant, methode, numero, otp) {
+    const response = await apiClient.post('/wallet/retirer', { montant, methode, numeroMobileMoney: numero, otp });
+    return response.data;
+  }
+
+  static async transferer(telephone, montant) {
+    const response = await apiClient.post('/wallet/transferer', { destinataireTel: telephone, montant });
+    return response.data;
   }
 }

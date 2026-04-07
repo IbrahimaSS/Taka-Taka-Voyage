@@ -26,7 +26,7 @@ exports.statsTrajets = async (req, res) => {
 
         // Trajets annulés
         const trajetsAnnules = await Reservation.countDocuments({
-            statut: "ANNULEE",
+            statut: { $in: ["ANNULEE", "ANNULEE_AVEC_FRAIS"] },
         });
 
         // Revenus journaliers (PAYE aujourd’hui)

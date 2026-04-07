@@ -108,6 +108,13 @@ const utilisateurSchema = new mongoose.Schema(
             promotionnelles: { type: Boolean, default: true },
             sms: { type: Boolean, default: false },
         },
+
+        solde: {
+            type: Number,
+            default: 0,
+        },
+        withdrawalOTP: { type: String, default: null },
+        withdrawalOTPExpires: { type: Date, default: null },
     },
     { timestamps: true }
 );

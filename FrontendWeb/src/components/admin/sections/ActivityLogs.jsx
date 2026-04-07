@@ -67,7 +67,8 @@ const ActivityLogs = ({ showToast }) => {
         setPagination(res.data.pagination);
       }
     } catch (err) {
-      showToast('Erreur', 'Impossible de récupérer les journaux d\'activité', 'error');
+      const errorMsg = err.response?.data?.error || err.message;
+      showToast('Erreur', `Échec : ${errorMsg}`, 'error');
     } finally {
       setLoading(false);
     }

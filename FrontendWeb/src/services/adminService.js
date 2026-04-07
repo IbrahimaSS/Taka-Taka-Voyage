@@ -13,6 +13,11 @@ export const adminService = {
   getPaymentList: (params) => apiClient.get(API_ROUTES.admin.paiements.list, { params }),
   getPaymentDetails: (id) => apiClient.get(API_ROUTES.admin.paiements.details(id)),
 
+  // Gestion des transactions (Wallet)
+  getTransactionList: (params) => apiClient.get('/admin/transactions', { params }),
+  getTransactionStats: () => apiClient.get('/admin/transactions/stats'),
+  updateTransactionStatus: (id, statut, commentaire) => apiClient.patch(`/admin/transactions/${id}/statut`, { statut, commentaire }),
+
   // Gestion des trajets
   getTrips: (params) => apiClient.get(API_ROUTES.admin.trajets.list, { params }),
   getTripStats: () => apiClient.get(API_ROUTES.admin.trajets.stats),

@@ -19,7 +19,7 @@ exports.dashboardCards = async (req, res) => {
 
         // Nombre TOTAL de trajets effectués (Toutes réservations non annulées)
         const trajetsEffectues = await Reservation.countDocuments({
-            statut: { $ne: "ANNULEE" }
+            statut: { $nin: ["ANNULEE", "ANNULEE_AVEC_FRAIS"] }
         });
 
         // Revenus totaux (Basé sur les paiements PAYE)

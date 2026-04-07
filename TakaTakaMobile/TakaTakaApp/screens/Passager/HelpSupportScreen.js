@@ -121,7 +121,7 @@ export default function HelpSupportScreen({ navigation }) {
         },
         {
             question: 'Comment annuler un trajet ?',
-            answer: 'Tant que le chauffeur n\'a pas accepté, vous pouvez annuler sans frais',
+            answer: 'Si aucun chauffeur n\'a accepté, vous pouvez annuler sans frais. Après acceptation, des frais d\'annulation de 5 000 GNF sont appliqués pour compenser le déplacement du chauffeur.',
         },
         {
             question: 'Les prix sont-ils fixes ?',

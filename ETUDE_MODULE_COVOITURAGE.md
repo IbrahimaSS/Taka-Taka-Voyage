@@ -1,31 +1,6 @@
 # 🚗 MODULE COVOITURAGE (SHARE) — SPÉCIFICATION PRODUCTION (11/10)
 
-Version ultra-sécurisée intégrant le verrouillage transactionnel pro, la gestion des expirations et l'anti-fraude GPS.
-
----
-
-## 1. STRUCTURE DES DONNÉES (MODELS EXPERTS)
-
-### 🔹 1.1 Trajet Covoiturage (TrajetCovoit.js)
-*   **Verrouillage des Places (Optimistic Locking)** : 
-    *   `version` (Schema version key).
-    *   **Condition de mise à jour** : 
-        `if (nb_places_disponibles >= places_demandées)` ➡️ Update atomique.
-*   **Finances** : `taux_commission`, `montant_commission_plateforme`, `montant_net_chauffeur`.
-  
-### 🔹 1.2 Réservation (ReservationCovoit.js)
-*   **Expiration Chrono** : `reservation_expire_at` (Délai de paiement de 10 min).
-*   **Limites Sécurité** : `max_places_par_user` (Défaut : 4 places pour éviter le blocage de masse).
-*   **Audit** : `id_paiement_idempotent`, `status_transfert` (PENDING | SUCCESS | RETRY).
-
----
-
-## 2. ATOMICITÉ & VERROUILLAGE TRANSACTIONNEL (RACE CONDITIONS) ❗
-
-Pour empêcher deux passagers de réserver la dernière place à la même milliseconde :
-1.  **Transaction ACID (Mongoose)** :
-    *   `session.startTransaction()`.
-    *   Le système vérifie `nb_places_disponibles` EN TEMPS RÉEL dans la transaction.
+TEMPS RÉEL dans la transaction.
     *   Met à jour le décompte ET crée la réservation en une seule opération insécable.
 2.  **Retry Automatique** : Si le transfert financier Escrow ➡️ Chauffeur échoue, le système tente jusqu'à 3 re-soumissions automatiques (`status_transfert: RETRY`) avant d'alerter le support.
 
@@ -38,7 +13,7 @@ Pour empêcher deux passagers de réserver la dernière place à la même millis
 
 ---
 
-## 4. SÉCURITÉ & ANTI-FRAUDE STRICTE
+## 4. SÉCURITÉ & ANTI-FRAUDE STRICT
 
 ### 📍 Vérification GPS (Serrure Logique)
 *   Le scan du **QR Code Dynamique** (qui expire toutes les 30s) n'est **VALIDE** que si :
