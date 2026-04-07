@@ -17,7 +17,7 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
   const [cardDetails, setCardDetails] = useState({ number: "", expiry: "", cvv: "", name: "" });
   const [walletBalance, setWalletBalance] = useState(null);
 
-  const userId = user?._id; // ✅ Mongo
+  const userId = user?.id || user?._id;
 
   const paymentMethods = useMemo(() => {
     const methods = settings?.payments?.methods || {};
@@ -44,7 +44,7 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
         name: "Portefeuille TakaTaka",
         image: AppLogo,
         color: "text-green-600",
-        description: "Solde disponible",
+        description: walletBalance !== null ? `${walletBalance.toLocaleString()} GNF disponibles` : "Chargement...",
         enabled: true
       },
       {
@@ -64,7 +64,7 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
         enabled: methods.cash?.enabled ?? true
       },
     ];
-  }, [settings]);
+  }, [settings, walletBalance]);
 
   // Sélection automatique d'une méthode activée si celle par défaut est inactive
   useEffect(() => {
@@ -87,22 +87,20 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
     setCardDetails({ number: "", expiry: "", cvv: "", name: "" });
   }, [isOpen, user?.telephone, user?.phone]);
 
-  // Charger wallet quand on choisit wallet
+  // Charger le solde du wallet dès l'ouverture pour l'injecter dans la méthode de paiement
   useEffect(() => {
     if (!isOpen) return;
-    if (selectedMethod !== "wallet") return;
-    if (!userId) return;
 
     (async () => {
       try {
-        const balance = await PaymentService.checkWalletBalance(userId);
+        const balance = await PaymentService.checkWalletBalance();
         setWalletBalance(Number(balance?.balance ?? 0));
       } catch (e) {
         setWalletBalance(null);
-        toast.error("Impossible de charger le solde portefeuille");
+        console.error("Erreur solde wallet:", e);
       }
     })();
-  }, [selectedMethod, userId, isOpen]);
+  }, [isOpen]);
 
   const validatePhoneNumber = (number) => {
     const guineanRegex = /^(?:\+224|0)?[6-7]\d{8}$/;
@@ -289,10 +287,10 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
           </div>
 
           {walletBalance != null && walletBalance < amount && (
-            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-100 dark:border-red-800/30">
-              <p className="text-red-700 dark:text-red-400 text-sm flex items-center">
+            <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-lg border border-rose-100 dark:border-rose-800/30 text-center mt-4">
+              <p className="text-rose-700 dark:text-rose-400 text-sm flex items-center justify-center font-bold">
                 <AlertCircle className="w-4 h-4 mr-2" />
-                Solde insuffisant. Rechargez ou choisissez un autre moyen.
+                Vous avez besoin de {(amount - walletBalance).toLocaleString()} GNF supplémentaires.
               </p>
             </div>
           )}
@@ -400,23 +398,38 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
 
           {renderPaymentForm()}
 
-          <button
-            onClick={handlePayment}
-            disabled={!canPay}
-            className="w-full passenger-btn-primary py-3 mt-6 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isProcessing ? (
-              <>
-                <Loader className="w-5 h-5 mr-2 animate-spin" />
-                Traitement en cours...
-              </>
-            ) : (
-              <>
-                <Lock className="w-5 h-5 mr-2" />
-                Payer {Number(amount).toLocaleString()} GNF
-              </>
-            )}
-          </button>
+          {selectedMethod === "wallet" && walletBalance != null && walletBalance < amount ? (
+            <button
+              onClick={() => {
+                onClose();
+                if (window.dispatchEvent) {
+                  window.dispatchEvent(new CustomEvent('navigate-to-wallet'));
+                }
+              }}
+              className="w-full passenger-btn-primary py-3 mt-6 flex items-center justify-center shadow-lg"
+            >
+              <Wallet className="w-5 h-5 mr-2" />
+              Recharger mon compte
+            </button>
+          ) : (
+            <button
+              onClick={handlePayment}
+              disabled={!canPay}
+              className="w-full passenger-btn-primary py-3 mt-6 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader className="w-5 h-5 mr-2 animate-spin" />
+                  Traitement en cours...
+                </>
+              ) : (
+                <>
+                  <Lock className="w-5 h-5 mr-2" />
+                  Payer {Number(amount).toLocaleString()} GNF
+                </>
+              )}
+            </button>
+          )}
 
           <div className="mt-4 text-center">
             <p className="text-xs text-gray-500 flex items-center justify-center">

@@ -635,22 +635,30 @@ export const PassengerProvider = ({ children }) => {
       if (message) toast.success(message);
     };
 
-    // ✅ Fix 4 : écouter l'annulation côté backend
-    const onCancelled = ({ reservationId, message } = {}) => {
+    // ✅ Fix 4 : écouter l'annulation côté backend (avec frais d'annulation Option 2)
+    const onCancelled = ({ reservationId, message, fraisAnnulation, montantRembourse, avecFrais } = {}) => {
       const trip = currentTripRef.current;
       if (trip?.reservationId && !sameRid(trip.reservationId, reservationId)) return;
 
-      console.log(`📩 [CONTEXT] course:annulee reçu for RID=${reservationId}`);
+      console.log(`📩 [CONTEXT] course:annulee reçu for RID=${reservationId}`, { avecFrais, fraisAnnulation, montantRembourse });
       toast.dismiss("searching");
       setTripStatus("cancelled");
       setCurrentTrip(null);
       setSelectedDriver(null);
 
+      // Message adapté selon la présence de frais d'annulation
+      let notifMessage = message || "Votre course a été annulée.";
+      let notifTitle = 'Course annulée ❌';
+      if (avecFrais && fraisAnnulation > 0) {
+        notifTitle = 'Course annulée (avec frais) ⚠️';
+        notifMessage = `${fraisAnnulation?.toLocaleString()} GNF de frais d'annulation. ${montantRembourse > 0 ? `${montantRembourse?.toLocaleString()} GNF remboursés.` : ''}`;
+      }
+
       addNotification({
-        type: NOTIFICATION_TYPES.ERROR,
+        type: avecFrais ? NOTIFICATION_TYPES.WARNING : NOTIFICATION_TYPES.ERROR,
         category: NOTIFICATION_CATEGORIES.TRIP,
-        title: 'Course annulée ❌',
-        message: message || "Votre course a été annulée.",
+        title: notifTitle,
+        message: notifMessage,
       });
 
       setTimeout(() => setTripStatus(null), 2500);
@@ -832,15 +840,38 @@ export const PassengerProvider = ({ children }) => {
   // ... rest of the original file logic if any
   const cancelTripByPassenger = async ({ reason } = {}) => {
     if (!currentTrip?.reservationId) return;
+    const rid = currentTrip.reservationId;
 
     try {
-      setTripStatus("cancelled");
-      toast.success("❌ Trajet annulé");
       toast.dismiss("searching");
 
+      // Appel API pour annulation + remboursement (avec frais si chauffeur assigné)
+      try {
+        const baseURL = getApiBaseURL();
+        const { data } = await axios.post(
+          `${baseURL}/reservations-immediate/${rid}/annuler-rembourser`,
+          {},
+          { withCredentials: true }
+        );
+
+        if (data?.succes) {
+          if (data.fraisAnnulation?.avecFrais) {
+            toast(`⚠️ Frais d'annulation : ${data.fraisAnnulation.montantFrais?.toLocaleString()} GNF\nRemboursé : ${data.fraisAnnulation.montantRembourse?.toLocaleString()} GNF`, { icon: '💸' });
+          } else {
+            toast.success("❌ Trajet annulé et remboursé");
+          }
+        }
+      } catch (apiErr) {
+        console.warn("⚠️ API cancel failed, fallback to socket:", apiErr.message);
+        // Fallback: annuler via socket
+        socketService.emit('course:annuler', { reservationId: rid, source: 'PASSAGER' });
+        toast.success("❌ Trajet annulé");
+      }
+
+      setTripStatus("cancelled");
       setCurrentTrip(null);
       setSelectedDriver(null);
-      setTripStatus(null);
+      setTimeout(() => setTripStatus(null), 1500);
     } catch (e) {
       toast.error("Erreur annulation");
     }

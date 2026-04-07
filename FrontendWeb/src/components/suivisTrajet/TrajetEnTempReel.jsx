@@ -242,13 +242,40 @@ const RealTimeTracking = ({
     if (onContactDriver) onContactDriver(tripData.driver.phone);
   };
 
-  // Gestionnaire d'annulation
-  const handleCancelTrip = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir annuler ce trajet ?\nDes frais d\'annulation peuvent s\'appliquer.')) {
-      clearInterval(progressInterval.current);
+  // Gestionnaire d'annulation (Option 2 - Frais d'annulation fixes 5 000 GNF)
+  const handleCancelTrip = async () => {
+    const hasDriver = !!driver || !!trip?.chauffeur;
+    const confirmMessage = hasDriver
+      ? 'Êtes-vous sûr de vouloir annuler ce trajet ?\n\n⚠️ Le chauffeur est déjà en route. Des frais d\'annulation de 5 000 GNF seront appliqués pour compenser son déplacement.\n\nLe reste sera remboursé sur votre portefeuille.'
+      : 'Êtes-vous sûr de vouloir annuler ce trajet ?\n\nVotre paiement sera remboursé intégralement.';
 
+    if (window.confirm(confirmMessage)) {
+      clearInterval(progressInterval.current);
       setIsTripEnded(true);
-      showToast('Trajet annulé. Un remboursement sera traité.', 'warning');
+
+      // Appel API pour l'annulation et le remboursement
+      const rid = trip?.reservationId || trip?.id;
+      if (rid) {
+        try {
+          const { tripService } = await import('../../services/tripService');
+          const response = await tripService.cancelAndRefund(rid);
+          const data = response?.data;
+          
+          if (data?.fraisAnnulation?.avecFrais) {
+            showToast(
+              `Trajet annulé. Frais : ${data.fraisAnnulation.montantFrais?.toLocaleString()} GNF. Remboursement : ${data.fraisAnnulation.montantRembourse?.toLocaleString()} GNF.`, 
+              'warning'
+            );
+          } else {
+            showToast('Trajet annulé. Remboursement intégral effectué.', 'warning');
+          }
+        } catch (err) {
+          console.error("❌ Erreur annulation API:", err);
+          // Fallback: annuler via socket si l'API échoue
+          socketService.emit('course:annuler', { reservationId: rid, source: 'PASSAGER' });
+          showToast('Trajet annulé. Un remboursement sera traité.', 'warning');
+        }
+      }
 
       if (onCancelTrip) onCancelTrip();
     }

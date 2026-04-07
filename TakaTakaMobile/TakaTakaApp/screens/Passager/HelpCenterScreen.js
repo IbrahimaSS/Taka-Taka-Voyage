@@ -69,7 +69,7 @@ export default function HelpCenterScreen({ navigation }) {
                 },
                 {
                     question: 'Comment annuler un trajet ?',
-                    answer: 'Allez dans "Mes trajets", sélectionnez le trajet en cours et cliquez sur "Annuler". Les annulations sans frais sont possibles jusqu\'à 5 minutes après la réservation.'
+                    answer: 'Allez dans "Mes trajets", sélectionnez le trajet en cours et cliquez sur "Annuler". L\'annulation est gratuite tant qu\'aucun chauffeur n\'a accepté. Après acceptation, des frais de 5 000 GNF sont appliqués.'
                 },
                 {
                     question: 'Comment contacter le chauffeur ?',

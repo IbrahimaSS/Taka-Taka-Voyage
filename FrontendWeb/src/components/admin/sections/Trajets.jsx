@@ -155,7 +155,7 @@ const Trips = ({ showToast }) => {
         case 'TERMINEE': return 'completed';
         case 'EN_COURS': case 'ACCEPTEE': case 'ASSIGNEE': case 'ARRIVEE': return 'in-progress';
         case 'EN_ATTENTE': return 'pending';
-        case 'ANNULEE': return 'cancelled';
+        case 'ANNULEE': case 'ANNULEE_AVEC_FRAIS': return 'cancelled';
         default: return 'pending';
       }
     };

@@ -50,6 +50,7 @@ export const NAV_CONFIG = {
                 path: 'paiements',
                 subItems: [
                     { label: 'Paiements', path: 'paiements' },
+                    { label: 'Transactions', path: 'transactions' },
                     { label: 'Commissions', path: 'commissions' },
                 ],
             },
@@ -84,6 +85,7 @@ export const NAV_CONFIG = {
             chauffeurs: 'Chauffeurs',
             trajets: 'Trajets',
             paiements: 'Paiements',
+            transactions: 'Gestion du Portefeuille',
             commissions: 'Commissions',
             validations: 'Validations',
             documents: 'Documents',

@@ -57,10 +57,11 @@ exports.getActivityLogs = async (req, res) => {
             logs,
         });
     } catch (error) {
-        console.error("GET_ACTIVITY_LOGS ERROR:", error);
+        console.error("❌ CRITICAL ERROR [getActivityLogs]:", error);
         return res.status(500).json({
             succes: false,
-            message: "Erreur lors de la récupération des journaux d'activité",
+            message: "Erreur serveur lors de la récupération des logs",
+            error: error.message
         });
     }
 };

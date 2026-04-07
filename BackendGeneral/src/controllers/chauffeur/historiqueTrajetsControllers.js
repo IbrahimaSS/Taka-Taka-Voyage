@@ -26,7 +26,7 @@ exports.historiqueTrajetsChauffeur = async (req, res) => {
         // 2. Récupérer les réservations annulées (depuis le modèle Reservation)
         const reservationsAnnulees = await Reservation.find({
             chauffeur: userId,
-            statut: "ANNULEE"
+            statut: { $in: ["ANNULEE", "ANNULEE_AVEC_FRAIS"] }
         })
             .populate("passager", "nom prenom noteMoyenne photoUrl")
             .sort({ createdAt: -1 })

@@ -255,38 +255,58 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className={`${softGradient} text-white`}>
-                                                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] w-1/2">Désignation du trajet</th>
-                                                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-center border-l border-white/20">Distance</th>
-                                                <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-center border-l border-white/20">Durée</th>
-                                                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-right border-l border-white/20">Montant</th>
+                                                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] w-1/2">
+                                                    {payment?.type === 'transaction' ? 'Désignation de l’opération' : 'Désignation du trajet'}
+                                                </th>
+                                                {payment?.type !== 'transaction' && (
+                                                    <>
+                                                        <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-center border-l border-white/20">Distance</th>
+                                                        <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-center border-l border-white/20">Durée</th>
+                                                    </>
+                                                )}
+                                                <th className={`px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-right ${payment?.type !== 'transaction' ? 'border-l border-white/20' : ''}`}>Montant</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200">
                                             <tr>
                                                 <td className="px-6 py-6 font-medium">
                                                     <div className="space-y-3">
-                                                        <span className="block font-black text-slate-900 text-sm leading-tight uppercase">COURSE TAKATAKA PREMIUM</span>
-                                                        <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5 items-start">
-                                                            <div className="w-1 h-1 rounded-full bg-blue-500 mt-1.5"></div>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Départ</span>
-                                                                <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[0]?.trim() || 'Région de Mamou'}</span>
+                                                        <span className="block font-black text-slate-900 text-sm leading-tight uppercase">
+                                                            {payment?.type === 'transaction' ? (payment?.trip?.route || 'OPÉRATION PORTEFEUILLE') : 'COURSE TAKATAKA PREMIUM'}
+                                                        </span>
+                                                        {payment?.type !== 'transaction' && (
+                                                            <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5 items-start">
+                                                                <div className="w-1 h-1 rounded-full bg-blue-500 mt-1.5"></div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Départ</span>
+                                                                    <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[0]?.trim() || 'Région de Mamou'}</span>
+                                                                </div>
+                                                                <div className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5"></div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Arrivée</span>
+                                                                    <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[1]?.trim() || 'Dalaba'}</span>
+                                                                </div>
                                                             </div>
-                                                            <div className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5"></div>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Arrivée</span>
-                                                                <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[1]?.trim() || 'Dalaba'}</span>
+                                                        )}
+                                                        {payment?.type === 'transaction' && (
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-1 h-1 rounded-full bg-blue-500"></div>
+                                                                <p className="text-[10px] font-bold text-slate-500 italic">Preuve numérique d’opération financière sur le compte.</p>
                                                             </div>
-                                                        </div>
+                                                        )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-6 text-center align-top pt-8 border-l border-slate-100">
-                                                    <span className="text-xs font-black text-slate-800">{payment?.trip?.distance || '-'}</span>
-                                                </td>
-                                                <td className="px-4 py-6 text-center align-top pt-8 border-l border-slate-100">
-                                                    <span className="text-xs font-black text-slate-800">{payment?.trip?.duration === '-' ? '0 min' : (payment?.trip?.duration || '0 min')}</span>
-                                                </td>
-                                                <td className="px-6 py-6 text-right align-top pt-8 border-l border-slate-100">
+                                                {payment?.type !== 'transaction' && (
+                                                    <>
+                                                        <td className="px-4 py-6 text-center align-top pt-8 border-l border-slate-100">
+                                                            <span className="text-xs font-black text-slate-800">{payment?.trip?.distance || '-'}</span>
+                                                        </td>
+                                                        <td className="px-4 py-6 text-center align-top pt-8 border-l border-slate-100">
+                                                            <span className="text-xs font-black text-slate-800">{payment?.trip?.duration === '-' ? '0 min' : (payment?.trip?.duration || '0 min')}</span>
+                                                        </td>
+                                                    </>
+                                                )}
+                                                <td className={`px-6 py-6 text-right align-top pt-8 ${payment?.type !== 'transaction' ? 'border-l border-slate-100' : ''}`}>
                                                     <span className="text-sm font-black text-slate-950">{payment?.amount || '0 GNF'}</span>
                                                 </td>
                                             </tr>

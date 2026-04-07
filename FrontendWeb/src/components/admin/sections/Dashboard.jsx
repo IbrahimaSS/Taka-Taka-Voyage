@@ -221,6 +221,7 @@ const Dashboard = ({ showToast }) => {
           </span>
         );
       case 'ANNULEE':
+      case 'ANNULEE_AVEC_FRAIS':
         return (
           <span className={`${baseClasses} bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800`}>
             <XCircle className="w-3 h-3 mr-1" /> {t('trips.status.cancelled') || 'Annulé'}
@@ -493,7 +494,7 @@ const Dashboard = ({ showToast }) => {
                                 <Car className="w-4 h-4 text-gray-400" />
                               </div>
                               <span className="text-xs text-gray-500 italic">
-                                {trip.statut === 'ANNULEE' ? '-' : (t('dashboard.searching') || 'En recherche...')}
+                                {['ANNULEE', 'ANNULEE_AVEC_FRAIS'].includes(trip.statut) ? '-' : (t('dashboard.searching') || 'En recherche...')}
                               </span>
                             </div>
                           )}

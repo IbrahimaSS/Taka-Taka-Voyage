@@ -3,11 +3,12 @@ const router = express.Router();
 
 const {
   confirmerReservationImmediate,
+  annulerEtRembourser
 } = require("../../controllers/passager/reservationsImmediateControllers");
 
 const { verifierToken } = require("../../middlewares/authMiddlewares");
 const { verifierStatutActif } = require("../../middlewares/statutMiddlewares");
-const { autoriserRoles } = require("../../middlewares/roleMiddlewares"); // ✅
+const { autoriserRoles } = require("../../middlewares/roleMiddlewares");
 
 /**
  * @swagger
@@ -48,6 +49,15 @@ router.post(
   verifierStatutActif,
   autoriserRoles("PASSAGER"), // ✅ IMPORTANT
   confirmerReservationImmediate
+);
+
+// ✅ Route d'annulation automatique et remboursement (ex: Timeout 120s)
+router.post(
+  "/:id/annuler-rembourser",
+  verifierToken,
+  verifierStatutActif,
+  autoriserRoles("PASSAGER"),
+  annulerEtRembourser
 );
 
 module.exports = router;

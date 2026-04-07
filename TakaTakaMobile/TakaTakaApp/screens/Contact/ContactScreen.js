@@ -168,7 +168,7 @@ export default function ContactScreen({ setCurrentScreen }) {
         },
         {
             question: 'Comment annuler une réservation ?',
-            answer: 'Annulez directement dans l\'application. Consultez notre politique d\'annulation pour les frais éventuels.',
+            answer: 'Annulez directement dans l\'application. Gratuit avant acceptation du chauffeur, 5 000 GNF de frais après.',
         },
     ];
 

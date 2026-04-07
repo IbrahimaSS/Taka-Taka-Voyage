@@ -485,6 +485,24 @@ export const DriverProvider = ({ children }) => {
         setTripStep("idle");
         setStatus("available");
       }
+
+      // Notification de compensation si le passager a payé des frais d'annulation
+      const compensation = data?.compensation || data?.montantCompensation || data?.montantGagne;
+      if (compensation && compensation > 0) {
+        toast.success(`💰 Le passager a annulé. Compensation de ${compensation.toLocaleString()} GNF créditée sur votre portefeuille.`, {
+          id: `cancel-compensation-${rid}`,
+          duration: 8000
+        });
+        addNotification({
+          type: NOTIFICATION_TYPES.SUCCESS,
+          category: NOTIFICATION_CATEGORIES.FINANCIAL,
+          title: 'Compensation reçue 💰',
+          message: `${compensation.toLocaleString()} GNF crédités pour l'annulation du passager.`,
+          priority: 'high'
+        });
+      } else {
+        toast(`Course annulée par le passager`, { icon: '❌', id: `cancel-${rid}` });
+      }
     };
 
     const onPaiementVerse = (data) => {

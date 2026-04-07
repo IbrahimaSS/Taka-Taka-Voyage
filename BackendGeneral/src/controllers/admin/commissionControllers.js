@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 const Paiement = require("../../models/Paiements");
 const Notification = require("../../models/Notifications");
+const Utilisateurs = require("../../models/Utilisateurs");
+const Transaction = require("../../models/Transaction");
+const ChauffeurProfile = require("../../models/ChauffeurProfile");
 
 
 //=================================COMMISSIONS========================================
@@ -320,8 +323,42 @@ exports.traiterPaiement = async (req, res) => {
 
         await paiement.save();
 
-        // ================= NOTIFICATION CHAUFFEUR =================
+        // 💰 CRÉDITER LE SOLDE ET METTRE À JOUR LES STATS
         const chauffeurId = paiement.reservation?.chauffeur || paiement.chauffeur;
+        const netChauffeur = paiement.montantChauffeur || 0;
+
+        if (chauffeurId) {
+            // 1. Créditer le solde wallet
+            await Utilisateurs.findByIdAndUpdate(chauffeurId, {
+                $inc: { solde: netChauffeur }
+            });
+
+            // 2. Mettre à jour ChauffeurProfile stats
+            await ChauffeurProfile.findOneAndUpdate(
+                { utilisateur: chauffeurId },
+                {
+                    $inc: {
+                        totalRevenus: netChauffeur,
+                        nombreTrajets: 1
+                    }
+                },
+                { upsert: true }
+            );
+
+            // 3. Créer une transaction
+            await Transaction.create({
+                utilisateur: chauffeurId,
+                type: "VERSEMENT",
+                montant: netChauffeur,
+                methode: paiement.methode || "CASH",
+                reference: `MAN-PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                statut: "COMPLETE",
+                commentaire: `Versement manuel administration - Paiement #${paiement._id}`,
+                metadata: { paiementId: paiement._id, reservationId: paiement.reservation?._id || paiement.reservation }
+            });
+        }
+
+        // ================= NOTIFICATION CHAUFFEUR =================
         if (chauffeurId) {
             const montantFormate = (paiement.montantChauffeur || 0).toLocaleString('fr-FR');
 

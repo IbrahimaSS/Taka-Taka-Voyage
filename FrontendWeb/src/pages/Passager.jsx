@@ -6,6 +6,7 @@ import BookingSection from '../components/passager/BookingSection';
 import TripsHistory from '../components/passager/TripsHistory';
 import Transactions from '../components/passager/Paiement';
 import Profile from '../components/passager/Profile';
+import Wallet from '../components/passager/Wallet';
 import Settings from '../components/passager/Settings';
 import Support from '../components/passager/Support';
 import TripConfirmationModal from '../components/passager/TripConfirmationModal';
@@ -30,7 +31,8 @@ import {
   Phone,
   Navigation,
   X,
-  Calendar
+  Calendar,
+  Wallet as WalletIcon
 } from 'lucide-react';
 
 import RealTimeTracking from '../components/suivisTrajet/TrajetEnTempReel';
@@ -113,6 +115,7 @@ const Passenger = () => {
     { id: 'payments', label: t('nav.payments'), icon: CreditCard },
     { id: 'planning', label: t('nav.planning'), icon: Calendar },
     { id: 'profile', label: t('nav.profile'), icon: User },
+    { id: 'wallet', label: t('nav.wallet') || "Portefeuille", icon: WalletIcon },
     { id: 'evaluations', label: t('nav.evaluations'), icon: Star },
     { id: 'settings', label: t('nav.settings'), icon: SettingsIcon },
     { id: 'support', label: t('nav.support'), icon: Headphones },
@@ -202,6 +205,16 @@ const Passenger = () => {
             if (prev === 'searching') {
               toast.dismiss('searching');
               toast.error('Aucun chauffeur disponible. Veuillez réessayer.');
+              
+              if (reservationId) {
+                // Appel API pour annuler la réservation et ré-créditer le solde du passager ! 💰
+                tripService.cancelAndRefund(reservationId).then(() => {
+                  toast.success('Remboursement automatique effectué dans votre Portefeuille', { icon: '🔄' });
+                }).catch(err => {
+                  console.error("Erreur annulation/remboursement:", err);
+                });
+              }
+
               setCurrentTrip(null);
               setCurrentDriver(null);
               return 'idle';
@@ -313,7 +326,11 @@ const Passenger = () => {
     const reservationId = currentTrip?.reservationId;
     if (reservationId) {
       try {
-        await tripService.cancel(reservationId, { reason: 'CANCELLED_BY_PASSENGER' });
+        if (currentTrip?.typeCourse === 'IMMEDIATE') {
+          await tripService.cancelAndRefund(reservationId);
+        } else {
+          await tripService.cancel(reservationId, { reason: 'CANCELLED_BY_PASSENGER' });
+        }
       } catch (e) {
         console.warn('Cancel API failed:', e?.message);
       }
@@ -325,7 +342,13 @@ const Passenger = () => {
     setIsOnMapView(false);
     setCurrentDriver(null);
     setCurrentTrip(null);
-    toast('Course annulée', { icon: 'ℹ️' });
+    
+    if (currentTrip?.typeCourse === 'IMMEDIATE') {
+      toast.success('Course annulée • Remboursement effectué 💸');
+    } else {
+      toast('Course annulée', { icon: 'ℹ️' });
+    }
+    
     setShowTripStatusModal(false);
   };
 
@@ -414,6 +437,18 @@ const Passenger = () => {
     setActiveTab(tabId);
   };
 
+  // 🔄 Écouter la redirection vers le Wallet (depuis le modal de paiement)
+  useEffect(() => {
+    const handleGoToWallet = () => {
+      setActiveTab('wallet');
+      setIsOnMapView(false);
+      setIsOnTrackingView(false);
+      setShowTripModal(false); // ✅ Fix: also close the TripConfirmationModal when redirecting
+    };
+    window.addEventListener('navigate-to-wallet', handleGoToWallet);
+    return () => window.removeEventListener('navigate-to-wallet', handleGoToWallet);
+  }, []);
+
   const renderContent = () => {
     if (activeTab === 'home') {
       return (
@@ -437,6 +472,8 @@ const Passenger = () => {
         return <Evaluations />;
       case 'profile':
         return <Profile />;
+      case 'wallet':
+        return <Wallet />;
       case 'settings':
         return <Settings />;
       case 'planning':

@@ -11,6 +11,7 @@ import {
   User,
   LogOut,
   Navigation,
+  Wallet,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -26,7 +27,9 @@ import { useDriverContext } from '../../../context/DriverContext';
 import { useNotificationCenter } from '../../../context/NotificationContext';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../../common/LanguageSwitcher';
+import { socketService } from '../../../services/socketService';
 import { getFullAssetURL } from '../../../utils/urlHelper';
+import { PaymentService } from '../../../services/paymentService';
 
 function parsePath(pathname, basePath) {
   if (!pathname.startsWith(basePath)) return { segments: [], first: '' };
@@ -74,9 +77,19 @@ export default function Header({
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   const { segments, first } = useMemo(() => parsePath(location.pathname, BASE_PATH), [location.pathname, BASE_PATH]);
   const pageTitle = TITLES[first] || TITLES[''];
+
+  // Récupérer le solde réel au chargement (pour le Chauffeur)
+  useEffect(() => {
+    if (role === ROLES.CHAUFFEUR && user) {
+      PaymentService.checkWalletBalance(user.id || user._id)
+        .then(res => setWalletBalance(res.balance))
+        .catch(err => console.error("Erreur fetch wallet nav:", err));
+    }
+  }, [role, user]);
 
   const breadcrumbs = useMemo(() => {
     const crumbs = [{ label: platform.name || config.title, to: BASE_PATH }];
@@ -97,6 +110,41 @@ export default function Header({
     document.addEventListener('mousedown', onDocDown);
     return () => document.removeEventListener('mousedown', onDocDown);
   }, [notificationsOpen, profileOpen]);
+
+  // Real-time admin notifications (Deposit & Withdrawal alerts)
+  useEffect(() => {
+    if (role !== ROLES.ADMIN || !user) return;
+
+    const onAdminNotification = (data) => {
+      if (showToast) showToast('Info Portefeuille', data.message, 'success');
+      console.log('💳 [ADMIN_NOTIF] Dépôt reçu:', data);
+    };
+
+    const onWithdrawAlert = (data) => {
+      if (showToast) showToast('ALERTE RETRAIT', data.message, 'warning');
+      
+      // Play a beep sound for withdrawals
+      try {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.play().catch(e => console.warn("Audio play blocked by browser:", e));
+      } catch (e) {
+        console.error("Erreur sonnerie:", e);
+      }
+    };
+
+    // Initialisation socket si non fait
+    if (!socketService.isConnected()) {
+      socketService.connect(user.id || user._id, role, user.nom, user.prenom);
+    }
+
+    socketService.on("admin:notification", onAdminNotification);
+    socketService.on("admin:withdraw_alert", onWithdrawAlert);
+
+    return () => {
+      socketService.off("admin:notification", onAdminNotification);
+      socketService.off("admin:withdraw_alert", onWithdrawAlert);
+    };
+  }, [role, user, showToast]);
 
   const handleNotificationClick = (notification) => {
     markAsRead(notification.id);
@@ -121,7 +169,7 @@ export default function Header({
     <header className="glass-header bg-white/90 dark:bg-gray-800  border-b-2 border-gray-200/30 dark:border-gray-900 shadow-sm animate-fade-in-down sticky top-0 z-30 px-4 md:px-6 py-3">
       <div className="flex items-center justify-between gap-3">
         {/* Left */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 shrink-0">
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={onMenuToggle}
@@ -170,10 +218,19 @@ export default function Header({
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2.5">
           {/* Toggle Disponibilité */}
           {role === ROLES.CHAUFFEUR && (
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/chauffeur/wallet')}
+                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 transition-all shrink-0"
+              >
+                <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  {walletBalance.toLocaleString()} GNF
+                </span>
+              </button>
               {tripInProgress && (
                 <Link
                   to="/chauffeur/live-tracking"
@@ -276,8 +333,8 @@ export default function Header({
             </AnimatePresence>
           </div>
 
-          {/* Profile */}
-          <div className="relative profile-container">
+          {/* Profile (Poussé vers le coin avec espace optimisé) */}
+          <div className="relative profile-container pl-3 border-l border-gray-200 dark:border-gray-700 ml-1">
             <button
               type="button"
               onClick={() => setProfileOpen((v) => !v)}
@@ -368,14 +425,27 @@ export default function Header({
                       className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
                       onClick={() => setProfileOpen(false)}
                     >
+                      <User className="h-4 w-4 opacity-70" />
                       {t('nav.profile')}
                     </Link>
+
+                    {role === ROLES.CHAUFFEUR && (
+                      <Link
+                        to="/chauffeur/wallet"
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                        onClick={() => setProfileOpen(false)}
+                      >
+                        <Wallet className="h-4 w-4 opacity-70" />
+                        {t('nav.wallet') || "Portefeuille"}
+                      </Link>
+                    )}
 
                     <Link
                       to={settingsLink}
                       className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
                       onClick={() => setProfileOpen(false)}
                     >
+                      <Settings className="h-4 w-4 opacity-70" />
                       {t('nav.settings')}
                     </Link>
                   </div>
