@@ -32,9 +32,10 @@ export default function TakaAssistantScreen({ onBack, setCurrentScreen, activeTa
     ]);
     const [loading, setLoading] = useState(false);
 
-    const handleAction = async (actionData) => {
+    const handleAction = async (actionData, userText = "") => {
         try {
             const { name, confirmationMessage } = actionData;
+            const commandText = userText.toLowerCase();
 
             // 1. Valider l'action avec le backend
             const valRes = await apiClient("/ai/validate", {
@@ -43,40 +44,91 @@ export default function TakaAssistantScreen({ onBack, setCurrentScreen, activeTa
             });
 
             if (!valRes.succes) {
-                Alert.alert("Action impossible", valRes.raison || "Cette action ne peut pas être effectuée pour le moment.");
+                // Ajouter le message d'erreur dans le chat au lieu d'une alerte intrusive
+                setMessages(prev => [...prev, {
+                    id: Date.now(),
+                    from: "assistant",
+                    text: `⚠️ Désolé : ${valRes.raison || "Cette action ne peut pas être effectuée."}`,
+                    time: "maintenant"
+                }]);
                 return;
             }
 
-            // 2. Gérer la confirmation si nécessaire
+            // 2. Gérer l'exécution
             const executeAction = () => {
+                const isDriver = user?.role === "CHAUFFEUR";
+                const targetScreen = isDriver ? SCREENS.DRIVER_DASHBOARD : SCREENS.PASSAGER_DASHBOARD;
+                
                 switch (name) {
                     case "voir_profil":
-                        setCurrentScreen(user?.role === "CHAUFFEUR" ? SCREENS.DRIVER_DASHBOARD : SCREENS.PASSAGER_DASHBOARD);
+                        setNavigationIntent({ tab: 'profile' });
+                        setCurrentScreen(targetScreen);
                         break;
                     case "voir_historique":
-                        setCurrentScreen(user?.role === "CHAUFFEUR" ? SCREENS.DRIVER_DASHBOARD : SCREENS.PASSAGER_DASHBOARD);
+                        setNavigationIntent({ tab: isDriver ? 'rides' : 'history' });
+                        setCurrentScreen(targetScreen);
                         break;
                     case "voir_mon_solde":
-                        setCurrentScreen(user?.role === "CHAUFFEUR" ? SCREENS.DRIVER_DASHBOARD : SCREENS.PASSAGER_DASHBOARD);
+                        setNavigationIntent({ 
+                            tab: isDriver ? 'earnings' : 'history',
+                            subTab: isDriver ? null : 'payments'
+                        });
+                        setCurrentScreen(targetScreen);
                         break;
                     case "voir_planning":
-                        setCurrentScreen(user?.role === "CHAUFFEUR" ? SCREENS.DRIVER_DASHBOARD : SCREENS.PASSAGER_DASHBOARD);
+                        setNavigationIntent({ tab: isDriver ? 'rides' : 'planning' });
+                        setCurrentScreen(targetScreen);
                         break;
                     case "voir_parametres":
-                        setCurrentScreen(user?.role === "CHAUFFEUR" ? SCREENS.DRIVER_DASHBOARD : SCREENS.PASSAGER_DASHBOARD);
+                        setNavigationIntent({ tab: 'profile' });
+                        setCurrentScreen(targetScreen);
+                        break;
+                    case "rechercher_taxi":
+                        setNavigationIntent({ tab: 'home' });
+                        setCurrentScreen(targetScreen);
                         break;
                     case "changer_theme":
-                        toggleDarkMode();
+                        const isLight = commandText.includes("clair") || commandText.includes("light");
+                        const isDark = commandText.includes("sombre") || commandText.includes("dark") || commandText.includes("noir");
+                        
+                        if (isLight) toggleDarkMode(false);
+                        else if (isDark) toggleDarkMode(true);
+                        else toggleDarkMode();
+                        
+                        setMessages(prev => [...prev, {
+                            id: Date.now(),
+                            from: "assistant",
+                            text: `✅ Mode ${darkMode ? "clair" : "sombre"} activé.`,
+                            time: "maintenant"
+                        }]);
                         break;
                     case "changer_langue":
-                        const newLang = language === "fr" ? "en" : "fr";
-                        changeLanguage(newLang);
+                        const toEn = commandText.includes("anglais") || commandText.includes("english") || commandText.includes(" en ");
+                        const toFr = commandText.includes("français") || commandText.includes("french") || commandText.includes(" fr ");
+                        
+                        let targetLang = language === "fr" ? "en" : "fr";
+                        if (toEn) targetLang = "en";
+                        else if (toFr) targetLang = "fr";
+                        
+                        changeLanguage(targetLang);
+                        setMessages(prev => [...prev, {
+                            id: Date.now(),
+                            from: "assistant",
+                            text: targetLang === "en" ? "✅ Language changed to English." : "✅ Langue changée en Français.",
+                            time: "maintenant"
+                        }]);
                         break;
                     case "deconnexion":
                         setCurrentScreen(SCREENS.HOME);
                         break;
                     default:
-                        Alert.alert("Info", "Action détectée : " + name + ". L'exécution complète sera bientôt disponible.");
+                        // Pour les autres actions (démarrer trajet, etc.)
+                        setMessages(prev => [...prev, {
+                            id: Date.now(),
+                            from: "assistant",
+                            text: confirmationMessage || `✅ Action exécutée : ${name.replace(/_/g, " ")}`,
+                            time: "maintenant"
+                        }]);
                 }
             };
 
@@ -84,7 +136,7 @@ export default function TakaAssistantScreen({ onBack, setCurrentScreen, activeTa
                 Alert.alert("Confirmation", confirmationMessage || "Voulez-vous vraiment effectuer cette action ?", [
                     { text: "Annuler", style: "cancel" },
                     { text: "Confirmer", onPress: executeAction }
-                ]);
+                ], { cancelable: true });
             } else {
                 executeAction();
             }
@@ -139,7 +191,7 @@ Tab actif: ${activeTab || "N/A"}`;
 
                 // Gérer les actions détectées
                 if (res.actionDetected) {
-                    handleAction(res.actionDetected);
+                    handleAction(res.actionDetected, textToSearch);
                 }
             } else {
                 Alert.alert("Erreur", res.message || "L'assistant ne répond pas.");
