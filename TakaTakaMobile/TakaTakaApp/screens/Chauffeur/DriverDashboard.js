@@ -69,7 +69,7 @@ const darkMapStyle = [
 ];
 
 export default function DriverDashboard({ onLogout, setCurrentScreen }) {
-    const { maintenanceMode, darkMode, theme, toggleDarkMode, user } = useApp();
+    const { maintenanceMode, darkMode, theme, toggleDarkMode, user, navigationIntent, setNavigationIntent } = useApp();
     const [isOnline, setIsOnline] = useState(true);
     const [currentRide, setCurrentRide] = useState(null);
     const [availableRides, setAvailableRides] = useState([]);
@@ -89,6 +89,26 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
     const [currentRegion, setCurrentRegion] = useState(null);
     const [loadingLocation, setLoadingLocation] = useState(false);
     const [activeTab, setActiveTab] = useState('home');
+
+    // ÉCOUTEUR D'INTENTIONS DE NAVIGATION (IA / EXTERNE)
+    useEffect(() => {
+        if (navigationIntent) {
+            const { tab, subTab } = navigationIntent;
+            console.log('🚗 Navigation Intent received (Driver):', navigationIntent);
+
+            if (tab) {
+                const validTabs = ['home', 'rides', 'earnings', 'profile'];
+                if (validTabs.includes(tab)) {
+                    setActiveTab(tab);
+                    if (tab === 'profile' && subTab) {
+                        setActiveProfileSubTab(subTab);
+                    }
+                }
+            }
+
+            setNavigationIntent(null);
+        }
+    }, [navigationIntent]);
 
     // État pour les sous-onglets du profil
     const [activeProfileSubTab, setActiveProfileSubTab] = useState('main');

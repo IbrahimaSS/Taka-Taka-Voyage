@@ -184,6 +184,8 @@ export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen }
         user,
         pendingRideIntent,
         setPendingRideIntent,
+        navigationIntent,
+        setNavigationIntent,
         rideDraft,
         setRideDraft,
         updateUser,
@@ -193,6 +195,29 @@ export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen }
     const [loading, setLoading] = useState(false);
     const [userLocation, setUserLocation] = useState(null);
     const [activeTab, setActiveTab] = useState('home');
+    const [activeSubTab, setActiveSubTab] = useState(null);
+
+    // ÉCOUTEUR D'INTENTIONS DE NAVIGATION (IA / EXTERNE)
+    useEffect(() => {
+        if (navigationIntent) {
+            const { tab, subTab } = navigationIntent;
+            console.log('🚀 Navigation Intent received:', navigationIntent);
+
+            if (tab) {
+                // S'assurer que l'onglet existe
+                const validTabs = ['home', 'planning', 'history', 'profile'];
+                if (validTabs.includes(tab)) {
+                    setActiveTab(tab);
+                    if (subTab) {
+                        setActiveSubTab(subTab);
+                    }
+                }
+            }
+
+            // Réinitialiser l'intent après traitement
+            setNavigationIntent(null);
+        }
+    }, [navigationIntent]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [bookingModalVisible, setBookingModalVisible] = useState(false);
     const [pickup, setPickup] = useState('');
@@ -631,10 +656,15 @@ export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen }
     const renderMainContent = () => {
         switch (activeTab) {
             case 'planning': return <PlanningScreen onClose={() => setActiveTab('home')} onNewTrip={() => setBookingModalVisible(true)} />;
-            case 'history': return <HistoryScreen navigation={{ goBack: () => setActiveTab('home') }} />;
+            case 'history': return <HistoryScreen navigation={{ goBack: () => setActiveTab('home') }} initialTab={activeSubTab} />;
             case 'profile': return <ProfileScreen navigation={{ goBack: () => setActiveTab('home') }} onLogout={onLogout} onOpenAssistant={setCurrentScreen ? () => setCurrentScreen('assistant') : undefined} />;
             case 'home': default: return renderHomeContent();
         }
+    };
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setActiveSubTab(null); // Réinitialiser le sous-onglet lors d'un changement manuel
     };
 
     const renderBottomNavigation = () => {

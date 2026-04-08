@@ -132,6 +132,20 @@ export const PassengerProvider = ({ children }) => {
     return () => window.removeEventListener('taka-ia-reservation', handleIAReservation);
   }, []);
 
+  // 🤖 [IA] Écouter les demandes de navigation (changement d'onglets)
+  useEffect(() => {
+    const handleIANavigation = (event) => {
+      const { page, role } = event.detail;
+      if (role === 'PASSENGER' || role === 'PASSAGER') {
+        console.log(`🤖 [CONTEXT] Navigation IA reçue vers: ${page}`);
+        if (page) setCurrentPage(page);
+      }
+    };
+
+    window.addEventListener('taka-ia-navigation', handleIANavigation);
+    return () => window.removeEventListener('taka-ia-navigation', handleIANavigation);
+  }, []);
+
   // 💾 [OFFLINE] Sauvegarde automatique à chaque changement
   useEffect(() => {
     if (currentTrip) {

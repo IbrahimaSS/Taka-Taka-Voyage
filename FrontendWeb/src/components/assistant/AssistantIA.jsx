@@ -361,12 +361,15 @@ const AssistantIA = () => {
                     }
                     break;
                 case 'annuler_reservation':
-                    if (user?.role === 'PASSAGER' && passengerCtx?.cancelTripByPassenger) {
-                        await passengerCtx.cancelTripByPassenger({ reason: "Annulation par assistant IA" });
-                        success = true;
-                        finalMessage = "✅ Votre réservation a été annulée comme demandé.";
+                    if (user?.role === 'PASSAGER') {
+                        if (passengerCtx?.cancelTripByPassenger) {
+                            await passengerCtx.cancelTripByPassenger({ reason: "Annulation par assistant IA" });
+                            success = true;
+                            finalMessage = "✅ Votre réservation a été annulée comme demandé.";
+                        } else {
+                            finalMessage = "⚠️ Pour annuler une réservation, veuillez d'abord vous rendre sur votre tableau de bord passager.";
+                        }
                     } else if (user?.role === 'CHAUFFEUR' && driverCtx) {
-                        // Pour le chauffeur, on utilise le tripService ou l'API via le context
                         const { tripService } = await import('../../services/tripService');
                         await tripService.cancel(reservationId, { raison: "Annulation par assistant IA" });
                         success = true;
@@ -400,61 +403,97 @@ const AssistantIA = () => {
                     finalMessage = "👋 Déconnexion réussie. À bientôt !";
                     break;
                 case 'voir_mon_solde':
+                    const isWalletRequest = actionData.contextMsg?.toLowerCase().includes('wallet') || 
+                                          actionData.contextMsg?.toLowerCase().includes('portefeuille');
+                    
                     if (user?.role === 'CHAUFFEUR') {
-                        navigate('/chauffeur/revenus');
+                        navigate(isWalletRequest ? '/chauffeur/wallet' : '/chauffeur/revenues');
                     } else if (user?.role === 'ADMIN') {
                         navigate('/admin/paiements');
-                    } else if (passengerCtx?.setCurrentPage) {
-                        passengerCtx.setCurrentPage('payments');
+                    } else {
+                        // Utiliser l'événement global pour éviter les problèmes de contexte hors-provider
+                        window.dispatchEvent(new CustomEvent('taka-ia-navigation', {
+                            detail: { 
+                                page: isWalletRequest ? 'wallet' : 'payments', 
+                                role: 'PASSENGER' 
+                            }
+                        }));
                     }
                     success = true;
-                    finalMessage = "💰 Voici votre solde et vos dernières transactions.";
+                    finalMessage = isWalletRequest 
+                        ? "💰 Voici votre portefeuille et votre solde actuel."
+                        : "💰 Voici votre historique de transactions.";
                     break;
                 case 'rechercher_taxi':
-                    if (passengerCtx?.setCurrentPage) {
-                        passengerCtx.setCurrentPage('home');
-                        success = true;
-                        finalMessage = "🚕 Je vous ouvre l'écran de réservation. Où souhaitez-vous aller ?";
-                    }
+                    // Utiliser l'événement global
+                    window.dispatchEvent(new CustomEvent('taka-ia-navigation', {
+                        detail: { page: 'home', role: 'PASSENGER' }
+                    }));
+                    success = true;
+                    finalMessage = "🚕 Je vous ouvre l'écran de réservation. Où souhaitez-vous aller ?";
                     break;
                 case 'voir_planning':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/planning');
                     else if (user?.role === 'ADMIN') navigate('/admin/trajets');
-                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('planning');
+                    else {
+                        window.dispatchEvent(new CustomEvent('taka-ia-navigation', {
+                            detail: { page: 'planning', role: 'PASSENGER' }
+                        }));
+                    }
                     success = true;
                     finalMessage = "📅 Voici votre planning de réservation.";
                     break;
                 case 'voir_historique':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/history');
                     else if (user?.role === 'ADMIN') navigate('/admin/trajets');
-                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('history');
+                    else {
+                        window.dispatchEvent(new CustomEvent('taka-ia-navigation', {
+                            detail: { page: 'history', role: 'PASSENGER' }
+                        }));
+                    }
                     success = true;
                     finalMessage = "📜 Je vous affiche l'historique de vos trajets.";
                     break;
                 case 'voir_profil':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/profil');
                     else if (user?.role === 'ADMIN') navigate('/admin/profil');
-                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('profile');
+                    else {
+                        window.dispatchEvent(new CustomEvent('taka-ia-navigation', {
+                            detail: { page: 'profile', role: 'PASSENGER' }
+                        }));
+                    }
                     success = true;
                     finalMessage = "👤 Voici votre profil utilisateur.";
                     break;
                 case 'voir_parametres':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/settings');
                     else if (user?.role === 'ADMIN') navigate('/admin/parametres');
-                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('settings');
+                    else {
+                        window.dispatchEvent(new CustomEvent('taka-ia-navigation', {
+                            detail: { page: 'settings', role: 'PASSENGER' }
+                        }));
+                    }
                     success = true;
                     finalMessage = "⚙️ J'ouvre vos paramètres.";
                     break;
                 case 'voir_support':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/support');
                     else if (user?.role === 'ADMIN') navigate('/admin/litiges');
-                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('support');
+                    else {
+                        window.dispatchEvent(new CustomEvent('taka-ia-navigation', {
+                            detail: { page: 'support', role: 'PASSENGER' }
+                        }));
+                    }
                     success = true;
                     finalMessage = "🎧 Bienvenue au support Taka-Taka. Comment puis-je vous aider ?";
                     break;
                 case 'voir_evaluations':
                     if (user?.role === 'CHAUFFEUR') navigate('/chauffeur/evaluations');
-                    else if (passengerCtx?.setCurrentPage) passengerCtx.setCurrentPage('evaluations');
+                    else {
+                        window.dispatchEvent(new CustomEvent('taka-ia-navigation', {
+                            detail: { page: 'evaluations', role: 'PASSENGER' }
+                        }));
+                    }
                     success = true;
                     finalMessage = "⭐ Voici vos avis et évaluations.";
                     break;
@@ -482,12 +521,16 @@ const AssistantIA = () => {
                     }
                     break;
                 case 'contacter_chauffeur':
-                    if (user?.role === 'PASSAGER' && passengerCtx?.selectedDriver?.phone) {
-                        window.open(`tel:${passengerCtx.selectedDriver.phone}`);
-                        success = true;
-                        finalMessage = "📞 Appel en cours vers votre chauffeur...";
+                    if (user?.role === 'PASSAGER') {
+                        if (passengerCtx?.selectedDriver?.phone) {
+                            window.open(`tel:${passengerCtx.selectedDriver.phone}`);
+                            success = true;
+                            finalMessage = "📞 Appel en cours vers votre chauffeur...";
+                        } else {
+                            finalMessage = "❌ Aucun chauffeur assigné ou vous n'êtes pas sur l'écran de suivi.";
+                        }
                     } else {
-                        finalMessage = "❌ Aucun chauffeur assigné à un trajet en cours pour le moment.";
+                        finalMessage = "❌ Cette action est réservée aux passagers ayant un trajet en cours.";
                     }
                     break;
                 case 'confirmer_ramassage':
@@ -847,12 +890,20 @@ const AssistantIA = () => {
             }
         } catch (err) {
             console.error('Erreur Assistant IA:', err);
-            setError(null); // On ne met pas l'alerte statique, on utilise la bulle.
+            setError(null);
+
+            // Meilleure gestion du message d'erreur
+            let errorText = "Erreur, veuillez vérifier votre connexion réseau.";
+            if (err.response?.data?.message) {
+                errorText = err.response.data.message;
+            } else if (err.response?.status === 429) {
+                errorText = "Quota Gemini épuisé. Veuillez patienter une minute avant de réessayer.";
+            }
 
             const errorMessage = {
                 id: Date.now() + 1,
                 role: 'model',
-                content: "Erreur, veuillez vérifier votre connexion réseau.",
+                content: errorText,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 isError: true
             };

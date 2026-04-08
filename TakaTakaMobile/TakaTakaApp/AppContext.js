@@ -30,6 +30,7 @@ export const AppProvider = ({ children }) => {
     const [preferencesLoaded, setPreferencesLoaded] = useState(false);
     const [maintenanceMode, setMaintenanceMode] = useState(false);
     const [pendingRideIntent, setPendingRideIntent] = useState(false); // AJOUTÉ
+    const [navigationIntent, setNavigationIntent] = useState(null); // AJOUTÉ : Pour naviguer vers des onglets spécifiques
     const [rideDraft, setRideDraft] = useState({ pickup: '', destination: '' }); // AJOUTÉ
     const [branding, setBrandingState] = useState({ platformName: 'Taka-Taka Voyage', slogan: 'Déplacements intelligents en Guinée' });
     const [user, setUser] = useState(null);
@@ -159,8 +160,12 @@ export const AppProvider = ({ children }) => {
 
     const setBranding = (data) => setBrandingState(prev => ({ ...prev, ...data }));
 
-    const toggleDarkMode = () => {
-        setDarkMode(!darkMode);
+    const toggleDarkMode = (forceValue) => {
+        if (typeof forceValue === 'boolean') {
+            setDarkMode(forceValue);
+        } else {
+            setDarkMode(prev => !prev);
+        }
     };
 
     const changeLanguage = (langCode) => {
@@ -214,6 +219,8 @@ export const AppProvider = ({ children }) => {
         setPendingRideIntent,
         rideDraft,
         setRideDraft,
+        navigationIntent,
+        setNavigationIntent,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

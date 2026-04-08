@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const Otp = require("../models/Otp");
 const { envoyerEmailBrevo } = require("./emailService");
+const { sendSMS } = require("./smsService");
 
 function generateOtp6() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -45,6 +46,15 @@ exports.genererOtp = async ({ telephone, email }) => {
       </div>
     `,
   });
+
+  // --- 📱 ENVOI SMS AFRICA'S TALKING ---
+  try {
+    const smsMessage = `Code TAKA-TAKA : ${code}. Valable ${ttlMin} minutes. Ne le partagez jamais.`;
+    await sendSMS(telephone, smsMessage);
+  } catch (err) {
+    console.error("❌ Erreur envoi SMS OTP :", err.message);
+    // On ne bloque pas si le SMS échoue mais l'email a réussi
+  }
 
   return true;
 };

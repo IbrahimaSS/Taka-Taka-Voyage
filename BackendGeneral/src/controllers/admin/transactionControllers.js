@@ -1,6 +1,7 @@
 const Transaction = require("../../models/Transaction");
 const Utilisateur = require("../../models/Utilisateurs");
 const mongoose = require("mongoose");
+const { sendSMS } = require("../../services/smsService");
 
 /**
  * 💼 transactionControllers (Admin) - Management of Wallet Activity
@@ -141,6 +142,14 @@ exports.modifierStatut = async (req, res) => {
                     statut: statut,
                     message: msg
                 });
+            }
+
+            // --- 📱 ENVOI SMS AFRICA'S TALKING ---
+            const user = await Utilisateur.findById(transaction.utilisateur);
+            if (user && user.telephone) {
+                const labels = { 'COMPLETE': 'validée ✅', 'ANNULE': 'annulée ❌', 'ECHOUE': 'échouée ⚠️' };
+                const smsMsg = `TakaTaka : Votre demande de retrait de ${transaction.montant.toLocaleString()} GNF a été ${labels[statut] || 'traitée'}.`;
+                await sendSMS(user.telephone, smsMsg);
             }
         } catch (notifErr) {
             console.error("⚠️ Erreur notification passager:", notifErr.message);

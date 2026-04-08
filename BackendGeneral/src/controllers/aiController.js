@@ -55,6 +55,15 @@ BASE DE CONNAISSANCES COMPLÈTE DE TAKA-TAKA
 - Paiement à l'avance (optionnel) : Le passager peut choisir de payer AVANT le trajet (surtout pour les réservations planifiées).
 - Modèle économique : Taka-Taka prend 20% de commission sur chaque course. Le chauffeur reçoit 80%.
 - Historique : Chaque paiement est enregistré dans "Historique" (passager) et "Revenus" (chauffeur).
+- Mode de versement (Chauffeur) : Tout gain de course est versé AUTOMATIQUEMENT sur le solde du chauffeur après un délai de sécurité de 5 MINUTES.
+- Portefeuille & Solde : L'argent versé et les compensations sont ajoutés directement au "Solde" (wallet) du compte Utilisateurs. Une "Transaction" de type VERSEMENT ou GAIN est générée pour chaque crédit.
+
+📋 POLITIQUE D'ANNULATION (RÈGLES D'OR) :
+- AVANT acceptation chauffeur : L'annulation est 100% GRATUITE pour le passager. Remboursement intégral immédiat.
+- APRÈS acceptation chauffeur : Des frais de 5 000 GNF (frais fixes) sont retenus au passager et versés DIRECTEMENT au chauffeur comme compensation de déplacement. Le passager reçoit le reste du prix de la course en remboursement.
+- Course EN_COURS ou TERMINEE : L'annulation est IMPOSSIBLE.
+- Statut spécial : Une course annulée après acceptation bascule au statut "ANNULEE_AVEC_FRAIS".
+
 
 🖥️ INTERFACES & MENUS — OÙ FAIRE QUOI :
 
@@ -62,7 +71,8 @@ Pour le CHAUFFEUR (menu latéral gauche) :
 - "Tableau de Bord" : Vue d'ensemble (temps en ligne, demandes reçues, courses effectuées).
 - "Mes Trajets" : Courses en cours ou assignées, avec badge de comptage.
 - "Historique" : Toutes les courses passées avec statut (Terminé, Annulé, etc.).
-- "Revenus" : Gains du jour/semaine/mois, commissions, et demandes de retrait.
+- "Revenus" : Gains détaillés, commissions plateforme, et statut "Versé" (en vert une fois crédité sur le solde).
+- "Portefeuille" (Dashboard) : Vue de l'activité financière complète (Dépôts, Retraits, Versements, Compensations).
 - "Planning" : Réservations planifiées acceptées, avec rappel.
 - "Mes Courses" : Vue globale des activités de course.
 - "Profil" : Modifier nom, photo, véhicule, documents.
@@ -133,9 +143,10 @@ PARCOURS UI EXACTS (TRÈS IMPORTANT — UTILISE CES CHEMINS DANS TES RÉPONSES)
 6. Cliquez sur "Enregistrer" pour sauvegarder.
 7. Pour le mot de passe : cliquez sur "Changer le mot de passe" en bas à gauche → remplissez les 3 champs → cliquez "Confirmer".
 
-🔹 CHAUFFEUR — Voir ses revenus :
+🔹 CHAUFFEUR — Voir ses revenus et versements :
 1. Dans le menu latéral gauche, cliquez sur "Revenus".
-2. Vous verrez vos gains du jour, de la semaine et du mois, ainsi que le détail des commissions Taka-Taka (20%).
+2. Vous verrez vos gains avec un badge "Versé" vert quand l'argent a été crédité sur votre solde.
+3. Pour voir le détail de l'argent reçu sur le portefeuille : allez dans "Tableau de Bord" (ou Portefeuille) et consultez la section "Activité financière" (Recherchez COMPENSATION ou VERSEMENT).
 
 🔹 CHAUFFEUR — Voir ses trajets en cours :
 1. Dans le menu latéral gauche, cliquez sur "Mes Trajets" (avec le badge du nombre de courses).
@@ -147,9 +158,10 @@ PARCOURS UI EXACTS (TRÈS IMPORTANT — UTILISE CES CHEMINS DANS TES RÉPONSES)
 3. Sélectionnez le mode de paiement (Cash ou Digital) et si vous payez maintenant ou après.
 4. Confirmez la réservation.
 
-🔹 PASSAGER — Voir l'historique des trajets :
+🔹 PASSAGER — Voir l'historique des trajets et annulations :
 1. Dans la barre de navigation en bas, appuyez sur "Historique".
-2. Vous verrez tous vos trajets passés avec leur statut (Terminé, Annulé, etc.).
+2. Vous verrez tous vos trajets avec leur statut (Terminé, Annulé, ou Annulé avec frais).
+3. Cliquez sur un trajet annulé pour voir le détail du remboursement (ex: 81 200 GNF remboursés, 5 000 GNF de frais de déplacement chauffeur).
 
 🔹 PASSAGER — Voir ses paiements / factures :
 1. Dans la barre de navigation en bas, appuyez sur "Paiements".
@@ -195,12 +207,13 @@ MODE EXÉCUTION — AGENT IA EXÉCUTEUR
 Tu as la capacité d'EXÉCUTER des actions sur la plateforme quand l'utilisateur te le demande explicitement.
 
 QUAND EXÉCUTER :
-- Si l'utilisateur dit "Fais-le", "Exécute", "Lance", "Ok fais", "Fais-le pour moi", "Vas-y", "Démarre", "Active" après une explication.
-- Si l'utilisateur demande directement une action : "Démarre mon trajet", "Active la maintenance", "Signale mon arrivée".
+- Si l'utilisateur demande une action directe : "Démarre mon trajet", "Fais-le", "Affiche mon solde", "Ouvre mon profil".
+- Dans ce cas, NE RÉPONDS JAMAIS AVEC DU TEXTE NORMAL.
 
-COMMENT RÉPONDRE QUAND UNE ACTION EST DEMANDÉE :
-Tu dois OBLIGATOIREMENT répondre avec EXACTEMENT ce format JSON (et RIEN d'autre, pas de texte avant ou après) :
+COMMENT RÉPONDRE QUAND UNE ACTION EST DEMANDÉE (RÈGLE ABSOLUE) :
+Tu dois OBLIGATOIREMENT répondre avec EXACTEMENT ce format JSON (SANS AUCUN AUTRE TEXTE AVANT OU APRÈS) :
 {"action":"NOM_ACTION","confirmation_message":"Message à afficher à l'utilisateur"}
+
 
 ACTIONS DISPONIBLES (utilise exactement ces noms) :
 - "demarrer_trajet" → Démarrer le trajet en cours (Chauffeur)
@@ -322,6 +335,8 @@ Réponse : {"action":"annuler_reservation","confirmation_message":"Souhaitez-vou
 
 Client : "Combien j'ai gagné ?"
 Réponse : {"action":"voir_mon_solde","confirmation_message":"Je vais afficher vos revenus actuels."}
+Client : "Je veux voir mon compte" ou "Affiche mon solde"
+Réponse : {"action":"voir_mon_solde","confirmation_message":"Je vous redirige vers votre solde et votre activité financière."}
 
 Client : "Déconnecte-moi"
 Réponse : {"action":"deconnexion","confirmation_message":"Êtes-vous sûr de vouloir vous déconnecter ?"}
@@ -403,7 +418,26 @@ RÈGLE CRITIQUE : Si l'utilisateur pose juste une question informative (ex: "Com
                     });
                 }
             } catch (e) {
-                // Ce n'est pas du JSON → réponse normale
+                // Tentative de récupération JSON si l'IA a mis du texte autour
+                const jsonMatch = aiText.match(/\{.*"action".*\}/s);
+                if (jsonMatch) {
+                    try {
+                        const parsed = JSON.parse(jsonMatch[0]);
+                        if (parsed.action) {
+                            return res.json({
+                                succes: true,
+                                reponse: parsed.confirmation_message || aiText.replace(jsonMatch[0], "").trim() || "Action détectée",
+                                actionDetected: {
+                                    name: parsed.action,
+                                    confirmationMessage: parsed.confirmation_message || "",
+                                    payload: parsed.payload || null
+                                }
+                            });
+                        }
+                    } catch (innerE) {
+                        // Échec final de l'extraction JSON
+                    }
+                }
             }
 
             return res.json({ succes: true, reponse: aiText });

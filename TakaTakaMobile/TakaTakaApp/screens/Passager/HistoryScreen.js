@@ -25,10 +25,10 @@ import { apiClient } from '../../services/apiClient';
 
 const { width, height } = Dimensions.get('window');
 
-export default function HistoryScreen({ navigation }) {
+export default function HistoryScreen({ navigation, initialTab }) {
     const { darkMode, theme, user, t } = useApp();
     const styles = getStyles(theme, darkMode);
-    const [selectedTab, setSelectedTab] = useState('trips');
+    const [selectedTab, setSelectedTab] = useState(initialTab || 'trips');
     const [selectedFilter, setSelectedFilter] = useState('all');
     const [expandedRide, setExpandedRide] = useState(null);
     const [selectedPayment, setSelectedPayment] = useState(null);
