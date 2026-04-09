@@ -373,9 +373,9 @@ RÈGLE CRITIQUE : Si l'utilisateur pose juste une question informative (ex: "Com
             history.shift();
         }
 
-        // Utilisation du nom de modèle stable gemini-flash-latest
+        // Utilisation du nom de modèle standard gemini-2.5-flash (le modèle le plus performant pour ce compte)
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
             {
                 systemInstruction: {
                     parts: [{ text: SYSTEM_PROMPT + `\n\nCONTEXTE ACTUEL DE L'UTILISATEUR (À RESPECTER IMPÉRATIVEMENT) :\n${smartContext}\n\nCONSIGNE DE LANGUE : Tu DOIS répondre dans la langue spécifiée dans le contexte ci-dessus (ex: si Langue: en, réponds en anglais).\n\nIMPORTANT : \n1. Ne tronque jamais tes réponses. Finis toujours tes explications jusqu'au bout.\n2. Termine TOUJOURS tes réponses par une question proactive (ex: "Souhaitez-vous autre chose ?", "Comment puis-je vous aider davantage ?").\n3. N'utilise JAMAIS de Markdown (astérisques **, balises #, etc.) dans tes réponses textuelles pour ne pas perturber la lecture vocale. Écris en texte brut fluide.` }]
@@ -442,10 +442,14 @@ RÈGLE CRITIQUE : Si l'utilisateur pose juste une question informative (ex: "Com
 
             return res.json({ succes: true, reponse: aiText });
         } else {
-            throw new Error("Réponse de l'IA non valide.");
+            throw new Error("Réponse de l'IA non valide (pas de candidates).");
         }
 
     } catch (error) {
+        // LOG DÉTAILLÉ POUR LE DÉVELOPPEUR
+        const apiError = error.response?.data?.error?.message || error.message;
+        console.error("🚨 [TAKA-ASSISTANT] Erreur critique :", apiError);
+
         if (error.response) {
             const status = error.response.status;
 
@@ -457,18 +461,17 @@ RÈGLE CRITIQUE : Si l'utilisateur pose juste une question informative (ex: "Com
                 });
             }
 
-            if (status === 503) {
-                console.error("⚠️ [TAKA-ASSISTANT] Gemini en forte demande (Erreur 503).");
-                return res.status(503).json({
-                    succes: false,
-                    message: "L'intelligence artificielle de Taka-Taka reçoit énormément de demandes en ce moment. Elle sera de nouveau disponible dans quelques secondes. Merci de votre patience !"
-                });
+            if (status === 503 || status === 500) {
+                 // Si le modèle n'existe pas, on aura souvent une 404 ou 500
+                 if (apiError.includes("model") || apiError.includes("not found")) {
+                     return res.status(404).json({
+                         succes: false,
+                         message: "Le cerveau de l'IA est en cours de mise à jour. Réessayez dans un instant."
+                     });
+                 }
             }
-
-            console.error("🚨 [TAKA-ASSISTANT] Erreur API (réponse détaillée):", JSON.stringify(error.response.data, null, 2));
-        } else {
-            console.error("🚨 [TAKA-ASSISTANT] Erreur:", error.message);
         }
+
         return res.status(500).json({
             succes: false,
             message: "L'assistant rencontre une petite difficulté technique. Réessayez."

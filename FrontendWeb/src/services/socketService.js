@@ -1,10 +1,10 @@
-// src/services/socketService.js
 import { io } from "socket.io-client";
+import { getServerURL } from "../utils/urlHelper";
 
 // -----------------------------------------------------------------------------
 // 1️⃣  URL du serveur Socket.io – provient de VITE_SOCKET_URL
 // -----------------------------------------------------------------------------
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || getServerURL();
 
 class SocketService {
   constructor() {

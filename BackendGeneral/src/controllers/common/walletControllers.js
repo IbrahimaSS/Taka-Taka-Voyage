@@ -31,7 +31,7 @@ exports.recharger = async (req, res) => {
 
     try {
         // En prod, ici on appellerait l'API Orange/MTN pour vérifier referenceExterne
-        
+
         // Mise à jour du solde
         const user = await Utilisateur.findByIdAndUpdate(
             req.utilisateur.id,
@@ -60,10 +60,10 @@ exports.recharger = async (req, res) => {
             });
         }
 
-        res.status(200).json({ 
-            succes: true, 
-            message: "Recharge effectuée", 
-            nouveauSolde: user.solde 
+        res.status(200).json({
+            succes: true,
+            message: "Recharge effectuée",
+            nouveauSolde: user.solde
         });
     } catch (error) {
         res.status(500).json({ succes: false, message: error.message });
@@ -72,7 +72,8 @@ exports.recharger = async (req, res) => {
 
 // 3. Transférer de l'argent à un autre utilisateur
 exports.transferer = async (req, res) => {
-    const { destinataireTel, montant } = req.body;
+    const { destinataireTel, montant: montantBrut } = req.body;
+    const montant = Number(montantBrut);
 
     if (!montant || montant <= 0) {
         return res.status(400).json({ succes: false, message: "Montant invalide" });
@@ -83,34 +84,47 @@ exports.transferer = async (req, res) => {
 
     try {
         const expediteur = await Utilisateur.findById(req.utilisateur.id).session(session);
-        
+
         if (expediteur.solde < montant) {
             throw new Error("Solde insuffisant pour ce transfert");
         }
 
-        const destinataire = await Utilisateur.findOne({ telephone: destinataireTel }).session(session);
+        // Normalisation rapide du numéro de téléphone pour la recherche
+        let searchPhone = destinataireTel.trim().replace(/\s/g, '');
+        
+        const destinataire = await Utilisateur.findOne({ 
+            $or: [
+                { telephone: searchPhone },
+                { telephone: searchPhone.replace(/^\+224/, '') },
+                { telephone: `+224${searchPhone.replace(/^\+224/, '')}` }
+            ]
+        }).session(session);
+
         if (!destinataire) {
-            throw new Error("Destinataire introuvable");
+            throw new Error("Destinataire introuvable sur TakaTaka");
         }
 
         if (expediteur.id === destinataire.id) {
             throw new Error("Vous ne pouvez pas vous envoyer d'argent à vous-même");
         }
 
-        // Mouvements de solde
-        expediteur.solde -= montant;
-        destinataire.solde += montant;
+        // Mouvements de solde (On force le calcul numérique)
+        expediteur.solde = Number(expediteur.solde) - montant;
+        destinataire.solde = Number(destinataire.solde) + montant;
 
         await expediteur.save({ session });
         await destinataire.save({ session });
 
         // Enregistrement des deux côtés de la transaction
+        const refTransfert = `TRF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
         await Transaction.create([{
             utilisateur: expediteur.id,
             type: "TRANSFERT_ENVOI",
             montant: montant,
             methode: "WALLET",
             destinataire: destinataire.id,
+            reference: refTransfert,
             statut: "COMPLETE",
             commentaire: `Envoi à ${destinataire.prenom} ${destinataire.nom}`
         }], { session });
@@ -121,6 +135,7 @@ exports.transferer = async (req, res) => {
             montant: montant,
             methode: "WALLET",
             expediteur: expediteur.id,
+            reference: `REC-${refTransfert}`,
             statut: "COMPLETE",
             commentaire: `Reçu de ${expediteur.prenom} ${expediteur.nom}`
         }], { session });
@@ -128,10 +143,37 @@ exports.transferer = async (req, res) => {
         await session.commitTransaction();
         session.endSession();
 
-        res.status(200).json({ 
-            succes: true, 
-            message: "Transfert réussi", 
-            nouveauSolde: expediteur.solde 
+        // 🔔 [NOTIFICATION TEMPS RÉEL] Prévenir le destinataire
+        // On récupère l'IO depuis le global (défini dans server.js)
+        const io = global.io;
+        
+        if (io) {
+            const destinataireIdStr = destinataire._id.toString();
+            // Important: Le nom de la room doit correspondre à celui défini dans socket.js (USER_ID)
+            const roomName = `USER_${destinataireIdStr}`;
+            
+            console.log(`📡 Émission notification transfert vers room: ${roomName}`);
+
+            io.to(roomName).emit("wallet:update", {
+                type: "TRANSFERT_RECU",
+                montant: montant,
+                playSound: true,
+                expediteur: `${expediteur.prenom} ${expediteur.nom}`,
+                message: `Vous avez reçu ${montant.toLocaleString()} GNF de ${expediteur.prenom} ${expediteur.nom} ! 💰`
+            });
+
+            io.to(roomName).emit("notification:new", {
+                title: "Argent reçu ! 💰",
+                message: `${expediteur.prenom} vous a envoyé ${montant.toLocaleString()} GNF`,
+                type: "SUCCESS",
+                playSound: true
+            });
+        }
+
+        res.status(200).json({
+            succes: true,
+            message: "Transfert effectué avec succès",
+            nouveauSolde: expediteur.solde
         });
     } catch (error) {
         await session.abortTransaction();
@@ -148,7 +190,7 @@ exports.envoyerCodeRetrait = async (req, res) => {
 
         // Génération d'un code à 4 chiffres
         const otp = Math.floor(1000 + Math.random() * 9000).toString();
-        
+
         // Sauvegarde dans la DB (validité 5 minutes)
         user.withdrawalOTP = otp;
         user.withdrawalOTPExpires = Date.now() + 5 * 60 * 1000;
@@ -161,7 +203,7 @@ exports.envoyerCodeRetrait = async (req, res) => {
 
         await envoyerEmailBrevo({
             toEmail: userEmail,
-            subject: "Votre code de sécurité (OTP) pour le retrait - TakaTaka",
+            subject: "Votre code de sécurité (OTP) - TakaTaka",
             html: `
               <div style="font-family:Arial,sans-serif; max-width: 500px; margin: auto; padding: 20px; text-align: center; border: 1px solid #e2e8f0; border-radius: 12px;">
                 <h2 style="color:#0f172a;">Demande de retrait TakaTaka</h2>
@@ -170,6 +212,9 @@ exports.envoyerCodeRetrait = async (req, res) => {
                     <div style="font-size:36px; font-weight:900; letter-spacing:8px; color:#10b981;">${otp}</div>
                 </div>
                 <p style="color:#64748b; font-size:12px;">Ce code est valide pendant 5 minutes. Ne le partagez avec personne.</p>
+                <div style="margin-top:20px; border-top:1px solid #eee; pt-10px; font-size:10px; color:#94a3b8;">
+                  © 2026 TakaTaka Voyage. Tous droits réservés.
+                </div>
               </div>
             `
         });
@@ -191,10 +236,10 @@ exports.envoyerCodeRetrait = async (req, res) => {
         });
     } catch (error) {
         console.error("❌ Erreur détaillée Brevo Email:", error.message);
-        res.status(500).json({ 
-            succes: false, 
+        res.status(500).json({
+            succes: false,
             message: `Erreur lors de l'envoi de l'e-mail: ${error.message}`,
-            error: error.message 
+            error: error.message
         });
     }
 };
@@ -216,10 +261,28 @@ exports.demanderRetrait = async (req, res) => {
 
     try {
         const user = await Utilisateur.findById(req.utilisateur.id).session(session);
-        
-        // Vérification de l'OTP
-        if (!user.withdrawalOTP || user.withdrawalOTP !== otp || user.withdrawalOTPExpires < Date.now()) {
-            throw new Error("Code de sécurité invalide ou expiré");
+
+        // --- VÉRIFICATION DE LA SÉCURITÉ ---
+        // Si otp est un ID Token Firebase (longue chaîne), on le vérifie via admin sdk
+        if (otp.length > 20) {
+            try {
+                const decodedToken = await admin.auth().verifyIdToken(otp);
+                console.log("✅ [BACKEND] Firebase Token validé pour:", decodedToken.phone_number);
+
+                // Optionnel: Vérifier que le numéro dans le token correspond 
+                // à un des numéros de l'utilisateur ou est juste valide
+                if (!decodedToken.phone_number) {
+                    throw new Error("Le jeton Firebase ne contient pas de numéro de téléphone validé.");
+                }
+            } catch (authError) {
+                console.error("❌ [BACKEND] Erreur validation Firebase:", authError.message);
+                throw new Error("Session de sécurité expirée ou invalide. Veuillez renvoyer le code.");
+            }
+        } else {
+            // Fallback: Ancien système OTP local (4 chiffres)
+            if (!user.withdrawalOTP || user.withdrawalOTP !== otp || user.withdrawalOTPExpires < Date.now()) {
+                throw new Error("Code de sécurité invalide ou expiré");
+            }
         }
 
         if (user.solde < montant) {
@@ -259,11 +322,11 @@ exports.demanderRetrait = async (req, res) => {
             });
         }
 
-        res.status(201).json({ 
-            succes: true, 
-            message: "Demande de retrait envoyée à l'administration", 
+        res.status(201).json({
+            succes: true,
+            message: "Demande de retrait envoyée à l'administration",
             transactionId: trans[0]._id,
-            nouveauSolde: user.solde 
+            nouveauSolde: user.solde
         });
     } catch (error) {
         await session.abortTransaction();
@@ -278,7 +341,7 @@ exports.getHistorique = async (req, res) => {
         const transactions = await Transaction.find({ utilisateur: req.utilisateur.id })
             .sort({ createdAt: -1 })
             .limit(50);
-        
+
         res.status(200).json({ succes: true, transactions });
     } catch (error) {
         res.status(500).json({ succes: false, message: error.message });

@@ -13,6 +13,7 @@ import { useGeolocation } from "../hooks/useGeolocation";
 import { GeolocationService } from "../services/geolocation";
 import { useAuth } from "./AuthContext";
 import { toast } from "react-hot-toast";
+import { useNotifications } from "../hooks/useNotificationsAudio";
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from "./NotificationContext";
 import { offlineTripService } from "../services/offlineTripService";
 import { tripService } from "../services/tripService";
@@ -131,6 +132,8 @@ export const DriverProvider = ({ children }) => {
     acceptedToday: 0,
     rejectedToday: 0,
   });
+
+  const { notifyNewTrip } = useNotifications();
 
   // 🔄 [OFFLINE] Restauration initiale (Déplacé après les déclarations d'état)
   useEffect(() => {
@@ -329,13 +332,17 @@ export const DriverProvider = ({ children }) => {
       const dest = normalizeCoords(tripData.destinationCoords);
 
       let distanceKm = null;
-      if (pickup) {
-        distanceKm = calculateDistance(
-          driverLocationRef.current.lat,
-          driverLocationRef.current.lng,
-          pickup.lat,
-          pickup.lng
-        );
+      if (pickup && driverLocationRef.current?.lat != null) {
+        try {
+          distanceKm = calculateDistance(
+            driverLocationRef.current.lat,
+            driverLocationRef.current.lng,
+            pickup.lat,
+            pickup.lng
+          );
+        } catch (err) {
+          console.error("❌ [DRIVER_CONTEXT] Erreur calcul distance:", err);
+        }
       }
 
       const tooFar = distanceKm != null && distanceKm > MAX_DISTANCE_KM;
@@ -359,16 +366,18 @@ export const DriverProvider = ({ children }) => {
         expiresIn: Number(tripData?.expiresIn ?? 60),
       };
 
+      // ✅ Déclencher le son et la notification visuelle immédiate
+      notifyNewTrip(request);
+
       setTripRequests((prev) => [request, ...prev]);
       setStats((prev) => ({ ...prev, requestsToday: prev.requestsToday + 1 }));
 
-      console.log("✅ [DRIVER] course:demande reçue", {
+      console.log("✅ [DRIVER] course:demande reçue et notifiée", {
         reservationId,
         distanceKm: request.distanceToDriver,
-        tooFar: request.tooFar,
       });
     },
-    [calculateDistance]
+    [calculateDistance, notifyNewTrip]
   );
 
   // ────────────────────────────────────────────────
