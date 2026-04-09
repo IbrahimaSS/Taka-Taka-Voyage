@@ -23,6 +23,8 @@ const Wallet = () => {
   const [transactions, setTransactions] = useState([]);
   const [showModal, setShowModal] = useState({ type: null, isOpen: false });
   const [formData, setFormData] = useState({ amount: '', phone: '', method: 'ORANGE_MONEY' });
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
 
   // 🔄 Charger les données réelles
   useEffect(() => {
@@ -54,9 +56,6 @@ const Wallet = () => {
     }
   };
 
-  const [otpStep, setOtpStep] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-
   const handleAction = async (e) => {
     e.preventDefault();
     const { amount, phone, method } = formData;
@@ -74,9 +73,6 @@ const Wallet = () => {
           if (otpRes.succes) {
             setOtpStep(true);
             toast.success("Code de sécurité envoyé par e-mail !");
-            // Pour le dev, on peut auto-remplir ou logger si on veut, 
-            // mais l'utilisateur veut "le saisir"
-            console.log("DEBUG OTP:", otpRes.debugCode);
           }
           return;
         } else {
@@ -190,62 +186,42 @@ const Wallet = () => {
         </div>
 
         <div className="space-y-3">
-          {transactions.length > 0 ? (
-            transactions.map((tx) => (
-              <motion.div
-                key={tx._id}
-                whileHover={{ x: 5 }}
-                className="flex items-center justify-between p-5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${tx.type.includes('TRANSFERT_ENVOI') || tx.type === 'RETRAIT' || tx.type === 'PAIEMENT_TRAJET'
-                    ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600'
-                    : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
-                    }`}>
-                    {tx.type === 'DEPOT' ? <Plus size={24} /> : (tx.type === 'RETRAIT' ? <ArrowUpRight size={24} /> : <ArrowDownRight size={24} />)}
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-900 dark:text-white leading-none mb-1">
-                      {tx.type.replace(/_/g, ' ')}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                      {new Date(tx.createdAt).toLocaleDateString()} • {tx.commentaire || tx.methode}
-                    </p>
-                  </div>
+          {transactions.slice(0, 10).map((tx) => (
+            <motion.div
+              key={tx._id}
+              whileHover={{ x: 5 }}
+              className="flex items-center justify-between p-5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all"
+            >
+              <div className="flex items-center space-x-4">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${tx.type.includes('TRANSFERT_ENVOI') || tx.type === 'RETRAIT' || tx.type === 'PAIEMENT_TRAJET'
+                  ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-600'
+                  : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
+                  }`}>
+                  {tx.type === 'DEPOT' ? <Plus size={24} /> : (tx.type === 'RETRAIT' ? <ArrowUpRight size={24} /> : <ArrowDownRight size={24} />)}
                 </div>
-                <div className="text-right">
-                  <p className={`text-lg font-black ${tx.amount < 0 || tx.type.includes('ENVOI') || tx.type === 'PAIEMENT_TRAJET'
-                    ? 'text-rose-600'
-                    : 'text-emerald-600'
-                    }`}>
-                    {tx.type.includes('ENVOI') || tx.type === 'PAIEMENT_TRAJET' ? '-' : '+'}
-                    {tx.montant.toLocaleString()} <span className="text-[10px]">GNF</span>
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white leading-none mb-1 uppercase text-[10px] tracking-widest">
+                    {tx.type.replace(/_/g, ' ')}
                   </p>
-                  <Badge size="xs" color={tx.statut === 'COMPLETE' ? 'success' : 'warning'}>
-                    {tx.statut}
-                  </Badge>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                    {new Date(tx.createdAt).toLocaleDateString()} • {tx.commentaire || tx.methode}
+                  </p>
                 </div>
-              </motion.div>
-            ))
-          ) : (
-            <div className="p-20 text-center bg-gray-50 dark:bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 opacity-50">
-                <CreditCard size={32} />
               </div>
-              <p className="text-gray-600 dark:text-gray-400 font-medium">Aucune transaction trouvée</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 🔒 Sécurité Disclaimer */}
-      <div className="bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-gray-800 dark:to-emerald-950/20 p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30 flex items-start space-x-4">
-        <div className="mt-1"><Shield className="text-blue-600 dark:text-blue-400" size={24} /></div>
-        <div>
-          <h4 className="font-bold text-gray-900 dark:text-white">Sécurité de vos fonds</h4>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Vos revenus sont stockés en toute sécurité. Les retraits vers vos portefeuilles mobiles (Orange Money, MTN) sont traités rapidement après validation de sécurité.
-          </p>
+              <div className="text-right">
+                <p className={`text-lg font-black ${tx.amount < 0 || tx.type.includes('ENVOI') || tx.type === 'PAIEMENT_TRAJET'
+                  ? 'text-rose-600'
+                  : 'text-emerald-600'
+                  }`}>
+                  {tx.type.includes('ENVOI') || tx.type === 'PAIEMENT_TRAJET' ? '-' : '+'}
+                  {tx.montant.toLocaleString()} <span className="text-[10px]">GNF</span>
+                </p>
+                <Badge size="xs" color={tx.statut === 'COMPLETE' ? 'success' : 'warning'}>
+                  {tx.statut}
+                </Badge>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </div>
 
@@ -296,6 +272,50 @@ const Wallet = () => {
                   />
                 </div>
               )}
+
+              {(!otpStep && (showModal.type === 'depot' || showModal.type === 'retrait')) && (
+                 <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, method: 'ORANGE_MONEY' })}
+                    className={`relative p-3 rounded-xl border-2 transition-all ${formData.method === 'ORANGE_MONEY'
+                        ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 shadow-md ring-2 ring-green-500/20"
+                        : "border-gray-200 dark:border-gray-700 hover:border-green-300"
+                      }`}
+                  >
+                    <div className="flex flex-col items-center">
+                      <div className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg overflow-hidden bg-white border">
+                        <img
+                          src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Orange_logo.svg/120px-Orange_logo.svg.png"
+                          alt="Orange"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span className="text-sm font-bold dark:text-white text-nowrap">Orange Money</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, method: 'MTN_MONEY' })}
+                    className={`relative p-3 rounded-xl border-2 transition-all ${formData.method === 'MTN_MONEY'
+                        ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 shadow-md ring-2 ring-green-500/20"
+                        : "border-gray-200 dark:border-gray-700 hover:border-green-300"
+                      }`}
+                  >
+                    <div className="flex flex-col items-center">
+                      <div className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg overflow-hidden bg-white border">
+                        <img
+                          src={MtnLogo}
+                          alt="MTN"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span className="text-sm font-bold dark:text-white text-nowrap">MTN/Areeba</span>
+                    </div>
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <motion.div 
@@ -334,50 +354,6 @@ const Wallet = () => {
             </motion.div>
           )}
 
-          {(!otpStep) && (
-             <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, method: 'ORANGE_MONEY' })}
-                className={`relative p-3 rounded-xl border-2 transition-all ${formData.method === 'ORANGE_MONEY'
-                    ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 shadow-md ring-2 ring-green-500/20"
-                    : "border-gray-200 dark:border-gray-700 hover:border-green-300"
-                  }`}
-              >
-                <div className="flex flex-col items-center">
-                  <div className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg overflow-hidden bg-white border">
-                    <img
-                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Orange_logo.svg/120px-Orange_logo.svg.png"
-                      alt="Orange"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="text-sm font-bold dark:text-white">Orange Money</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, method: 'MTN_MONEY' })}
-                className={`relative p-3 rounded-xl border-2 transition-all ${formData.method === 'MTN_MONEY'
-                    ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 shadow-md ring-2 ring-green-500/20"
-                    : "border-gray-200 dark:border-gray-700 hover:border-green-300"
-                  }`}
-              >
-                <div className="flex flex-col items-center">
-                  <div className="w-10 h-10 mb-2 flex items-center justify-center rounded-lg overflow-hidden bg-white border">
-                    <img
-                      src={MtnLogo}
-                      alt="MTN"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="text-sm font-bold dark:text-white">MTN/Areeba</span>
-                </div>
-              </button>
-            </div>
-          )}
-
           <Button
             fullWidth
             variant="primary"
@@ -385,7 +361,7 @@ const Wallet = () => {
             type="submit"
             className="h-14 font-black shadow-xl"
           >
-            {otpStep ? "Vérifier et Confirmer le retrait" : "Suivant"}
+            {otpStep ? "Vérifier et Confirmer" : "Suivant"}
           </Button>
         </form>
       </Modal>

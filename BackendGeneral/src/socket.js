@@ -1046,8 +1046,8 @@ module.exports = (io) => {
             montant: avecFrais ? FRAIS_ANNULATION_GNF : 0,
             montantRembourse,
             montantChauffeur,
-            raison: avecFrais 
-              ? "Annulation après acceptation du chauffeur (frais de déplacement)" 
+            raison: avecFrais
+              ? "Annulation après acceptation du chauffeur (frais de déplacement)"
               : "Annulation avant acceptation (annulation gratuite)"
           };
 
@@ -1069,8 +1069,8 @@ module.exports = (io) => {
                   methode: "WALLET",
                   reference: `REMB-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
                   statut: "COMPLETE",
-                  commentaire: avecFrais 
-                    ? `Remboursement partiel course ${reservationId} (-${montantChauffeur.toLocaleString()} GNF frais)` 
+                  commentaire: avecFrais
+                    ? `Remboursement partiel course ${reservationId} (-${montantChauffeur.toLocaleString()} GNF frais)`
                     : `Remboursement total course ${reservationId}`,
                   metadata: { reservationId: reservation._id }
                 });
@@ -1146,7 +1146,7 @@ module.exports = (io) => {
 
             io.to(`CHAUFFEUR_${chauffeurId}`).emit("course:annulee", {
               reservationId,
-              message: avecFrais 
+              message: avecFrais
                 ? `Le passager a annulé la course. Vous recevez ${montantChauffeur.toLocaleString()} GNF de compensation.`
                 : (message || "Course annulée par le passager"),
               source: source || role,
@@ -1170,7 +1170,7 @@ module.exports = (io) => {
           });
         }
 
-        socket.emit("course:annulee_confirmation", { 
+        socket.emit("course:annulee_confirmation", {
           reservationId,
           fraisAnnulation: reservation.fraisAnnulation || null
         });
