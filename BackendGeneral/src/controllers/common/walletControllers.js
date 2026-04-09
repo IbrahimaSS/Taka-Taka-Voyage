@@ -3,7 +3,6 @@ const Transaction = require("../../models/Transaction");
 const mongoose = require("mongoose");
 const { envoyerEmailBrevo } = require("../../services/emailService");
 const { sendSMS } = require("../../services/smsService");
-const admin = require("../../services/firebaseAdmin");
 
 /**
  * 💰 walletControllers - Gestion du Portefeuille (Fintech)
@@ -220,9 +219,19 @@ exports.envoyerCodeRetrait = async (req, res) => {
             `
         });
 
+        // --- 📱 ENVOI SMS AFRICA'S TALKING ---
+        try {
+            if (user.telephone) {
+                const smsMessage = `Code de sécurité TakaTaka pour votre retrait : ${otp}. Valable 5 minutes. Ne le partagez pas.`;
+                await sendSMS(user.telephone, smsMessage);
+            }
+        } catch (err) {
+            console.error("❌ Erreur envoi SMS OTP Retrait:", err.message);
+        }
+
         res.status(200).json({ 
             succes: true, 
-             message: "Code de sécurité envoyé par E-mail avec succès",
+            message: "Code de sécurité envoyé par E-mail et SMS avec succès",
             debugCode: otp 
         });
     } catch (error) {
