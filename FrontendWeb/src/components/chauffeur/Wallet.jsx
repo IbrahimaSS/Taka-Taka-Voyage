@@ -30,14 +30,29 @@ const Wallet = () => {
   useEffect(() => {
     fetchWalletData();
     
-    // Écouter les mises à jour en temps réel (Validation Admin)
+    // Écouter les mises à jour en temps réel (Validation Admin ou Transfert)
     const handleUpdate = (data) => {
+      console.log("🔔 Socket Event Received:", data);
       toast.success(data.message, { icon: '💰', duration: 5000 });
+      
+      // 🔊 JOUER UN SON SI DEMANDÉ (Transfert reçu)
+      if (data.playSound === true) {
+        console.log("🔊 Playing notification sound...");
+        const audio = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1150-pristine.mp3');
+        audio.play().catch(e => {
+          console.warn("⚠️ Audio play blocked by browser. Click on the page to enable sounds.", e);
+        });
+      }
+      
       fetchWalletData();
     };
 
     socketService.on("wallet:status_update", handleUpdate);
-    return () => socketService.off("wallet:status_update", handleUpdate);
+    socketService.on("wallet:update", handleUpdate);
+    return () => {
+      socketService.off("wallet:status_update", handleUpdate);
+      socketService.off("wallet:update", handleUpdate);
+    };
   }, []);
 
   const fetchWalletData = async () => {

@@ -73,7 +73,8 @@ exports.recharger = async (req, res) => {
 
 // 3. Transférer de l'argent à un autre utilisateur
 exports.transferer = async (req, res) => {
-    const { destinataireTel, montant } = req.body;
+    const { destinataireTel, montant: montantBrut } = req.body;
+    const montant = Number(montantBrut);
 
     if (!montant || montant <= 0) {
         return res.status(400).json({ succes: false, message: "Montant invalide" });
@@ -89,29 +90,42 @@ exports.transferer = async (req, res) => {
             throw new Error("Solde insuffisant pour ce transfert");
         }
 
-        const destinataire = await Utilisateur.findOne({ telephone: destinataireTel }).session(session);
+        // Normalisation rapide du numéro de téléphone pour la recherche
+        let searchPhone = destinataireTel.trim().replace(/\s/g, '');
+        
+        const destinataire = await Utilisateur.findOne({ 
+            $or: [
+                { telephone: searchPhone },
+                { telephone: searchPhone.replace(/^\+224/, '') },
+                { telephone: `+224${searchPhone.replace(/^\+224/, '')}` }
+            ]
+        }).session(session);
+
         if (!destinataire) {
-            throw new Error("Destinataire introuvable");
+            throw new Error("Destinataire introuvable sur TakaTaka");
         }
 
         if (expediteur.id === destinataire.id) {
             throw new Error("Vous ne pouvez pas vous envoyer d'argent à vous-même");
         }
 
-        // Mouvements de solde
-        expediteur.solde -= montant;
-        destinataire.solde += montant;
+        // Mouvements de solde (On force le calcul numérique)
+        expediteur.solde = Number(expediteur.solde) - montant;
+        destinataire.solde = Number(destinataire.solde) + montant;
 
         await expediteur.save({ session });
         await destinataire.save({ session });
 
         // Enregistrement des deux côtés de la transaction
+        const refTransfert = `TRF-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
         await Transaction.create([{
             utilisateur: expediteur.id,
             type: "TRANSFERT_ENVOI",
             montant: montant,
             methode: "WALLET",
             destinataire: destinataire.id,
+            reference: refTransfert,
             statut: "COMPLETE",
             commentaire: `Envoi à ${destinataire.prenom} ${destinataire.nom}`
         }], { session });
@@ -122,6 +136,7 @@ exports.transferer = async (req, res) => {
             montant: montant,
             methode: "WALLET",
             expediteur: expediteur.id,
+            reference: `REC-${refTransfert}`,
             statut: "COMPLETE",
             commentaire: `Reçu de ${expediteur.prenom} ${expediteur.nom}`
         }], { session });
@@ -129,9 +144,36 @@ exports.transferer = async (req, res) => {
         await session.commitTransaction();
         session.endSession();
 
+        // 🔔 [NOTIFICATION TEMPS RÉEL] Prévenir le destinataire
+        // On récupère l'IO depuis le global (défini dans server.js)
+        const io = global.io;
+        
+        if (io) {
+            const destinataireIdStr = destinataire._id.toString();
+            // Important: Le nom de la room doit correspondre à celui défini dans socket.js (USER_ID)
+            const roomName = `USER_${destinataireIdStr}`;
+            
+            console.log(`📡 Émission notification transfert vers room: ${roomName}`);
+
+            io.to(roomName).emit("wallet:update", {
+                type: "TRANSFERT_RECU",
+                montant: montant,
+                playSound: true,
+                expediteur: `${expediteur.prenom} ${expediteur.nom}`,
+                message: `Vous avez reçu ${montant.toLocaleString()} GNF de ${expediteur.prenom} ${expediteur.nom} ! 💰`
+            });
+
+            io.to(roomName).emit("notification:new", {
+                title: "Argent reçu ! 💰",
+                message: `${expediteur.prenom} vous a envoyé ${montant.toLocaleString()} GNF`,
+                type: "SUCCESS",
+                playSound: true
+            });
+        }
+
         res.status(200).json({
             succes: true,
-            message: "Transfert réussi",
+            message: "Transfert effectué avec succès",
             nouveauSolde: expediteur.solde
         });
     } catch (error) {
