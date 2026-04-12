@@ -138,3 +138,28 @@ exports.reportUserFromLog = async (req, res) => {
         return res.status(500).json({ succes: false, message: error.message });
     }
 };
+
+// @desc    Créer un log manuellement (depuis le frontend)
+// @route   POST /api/admin/logs/manuel
+exports.creerLogManuel = async (req, res) => {
+    try {
+        const { action, module, details, statut } = req.body;
+        const { logActivity } = require("../../utils/logger");
+
+        await logActivity({
+            utilisateurId: req.utilisateur._id,
+            nomUtilisateur: `${req.utilisateur.prenom} ${req.utilisateur.nom}`,
+            role: req.utilisateur.role,
+            action: action || "ACTION_MANUELLE",
+            module: module || "FRONTEND",
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown",
+            details: details || {},
+            statut: statut || "REUSSI"
+        });
+
+        return res.json({ succes: true });
+    } catch (error) {
+        return res.status(500).json({ succes: false, message: error.message });
+    }
+};

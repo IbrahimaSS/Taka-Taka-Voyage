@@ -188,6 +188,11 @@ export const API_ROUTES = {
 
 
   // ===================== COMMUN =====================
+  tickets: {
+    mesTickets: "/tickets/mes-tickets",
+    parReservation: (id) => `/tickets/reservation/${id}`,
+    scanner: "/tickets/scanner",
+  },
   litiges: {
     creer: "/litiges",
   },

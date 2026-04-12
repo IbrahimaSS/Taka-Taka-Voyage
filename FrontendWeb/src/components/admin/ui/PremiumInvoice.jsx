@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../../context/SettingsContext';
+import { apiClient } from '../../../services/apiClient';
 
 const PremiumInvoice = ({ payment, onClose }) => {
     const { settings } = useSettings();
@@ -21,8 +22,24 @@ const PremiumInvoice = ({ payment, onClose }) => {
     // Dégradé signature : Bleu doux vers Vert
     const softGradient = "bg-gradient-to-r from-blue-500 to-emerald-500";
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
         const printContent = printRef.current;
+
+        // ✅ JOURNAL D'ACTIVITÉ (LOG MANUEL)
+        try {
+            await apiClient.post('/admin/logs/manuel', {
+                action: "IMPRESSION_RECU_FISCAL",
+                module: "PAIEMENTS",
+                details: { 
+                    reference: payment?.reference || payment?.invoiceNumber,
+                    montant: payment?.amount,
+                    type: payment?.type
+                }
+            });
+        } catch (e) {
+            console.warn("Log manuel failed", e);
+        }
+
         const windowUrl = 'about:blank';
         const uniqueName = new Date();
         const windowName = 'Print' + uniqueName.getTime();

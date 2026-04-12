@@ -40,12 +40,23 @@ const Toast = ({ notification, onRemove }) => {
     const style = typeStyles[notification.type] || typeStyles[NOTIFICATION_TYPES.INFO];
     const Icon = style.icon;
 
+    const handleClick = () => {
+        if (notification.onAction) {
+            notification.onAction();
+            onRemove(notification.id);
+        } else if (notification.link) {
+            window.location.href = notification.link;
+        }
+    };
+
     return (
         <div
+            onClick={handleClick}
             className={`
                 flex items-center gap-3 p-4 rounded-xl shadow-lg border-l-4 mb-3
                 animate-in slide-in-from-right-10 duration-300 max-w-sm w-full
                 ${style.bg} ${style.border} pointer-events-auto
+                ${(notification.onAction || notification.link) ? 'cursor-pointer hover:brightness-95 transition-all' : ''}
             `}
             role="alert"
         >
@@ -63,7 +74,10 @@ const Toast = ({ notification, onRemove }) => {
             </div>
 
             <button
-                onClick={() => onRemove(notification.id)}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(notification.id);
+                }}
                 className={`p-1.5 rounded-lg transition-colors shrink-0 ${notification.type === NOTIFICATION_TYPES.URGENT
                         ? 'text-white/80 hover:bg-white/20'
                         : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'

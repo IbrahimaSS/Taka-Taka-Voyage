@@ -23,7 +23,7 @@ const activityLogSchema = new mongoose.Schema(
         },
         module: {
             type: String,
-            enum: ["AUTH", "UTILISATEURS", "TRANSPORT", "PAIEMENT", "SYSTEME", "MAINTENANCE", "SUPPORT"],
+            enum: ["AUTH", "CONNEXION", "UTILISATEURS", "TRAJETS", "TRANSPORT", "PAIEMENTS", "PAIEMENT", "PROFIL", "FRONTEND", "SYSTEME", "MAINTENANCE", "SUPPORT"],
             required: true,
         },
         details: {

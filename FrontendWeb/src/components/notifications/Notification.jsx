@@ -63,6 +63,9 @@ export const NotificationItem = ({
 
   const handleClick = () => {
     onMarkAsRead(notification.id);
+    if (notification.onAction) {
+      notification.onAction();
+    }
     if (notification.link) {
       navigate(notification.link);
     }

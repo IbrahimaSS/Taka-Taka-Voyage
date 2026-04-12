@@ -1,6 +1,7 @@
 // Passenger.jsx — VERSION FINALE COMPLETE (searching OK + stop searching on accept)
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { differenceInDays } from 'date-fns';
 import PassengerNavbar from '../components/passager/PassengerNavbar';
 import BookingSection from '../components/passager/BookingSection';
 import TripsHistory from '../components/passager/TripsHistory';
@@ -32,7 +33,8 @@ import {
   Navigation,
   X,
   Calendar,
-  Wallet as WalletIcon
+  Wallet as WalletIcon,
+  Gift
 } from 'lucide-react';
 
 import RealTimeTracking from '../components/suivisTrajet/TrajetEnTempReel';
@@ -108,6 +110,71 @@ const Passenger = () => {
       handleCompleteTrip();
     }
   }, [tripStatus, showTripComplete, showTripRating]);
+
+  // 🎁 🔔 Écoute des nouveaux Codes Promos en temps réel
+  useEffect(() => {
+    const handleNewPromo = (promo) => {
+      // Calculer le nombre de jours
+      let differenceJours = 0;
+      if (promo.dateExpiration) {
+        differenceJours = differenceInDays(new Date(promo.dateExpiration), new Date());
+      }
+      
+      const expireText = differenceJours > 0 ? `pendant ${differenceJours} jours` : `jusqu'à demain`;
+      const valeurText = promo.typeReduction === 'POURCENTAGE' ? `${promo.valeur}%` : `${promo.valeur} GNF`;
+
+      toast.custom(
+        (t) => (
+          <div
+            className={`${
+              t.visible ? 'animate-enter' : 'animate-leave'
+            } max-w-sm w-full bg-white dark:bg-gray-800 shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black/5 overflow-hidden border-2 border-primary-100 dark:border-primary-900 absolute bottom-4 left-4`}
+          >
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-400 to-secondary-500 shadow-inner flex items-center justify-center">
+                    <Gift className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-black uppercase tracking-widest text-primary-600 dark:text-primary-400">
+                    Nouvelle Promo !!!
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 font-medium">
+                    Bénéficiez de <span className="font-bold text-green-600 dark:text-green-400">{valeurText} de réduction</span> sur tous vos trajets {expireText} avec le code :
+                  </p>
+                  <div className="mt-3 text-2xl font-black tracking-[0.2em] text-center text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 py-2.5 rounded-xl">
+                    {promo.code}
+                  </div>
+                </div>
+                <div className="ml-4 flex-shrink-0 flex">
+                  <button
+                    onClick={() => toast.dismiss(t.id)}
+                    className="bg-white dark:bg-gray-800 rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <span className="sr-only">Fermer</span>
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ),
+        { duration: 6000, position: 'bottom-left' }
+      );
+    };
+
+    if (socketService.socket) {
+        socketService.on('promo:new', handleNewPromo);
+    }
+    
+    return () => {
+        if (socketService.socket) {
+            socketService.off('promo:new', handleNewPromo);
+        }
+    };
+  }, []);
 
   const tabs = [
     { id: 'home', label: t('nav.home'), icon: Home },
@@ -251,13 +318,20 @@ const Passenger = () => {
       // Toast déjà géré dans le contexte ou ici
       console.log("🚀 [Passager] Basculement automatique en mode suivi plein écran.");
     }
-
     // 🚗 Quand le chauffeur est en approche ou arrivé
     if (tripStatus === 'approaching' || tripStatus === 'arrived') {
       setIsOnMapView(true); // Se focaliser sur la carte d'accueil
       setIsOnTrackingView(false);
     }
   }, [tripStatus]);
+
+  // ✅ [SYNC URL -> TABS] Support pour la redirection /passager/tickets
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.includes('/tickets')) {
+      setActiveTab('profile');
+    }
+  }, [setActiveTab]);
 
   // Gestion des notifications de statut
   useEffect(() => {
@@ -448,6 +522,19 @@ const Passenger = () => {
     window.addEventListener('navigate-to-wallet', handleGoToWallet);
     return () => window.removeEventListener('navigate-to-wallet', handleGoToWallet);
   }, []);
+
+  useEffect(() => {
+    const handleOpenTicketGlobal = (e) => {
+      console.log("🚀 [PASSENGER] Event taka:open_ticket reçu. Forçage ouverture ticket...", e.detail);
+      setActiveTab('profile');
+      // On déclenche un petit délai pour laisser l'onglet se monter si besoin
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('taka:open_ticket_delay', { detail: e.detail }));
+      }, 100);
+    };
+    window.addEventListener('taka:open_ticket', handleOpenTicketGlobal);
+    return () => window.removeEventListener('taka:open_ticket', handleOpenTicketGlobal);
+  }, [setActiveTab]);
 
   const renderContent = () => {
     if (activeTab === 'home') {

@@ -406,13 +406,18 @@ exports.getMe = async (req, res) => {
 //============================= DÉCONNEXION =============================
 exports.logout = async (req, res) => {
     try {
-        // Supprimer le cookie de session
-        const isProduction = process.env.NODE_ENV === "production";
-        res.clearCookie("takataka_token", {
-            httpOnly: true,
-            sameSite: isProduction ? "none" : "lax",
-            secure: isProduction,
-        });
+        // Log de la déconnexion
+        if (req.utilisateur) {
+            await logActivity({
+                utilisateurId: req.utilisateur._id || req.utilisateur.id,
+                nomUtilisateur: `${req.utilisateur.prenom} ${req.utilisateur.nom}`,
+                role: req.utilisateur.role,
+                action: "DECONNEXION",
+                module: "CONNEXION",
+                ip: req.ip || req.connection.remoteAddress,
+                navigateur: req.headers["user-agent"] || "Unknown"
+            });
+        }
 
         return res.status(200).json({
             succes: true,
@@ -450,11 +455,23 @@ exports.socialCallback = async (req, res) => {
         };
         res.cookie("takataka_token", token, cookieOptions);
 
-        // Rediriger vers le dashboard avec le token dans l'URL pour que le frontend puisse le stocker
+        // Rediriger vers le dashboard
         let target = "/";
         if (utilisateur.role === 'ADMIN') target = "/admin";
         else if (utilisateur.role === 'CHAUFFEUR') target = "/chauffeur";
         else if (utilisateur.role === 'PASSAGER') target = "/passager";
+
+        // Log de la connexion sociale
+        await logActivity({
+            utilisateurId: utilisateur._id,
+            nomUtilisateur: `${utilisateur.prenom} ${utilisateur.nom}`,
+            role: utilisateur.role,
+            action: "CONNEXION_SOCIALE",
+            module: "CONNEXION",
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown",
+            details: { provider: req.params.provider || "Unknown" }
+        });
 
         const redirectUrl = `${process.env.FRONTEND_ORIGIN || 'http://localhost:3000'}${target}?social_login=success&token=${token}`;
         return res.redirect(redirectUrl);
@@ -493,6 +510,17 @@ exports.socialFinalize = async (req, res) => {
         }
 
         await utilisateur.save();
+
+        // Log de la finalisation de profil
+        await logActivity({
+            utilisateurId: utilisateur._id,
+            nomUtilisateur: `${utilisateur.prenom} ${utilisateur.nom}`,
+            role: utilisateur.role,
+            action: "FINALISATION_PROFIL_SOCIAL",
+            module: "PROFIL",
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown"
+        });
 
         res.json({
             succes: true,

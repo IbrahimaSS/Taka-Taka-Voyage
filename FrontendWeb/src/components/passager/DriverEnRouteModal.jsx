@@ -1,8 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Navigation, Phone } from 'lucide-react';
-
-const DriverEnRouteModal = ({ driver, onTrack, onContact, status }) => {
+import { Navigation, Phone, QrCode } from 'lucide-react';
+import { usePassenger } from '../../context/PassengerContext';
+ 
+const DriverEnRouteModal = ({ driver, onTrack, onContact, status, tripDetails }) => {
+    const { activeTicket } = usePassenger();
     if (!driver) return null;
 
     const isArrived = status === 'arrived';
@@ -62,13 +64,23 @@ const DriverEnRouteModal = ({ driver, onTrack, onContact, status }) => {
                     </div>
                 </div>
 
-                <div className="mt-3 flex justify-end">
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                        onClick={() => {
+                            window.dispatchEvent(new CustomEvent('taka:open_ticket', { detail: activeTicket || tripDetails }));
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center space-x-2 text-xs font-black uppercase tracking-wider"
+                    >
+                        <QrCode className="w-4 h-4" />
+                        <span>Mon Ticket</span>
+                    </button>
+
                     <button
                         onClick={onTrack}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-lg shadow-blue-600/20 transition-transform active:scale-95 flex items-center space-x-2 text-sm font-bold"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center space-x-2 text-xs font-black uppercase tracking-wider"
                     >
                         <Navigation className="w-4 h-4" />
-                        <span>Suivre sur la carte</span>
+                        <span>Carte</span>
                     </button>
                 </div>
             </div>

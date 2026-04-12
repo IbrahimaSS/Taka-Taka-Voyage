@@ -26,7 +26,7 @@ import { getFullAssetURL } from '../../utils/urlHelper';
 
 const Trajets = () => {
   const { t, i18n } = useTranslation();
-  const { isOnline, activeTrip, setActiveTrip } = useDriverContext();
+  const { isOnline, activeTrip, tripRequests, acceptTripRequest, refuseTripRequest } = useDriverContext();
   const navigate = useNavigate();
 
   // États pour les données
@@ -151,30 +151,33 @@ const Trajets = () => {
     }
   };
 
-  const handleAccept = async (id) => {
-    try {
-      const res = await tripService.acceptTrip(id);
-      if (res.data && res.data.succes) {
-        toast.success("Course acceptée ! Redirection...");
-        // On met à jour l'activeTrip dans le contexte pour le tracking
-        // setActiveTrip({ id, ... }); 
-        navigate('/chauffeur/tracking');
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Erreur lors de l'acceptation");
-      fetchTrips(true);
+  // ✅ Redirection automatique vers le tracking une fois la course acceptée côté serveur
+  useEffect(() => {
+    if (activeTrip?.id && (activeTrip.status === 'accepted' || activeTrip.status === 'in_progress')) {
+      // Si on vient d'accepter une course et qu'on est sur l'onglet trajets
+      console.log("🎯 [TRAJETS] Course active détectée, redirection tracking...");
+      navigate('/chauffeur/tracking');
     }
-  };
+  }, [activeTrip?.id, activeTrip?.status, navigate]);
 
-  const handleRefuse = async (id) => {
+  const handleAccept = useCallback((id) => {
     try {
-      await tripService.refuseTrip(id);
-      toast.success("Demande refusée");
+      toast.loading(t('common.processing'), { id: 'accepting-trip' });
+      acceptTripRequest(id);
+    } catch (error) {
+      toast.error("Erreur d'initialisation", { id: 'accepting-trip' });
+    }
+  }, [acceptTripRequest, t]);
+
+  const handleRefuse = useCallback((id) => {
+    try {
+      refuseTripRequest(id);
+      toast.success(t('common.success'));
       fetchTrips(true);
     } catch (error) {
-      toast.error("Erreur lors de l'action");
+      toast.error("Erreur de refus");
     }
-  };
+  }, [refuseTripRequest, fetchTrips, t]);
 
   // Statistiques
   const stats = {
@@ -352,7 +355,7 @@ const Trajets = () => {
                         {config.icon}
                       </div>
                       <span className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        {t('trips.active_trip_label')}
+                        {trip.status === 'pending' ? t('trips.requests') : t('trips.active_trip_label')}
                       </span>
                     </div>
                     <div className="text-lg font-black text-blue-600">

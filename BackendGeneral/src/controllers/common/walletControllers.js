@@ -3,6 +3,7 @@ const Transaction = require("../../models/Transaction");
 const mongoose = require("mongoose");
 const { envoyerEmailBrevo } = require("../../services/emailService");
 const { sendSMS } = require("../../services/smsService");
+const { logActivity } = require("../../utils/logger");
 
 /**
  * 💰 walletControllers - Gestion du Portefeuille (Fintech)
@@ -48,6 +49,19 @@ exports.recharger = async (req, res) => {
             reference: reference || `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             statut: "COMPLETE",
             commentaire: "Recharge portefeuille"
+        });
+
+        // ✅ JOURNAL D'ACTIVITÉ (LOGS ADMIN)
+        await logActivity({
+            utilisateurId: req.utilisateur.id,
+            nomUtilisateur: `${user.prenom} ${user.nom}`,
+            role: user.role,
+            action: "RECHARGE_PORTEFEUILLE",
+            module: "PAIEMENTS",
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown",
+            details: { montant, methode, reference },
+            statut: "REUSSI"
         });
 
         // ✅ NOTIFICATION ADMIN TEMPS RÉEL
@@ -142,6 +156,19 @@ exports.transferer = async (req, res) => {
 
         await session.commitTransaction();
         session.endSession();
+
+        // ✅ JOURNAL D'ACTIVITÉ (LOGS ADMIN)
+        await logActivity({
+            utilisateurId: expediteur._id,
+            nomUtilisateur: `${expediteur.prenom} ${expediteur.nom}`,
+            role: expediteur.role,
+            action: "TRANSFERT_ARGENT",
+            module: "PAIEMENTS",
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown",
+            details: { destinataire: `${destinataire.prenom} ${destinataire.nom}`, montant, reference: refTransfert },
+            statut: "REUSSI"
+        });
 
         // 🔔 [NOTIFICATION TEMPS RÉEL] Prévenir le destinataire
         // On récupère l'IO depuis le global (défini dans server.js)
@@ -310,6 +337,19 @@ exports.demanderRetrait = async (req, res) => {
 
         await session.commitTransaction();
         session.endSession();
+
+        // ✅ JOURNAL D'ACTIVITÉ (ADMIN)
+        await logActivity({
+            utilisateurId: user._id,
+            nomUtilisateur: `${user.prenom} ${user.nom}`,
+            role: user.role,
+            action: "DEMANDE_RETRAIT",
+            module: "PAIEMENTS",
+            ip: req.ip || req.connection.remoteAddress,
+            navigateur: req.headers["user-agent"] || "Unknown",
+            details: { montant, methode, numeroMobileMoney, transactionId: trans[0]._id },
+            statut: "REUSSI"
+        });
 
         // ✅ NOTIFICATION ADMIN TEMPS RÉEL (ALERTE SONORE)
         if (global.io) {

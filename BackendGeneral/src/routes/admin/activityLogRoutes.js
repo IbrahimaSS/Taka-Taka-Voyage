@@ -40,4 +40,12 @@ router.post(
     activityLogController.reportUserFromLog
 );
 
+// @route   POST /api/admin/logs/manuel
+// @desc    Permet au frontend de loguer une action spécifique
+router.post(
+    "/manuel",
+    verifierToken,
+    activityLogController.creerLogManuel
+);
+
 module.exports = router;

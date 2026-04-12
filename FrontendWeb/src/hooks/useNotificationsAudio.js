@@ -1,11 +1,11 @@
-/**
+﻿/**
  * useNotifications.js
- * Hook personnalisé pour gérer les notifications sonores et les vibrations
+ * Hook personnalis├® pour g├®rer les notifications sonores et les vibrations
  */
 
 import { useCallback, useRef, useEffect } from 'react';
 
-// URL du son de notification (utilise un son système ou un fichier local)
+// URL du son de notification (utilise un son syst├¿me ou un fichier local)
 const NOTIFICATION_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 export const useNotifications = () => {
@@ -17,7 +17,7 @@ export const useNotifications = () => {
         audioRef.current = new Audio(NOTIFICATION_SOUND_URL);
         audioRef.current.volume = 0.7;
 
-        // Demander la permission pour les notifications système
+        // Demander la permission pour les notifications syst├¿me
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission().then(permission => {
                 hasPermission.current = permission === 'granted';
@@ -39,7 +39,7 @@ export const useNotifications = () => {
      */
     const playNotificationSound = useCallback(() => {
         if (audioRef.current) {
-            // Remettre au début si déjà en lecture
+            // Remettre au d├®but si d├®j├á en lecture
             audioRef.current.currentTime = 0;
             audioRef.current.play().catch(error => {
                 console.warn('[Notifications] Impossible de jouer le son:', error.message);
@@ -48,7 +48,7 @@ export const useNotifications = () => {
     }, []);
 
     /**
-     * Arrêter le son de notification
+     * Arr├¬ter le son de notification
      */
     const stopNotificationSound = useCallback(() => {
         if (audioRef.current) {
@@ -58,27 +58,27 @@ export const useNotifications = () => {
     }, []);
 
     /**
-     * Faire vibrer l'appareil (si supporté)
-     * @param {number|number[]} pattern - Durée ou pattern de vibration en ms
+     * Faire vibrer l'appareil (si support├®)
+     * @param {number|number[]} pattern - Dur├®e ou pattern de vibration en ms
      */
     const vibrate = useCallback((pattern = 200) => {
         if ('vibrate' in navigator) {
             try {
                 navigator.vibrate(pattern);
             } catch (error) {
-                console.warn('[Notifications] Vibration non supportée:', error.message);
+                console.warn('[Notifications] Vibration non support├®e:', error.message);
             }
         }
     }, []);
 
     /**
-     * Afficher une notification système
+     * Afficher une notification syst├¿me
      * @param {string} title - Titre de la notification
      * @param {Object} options - Options de la notification
      */
     const showSystemNotification = useCallback((title, options = {}) => {
         if (!('Notification' in window)) {
-            console.warn('[Notifications] Notifications non supportées');
+            console.warn('[Notifications] Notifications non support├®es');
             return null;
         }
 
@@ -92,7 +92,7 @@ export const useNotifications = () => {
                 ...options
             });
 
-            // Fermer automatiquement après un délai
+            // Fermer automatiquement apr├¿s un d├®lai
             if (options.autoClose !== false) {
                 setTimeout(() => {
                     notification.close();
@@ -106,7 +106,7 @@ export const useNotifications = () => {
     }, []);
 
     /**
-     * Notification complète (son + vibration + système)
+     * Notification compl├¿te (son + vibration + syst├¿me)
      * @param {string} title - Titre de la notification
      * @param {Object} options - Options
      */
@@ -117,10 +117,10 @@ export const useNotifications = () => {
         // Faire vibrer (pattern: vibrer 200ms, pause 100ms, vibrer 200ms)
         vibrate([200, 100, 200]);
 
-        // Notification système si l'app est en arrière-plan
+        // Notification syst├¿me si l'app est en arri├¿re-plan
         if (document.hidden && hasPermission.current) {
             showSystemNotification('Nouvelle course disponible !', {
-                body: `${tripData.passengerName}\n${tripData.pickupAddress} → ${tripData.destinationAddress}\n${tripData.estimatedFare?.toLocaleString('fr-FR')} GNF`,
+                body: `${tripData.passengerName}\n${tripData.pickupAddress} ÔåÆ ${tripData.destinationAddress}\n${tripData.estimatedFare?.toLocaleString('fr-FR')} GNF`,
                 tag: `trip-${tripData.id}`,
                 requireInteraction: true,
                 data: tripData,
@@ -129,7 +129,7 @@ export const useNotifications = () => {
     }, [playNotificationSound, vibrate, showSystemNotification]);
 
     /**
-     * Notification de course acceptée
+     * Notification de course accept├®e
      */
     const notifyTripAccepted = useCallback(() => {
         vibrate(100);

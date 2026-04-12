@@ -48,6 +48,7 @@ class SocketService {
     const authPayload = { userId, role, nom, prenom };
     if (jwt) authPayload.token = jwt; // le serveur pourra le lire via socket.handshake.auth
 
+    console.log(`🔌 [SOCKET] Tentative de connexion vers: ${SOCKET_URL}`);
     this.socket = io(SOCKET_URL, {
       path: "/socket.io/",
       auth: authPayload,

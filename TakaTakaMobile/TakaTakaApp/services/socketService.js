@@ -11,7 +11,7 @@ class SocketService {
         if (this.socket?.connected) return this.socket;
 
         const token = await AsyncStorage.getItem('authToken');
-        
+
         this.socket = io(SOCKET_URL, {
             auth: { token },
             transports: ['polling', 'websocket'], // Commencer par polling pour compatibilité

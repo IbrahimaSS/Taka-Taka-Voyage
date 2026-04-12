@@ -16,7 +16,14 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
-  History
+  History,
+  Lock,
+  Globe,
+  CreditCard,
+  MapPin,
+  Settings as SettingsIcon,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -67,7 +74,7 @@ const ActivityLogs = ({ showToast }) => {
         setPagination(res.data.pagination);
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.error || err.message;
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message;
       showToast('Erreur', `Échec : ${errorMsg}`, 'error');
     } finally {
       setLoading(false);
@@ -241,12 +248,25 @@ const ActivityLogs = ({ showToast }) => {
 
   const getModuleBadge = (module) => {
     const styles = {
-      AUTH: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400',
-      UTILISATEURS: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400',
-      TRANSPORT: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400',
-      SYSTEME: 'bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'
+      AUTH: { color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400', icon: Lock },
+      CONNEXION: { color: 'bg-sky-50 text-sky-600 dark:bg-sky-900/20 dark:text-sky-400', icon: LogIn },
+      UTILISATEURS: { color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400', icon: User },
+      TRAJETS: { color: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400', icon: MapPin },
+      PAIEMENTS: { color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400', icon: CreditCard },
+      PROFIL: { color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400', icon: User },
+      SYSTEME: { color: 'bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400', icon: Shield },
+      SUPPORT: { color: 'bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400', icon: Globe }
     };
-    return styles[module] || 'bg-slate-50 text-slate-600';
+    
+    const config = styles[module] || { color: 'bg-slate-50 text-slate-600', icon: History };
+    const IconComponent = config.icon;
+
+    return (
+      <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${config.color}`}>
+        <IconComponent size={12} />
+        {module}
+      </span>
+    );
   };
 
   const getInitials = (name) => {
@@ -397,10 +417,14 @@ const ActivityLogs = ({ showToast }) => {
                   onChange={(e) => setFilters({ ...filters, module: e.target.value })}
                 >
                   <option value="">Tous les modules</option>
-                  <option value="AUTH">Authentification</option>
-                  <option value="UTILISATEURS">Utilisateurs</option>
-                  <option value="TRANSPORT">Transport</option>
-                  <option value="SYSTEME">Système</option>
+                  <option value="AUTH">Authentification (OTP, etc.)</option>
+                  <option value="CONNEXION">Connexion & Déconnexion</option>
+                  <option value="TRAJETS">Trajets & Courses</option>
+                  <option value="PAIEMENTS">Paiements & Portefeuille</option>
+                  <option value="UTILISATEURS">Gestion Utilisateurs</option>
+                  <option value="PROFIL">Mises à jour Profil</option>
+                  <option value="SYSTEME">Actions Système</option>
+                  <option value="SUPPORT">Support & Litiges</option>
                 </select>
               </div>
 
@@ -504,9 +528,7 @@ const ActivityLogs = ({ showToast }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${getModuleBadge(log.module)}`}>
-                        {log.module}
-                      </span>
+                      {getModuleBadge(log.module)}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">

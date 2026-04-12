@@ -82,6 +82,9 @@ app.use("/api/admin", profileRoutes);
 app.use("/api/admin/parametres", parametresRoutes);
 app.use("/api/admin/logs", activityLogRoutes);
 
+const couponRoutes = require("./routes/admin/couponRoutes");
+app.use("/api/coupons", couponRoutes);
+
 // Transaction Portefeuille
 const transactionRoutes = require("./routes/admin/transactionRoutes");
 app.use("/api/admin", transactionRoutes);
@@ -196,6 +199,10 @@ app.use("/api/common", contactRoutes);
 // 🏦 Portefeuille TakaTaka (Fintech)
 const walletRoutes = require("./routes/common/walletRoutes");
 app.use("/api/wallet", walletRoutes);
+
+// 🎫 Tickets QR
+const ticketRoutes = require("./routes/common/ticketRoutes");
+app.use("/api/tickets", ticketRoutes);
 
 // ===================== TÉLÉCHARGEMENT APK =====================
 app.get("/api/download/apk", (req, res) => {

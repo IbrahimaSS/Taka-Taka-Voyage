@@ -138,10 +138,10 @@ const SearchIndicator = ({
               driver={driver}
               status={status}
               onTrack={() => {
-                setIsCardVisible(false); // Masquer le modal pour voir la carte en dessous
                 if (onTrack) onTrack();
               }}
               onContact={onContact}
+              tripDetails={tripDetails}
             />
           )}
 

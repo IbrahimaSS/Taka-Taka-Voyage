@@ -1,5 +1,5 @@
 const Reservation = require("../../models/Reservations");
-const Utilisateur = require("../../models/Utilisateurs");
+const Utilisateurs = require("../../models/Utilisateurs");
 
 // (optionnel) util distance Haversine si tu veux filtrer côté backend
 const haversineKm = (lat1, lng1, lat2, lng2) => {
@@ -78,29 +78,29 @@ exports.confirmerReservationImmediate = async (req, res) => {
     if (momentPaiement === "MAINTENANT" && paymentResult?.success) {
       const methode = String(paymentResult.paymentMethod).toUpperCase();
       if (methode === "WALLET" || methode === "PORTEFEUILLE TAKATAKA") {
-        const userWallet = await Utilisateur.findById(req.utilisateur._id);
+        const userWallet = await Utilisateurs.findById(req.utilisateur._id);
         if (!userWallet || (userWallet.solde || 0) < prixNum) {
-          return res.status(400).json({ 
-            succes: false, 
-            message: "Transaction bloquée : Solde portefeuille insuffisant." 
+          return res.status(400).json({
+            succes: false,
+            message: "Transaction bloquée : Solde portefeuille insuffisant."
           });
         }
-        
+
         // On débite le portefeuille CÔTÉ SERVEUR
         userWallet.solde -= prixNum;
         await userWallet.save();
-        
+
         // On journalise la transaction de paiement
         try {
           const Transaction = require("../../models/Transaction");
           await Transaction.create({
-              utilisateur: userWallet._id,
-              type: "PAIEMENT", 
-              montant: prixNum,
-              methode: "PORTEFEUILLE",
-              reference: `TRIP-PAY-${Date.now()}`,
-              statut: "COMPLETE",
-              commentaire: "Paiement de la course"
+            utilisateur: userWallet._id,
+            type: "PAIEMENT",
+            montant: prixNum,
+            methode: "PORTEFEUILLE",
+            reference: `TRIP-PAY-${Date.now()}`,
+            statut: "COMPLETE",
+            commentaire: "Paiement de la course"
           });
         } catch (err) {
           console.error("Erreur log de transaction (paiement initial) :", err);
@@ -137,12 +137,9 @@ exports.confirmerReservationImmediate = async (req, res) => {
 
     // 3) Chauffeurs online
     // ✅ Filtrage initial : Role + En Ligne + Actif
-    const chauffeursCandidats = await Utilisateur.find({
+    const chauffeursCandidats = await Utilisateurs.find({
       role: "CHAUFFEUR",
       estEnLigne: true,
-      // On retire statut: "ACTIF" ici car certains chauffeurs peuvent avoir un statut ACTIF 
-      // dans ChauffeurProfile mais rester EN_ATTENTE dans Utilisateurs (désynchronisation).
-      // La vérification de sécurité est déjà faite au niveau du socket.join("CHAUFFEURS").
     }).select("nom prenom telephone noteMoyenne socketId vehicule");
 
     console.log(`🔍 [RESERVATION_IMMEDIATE] ${chauffeursCandidats.length} chauffeurs TOTAL en ligne.`);
@@ -230,8 +227,6 @@ exports.confirmerReservationImmediate = async (req, res) => {
     }
 
     // ✅ BROADCAST: envoyer aussi à la room globale CHAUFFEURS (filet de sécurité)
-    const chauffeurRoomSockets = io?.sockets?.adapter?.rooms?.get("CHAUFFEURS");
-    console.log(`🔍 [EMIT] Room CHAUFFEURS → ${chauffeurRoomSockets ? chauffeurRoomSockets.size : 0} socket(s)`);
     io?.to("CHAUFFEURS").emit("course:demande", payload);
 
     console.log(`✅ Demande envoyée à ${chauffeursContactes} chauffeurs (+ broadcast CHAUFFEURS)`);
@@ -288,148 +283,140 @@ exports.annulerEtRembourser = async (req, res) => {
     let montantRembourse = reservation.prix;
     let montantChauffeur = 0;
     let avecFrais = false;
-    
-    // Si le chauffeur a déjà accepté et est en route vers le passager → frais d'annulation
-    const statutsAssignes = ["ACCEPTEE", "ASSIGNEE", "EN_COURS_DE_RECUPERATION", "ARRIVEE"];
-    if (statutsAssignes.includes(reservation.statut) && reservation.chauffeur) {
-      avecFrais = true;
-      montantChauffeur = Math.min(FRAIS_ANNULATION_GNF, reservation.prix);
-      montantRembourse = reservation.prix - montantChauffeur;
+
+    const now = new Date();
+    const updatedAt = new Date(reservation.updatedAt);
+    const diffMinutes = Math.floor((now - updatedAt) / (1000 * 60));
+
+    const statutsMobilises = ["ACCEPTEE", "ASSIGNEE", "EN_COURS_DE_RECUPERATION", "ARRIVEE"];
+    if (statutsMobilises.includes(reservation.statut) && reservation.chauffeur) {
+      // Règle : Frais si > 2 min après acceptation OU si le chauffeur est déjà arrivé
+      if (diffMinutes >= 2 || reservation.statut === "ARRIVEE") {
+        avecFrais = true;
+        montantChauffeur = FRAIS_ANNULATION_GNF;
+        if (reservation.paiement?.statut === "PAYE") {
+          montantRembourse = Math.max(0, reservation.prix - FRAIS_ANNULATION_GNF);
+        } else {
+          montantRembourse = 0;
+        }
+      }
     }
 
     // === MISE À JOUR DE LA RÉSERVATION ===
     reservation.statut = avecFrais ? "ANNULEE_AVEC_FRAIS" : "ANNULEE";
-    reservation.annuleeLe = new Date();
+    reservation.annuleeLe = now;
     reservation.annuleePar = passagerId;
     reservation.fraisAnnulation = {
-      montant: FRAIS_ANNULATION_GNF,
+      montant: avecFrais ? montantChauffeur : 0,
       montantRembourse,
       montantChauffeur,
-      raison: avecFrais 
-        ? "Annulation après acceptation du chauffeur (frais de déplacement)" 
-        : "Annulation avant acceptation (annulation gratuite)"
+      raison: req.body.reason || (avecFrais ? "Annulation tardive" : "Annulation gratuite")
     };
-    
+
     const Transaction = require("../../models/Transaction");
     const io = req.app.get("io");
 
-    // === REMBOURSEMENT DU PASSAGER (total ou partiel) ===
-    if (reservation.paiement && reservation.paiement.statut === "PAYE") {
-      const user = await Utilisateur.findById(passagerId);
-      if (user && montantRembourse > 0) {
-        user.solde = (user.solde || 0) + montantRembourse;
-        await user.save();
-        
-        try {
-          await Transaction.create({
-              utilisateur: passagerId,
-              type: "REMBOURSEMENT", 
-              montant: montantRembourse,
-              methode: "WALLET",
-              reference: `REMB-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-              statut: "COMPLETE",
-              commentaire: avecFrais 
-                ? `Remboursement partiel course ${reservationId} (-${montantChauffeur.toLocaleString()} GNF frais d'annulation)` 
-                : `Remboursement total course ${reservationId}`,
-              metadata: { reservationId: reservation._id }
-          });
-        } catch (err) {
-          console.error("❌ Erreur log de transaction remboursement :", err);
-        }
+    // === TRAITEMENT FINANCIER PASSAGER ===
+    const passagerUser = await Utilisateurs.findById(passagerId);
+    if (passagerUser) {
+      if (reservation.paiement && reservation.paiement.statut === "PAYE") {
+        // Remboursement partiel/total
+        passagerUser.solde = (passagerUser.solde || 0) + montantRembourse;
+        await Transaction.create({
+          utilisateur: passagerId,
+          type: "REMBOURSEMENT",
+          montant: montantRembourse,
+          methode: "WALLET",
+          reference: `REMB-${Date.now()}`,
+          statut: "COMPLETE",
+          commentaire: avecFrais
+            ? `Remboursement partiel - Frais d'annulation ${montantChauffeur.toLocaleString()} GNF déduits`
+            : `Remboursement total - Annulation gratuite`,
+          metadata: { reservationId: reservation._id }
+        });
+        reservation.paiement.statut = avecFrais ? "REMBOURSE_PARTIEL" : "REMBOURSE";
+      } else if (avecFrais) {
+        // Prélèvement frais sur wallet (Dette possible si solde < frais)
+        passagerUser.solde = (passagerUser.solde || 0) - montantChauffeur;
+        await Transaction.create({
+          utilisateur: passagerId,
+          type: "RETRAIT",
+          montant: montantChauffeur,
+          methode: "WALLET",
+          reference: `PENAL-${Date.now()}`,
+          statut: "COMPLETE",
+          commentaire: `Frais d'annulation tardive (Course ${reservationId})`,
+          metadata: { reservationId: reservation._id }
+        });
       }
-      reservation.paiement.statut = avecFrais ? "REMBOURSE_PARTIEL" : "REMBOURSE";
+      await passagerUser.save();
     }
 
-    // === COMPENSATION DU CHAUFFEUR (si frais d'annulation appliqués) ===
+    // === COMPENSATION DU CHAUFFEUR ===
     if (montantChauffeur > 0 && reservation.chauffeur) {
-      const chauffeurObj = await Utilisateur.findById(reservation.chauffeur);
+      const chauffeurObj = await Utilisateurs.findById(reservation.chauffeur);
       if (chauffeurObj) {
         chauffeurObj.solde = (chauffeurObj.solde || 0) + montantChauffeur;
         chauffeurObj.trajetEnCours = false;
         await chauffeurObj.save();
 
-        try {
-          await Transaction.create({
-              utilisateur: chauffeurObj._id,
-              type: "COMPENSATION", 
-              montant: montantChauffeur,
-              methode: "WALLET",
-              reference: `COMPENS-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-              statut: "COMPLETE",
-              commentaire: `Compensation frais d'annulation - Course ${reservationId}`,
-              metadata: { reservationId: reservation._id }
-          });
-        } catch (err) {
-          console.error("❌ Erreur log de transaction compensation :", err);
-        }
+        await Transaction.create({
+          utilisateur: chauffeurObj._id,
+          type: "COMPENSATION",
+          montant: montantChauffeur,
+          methode: "WALLET",
+          reference: `COMPENS-${Date.now()}`,
+          statut: "COMPLETE",
+          commentaire: `Compensation frais d'annulation - Course ${reservationId}`,
+          metadata: { reservationId: reservation._id }
+        });
 
         // Notification Socket au chauffeur
         if (io) {
-          io.to(`CHAUFFEUR_${chauffeurObj._id.toString()}`).emit("course:annulee", {
+          io.to(`CHAUFFEUR_${String(chauffeurObj._id)}`).emit("course:annulee", {
             reservationId,
             message: `Le passager a annulé la course. Vous recevez ${montantChauffeur.toLocaleString()} GNF de compensation.`,
             montantGagne: montantChauffeur,
             source: "PASSAGER"
           });
-
-          // Libérer le chauffeur dans la liste des courses actives
-          io.to("CHAUFFEURS").emit("course:annulee", {
-            reservationId,
-            message: "Course annulée par le passager",
-            isSearching: false
-          });
         }
       }
-    } else if (io && !reservation.chauffeur) {
-      // Course pas encore acceptée → notifier tous les chauffeurs
+    }
+
+    // Notification globale pour libérer la course
+    if (io) {
       io.to("CHAUFFEURS").emit("course:annulee", {
         reservationId,
         message: "Course annulée par le passager",
-        isSearching: true
+        isSearching: !reservation.chauffeur
       });
-    }
 
-    // Notifier le passager via socket
-    if (io) {
-      const pid = String(passagerId);
-      io.to(`PASSAGER_${pid}`).emit("course:annulee", {
+      io.to(`PASSAGER_${String(passagerId)}`).emit("course:annulee", {
         reservationId,
-        message: avecFrais 
-          ? `Course annulée. Frais d'annulation : ${montantChauffeur.toLocaleString()} GNF. Remboursement : ${montantRembourse.toLocaleString()} GNF.`
+        message: avecFrais
+          ? `Course annulée. Frais d'annulation : ${montantChauffeur.toLocaleString()} GNF.`
           : "Course annulée et remboursée intégralement.",
         fraisAnnulation: montantChauffeur,
         montantRembourse,
         avecFrais
       });
-
-      io.to(`RESERVATION_${reservationId}`).emit("course:annulee", {
-        reservationId,
-        message: "Course annulée"
-      });
     }
 
     await reservation.save();
 
-    console.log(`✅ [ANNULATION] RID=${reservationId} | Frais: ${avecFrais ? montantChauffeur + ' GNF' : 'Aucun'} | Remboursé: ${montantRembourse} GNF`);
-
-    return res.status(200).json({ 
-      succes: true, 
-      message: avecFrais 
-        ? `Course annulée. Frais d'annulation de ${montantChauffeur.toLocaleString()} GNF appliqués. ${montantRembourse.toLocaleString()} GNF remboursés.` 
-        : "Réservation annulée et compte remboursé intégralement.", 
-      reservation,
-      fraisAnnulation: {
-        avecFrais,
-        montantFrais: montantChauffeur,
-        montantRembourse,
-        montantTotal: reservation.prix
-      }
+    return res.status(200).json({
+      succes: true,
+      statut: reservation.statut,
+      avecFrais,
+      montantChauffeur,
+      montantRembourse,
+      reservation
     });
+
   } catch (e) {
     console.error("❌ Erreur annulerEtRembourser :", e);
     return res.status(500).json({ succes: false, message: e.message });
   }
 };
 
-// Export de la constante pour réutilisation dans le socket handler
 exports.FRAIS_ANNULATION_GNF = FRAIS_ANNULATION_GNF;
