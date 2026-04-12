@@ -24,6 +24,7 @@ import Reports from '../components/admin/sections/Reports';
 import Commissions from '../components/admin/sections/Commissions';
 import Settings from '../components/admin/sections/Settings';
 import ActivityLogs from '../components/admin/sections/ActivityLogs';
+import Coupons from '../components/admin/sections/Coupons';
 import Transactions from '../components/admin/sections/Transactions';
 import UserProfile from '../components/admin/profile/UserProfile';
 import { useSettings } from '../context/SettingsContext';
@@ -358,6 +359,15 @@ function AdminApp() {
                     exit={{ opacity: 0, y: -20 }}
                   >
                     <Disputes showToast={showToast} />
+                  </motion.div>
+                } />
+                <Route path="promotions" element={
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <Coupons showToast={showToast} />
                   </motion.div>
                 } />
                 <Route path="documents" element={

@@ -121,6 +121,7 @@ module.exports = (io) => {
           socket.join(`CHAUFFEUR_${sid}`);
         } else if (ROLE === "PASSAGER") {
           socket.join(`PASSAGER_${sid}`);
+          socket.join("PASSAGERS"); // ✅ Pour les diffusions de groupe
         }
 
         // ✅ Join specific functional rooms based on role
@@ -166,7 +167,12 @@ module.exports = (io) => {
         const sid = String(userId);
         socket.join(`${ROLE}_${sid}`);
         socket.join(`USER_${sid}`);
-        socket.join(`PASSAGER_${sid}`);
+        
+        if (ROLE === "PASSAGER") {
+          socket.join("PASSAGERS");
+        } else if (ROLE === "ADMIN") {
+          socket.join("ADMINS");
+        }
 
         const updated = await Utilisateurs.findByIdAndUpdate(
           userId,
