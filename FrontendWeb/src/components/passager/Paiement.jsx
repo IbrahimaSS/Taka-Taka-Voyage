@@ -479,7 +479,16 @@ const Transactions = () => {
     setShowDetailsModal(true);
   };
 
-  const handleShareReceipt = (transaction) => {
+  const handleShareReceipt = async (transaction) => {
+    // ✅ JOURNAL D'ACTIVITÉ (LOG MANUEL)
+    try {
+      await apiClient.post('/admin/logs/manuel', {
+        action: "PARTAGE_RECU",
+        module: "PAIEMENTS",
+        details: { reference: transaction.reference, montant: transaction.amount }
+      });
+    } catch (e) { console.warn("Log manuel failed", e); }
+
     const shareText = t('transactions.messages.share_text', {
       type: transaction.type,
       amount: Math.abs(transaction.amount).toLocaleString(),

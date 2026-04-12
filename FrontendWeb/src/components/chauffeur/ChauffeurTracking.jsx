@@ -20,9 +20,15 @@ import {
 
     XCircle, DollarSign, Activity, Flag as FlagIcon, Map, Users,
 
-    Target, Clock as ClockIcon, TrendingUp
+    Target, Clock as ClockIcon, TrendingUp, QrCode
 
 } from 'lucide-react';
+
+import QRScannerWeb from '../common/QRScannerWeb';
+
+import axios from 'axios';
+
+import toast from 'react-hot-toast';
 
 import Badge from '../admin/ui/Badge';
 
@@ -43,6 +49,7 @@ import MapController from '../maps/MapController';
 import { socketService } from '../../services/socketService';
 
 import { useTranslation } from 'react-i18next';
+import { getApiBaseURL } from '../../utils/urlHelper';
 
 
 
@@ -453,9 +460,14 @@ const StatsPanel = ({
     navigate,
 
     progress,
+
     distanceDisplay,
+
     etaMinutes,
+
     peutDemarrerTP,
+    onOpenScanner,
+    hasScannedTicket,
 }) => {
 
     const { t } = useTranslation();
@@ -652,99 +664,68 @@ const StatsPanel = ({
 
 
 
-            {/* Actions principales */}
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-
+                {/* 1. SIGNALER L'ARRIVÉE */}
                 {tripStep === 'to_pickup' && activeTrip && (
-
                     <Button
-
                         variant="primary"
-
                         size="large"
-
                         icon={CheckCircle}
-
                         onClick={() => handleConfirm(signalArrival)}
-
                         fullWidth
-
                         className="h-12"
-
                     >
-
                         {t('tracking.signal_arrival')}
-
                     </Button>
-
                 )}
 
-
-
-                {/* Bouton Démarrer la course : Apparaît si prêt (peutDemarrerTP) ou si tout le monde est récupéré */}
-                {(peutDemarrerTP || (pickedUpCount === acceptedTrips.length && acceptedTrips.length > 0 && tripStep !== 'in_progress')) && activeTrip && (
-
+                {/* 2. SCANNER LE TICKET (Grisé si pas arrivé) */}
+                {activeTrip && (tripStep === 'to_pickup' || tripStep === 'at_pickup') && !hasScannedTicket && (
                     <Button
+                        variant="primary"
+                        size="large"
+                        icon={QrCode}
+                        onClick={onOpenScanner}
+                        fullWidth
+                        disabled={tripStep !== 'at_pickup'}
+                        className={`h-12 shadow-lg ${tripStep !== 'at_pickup' ? 'opacity-40 grayscale cursor-not-allowed bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20'}`}
+                    >
+                        {tripStep !== 'at_pickup' ? 'Attendre arrivée pour scanner' : 'Scanner le Ticket'}
+                    </Button>
+                )}
 
+                {/* 3. DÉMARRER LA COURSE (Seulement après Scan) */}
+                {activeTrip && hasScannedTicket && tripStep !== 'in_progress' && (
+                    <Button
                         variant="success"
-
                         size="large"
-
                         icon={FlagIcon}
-
                         onClick={() => {
-
                             if (activeTrip?.id) {
-
-                                // Appel direct sans confirmation intermédiaire pour fluidité maximale
-
                                 startTripImmediately(activeTrip.id);
-
                                 navigate('/chauffeur/live-tracking');
-
                             }
-
                         }}
-
                         fullWidth
-
-                        className="h-12 shadow-lg shadow-emerald-500/30"
-
+                        className="h-12 shadow-lg shadow-emerald-500/30 font-bold"
                     >
-
                         {t('tracking.start_trip')}
-
                     </Button>
-
                 )}
 
-
-
-                {activeTrip && tripStep === 'to_pickup' && (
-
+                {/* 4. APPELER LE PASSAGER */}
+                {activeTrip && tripStep !== 'in_progress' && (
                     <Button
-
                         variant="outline"
-
                         size="large"
-
                         icon={Phone}
-
                         onClick={() => onCallPassenger(activeTrip.passengerPhone)}
-
                         fullWidth
-
                         className="h-12"
-
                     >
-
                         {t('tracking.call_passenger')}
-
                     </Button>
-
                 )}
-
             </div>
 
 
@@ -798,12 +779,19 @@ const ChauffeurTracking = () => {
         currentPickupTripId,
 
         tripStep,
+
         driverLocation,
+
         selectPickupTrip,
+
         signalArrival,
+
         confirmPassengerPickup,
+
         startGlobalTrip,
+
         startTripImmediately,
+
         reportDispute,
         calculateDistance,
         peutDemarrerTP,
@@ -812,6 +800,43 @@ const ChauffeurTracking = () => {
 
 
     const navigate = useNavigate();
+    const [showScanner, setShowScanner] = useState(false);
+    const [hasScannedTicket, setHasScannedTicket] = useState(false);
+
+    const handleQRScanSuccess = async (code) => {
+        try {
+            setShowScanner(false);
+            toast.loading('Validation du ticket...', { id: 'scan-loading' });
+            
+            const baseURL = getApiBaseURL();
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+            const response = await axios.post(`${baseURL}/tickets/scanner`, { 
+                codeUnique: code 
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            toast.dismiss('scan-loading');
+
+            if (response.data.succes) {
+                toast.success('Ticket validé ! Vous pouvez démarrer la course.');
+                setHasScannedTicket(true); // <--- DEVERROUILLE LE BOUTON DEMARRER
+                // On signale la montée au serveur
+                const activeTrip = acceptedTrips.find(t => t.id === currentPickupTripId) || acceptedTrips[0];
+                if (activeTrip) {
+                    socketService.emit('course:passager_ramasse', { 
+                        reservationId: activeTrip.id || activeTrip._id 
+                    });
+                }
+            } else {
+                toast.error(response.data.message || 'Ticket invalide');
+            }
+        } catch (err) {
+            toast.dismiss('scan-loading');
+            console.error("Scan Error:", err);
+            toast.error(err.response?.data?.message || 'Erreur lors de la validation');
+        }
+    };
 
     const mapRef = useRef();
 
@@ -1093,6 +1118,8 @@ const ChauffeurTracking = () => {
                 distanceDisplay={distanceDisplay}
                 etaMinutes={etaMinutes}
                 peutDemarrerTP={peutDemarrerTP}
+                onOpenScanner={() => setShowScanner(true)}
+                hasScannedTicket={hasScannedTicket}
             />
 
 
@@ -1245,12 +1272,14 @@ const ChauffeurTracking = () => {
 
             </div>
 
+            {showScanner && (
+                <QRScannerWeb 
+                    onScanSuccess={handleQRScanSuccess} 
+                    onClose={() => setShowScanner(false)} 
+                />
+            )}
         </motion.div>
-
     );
-
 };
-
-
 
 export default ChauffeurTracking;

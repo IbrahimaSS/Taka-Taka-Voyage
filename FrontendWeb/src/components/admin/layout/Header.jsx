@@ -12,8 +12,12 @@ import {
   LogOut,
   Navigation,
   Wallet,
+  QrCode,
+  Scan,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import QRScannerWeb from '../../common/QRScannerWeb';
+import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useTheme } from '../../../context/ThemeContext';
@@ -77,6 +81,7 @@ export default function Header({
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
 
   const { segments, first } = useMemo(() => parsePath(location.pathname, BASE_PATH), [location.pathname, BASE_PATH]);
@@ -164,6 +169,30 @@ export default function Header({
   const settingsLink = role === ROLES.ADMIN ? '/admin/parametres' : '/chauffeur/settings';
   const supportLink = role === ROLES.ADMIN ? '#' : '/chauffeur/support';
   const evaluationsLink = role === ROLES.ADMIN ? '#' : '/chauffeur/evaluations';
+
+  const handleQRScanSuccess = async (code) => {
+    try {
+      setShowScanner(false);
+      if (showToast) showToast('Validation...', 'Traitement du ticket', 'info');
+      
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/tickets/scanner`, { 
+        codeUnique: code 
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.succes) {
+        if (showToast) showToast('Succès', 'Ticket validé avec succès !', 'success');
+        // Optionnel: rafraîchir les données ou rediriger
+      } else {
+        if (showToast) showToast('Erreur', response.data.message || 'Ticket invalide', 'error');
+      }
+    } catch (err) {
+      console.error("Scan Error:", err);
+      if (showToast) showToast('Erreur', err.response?.data?.message || 'Erreur lors de la validation', 'error');
+    }
+  };
 
   return (
     <header className="glass-header bg-white/90 dark:bg-gray-800  border-b-2 border-gray-200/30 dark:border-gray-900 shadow-sm animate-fade-in-down sticky top-0 z-30 px-4 md:px-6 py-3">
@@ -256,6 +285,19 @@ export default function Header({
           >
             {theme === 'dark' ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-slate-700" />}
           </button>
+
+          {/* QR Scanner Web */}
+          {role === ROLES.CHAUFFEUR && (
+            <button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 ring-emerald-500 transition-all shadow-sm border border-emerald-100/50 dark:border-emerald-800/30"
+              aria-label="Scanner un ticket"
+              title="Scanner un QR Code"
+            >
+              <QrCode className="h-5 w-5" />
+            </button>
+          )}
 
           {/* Notifications */}
           <div className="relative notifications-container">
@@ -468,6 +510,13 @@ export default function Header({
           </div>
         </div>
       </div>
+
+      {showScanner && (
+        <QRScannerWeb 
+          onScanSuccess={handleQRScanSuccess} 
+          onClose={() => setShowScanner(false)} 
+        />
+      )}
     </header>
   );
 }

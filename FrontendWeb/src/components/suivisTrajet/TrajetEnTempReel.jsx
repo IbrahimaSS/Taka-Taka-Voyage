@@ -13,8 +13,10 @@ import {
   HelpCircle, FileText, Share2, AlertTriangle, Gauge, CheckCircle,
   Flag, RefreshCw, CreditCard, Smartphone, Battery, Target,
   ChevronRight, XCircle, Star, ShieldCheck, ChevronLeft, Bell,
-  MessageCircle, BatteryCharging, Zap
+  MessageCircle, BatteryCharging, Zap, QrCode
 } from 'lucide-react';
+import QRScannerWeb from '../common/QRScannerWeb';
+import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useDriverContext } from '../../context/DriverContext';
 import EmergencyButton from '../passager/EmergencyButton';
@@ -64,6 +66,7 @@ const RealTimeTracking = ({
   const [estimatedArrival, setEstimatedArrival] = useState('14:45');
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulatedProgress, setSimulatedProgress] = useState(0);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Références
   const mapRef = useRef();
@@ -314,6 +317,39 @@ const RealTimeTracking = ({
     }
 
     if (onShareTrip) onShareTrip(shareData);
+  };
+
+  const handleQRScanSuccess = async (code) => {
+    try {
+      setShowScanner(false);
+      toast.loading('Validation du ticket...', { id: 'scan-loading' });
+      
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/tickets/scanner`, { 
+        codeUnique: code 
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      toast.dismiss('scan-loading');
+
+      if (response.data.succes) {
+        toast.success('Ticket validé ! Passager autorisé à bord.');
+        // Si le scan doit changer le statut de la course localement
+        if (role === 'driver') {
+          // On peut émettre un signal de montée réussie
+          socketService.emit('course:passager_ramasse', { 
+            reservationId: trip?.reservationId || trip?.id 
+          });
+        }
+      } else {
+        toast.error(response.data.message || 'Ticket invalide');
+      }
+    } catch (err) {
+      toast.dismiss('scan-loading');
+      console.error("Scan Error:", err);
+      toast.error(err.response?.data?.message || 'Erreur lors de la validation');
+    }
   };
 
 
@@ -1110,6 +1146,18 @@ const RealTimeTracking = ({
                   <span>Partager le trajet</span>
                 </motion.button>
 
+                {role === 'driver' && !isTripEnded && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowScanner(true)}
+                    className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold hover:bg-emerald-600 transition-colors flex items-center justify-center gap-3 shadow-lg shadow-emerald-500/20"
+                  >
+                    <QrCode className="w-5 h-5" />
+                    <span>Scanner le QR Code</span>
+                  </motion.button>
+                )}
+
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -1185,6 +1233,13 @@ const RealTimeTracking = ({
         offset={10}
       />
       <EmergencyButton />
+      
+      {showScanner && (
+        <QRScannerWeb 
+          onScanSuccess={handleQRScanSuccess} 
+          onClose={() => setShowScanner(false)} 
+        />
+      )}
     </div>
   );
 };

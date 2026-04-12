@@ -806,6 +806,20 @@ const AssistantIA = () => {
             if (response.data.succes) {
                 const { reponse, actionDetected } = response.data;
 
+                // ✅ JOURNAL D'ACTIVITÉ (ADMIN) - Trace de l'interaction Chatbot
+                try {
+                    await apiClient.post('/admin/logs/manuel', {
+                        action: "INTERACTION_CHATBOT",
+                        module: "SUPPORT",
+                        details: { 
+                            question: msgText, 
+                            actionDetectee: actionDetected?.name || "AUCUNE"
+                        }
+                    });
+                } catch (e) {
+                    console.warn("Log Chatbot failed", e);
+                }
+
                 // 🟢 Extraction des données partielles [SLOT_DATA] pour remplissage en direct du formulaire
                 let cleanResponse = reponse;
                 const slotMatch = reponse.match(/\[SLOT_DATA\](.*?)\[\/SLOT_DATA\]/s);

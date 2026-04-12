@@ -7,6 +7,7 @@ import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Bttn';
 import Switch from '../ui/Switch';
 import i18n from '../../../i18n/config';
+import { apiClient } from '../../../services/apiClient';
 
 // Liste des langues supportées par la plateforme
 const SUPPORTED_LANGUAGES = [
@@ -320,6 +321,17 @@ const GeneralSettings = ({ settings, updateSetting, showToast }) => {
                   updateSetting('platform.language', newLang);
                   // Changement immédiat de la langue i18n
                   i18n.changeLanguage(newLang);
+                  
+                  try {
+                    apiClient.post('/admin/logs/manuel', {
+                      action: "CHANGEMENT_LANGUE",
+                      module: "FRONTEND",
+                      details: { nouvelleLangue: newLang, interfaces: "ADMIN" }
+                    });
+                  } catch (e) {
+                    console.warn("Log language failed", e);
+                  }
+
                   if (showToast && langInfo) {
                     showToast(
                       t('common.success'),

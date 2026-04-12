@@ -1,11 +1,11 @@
 /**
  * TripNotificationToast.jsx
  * Notification visuelle moderne pour nouvelles demandes de courses
- * ✅ FIX: inset-2
- * ✅ FIX: TimerCircle ne redémarre plus chaque seconde
- * ✅ FIX: mapping backend -> UI (passenger / distanceKm / dureeMin)
- * ✅ FIX: confirm modal utilise les champs normalisés
- * ✅ Robustesse: anti double timeEnd + safe reject
+ * Ô£à FIX: inset-2
+ * Ô£à FIX: TimerCircle ne red├®marre plus chaque seconde
+ * Ô£à FIX: mapping backend -> UI (passenger / distanceKm / dureeMin)
+ * Ô£à FIX: confirm modal utilise les champs normalis├®s
+ * Ô£à Robustesse: anti double timeEnd + safe reject
  */
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
@@ -38,7 +38,7 @@ import Badge from "../admin/ui/Badge";
 import ConfirmModal from "../admin/ui/ConfirmModal";
 
 /** Helpers */
-const safeStr = (v, fallback = "—") =>
+const safeStr = (v, fallback = "ÔÇö") =>
   typeof v === "string" && v.trim() ? v.trim() : fallback;
 
 const safeNum = (v, fallback = 0) => {
@@ -48,7 +48,7 @@ const safeNum = (v, fallback = 0) => {
 
 const formatMinutesToHuman = (min) => {
   const m = safeNum(min, 0);
-  if (!m) return "—";
+  if (!m) return "ÔÇö";
   if (m < 60) return `${Math.round(m)} min`;
   const h = Math.floor(m / 60);
   const r = Math.round(m % 60);
@@ -56,7 +56,7 @@ const formatMinutesToHuman = (min) => {
 };
 
 /**
- * TimerCircle stable: total fixé au début, remaining varie
+ * TimerCircle stable: total fix├® au d├®but, remaining varie
  */
 const TimerCircle = ({
   total = 60,
@@ -73,7 +73,7 @@ const TimerCircle = ({
   const progress = Math.min(1, Math.max(0, 1 - safeRemaining / safeTotal));
   const strokeDashoffset = circumference * (1 - progress);
 
-  // ✅ évite d'appeler onTimeEnd plusieurs fois
+  // Ô£à ├®vite d'appeler onTimeEnd plusieurs fois
   const endedRef = useRef(false);
   useEffect(() => {
     if (safeRemaining <= 0 && !endedRef.current) {
@@ -149,13 +149,13 @@ const TripNotificationToast = () => {
   const contentRef = useRef(null);
   const previousRequestsCount = useRef(0);
 
-  // ✅ total seconds fixed per request id
+  // Ô£à total seconds fixed per request id
   const requestTotalSecondsRef = useRef(new Map());
 
   const rawRequest = tripRequests?.[0] || null;
 
   /**
-   * ✅ Normalisation backend -> UI
+   * Ô£à Normalisation backend -> UI
    * backend envoie passenger:{nom,prenom,telephone,noteMoyenne} + distanceKm + dureeMin
    * ton UI attend passengerName/passengerPhone/passengerRating + distance/estimatedTime
    */
@@ -183,7 +183,7 @@ const TripNotificationToast = () => {
 
     const estimatedTime =
       rawRequest.estimatedTime ??
-      (rawRequest.dureeMin != null ? formatMinutesToHuman(rawRequest.dureeMin) : "—");
+      (rawRequest.dureeMin != null ? formatMinutesToHuman(rawRequest.dureeMin) : "ÔÇö");
 
     return {
       ...rawRequest,
@@ -203,7 +203,7 @@ const TripNotificationToast = () => {
     };
   }, [rawRequest]);
 
-  // ✅ init total seconds when new request arrives
+  // Ô£à init total seconds when new request arrives
   useEffect(() => {
     if (!currentRequest?.id) return;
     if (!requestTotalSecondsRef.current.has(currentRequest.id)) {
@@ -219,7 +219,7 @@ const TripNotificationToast = () => {
     return requestTotalSecondsRef.current.get(currentRequest.id) ?? 60;
   }, [currentRequest?.id]);
 
-  // Vérifier scroll
+  // V├®rifier scroll
   const checkScrollable = useCallback(() => {
     if (!contentRef.current) return;
 
@@ -251,7 +251,11 @@ const TripNotificationToast = () => {
   useEffect(() => {
     if ((tripRequests?.length || 0) > previousRequestsCount.current) {
       const latest = tripRequests?.[0];
-      if (latest) notifyNewTrip(latest);
+      if (latest) {
+        console.log("🔔 [STABLE_TOAST] Nouvelle demande, bip + ouverture");
+        notifyNewTrip(latest);
+        setExpanded(true); // Ajout pour forcer l'affichage du modal
+      }
     }
     previousRequestsCount.current = tripRequests?.length || 0;
   }, [tripRequests, notifyNewTrip]);
@@ -278,7 +282,7 @@ const TripNotificationToast = () => {
     acceptTripRequest(reservationId);
     navigate("/chauffeur/tracking");
 
-    // Réactiver les boutons après 3 secondes pour permettre d'autres acceptations
+    // R├®activer les boutons apr├¿s 3 secondes pour permettre d'autres acceptations
     setTimeout(() => {
       setIsAccepting(false);
     }, 3000);
@@ -376,7 +380,7 @@ const TripNotificationToast = () => {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="text-white font-bold text-lg">
-                            {currentRequest.isRappel ? "Rappel trajet planifié" : "Nouvelle Course Disponible !"}
+                            {currentRequest.isRappel ? "Rappel trajet planifi├®" : "Nouvelle Course Disponible !"}
                           </h3>
                           <Sparkles className="w-4 h-4 text-yellow-300" />
                         </div>
@@ -405,7 +409,7 @@ const TripNotificationToast = () => {
                         icon={isExpandedFull ? Minimize2 : Maximize2}
                         onClick={toggleExpandFull}
                         className="text-white hover:bg-white/20"
-                        tooltip={isExpandedFull ? "Réduire" : "Agrandir"}
+                        tooltip={isExpandedFull ? "R├®duire" : "Agrandir"}
                       />
                     </div>
                   </div>
@@ -437,13 +441,13 @@ const TripNotificationToast = () => {
                     }`}
                 >
                   <div className="p-6 space-y-6">
-                    {/* Indicateur Course Planifiée */}
+                    {/* Indicateur Course Planifi├®e */}
                     {currentRequest.typeCourse === "PLANIFIEE" && (
                       <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-5 h-5 text-blue-500" />
                           <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                            COURSE PLANIFIÉE
+                            COURSE PLANIFI├ëE
                           </span>
                         </div>
                         <div className="text-right">
@@ -451,7 +455,7 @@ const TripNotificationToast = () => {
                             {new Date(currentRequest.datePlanifiee).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
                           </p>
                           <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-                            à {new Date(currentRequest.datePlanifiee).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            ├á {new Date(currentRequest.datePlanifiee).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
                       </div>
@@ -521,24 +525,24 @@ const TripNotificationToast = () => {
                       )}
                     </div>
 
-                    {/* itinéraire */}
+                    {/* itin├®raire */}
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h4 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                           <Route className="w-5 h-5 text-blue-500" />
-                          Itinéraire détaillé
+                          Itin├®raire d├®taill├®
                         </h4>
                         <Badge variant="outline" size="xs">
                           {currentRequest.distance != null
                             ? `${safeNum(currentRequest.distance, 0).toFixed(1)} km`
-                            : "—"}
+                            : "ÔÇö"}
                         </Badge>
                       </div>
 
                       <div className="relative pl-10">
                         <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-500 via-blue-500 to-red-500" />
 
-                        {/* départ */}
+                        {/* d├®part */}
                         <div className="flex items-start gap-4 mb-8">
                           <div className="absolute left-3.5 -translate-x-1/2">
                             <div className="w-5 h-5 rounded-full bg-emerald-500 ring-4 ring-emerald-100 dark:ring-emerald-900/50 flex items-center justify-center">
@@ -550,7 +554,7 @@ const TripNotificationToast = () => {
                             <div className="flex items-center gap-2 mb-1">
                               <MapPin className="w-4 h-4 text-emerald-500" />
                               <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold">
-                                DÉPART
+                                D├ëPART
                               </p>
                             </div>
                             <p className="font-semibold text-gray-900 dark:text-white">
@@ -597,7 +601,7 @@ const TripNotificationToast = () => {
                         <p className="text-xl font-bold text-gray-900 dark:text-emerald-400 mt-1">
                           {currentRequest.distance != null
                             ? `${safeNum(currentRequest.distance, 0).toFixed(1)} km`
-                            : "—"}
+                            : "ÔÇö"}
                         </p>
                       </motion.div>
 
@@ -609,7 +613,7 @@ const TripNotificationToast = () => {
                           <Clock className="w-5 h-5 text-white" />
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 font-bold">
-                          Durée
+                          Dur├®e
                         </p>
                         <p className="text-xl font-bold text-gray-900 dark:text-emerald-400 mt-1">
                           {safeStr(currentRequest.estimatedTime)}
@@ -624,7 +628,7 @@ const TripNotificationToast = () => {
                           <DollarSign className="w-5 h-5 text-white" />
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 font-bold">
-                          Gains estimés
+                          Gains estim├®s
                         </p>
                         <p className="text-xl font-bold text-gray-900 dark:text-emerald-400 mt-1">
                           {safeNum(currentRequest.estimatedFare, 0).toLocaleString("fr-FR")}{" "}
@@ -636,7 +640,7 @@ const TripNotificationToast = () => {
                     {/* petit indicateur scroll (optionnel) */}
                     {showScrollIndicator && isScrollable && (
                       <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-                        Faites défiler pour voir plus ↓
+                        Faites d├®filer pour voir plus Ôåô
                       </div>
                     )}
                   </div>
@@ -651,7 +655,7 @@ const TripNotificationToast = () => {
                       className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-blue-500/20"
                       onClick={() => handleDismiss(currentRequest.id)}
                     >
-                      C'est noté !
+                      C'est not├® !
                     </Button>
                   ) : (
                     <div className="flex gap-4">
@@ -701,19 +705,19 @@ const TripNotificationToast = () => {
         }}
         onConfirm={() => {
           // si tu veux 2 boutons distincts dans ConfirmModal, adapte son API.
-          // Ici, on confirme l'action selon le dernier bouton cliqué :
+          // Ici, on confirme l'action selon le dernier bouton cliqu├® :
           // - Si selectedRequest existe et on a choisi "Accepter" via handleAcceptWithConfirm -> on valide accept
           // - Si selectedRequest existe via bouton "Refuser" -> on refuse
-          // ✅ Simple: si modal ouvert après "Accepter", selectedRequest vient de handleAcceptWithConfirm
-          // ✅ Si modal ouvert après "Refuser", selectedRequest vient du bouton Refuser ci-dessus
-          // -> on détecte via un flag
+          // Ô£à Simple: si modal ouvert apr├¿s "Accepter", selectedRequest vient de handleAcceptWithConfirm
+          // Ô£à Si modal ouvert apr├¿s "Refuser", selectedRequest vient du bouton Refuser ci-dessus
+          // -> on d├®tecte via un flag
           // Pour rester 100% clair, on utilise actionRef:
         }}
         title="Confirmer l'action"
         message={
           <div className="space-y-3">
             <p className="font-semibold text-gray-800 dark:text-gray-200">
-              Confirmez votre décision pour cette course.
+              Confirmez votre d├®cision pour cette course.
             </p>
             <div className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 p-4 rounded-xl">
               <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -724,7 +728,7 @@ const TripNotificationToast = () => {
                 <span className="font-bold">Distance:</span>{" "}
                 {selectedRequest?.distance != null
                   ? `${safeNum(selectedRequest.distance, 0).toFixed(1)} km`
-                  : "—"}
+                  : "ÔÇö"}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                 <span className="font-bold">Gains:</span>{" "}

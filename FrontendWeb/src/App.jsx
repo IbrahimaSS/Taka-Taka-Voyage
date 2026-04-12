@@ -19,7 +19,6 @@ import { PassengerProvider } from './context/PassengerContext';
 import NotFound from './pages/NotFound';
 
 // Auth
-import { AuthProvider } from './context/AuthContext';
 import AuthGuard from './components/auth/AuthGuard';
 import PlatformMonitor from './components/notifications/PlatformMonitor';
 import ReservationReminder from './components/notifications/ReservationReminder';
@@ -48,68 +47,66 @@ const LoadingSpinner = () => (
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <PlatformMonitor />
-        <ReservationReminder />
-        <AssistantIA />
-        <OfflineBanner />
-        <Suspense fallback={<LoadingSpinner />}>
-          <Routes>
-            {/* PUBLIC */}
-            <Route element={<PublicProviders />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/connexion" element={<Connexion />} />
-              <Route path="/inscription" element={<Inscription />} />
-              <Route path="/telecharger" element={<DownloadApp />} />
-              <Route path="/finaliser-profil" element={
-                <AuthGuard allowedRoles={[]}>
-                  <FinaliserProfil />
-                </AuthGuard>
-              } />
-
-              {/* Chauffeur */}
-              <Route path="/chauffeur/*" element={
-                <AuthGuard allowedRoles={['CHAUFFEUR', 'DRIVER']}>
-                  <ChauffeurApp />
-                </AuthGuard>
-              } />
-              <Route path="/chauffeurs" element={<Navigate to="/chauffeur" replace />} />
-              <Route path="/chauffeurs/*" element={<Navigate to="/chauffeur" replace />} />
-
-              {/* Passager */}
-              <Route path="/passager/*" element={
-                <AuthGuard allowedRoles={['PASSAGER', 'PASSENGER']}>
-                  <PassengerProvider>
-                    <Passenger />
-                  </PassengerProvider>
-                </AuthGuard>
-              } />
-              <Route path="/passagers" element={<Navigate to="/passager" replace />} />
-              <Route path="/passagers/*" element={<Navigate to="/passager" replace />} />
-
-              {/* Pages de validation */}
-              <Route path="/validation-en-attente" element={<ValidationEnAttente />} />
-              <Route path="/validation-reussie" element={<ValidationReussie />} />
-            </Route>
-
-            {/* ADMIN */}
-            <Route path="/admin/*" element={
-              <AuthGuard allowedRoles={['ADMIN']}>
-                <AdminApp />
+      <PlatformMonitor />
+      <ReservationReminder />
+      <AssistantIA />
+      <OfflineBanner />
+      <Suspense fallback={<LoadingSpinner />}>
+        <Routes>
+          {/* PUBLIC */}
+          <Route element={<PublicProviders />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/connexion" element={<Connexion />} />
+            <Route path="/inscription" element={<Inscription />} />
+            <Route path="/telecharger" element={<DownloadApp />} />
+            <Route path="/finaliser-profil" element={
+              <AuthGuard allowedRoles={[]}>
+                <FinaliserProfil />
               </AuthGuard>
             } />
 
-            {/* Routes de compatibilité */}
-            <Route path="/logout" element={<Navigate to="/admin/logout" replace />} />
-            <Route path="/login" element={<Navigate to="/connexion" replace />} />
-            <Route path="/signup" element={<Navigate to="/inscription" replace />} />
+            {/* Chauffeur */}
+            <Route path="/chauffeur/*" element={
+              <AuthGuard allowedRoles={['CHAUFFEUR', 'DRIVER']}>
+                <ChauffeurApp />
+              </AuthGuard>
+            } />
+            <Route path="/chauffeurs" element={<Navigate to="/chauffeur" replace />} />
+            <Route path="/chauffeurs/*" element={<Navigate to="/chauffeur" replace />} />
+
+            {/* Passager */}
+            <Route path="/passager/*" element={
+              <AuthGuard allowedRoles={['PASSAGER', 'PASSENGER']}>
+                <PassengerProvider>
+                  <Passenger />
+                </PassengerProvider>
+              </AuthGuard>
+            } />
+            <Route path="/passagers" element={<Navigate to="/passager" replace />} />
+            <Route path="/passagers/*" element={<Navigate to="/passager" replace />} />
+
+            {/* Pages de validation */}
+            <Route path="/validation-en-attente" element={<ValidationEnAttente />} />
+            <Route path="/validation-reussie" element={<ValidationReussie />} />
+          </Route>
+
+          {/* ADMIN */}
+          <Route path="/admin/*" element={
+            <AuthGuard allowedRoles={['ADMIN']}>
+              <AdminApp />
+            </AuthGuard>
+          } />
+
+          {/* Routes de compatibilité */}
+          <Route path="/logout" element={<Navigate to="/admin/logout" replace />} />
+          <Route path="/login" element={<Navigate to="/connexion" replace />} />
+          <Route path="/signup" element={<Navigate to="/inscription" replace />} />
 
 
-            {/* 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </AuthProvider>
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

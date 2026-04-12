@@ -6,6 +6,8 @@ const Trajet = require("./models/Trajets");
 const Paiement = require("./models/Paiements");
 const TaxiPartageService = require("./services/taxiPartageService");
 const GroupeTaxiPartage = require("./models/GroupeTaxiPartage");
+const ticketController = require("./controllers/common/ticketController");
+const { logActivity } = require("./utils/logger");
 
 // Anti double accept (mémoire)
 // ⚠️ TODO [PRODUCTION] : Ces locks mémoire sont perdus au redémarrage du serveur
@@ -107,24 +109,34 @@ module.exports = (io) => {
         const ROLE = String(role).toUpperCase();
         socket.user = { id: userId, role: ROLE, nom, prenom };
 
-        const roomMain = `${ROLE}_${String(userId)}`;
-        const roomUser = `USER_${String(userId)}`;
+        const sid = String(userId);
+        const roomMain = `${ROLE}_${sid}`;
+        const roomUser = `USER_${sid}`;
 
         socket.join(roomMain);
         socket.join(roomUser);
+        
+        // Room individuelle additionnelle pour compatibilité backend
+        if (ROLE === "CHAUFFEUR") {
+          socket.join(`CHAUFFEUR_${sid}`);
+        } else if (ROLE === "PASSAGER") {
+          socket.join(`PASSAGER_${sid}`);
+        }
 
         // ✅ Join specific functional rooms based on role
-        if (ROLE === "PASSAGER") {
-          socket.join(`PASSAGER_${String(userId)}`);
-        } else if (ROLE === "CHAUFFEUR") {
-          // 🔒 Vérifier le statut du chauffeur avant de joindre la room des courses
+        if (ROLE === "CHAUFFEUR") {
           try {
             const profil = await ChauffeurProfile.findOne({ utilisateur: userId }).select("statut");
             if (profil && profil.statut === "ACTIF") {
               socket.join("CHAUFFEURS");
               console.log(`✅ [SOCKET_CONNECT] Chauffeur ACTIF (${userId}) a rejoint la room CHAUFFEURS`);
             } else {
-              socket.join(`ATTENTE_${String(userId)}`); // Room isolée pour les validations
+              socket.join(`ATTENTE_${sid}`);
+              // Alerter immédiatement le client qu'il est connecté mais bloqué
+              socket.emit("client:online:blocked", {
+                message: "Votre compte est en attente de validation. Accès aux courses bloqué.",
+                statut: profil?.statut || "EN_ATTENTE"
+              });
               console.log(`⏳ [SOCKET_CONNECT] Chauffeur EN_ATTENTE (${userId}) - accès aux courses bloqué`);
             }
           } catch (profileErr) {
@@ -329,6 +341,17 @@ module.exports = (io) => {
           type: chauffeurDoc?.vehicule?.type || chauffeurProfile?.typeVehicule || "TAXI"
         };
 
+        // ✅ JOURNAL D'ACTIVITÉ (ADMIN)
+        await logActivity({
+          utilisateurId: socket.user.id,
+          nomUtilisateur: `${chauffeurDoc?.prenom || socket.user.prenom} ${chauffeurDoc?.nom || socket.user.nom}`,
+          role: "CHAUFFEUR",
+          action: "ACCEPTATION_TRAJET",
+          module: "TRAJETS",
+          details: { reservationId: rid, passager: `${reservation.passager?.prenom} ${reservation.passager?.nom}`, depart: reservation.depart },
+          ip: socket.handshake.address,
+        });
+
         const payload = {
           reservationId: rid,
           groupeTaxiPartage: groupeId,
@@ -351,6 +374,18 @@ module.exports = (io) => {
 
         // ✅ Notifier passager (room stable — ne PAS émettre aussi à RESERVATION_ pour éviter doublon)
         io.to(`PASSAGER_${pid}`).emit("course:acceptee", payload);
+
+        // 🎫 GÉNÉRATION DU TICKET QR (Automatique après acceptation)
+        try {
+          const ticket = await ticketController.genererTicketInterne(reservation, chauffeurDoc, chauffeurProfile);
+          io.to(`PASSAGER_${pid}`).emit("ticket:genere", {
+            success: true,
+            ticket: ticket
+          });
+          console.log(`📡 Ticket QR envoyé au passager ${pid}`);
+        } catch (ticketErr) {
+          console.error("⚠️ Échec génération ticket (non bloquant):", ticketErr.message);
+        }
 
         socket.emit("course:acceptee_confirmation", {
           reservationId: rid,
@@ -498,6 +533,17 @@ module.exports = (io) => {
         if (reservation.statut !== "ASSIGNEE") {
           reservation.statut = "ASSIGNEE";
           await reservation.save();
+
+          // ✅ JOURNAL D'ACTIVITÉ (ADMIN)
+          await logActivity({
+            utilisateurId: socket.user.id,
+            nomUtilisateur: `${socket.user.prenom || ''} ${socket.user.nom || ''}`,
+            role: "CHAUFFEUR",
+            action: "CHAUFFEUR_EN_ROUTE",
+            module: "TRAJETS",
+            details: { reservationId, info: "Le chauffeur commence la récupération du passager" },
+            ip: socket.handshake.address,
+          });
         }
 
         // ✅ FIX Map population
@@ -559,6 +605,17 @@ module.exports = (io) => {
         if (reservation.statut !== "ARRIVEE") {
           reservation.statut = "ARRIVEE";
           await reservation.save();
+
+          // ✅ JOURNAL D'ACTIVITÉ (ADMIN)
+          await logActivity({
+            utilisateurId: socket.user.id,
+            nomUtilisateur: `${socket.user.prenom || ''} ${socket.user.nom || ''}`,
+            role: "CHAUFFEUR",
+            action: "CHAUFFEUR_ARRIVE_POINT_DEPART",
+            module: "TRAJETS",
+            details: { reservationId, info: "Le chauffeur est arrivé au point de récupération" },
+            ip: socket.handshake.address,
+          });
         }
 
         // ✅ FIX Map
@@ -659,6 +716,17 @@ module.exports = (io) => {
           destination: reservation.destination,
           distanceKm: reservation.distanceKm,
           dureeMin: reservation.dureeMin
+        });
+
+        // ✅ JOURNAL D'ACTIVITÉ (ADMIN)
+        await logActivity({
+          utilisateurId: socket.user.id,
+          nomUtilisateur: `${socket.user.prenom || ''} ${socket.user.nom || ''}`,
+          role: "CHAUFFEUR",
+          action: "DEMARRAGE_TRAJET",
+          module: "TRAJETS",
+          details: { reservationId, passager: `${reservation.passager?.prenom} ${reservation.passager?.nom}` },
+          ip: socket.handshake.address,
         });
 
         socket.emit("course:demarre_confirmation", { reservationId });
@@ -763,6 +831,17 @@ module.exports = (io) => {
           { statut: "TERMINEE", dateFin: reservation.dateFin },
           { upsert: true, new: true }
         );
+
+        // ✅ JOURNAL D'ACTIVITÉ (ADMIN)
+        await logActivity({
+          utilisateurId: chauffeurId,
+          nomUtilisateur: `${reservation.chauffeur_prenom || 'Chauffeur'}`,
+          role: "CHAUFFEUR",
+          action: "FIN_TRAJET",
+          module: "TRAJETS",
+          details: { reservationId, prix: reservation.prix, info: "Trajet terminé avec succès" },
+          statut: "REUSSI"
+        });
 
         // ✅ PERSISTANCE PAIEMENT 
         try {
@@ -1020,45 +1099,61 @@ module.exports = (io) => {
 
         if (!isAlreadyCancelled) {
           // ════════════════════════════════════════════════════
-          // 💰 OPTION 2 : FRAIS D'ANNULATION FIXES (5 000 GNF)
+          // 💰 GESTION GÉNÉRALE DES FRAIS D'ANNULATION
           // ════════════════════════════════════════════════════
           const FRAIS_ANNULATION_GNF = 5000;
           let montantRembourse = reservation.prix;
           let montantChauffeur = 0;
           let avecFrais = false;
 
-          // Si le passager annule APRÈS qu'un chauffeur a accepté → appliquer les frais
-          const statutsAssignes = ["ACCEPTEE", "ASSIGNEE", "EN_COURS_DE_RECUPERATION", "ARRIVEE"];
-          if (allowedPassenger && statutsAssignes.includes(reservation.statut) && reservation.chauffeur) {
-            avecFrais = true;
-            montantChauffeur = Math.min(FRAIS_ANNULATION_GNF, reservation.prix);
-            montantRembourse = reservation.prix - montantChauffeur;
-            console.log(`💰 [ANNULATION] Frais appliqués: ${montantChauffeur} GNF chauffeur, ${montantRembourse} GNF remboursé passager`);
+          // Calcul de la durée depuis l'acceptation
+          const now = new Date();
+          const updatedAt = new Date(reservation.updatedAt);
+          const diffMinutes = Math.floor((now - updatedAt) / (1000 * 60));
+
+          // Statuts où le chauffeur est mobilisé
+          const statutsMobilises = ["ACCEPTEE", "ASSIGNEE", "EN_COURS_DE_RECUPERATION", "ARRIVEE", "EN_COURS"];
+          
+          if (allowedPassenger && statutsMobilises.includes(reservation.statut) && reservation.chauffeur) {
+            // Règle : Frais si > 2 min après acceptation OU si le chauffeur est déjà arrivé
+            if (diffMinutes >= 2 || reservation.statut === "ARRIVEE") {
+              avecFrais = true;
+              montantChauffeur = FRAIS_ANNULATION_GNF;
+              // Si déjà payé (Wallet), on calcule le remboursement
+              if (reservation.paiement?.statut === "PAYE") {
+                montantRembourse = Math.max(0, reservation.prix - FRAIS_ANNULATION_GNF);
+              } else {
+                montantRembourse = 0; // Rien à rembourser si pas payé
+              }
+              console.log(`💰 [ANNULATION] Frais appliqués (${diffMinutes} min): ${montantChauffeur} GNF`);
+            }
           }
 
           // Mettre à jour le statut
           reservation.statut = avecFrais ? "ANNULEE_AVEC_FRAIS" : "ANNULEE";
-          reservation.annuleeLe = new Date();
+          reservation.annuleeLe = now;
           if (uid) reservation.annuleePar = uid;
+          
+          const nomCeluiQuiAnnule = role === "PASSAGER" ? "le Passager" : "le Chauffeur";
 
           // Enregistrer les détails des frais
           reservation.fraisAnnulation = {
-            montant: avecFrais ? FRAIS_ANNULATION_GNF : 0,
+            montant: avecFrais ? montantChauffeur : 0,
             montantRembourse,
             montantChauffeur,
-            raison: avecFrais
-              ? "Annulation après acceptation du chauffeur (frais de déplacement)"
-              : "Annulation avant acceptation (annulation gratuite)"
+            raison: message || (avecFrais ? `Annulation tardive par ${nomCeluiQuiAnnule}` : `Annulation gratuite par ${nomCeluiQuiAnnule}`)
           };
 
           try {
-            // === REMBOURSEMENT WALLET DU PASSAGER (si déjà payé via wallet) ===
-            if (reservation.paiement && reservation.paiement.statut === "PAYE") {
-              const Transaction = require("./models/Transaction");
+            const Transaction = require("./models/Transaction");
+
+            // --- CAS 1 : C'ÉTAIT PAYÉ PAR WALLET (Remboursement partiel/total) ---
+            if (reservation.paiement?.methode === "WALLET" && reservation.paiement?.statut === "PAYE") {
               const passagerId = reservation.passager._id;
               const passagerUser = await Utilisateurs.findById(passagerId);
 
-              if (passagerUser && montantRembourse > 0) {
+              if (passagerUser) {
+                // On rend ce qui reste après frais
                 passagerUser.solde = (passagerUser.solde || 0) + montantRembourse;
                 await passagerUser.save();
 
@@ -1067,47 +1162,66 @@ module.exports = (io) => {
                   type: "REMBOURSEMENT",
                   montant: montantRembourse,
                   methode: "WALLET",
-                  reference: `REMB-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                  reference: `REMB-${Date.now()}`,
                   statut: "COMPLETE",
-                  commentaire: avecFrais
-                    ? `Remboursement partiel course ${reservationId} (-${montantChauffeur.toLocaleString()} GNF frais)`
-                    : `Remboursement total course ${reservationId}`,
+                  commentaire: avecFrais 
+                    ? `Remboursement partiel - Frais d'annulation ${montantChauffeur.toLocaleString()} GNF déduits`
+                    : `Remboursement total - Annulation gratuite`,
                   metadata: { reservationId: reservation._id }
                 });
-
-                console.log(`💸 [REMBOURSEMENT] ${montantRembourse} GNF remboursés au passager ${passagerId}`);
               }
-
               reservation.paiement.statut = avecFrais ? "REMBOURSE_PARTIEL" : "REMBOURSE";
+            } 
+            // --- CAS 2 : CASH OU WALLET NON PAYÉ (Prélever les frais quand même) ---
+            else if (avecFrais) {
+              const passagerId = reservation.passager._id;
+              const passagerUser = await Utilisateurs.findById(passagerId);
 
-              // === COMPENSATION DU CHAUFFEUR (frais d'annulation) ===
-              if (montantChauffeur > 0 && reservation.chauffeur) {
-                const chauffeurUser = await Utilisateurs.findById(reservation.chauffeur);
-                if (chauffeurUser) {
-                  chauffeurUser.solde = (chauffeurUser.solde || 0) + montantChauffeur;
-                  chauffeurUser.trajetEnCours = false;
-                  await chauffeurUser.save();
+              if (passagerUser) {
+                // On force le prélèvement des frais (peut passer en négatif)
+                passagerUser.solde = (passagerUser.solde || 0) - montantChauffeur;
+                await passagerUser.save();
 
-                  await Transaction.create({
-                    utilisateur: chauffeurUser._id,
-                    type: "COMPENSATION",
-                    montant: montantChauffeur,
-                    methode: "WALLET",
-                    reference: `COMPENS-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-                    statut: "COMPLETE",
-                    commentaire: `Compensation frais d'annulation - Course ${reservationId}`,
-                    metadata: { reservationId: reservation._id }
-                  });
+                await Transaction.create({
+                  utilisateur: passagerId,
+                  type: "RETRAIT", // Ou un nouveau type "PENALITE"
+                  montant: montantChauffeur,
+                  methode: "WALLET",
+                  reference: `PENAL-${Date.now()}`,
+                  statut: "COMPLETE",
+                  commentaire: `Frais d'annulation tardive (Course ${reservationId})`,
+                  metadata: { reservationId: reservation._id }
+                });
+                console.log(`📉 [DETTE] Solde passager ${passagerId} mis à jour : ${passagerUser.solde} GNF`);
+              }
+            }
 
-                  console.log(`💰 [COMPENSATION] ${montantChauffeur} GNF versés au chauffeur ${chauffeurUser._id}`);
-                }
+            // --- COMPENSATION DU CHAUFFEUR ---
+            if (montantChauffeur > 0 && reservation.chauffeur) {
+              const chauffeurUser = await Utilisateurs.findById(reservation.chauffeur);
+              if (chauffeurUser) {
+                chauffeurUser.solde = (chauffeurUser.solde || 0) + montantChauffeur;
+                chauffeurUser.trajetEnCours = false;
+                await chauffeurUser.save();
+
+                await Transaction.create({
+                  utilisateur: chauffeurUser._id,
+                  type: "COMPENSATION",
+                  montant: montantChauffeur,
+                  methode: "WALLET",
+                  reference: `COMPENS-${Date.now()}`,
+                  statut: "COMPLETE",
+                  commentaire: `Compensation annulation passager - Course ${reservationId}`,
+                  metadata: { reservationId: reservation._id }
+                });
+                console.log(`💰 [COMPENSATION] ${montantChauffeur} GNF versés au chauffeur ${chauffeurUser._id}`);
               }
             }
 
             await reservation.save();
             console.log(`✅ [SOCKET] Reservation ${reservationId} marquée ${reservation.statut} en base`);
           } catch (saveErr) {
-            console.error("❌ [SOCKET] Erreur lors de la sauvegarde de l'annulation:", saveErr.message);
+            console.error("❌ [SOCKET] Erreur lors du traitement financier de l'annulation:", saveErr.message);
           }
 
           // ════════════════════════════════════════════════════

@@ -222,9 +222,14 @@ export const CurrentRideCard = ({ ride, onAccept, onReject, onCall, onStart, onC
                             <View style={s.rating}><Ionicons name="star" size={14} color="#FBBF24" /><Text style={{ color: theme.textSecondary }}>{ride.passengerRating || '4.8'}</Text></View>
                         </View>
                     </View>
-                    <TouchableOpacity style={[s.callBtnHeader, { backgroundColor: theme.primary + '15' }]} onPress={onCall}>
-                        <Ionicons name="call" size={18} color={theme.primary} />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity style={[s.callBtnHeader, { backgroundColor: '#EF444415' }]} onPress={onReject}>
+                            <Ionicons name="close" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[s.callBtnHeader, { backgroundColor: theme.primary + '15' }]} onPress={onCall}>
+                            <Ionicons name="call" size={18} color={theme.primary} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 <View style={s.routeInfo}>
@@ -266,11 +271,19 @@ export const CurrentRideCard = ({ ride, onAccept, onReject, onCall, onStart, onC
                             </LinearGradient>
                         </TouchableOpacity>
                     ) : isHeading ? (
-                        <TouchableOpacity style={s.primaryBtn} onPress={onArrived} activeOpacity={0.8}>
-                            <LinearGradient colors={['#F59E0B', '#D97706']} style={s.btnGradient}>
-                                <Text style={s.btnText}>Signaler l'arrivée</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+                            <TouchableOpacity style={[s.primaryBtn, { flex: 2 }]} onPress={onArrived} activeOpacity={0.8}>
+                                <LinearGradient colors={['#F59E0B', '#D97706']} style={s.btnGradient}>
+                                    <Text style={s.btnText}>Signaler l'arrivée</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[s.primaryBtn, { flex: 1, backgroundColor: theme.primary + '15' }]} onPress={() => onArrived({ scan: true })} activeOpacity={0.8}>
+                                <View style={[s.btnGradient, { backgroundColor: 'transparent', flexDirection: 'row', gap: 5 }]}>
+                                    <Ionicons name="qr-code-outline" size={20} color={theme.primary} />
+                                    <Text style={[s.btnText, { color: theme.primary }]}>Scan</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
                     ) : isArrived ? (
                         <TouchableOpacity style={s.primaryBtn} onPress={onStart} activeOpacity={0.8}>
                             <LinearGradient colors={['#10B981', '#059669']} style={s.btnGradient}>
@@ -326,11 +339,19 @@ export const AcceptedMissionsList = ({ missions, onRejoindre, onArrived, onStart
                                 </LinearGradient>
                             </TouchableOpacity>
                         ) : ride.status === 'heading' ? (
-                            <TouchableOpacity style={s.primaryBtn} onPress={() => onArrived(ride)} activeOpacity={0.8}>
-                                <LinearGradient colors={['#F59E0B', '#D97706']} style={s.btnGradientSmall}>
-                                    <Text style={s.btnTextSmall}>Signaler l'arrivée</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', gap: 8, flex: 1 }}>
+                                <TouchableOpacity style={[s.primaryBtn, { flex: 2 }]} onPress={() => onArrived(ride)} activeOpacity={0.8}>
+                                    <LinearGradient colors={['#F59E0B', '#D97706']} style={s.btnGradientSmall}>
+                                        <Text style={s.btnTextSmall}>Arrivée</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[s.primaryBtn, { flex: 1, backgroundColor: theme.primary + '15' }]} onPress={() => onArrived({ ...ride, scan: true })} activeOpacity={0.8}>
+                                    <View style={[s.btnGradientSmall, { backgroundColor: 'transparent', flexDirection: 'row', gap: 4 }]}>
+                                        <Ionicons name="qr-code-outline" size={16} color={theme.primary} />
+                                        <Text style={[s.btnTextSmall, { color: theme.primary }]}>Scan</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
                         ) : (
                             <TouchableOpacity style={s.primaryBtn} onPress={() => onStart(ride)} activeOpacity={0.8}>
                                 <LinearGradient colors={['#10B981', '#059669']} style={s.btnGradientSmall}>

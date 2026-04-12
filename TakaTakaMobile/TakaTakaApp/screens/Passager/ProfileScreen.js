@@ -22,6 +22,7 @@ import LanguageScreen from './LanguageScreen';
 import HelpCenterScreen from './HelpCenterScreen';
 import TermsConditionsScreen from './TermsConditionsScreen';
 import AboutScreen from './AboutScreen';
+import TicketsScreen from './TicketsScreen';
 
 export default function ProfileScreen({ navigation, onLogout, onOpenAssistant }) {
     const {
@@ -45,6 +46,7 @@ export default function ProfileScreen({ navigation, onLogout, onOpenAssistant })
                 { icon: 'person', label: t('profile_item_personal_info') || 'Infos Professionnelles', action: 'personal-info' },
                 // { icon: 'card', label: 'Moyens de paiement', action: 'payment-methods' },
                 { icon: 'gift', label: t('profile_item_benefits') || 'Mes avantages', action: 'benefits' },
+                { icon: 'receipt', label: 'Mes Tickets', action: 'tickets' },
                 // { icon: 'trophy', label: 'Programme de fidélité', action: 'loyalty' },
             ]
         },
@@ -106,6 +108,9 @@ export default function ProfileScreen({ navigation, onLogout, onOpenAssistant })
                 break;
             case 'benefits':
                 setCurrentScreen('benefits');
+                break;
+            case 'tickets':
+                setCurrentScreen('tickets');
                 break;
             case 'loyalty':
                 Alert.alert('Programme de fidélité', 'Cette fonctionnalité sera bientôt disponible !');
@@ -273,6 +278,8 @@ export default function ProfileScreen({ navigation, onLogout, onOpenAssistant })
                 return <PaymentMethodsScreen navigation={subNavigation} />;
             case 'benefits':
                 return <BenefitsScreen navigation={subNavigation} />;
+            case 'tickets':
+                return <TicketsScreen navigation={subNavigation} />;
             case 'language':
                 return <LanguageScreen navigation={subNavigation} />;
             case 'help-center':

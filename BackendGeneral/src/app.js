@@ -197,6 +197,10 @@ app.use("/api/common", contactRoutes);
 const walletRoutes = require("./routes/common/walletRoutes");
 app.use("/api/wallet", walletRoutes);
 
+// 🎫 Tickets QR
+const ticketRoutes = require("./routes/common/ticketRoutes");
+app.use("/api/tickets", ticketRoutes);
+
 // ===================== TÉLÉCHARGEMENT APK =====================
 app.get("/api/download/apk", (req, res) => {
     const filePath = path.join(__dirname, "..", "downloads", "takataka-V1.apk");

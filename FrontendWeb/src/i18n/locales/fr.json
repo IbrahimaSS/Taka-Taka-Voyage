@@ -6,6 +6,7 @@
         "rating": "Note",
         "welcome": "Bienvenue sur Taka-Taka",
         "loading": "Chargement...",
+        "processing": "Traitement en cours...",
         "error": "Une erreur est survenue",
         "retry": "Réessayer",
         "save": "Enregistrer",

@@ -39,6 +39,8 @@ import RideAcceptModal from './composants/RideAcceptModal';
 import DriverPlanningModal from './composants/DriverPlanningModal';
 import AddPlanningSlotModal from './composants/AddPlanningSlotModal';
 import TransactionDetailModal from './composants/TransactionDetailModal';
+import QRScannerModal from './composants/QRScannerModal';
+import TripCancelModal from './composants/TripCancelModal';
 import { MonProfil, Documents, AideSupport, Parametres } from './composants/DriverProfileSubScreens';
 import { CurrentRideCard, MainDashboardHeaderCombined, AcceptedMissionsList } from './composants/DashboardComposants';
 import { RidesHistoryTab, EarningsTab } from './composants/RidesAndEarningsTabs';
@@ -119,6 +121,8 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
     const [showPlanningModal, setShowPlanningModal] = useState(false);
     const [showAddSlotModal, setShowAddSlotModal] = useState(false);
     const [showTransactionModal, setShowTransactionModal] = useState(false);
+    const [showScannerModal, setShowScannerModal] = useState(false);
+    const [showCancelModal, setShowCancelModal] = useState(false);
     const [selectedRide, setSelectedRide] = useState(null);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
     const [alertConfig, setAlertConfig] = useState({
@@ -159,6 +163,7 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
 
     // États pour le temps réel
     const [socket, setSocket] = useState(null);
+    const [loading, setLoading] = useState(false);
     const socketRef = useRef(null);
 
     // Photo de profil : utiliser la photo réelle de l'utilisateur (depuis la base de données)
@@ -184,7 +189,7 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
                 // Écouter les nouvelles demandes
                 socket.on('course:demande', (data) => {
                     console.log('🚕 Nouvelle demande reçue (course:demande)!', data);
-                    
+
                     const formattedRide = {
                         id: data.reservationId || data._id || data.id,
                         passengerName: data.passengerName || 'Passager',
@@ -220,7 +225,7 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
                 try {
                     const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
                     const { latitude, longitude } = location.coords;
-                    
+
                     socketService.emit('mettreAJourPosition', {
                         chauffeurId: user.id,
                         position: { latitude, longitude }
@@ -786,7 +791,7 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
         try {
             setLoading(true);
             const response = await apiClient(`/chauffeur/mes-courses/${ride.id}/accepter`, { method: 'POST' });
-            
+
             if (response.succes) {
                 setNotifications(prev => prev.map(notif =>
                     notif.rideId === ride.id ? { ...notif, read: true } : notif
@@ -798,7 +803,7 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
                     showAlert('✅ Mission acceptée !', `Rendez-vous à ${ride.pickup}`, 'success');
                 } else {
                     setAcceptedMissions(prev => [...prev.filter(m => m.id !== newMission.id), newMission]);
-                showAlert('📅 Mission planifiée', `Course ajoutée à votre file d'attente.`);
+                    showAlert('📅 Mission planifiée', `Course ajoutée à votre file d'attente.`);
                 }
                 setAvailableRides(prev => prev.filter(r => r.id !== ride.id));
                 setShowRideAcceptModal(false);
@@ -818,17 +823,42 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
         Alert.alert('Succès', 'Créneau ajouté à votre planning !');
     };
 
-    const handleRejectRide = async (ride) => {
+    const handleRejectRide = async (rideArg, reason = null) => {
+        const ride = rideArg || selectedRide || currentRide;
         if (!ride) return;
+
+        // Si pas de raison fournie, on ouvre le modal
+        if (!reason && ride.status !== 'pending') {
+            setSelectedRide(ride);
+            setShowCancelModal(true);
+            return;
+        }
+
         try {
             setLoading(true);
-            await apiClient(`/chauffeur/mes-courses/${ride.id}/refuser`, { method: 'POST' });
-            setShowRideAcceptModal(false);
-            setNotifications(prev => prev.map(notif => notif.rideId === ride.id ? { ...notif, read: true } : notif));
-            if (currentRide && currentRide.id === ride.id) setCurrentRide(null);
-            setAvailableRides(prev => prev.filter(r => r.id !== ride.id));
+            const cancelReason = reason || "Refusé par le chauffeur";
+
+            const res = await apiClient(`/chauffeur/mes-courses/${ride.id}/refuser`, {
+                method: 'POST',
+                body: { raison: cancelReason }
+            });
+
+            if (res.succes) {
+                setShowCancelModal(false);
+                setShowRideAcceptModal(false);
+                setNotifications(prev => prev.map(notif => notif.rideId === ride.id ? { ...notif, read: true } : notif));
+
+                if (currentRide && currentRide.id === ride.id) setCurrentRide(null);
+                setAcceptedMissions(prev => prev.filter(m => m.id !== ride.id));
+                setAvailableRides(prev => prev.filter(r => r.id !== ride.id));
+
+                showAlert('Course Annulée', 'La course a été annulée avec succès.', 'info');
+            } else {
+                showAlert('Erreur', res.message || 'Impossible d\'annuler la course', 'error');
+            }
         } catch (error) {
             console.error('Reject error:', error);
+            showAlert('Erreur', 'Une erreur est survenue lors de l\'annulation', 'error');
         } finally {
             setLoading(false);
         }
@@ -854,15 +884,60 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
     const handleArrivedAtPickup = async (rideArg) => {
         const ride = rideArg || currentRide;
         if (!ride) return;
+
+        // Si l'utilisateur a cliqué sur le bouton SCAN, on ouvre le scanner
+        if (rideArg && rideArg.scan) {
+            setSelectedRide(ride);
+            setShowScannerModal(true);
+            return;
+        }
+
         try {
             setLoading(true);
             const res = await apiClient(`/chauffeur/mes-courses/${ride.id}/signaler-arrivee`, { method: 'POST' });
             if (res.succes) {
                 if (currentRide?.id === ride.id) setCurrentRide(prev => ({ ...prev, status: 'arrived' }));
-                else setAcceptedMissions(prev => prev.map(m => m.id === ride.id ? { ...m, status: 'arrived' } : m));
+                else {
+                    setAcceptedMissions(prev => prev.map(m => m.id === ride.id ? { ...m, status: 'arrived' } : m));
+                    // Si on était dans la liste, on peut promouvoir cette course en course principale
+                    setCurrentRide({ ...ride, status: 'arrived' });
+                    setAcceptedMissions(prev => prev.filter(m => m.id !== ride.id));
+                }
                 showAlert('✅ Signalé', 'Le passager a été informé de votre présence.', 'success');
             }
         } catch (e) { console.error(e); } finally { setLoading(false); }
+    };
+
+    const handleQRScanSuccess = async (data) => {
+        if (!selectedRide) return;
+
+        try {
+            setShowScannerModal(false);
+            setLoading(true);
+            // On peut appeler un endpoint dédié ou réutiliser signaler-arrivée avec le code
+            const res = await apiClient(`/tickets/scanner`, {
+                method: 'POST',
+                body: { codeUnique: data, reservationId: selectedRide.id }
+            });
+
+            if (res.succes) {
+                // Le scan valide l'arrivée ET la présence du passager (selon besoin)
+                // Ici on marque au moins l'arrivée comme demandé par l'user
+                if (currentRide?.id === selectedRide.id) setCurrentRide(prev => ({ ...prev, status: 'arrived' }));
+                else {
+                    setCurrentRide({ ...selectedRide, status: 'arrived' });
+                    setAcceptedMissions(prev => prev.filter(m => m.id !== selectedRide.id));
+                }
+                showAlert('✅ Ticket Validé', 'Passager identifié. Vous pouvez démarrer la course.', 'success');
+            } else {
+                showAlert('❌ Erreur Scan', res.message || 'Ticket invalide ou expiré', 'error');
+            }
+        } catch (e) {
+            console.error('Scan Error:', e);
+            showAlert('Erreur', 'Impossible de valider le ticket', 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleStartRide = async (rideArg) => {
@@ -931,7 +1006,7 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
         try {
             // Utiliser updatedData s'il est fourni, sinon userData
             const data = updatedData || userData;
-            
+
             // 1. Préparer les données personnelles
             const nameParts = data.name.trim().split(' ');
             const prenom = nameParts[0] || '';
@@ -955,7 +1030,7 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
                 modele,
                 plaque: data.plate,
                 // On peut ajouter des valeurs par défaut si nécessaire
-                typeVehicule: 'TAXI' 
+                typeVehicule: 'TAXI'
             };
 
             // 3. Appels API en parallèle
@@ -1505,6 +1580,21 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
                 transaction={selectedTransaction}
                 theme={theme}
                 darkMode={darkMode}
+            />
+
+            <QRScannerModal
+                visible={showScannerModal}
+                onClose={() => setShowScannerModal(false)}
+                onScan={handleQRScanSuccess}
+                theme={theme}
+            />
+
+            <TripCancelModal
+                visible={showCancelModal}
+                onClose={() => setShowCancelModal(false)}
+                onConfirm={(reason) => handleRejectRide(selectedRide, reason)}
+                role="CHAUFFEUR"
+                theme={theme}
             />
         </SafeAreaView>
     );

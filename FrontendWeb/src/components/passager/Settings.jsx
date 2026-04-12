@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, Shield, Car, Globe, CreditCard, Phone, Moon, Sun, Lock, Smartphone, Volume2, VolumeX, Eye, EyeOff } from 'lucide-react';
+import { apiClient } from '../../../services/apiClient';
 
 // Composants réutilisables
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../admin/ui/Card';
@@ -69,6 +70,15 @@ const Settings = () => {
     // 🌍 Si c'est la langue : changer immédiatement toute la plateforme
     if (key === 'language') {
       i18n.changeLanguage(value);
+      try {
+        apiClient.post('/admin/logs/manuel', {
+          action: "CHANGEMENT_LANGUE",
+          module: "FRONTEND",
+          details: { nouvelleLangue: value }
+        });
+      } catch (e) {
+        console.warn("Log language failed", e);
+      }
     }
   };
 

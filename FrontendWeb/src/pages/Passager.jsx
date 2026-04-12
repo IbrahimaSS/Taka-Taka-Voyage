@@ -251,13 +251,20 @@ const Passenger = () => {
       // Toast déjà géré dans le contexte ou ici
       console.log("🚀 [Passager] Basculement automatique en mode suivi plein écran.");
     }
-
     // 🚗 Quand le chauffeur est en approche ou arrivé
     if (tripStatus === 'approaching' || tripStatus === 'arrived') {
       setIsOnMapView(true); // Se focaliser sur la carte d'accueil
       setIsOnTrackingView(false);
     }
   }, [tripStatus]);
+
+  // ✅ [SYNC URL -> TABS] Support pour la redirection /passager/tickets
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.includes('/tickets')) {
+      setActiveTab('profile');
+    }
+  }, [setActiveTab]);
 
   // Gestion des notifications de statut
   useEffect(() => {
@@ -448,6 +455,19 @@ const Passenger = () => {
     window.addEventListener('navigate-to-wallet', handleGoToWallet);
     return () => window.removeEventListener('navigate-to-wallet', handleGoToWallet);
   }, []);
+
+  useEffect(() => {
+    const handleOpenTicketGlobal = (e) => {
+      console.log("🚀 [PASSENGER] Event taka:open_ticket reçu. Forçage ouverture ticket...", e.detail);
+      setActiveTab('profile');
+      // On déclenche un petit délai pour laisser l'onglet se monter si besoin
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('taka:open_ticket_delay', { detail: e.detail }));
+      }, 100);
+    };
+    window.addEventListener('taka:open_ticket', handleOpenTicketGlobal);
+    return () => window.removeEventListener('taka:open_ticket', handleOpenTicketGlobal);
+  }, [setActiveTab]);
 
   const renderContent = () => {
     if (activeTab === 'home') {

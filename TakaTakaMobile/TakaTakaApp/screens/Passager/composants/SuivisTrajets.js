@@ -23,10 +23,13 @@ import {
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import TripCancelModal from '../../Chauffeur/composants/TripCancelModal';
+import { useApp } from '../../../AppContext';
 
 const { height, width } = Dimensions.get('window');
 
-const SuivisTrajets = ({ rideData, onRideEnd, onBack, userLocation, visible = true, minimized = false, onMinimize, showToast, darkMode = false }) => {
+const SuivisTrajets = ({ rideData, onRideEnd, onCancelRide, onBack, userLocation, visible = true, minimized = false, onMinimize, showToast, darkMode = false }) => {
+    const { theme: appTheme } = useApp();
     const [driverLocation, setDriverLocation] = useState(null);
     const [destinationLocation, setDestinationLocation] = useState(null);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
@@ -45,6 +48,7 @@ const SuivisTrajets = ({ rideData, onRideEnd, onBack, userLocation, visible = tr
 
     const [showSosModal, setShowSosModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+    const [showCancelModal, setShowCancelModal] = useState(false);
     const [reportText, setReportText] = useState('');
 
     // Générer un point de départ aléatoire pour le chauffeur (à env. 500m)
@@ -166,6 +170,15 @@ const SuivisTrajets = ({ rideData, onRideEnd, onBack, userLocation, visible = tr
                 <View style={s.progressBarBg}>
                     <View style={[s.progressBarFill, { width: `${distance}%` }]} />
                 </View>
+
+                {/* Cancel Button in Header (Optional/Alternative placement) */}
+                <TouchableOpacity 
+                    style={s.headerCancelBtn}
+                    onPress={() => setShowCancelModal(true)}
+                >
+                    <Ionicons name="close-circle-outline" size={20} color="rgba(255,255,255,0.8)" />
+                    <Text style={s.headerCancelText}>Annuler</Text>
+                </TouchableOpacity>
             </LinearGradient>
 
             <View style={{ flex: 1 }}>
@@ -299,9 +312,12 @@ const SuivisTrajets = ({ rideData, onRideEnd, onBack, userLocation, visible = tr
                                     </LinearGradient>
                                 </TouchableOpacity>
                             ) : (
-                                <TouchableOpacity style={[s.endBtn, { opacity: 0.6 }]}>
-                                    <LinearGradient colors={darkMode ? ['#374151', '#1F2937'] : ['#E2E8F0', '#94A3B8']} style={s.endBtnGradient}>
-                                        <Text style={[s.endBtnText, { color: darkMode ? '#94A3B8' : '#64748B' }]}>Trajet en cours</Text>
+                                <TouchableOpacity 
+                                    style={[s.endBtn, { backgroundColor: '#EF4444' }]} 
+                                    onPress={() => setShowCancelModal(true)}
+                                >
+                                    <LinearGradient colors={['#EF4444', '#DC2626']} style={s.endBtnGradient}>
+                                        <Text style={s.endBtnText}>Annuler la course</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
                             )}
@@ -309,6 +325,18 @@ const SuivisTrajets = ({ rideData, onRideEnd, onBack, userLocation, visible = tr
                     </View>
                 </ScrollView>
             </View>
+
+            {/* Modal d'Annulation */}
+            <TripCancelModal
+                visible={showCancelModal}
+                onClose={() => setShowCancelModal(false)}
+                onConfirm={(reason) => {
+                    setShowCancelModal(false);
+                    if (onCancelRide) onCancelRide(reason);
+                }}
+                role="PASSAGER"
+                theme={appTheme}
+            />
 
             {/* Modal de Signalement */}
             <Modal visible={showReportModal} transparent={true} animationType="slide">
@@ -400,6 +428,22 @@ const s = StyleSheet.create({
     timerText: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
     progressBarBg: { height: 3, backgroundColor: 'rgba(255,255,255,0.3)', marginTop: 10, borderRadius: 2, overflow: 'hidden' },
     progressBarFill: { height: '100%', backgroundColor: '#FFFFFF', borderRadius: 2 },
+    headerCancelBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-end',
+        marginTop: 8,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        gap: 4
+    },
+    headerCancelText: {
+        color: 'rgba(255,255,255,0.9)',
+        fontSize: 12,
+        fontWeight: '600'
+    },
 
     contentScroll: { flex: 1 },
     mapBox: { height: height * 0.45, position: 'relative' },

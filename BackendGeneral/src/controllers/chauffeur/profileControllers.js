@@ -131,7 +131,8 @@ exports.updateProfil = async (req, res) => {
       "email",
       "telephone",
       "genre",
-      "localisation"
+      "localisation",
+      "estEnLigne"
     ];
 
     const donnees = {};

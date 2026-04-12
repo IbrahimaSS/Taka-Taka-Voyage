@@ -28,6 +28,13 @@ export const PassengerProvider = ({ children }) => {
   const [currentTrip, setCurrentTrip] = useState(null);
   const [tripStatus, setTripStatus] = useState(null);
   const [selectedDriver, setSelectedDriver] = useState(null);
+  const driverRef = useRef(null);
+  useEffect(() => {
+    driverRef.current = selectedDriver;
+  }, [selectedDriver]);
+
+  const [pendingTicket, setPendingTicket] = useState(null);
+  const [activeTicket, setActiveTicket] = useState(null);
 
   // Geo
   const [userLocation, setUserLocation] = useState({ lat: 10.3676, lng: -12.5883 });
@@ -152,12 +159,13 @@ export const PassengerProvider = ({ children }) => {
       offlineTripService.saveState('PASSAGER', {
         currentTrip,
         tripStatus,
-        selectedDriver
+        selectedDriver,
+        pendingTicket
       });
     } else if (tripStatus === 'idle' || !tripStatus) {
       offlineTripService.clearState('PASSAGER');
     }
-  }, [currentTrip, tripStatus, selectedDriver]);
+  }, [currentTrip, tripStatus, selectedDriver, pendingTicket]);
 
   // ✅ New function to restore state
   const fetchActiveTrip = async () => {
@@ -381,7 +389,8 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Chauffeur trouvé ! ✅',
         message: `${chauffeur?.prenom || ""} ${chauffeur?.nom || ""} a accepté votre course.`,
-        id: `accepted-${reservationId}`
+        id: `accepted-${reservationId}`,
+        targetRole: 'PASSAGER'
       });
       notifiedEvents.current.add(eventKey);
 
@@ -429,7 +438,8 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Chauffeur en route 🚗',
         message: message || "Votre chauffeur est en route pour vous récupérer.",
-        id: `approaching-${reservationId}`
+        id: `approaching-${reservationId}`,
+        targetRole: 'PASSAGER'
       });
       notifiedEvents.current.add(eventKey);
 
@@ -529,7 +539,8 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Chauffeur arrivé ! ✅',
         message: 'Votre chauffeur est arrivé au point de ramassage.',
-        id: `arrived-${reservationId}`
+        id: `arrived-${reservationId}`,
+        targetRole: 'PASSAGER'
       });
       notifiedEvents.current.add(eventKey);
 
@@ -555,7 +566,8 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Trajet démarré 🚀',
         message: 'Votre course a commencé. Bon voyage !',
-        id: `started-${reservationId}`
+        id: `started-${reservationId}`,
+        targetRole: 'PASSAGER'
       });
       notifiedEvents.current.add(eventKey);
 
@@ -610,6 +622,53 @@ export const PassengerProvider = ({ children }) => {
       }
     };
 
+    const onTicketGenerated = (payload = {}) => {
+      console.log("📩 [CONTEXT] ticket:genere reçu", payload);
+      let { ticket } = payload;
+      
+      // ✅ Enrichir le ticket avec les infos du chauffeur si nécessaire
+      // Si ticket.chauffeur est absent ou juste un ID (string), on utilise driverRef
+      if (ticket && (!ticket.chauffeur || typeof ticket.chauffeur === 'string')) {
+        const driver = driverRef.current || currentTripRef.current?.driver;
+        if (driver) {
+          console.log("🔧 [CONTEXT] Enrichissement du ticket avec les infos du chauffeur via REF");
+          ticket.chauffeur = {
+            _id: driver.id || driver._id,
+            id: driver.id || driver._id,
+            nom: driver.nom,
+            prenom: driver.prenom,
+            photoUrl: driver.photo || driver.photoUrl,
+            telephone: driver.phone || driver.telephone
+          };
+          
+          // ✅ Enrichir aussi le véhicule si absent
+          if (!ticket.vehicule) {
+            ticket.vehicule = driver.vehicle || driver.vehicule;
+          }
+        }
+      }
+
+      // Stocker le ticket pour ouverture automatique ultérieure
+      setPendingTicket(ticket);
+      setActiveTicket(ticket); // Garder une copie persistante pour le bouton "Voir mon ticket"
+
+      addNotification({
+        type: NOTIFICATION_TYPES.SUCCESS,
+        category: NOTIFICATION_CATEGORIES.PAYMENT,
+        title: 'Ticket généré ! 🎫',
+        message: 'Votre ticket de course est prêt. Cliquez pour le voir.',
+        id: `ticket-${ticket?._id || Date.now()}`,
+        link: '/passager/tickets',
+        targetRole: 'PASSAGER',
+        onAction: () => {
+          window.dispatchEvent(new CustomEvent('taka:open_ticket', { detail: ticket }));
+        }
+      });
+
+      // Déclencher un événement global pour que les composants (ex: Profile) rafraîchissent leur liste
+      window.dispatchEvent(new CustomEvent('taka:ticket_ready', { detail: ticket }));
+    };
+
     // ✅ Fix 3 : écouter la fin de course côté backend
     const onCompleted = (payload = {}) => {
       const { reservationId, message, paymentStatus } = payload;
@@ -632,7 +691,8 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: 'Trajet terminé 🏁',
         message: message || 'Vous êtes arrivé à destination. Merci d\'avoir choisi TakaTaka !',
-        id: 'trip-completion'
+        id: 'trip-completion',
+        targetRole: 'PASSAGER'
       });
 
       // Note: On ne met PAS currentTrip à null ici, car l'écran de résumé/note en a besoin.
@@ -673,6 +733,7 @@ export const PassengerProvider = ({ children }) => {
         category: NOTIFICATION_CATEGORIES.TRIP,
         title: notifTitle,
         message: notifMessage,
+        targetRole: 'PASSAGER'
       });
 
       setTimeout(() => setTripStatus(null), 2500);
@@ -686,7 +747,8 @@ export const PassengerProvider = ({ children }) => {
         message: data.message || `Le statut de votre litige #${data.reference} a été mis à jour : ${data.statut}.`,
         type: data.statut === 'RESOLU' ? NOTIFICATION_TYPES.SUCCESS : (data.statut === 'REJETER' ? NOTIFICATION_TYPES.ERROR : NOTIFICATION_TYPES.WARNING),
         category: NOTIFICATION_CATEGORIES.MODERATION,
-        priority: 'high'
+        priority: 'high',
+        targetRole: 'PASSAGER'
       });
     };
 
@@ -701,6 +763,7 @@ export const PassengerProvider = ({ children }) => {
     };
 
     socketService.on("course:acceptee", onAccepted);
+    socketService.on("ticket:genere", onTicketGenerated);
     socketService.on("course:chauffeur_en_route", onEnRoute);
     socketService.on("course:chauffeur_arrive", onArrived);
     socketService.on("course:demarre", onStarted);
@@ -726,6 +789,7 @@ export const PassengerProvider = ({ children }) => {
 
     return () => {
       socketService.off("course:acceptee", onAccepted);
+      socketService.off("ticket:genere", onTicketGenerated);
       socketService.off("course:chauffeur_en_route", onEnRoute);
       socketService.off("course:chauffeur_arrive", onArrived);
       socketService.off("course:arrivee", onArrived);
@@ -962,6 +1026,10 @@ export const PassengerProvider = ({ children }) => {
       setTripStatus,
       selectedDriver,
       setSelectedDriver,
+      pendingTicket,
+      setPendingTicket,
+      activeTicket,
+      setActiveTicket,
       userLocation,
       hasLocationPermission,
       isLoadingLocation,
@@ -983,6 +1051,8 @@ export const PassengerProvider = ({ children }) => {
       setTripStatus,
       selectedDriver,
       setSelectedDriver,
+      pendingTicket,
+      activeTicket,
       userLocation,
       hasLocationPermission,
       isLoadingLocation,

@@ -308,7 +308,9 @@ export const DriverProvider = ({ children }) => {
   // ────────────────────────────────────────────────
   const handleNewTripRequest = useCallback(
     (tripData) => {
-      console.log("📩 [DRIVER_CONTEXT] *** course:demande REÇUE ***", tripData);
+      console.log("🚨🚨🚨 [SOCKET_ALERT] COURSE REÇUE DANS LE CONTEXTE 🚨🚨🚨");
+      console.log("📩 Données:", tripData);
+      toast.error("🚨 SOCKET: APPEL REÇU !", { duration: 10000, id: 'socket-test-alert' });
 
       const reservationId = tripData?.reservationId || tripData?.id;
       if (!reservationId) {
@@ -702,8 +704,26 @@ export const DriverProvider = ({ children }) => {
   // ────────────────────────────────────────────────
   // Actions UI
   // ────────────────────────────────────────────────
-  const setOnline = (value) => setIsOnline(!!value);
-  const toggleOnline = () => setIsOnline((prev) => !prev);
+  const setOnline = useCallback((value) => setIsOnline(!!value), []);
+
+  const toggleOnline = useCallback(async () => {
+    const nextState = !isOnline;
+    
+    // Optimistic UI update
+    setIsOnline(nextState);
+    
+    try {
+      // Sync with DB
+      const { profileService } = await import('../services/profileService');
+      await profileService.chauffeur.updateProfile({ estEnLigne: nextState });
+      console.log(`📡 [DRIVER] Statut mis à jour en base: ${nextState ? 'EN LIGNE' : 'HORS LIGNE'}`);
+    } catch (err) {
+      console.error("❌ [DRIVER] Erreur sync statut online:", err);
+      // Rollback on error
+      setIsOnline(!nextState);
+      toast.error("Erreur de connexion au serveur");
+    }
+  }, [isOnline]);
 
   const acceptTripRequest = (reservationId) => {
     if (!reservationId) return;
