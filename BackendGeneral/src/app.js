@@ -82,6 +82,9 @@ app.use("/api/admin", profileRoutes);
 app.use("/api/admin/parametres", parametresRoutes);
 app.use("/api/admin/logs", activityLogRoutes);
 
+const couponRoutes = require("./routes/admin/couponRoutes");
+app.use("/api/coupons", couponRoutes);
+
 // Transaction Portefeuille
 const transactionRoutes = require("./routes/admin/transactionRoutes");
 app.use("/api/admin", transactionRoutes);

@@ -13,6 +13,7 @@ import {
     Settings,
     User2,
     History,
+    Gift,
 } from 'lucide-react';
 
 export const ROLES = {
@@ -69,6 +70,11 @@ export const NAV_CONFIG = {
                 path: 'litiges',
             },
             {
+                icon: Gift,
+                label: 'Promotions',
+                path: 'promotions',
+            },
+            {
                 icon: BarChart3,
                 label: 'Rapports',
                 path: 'rapports',
@@ -90,6 +96,7 @@ export const NAV_CONFIG = {
             validations: 'Validations',
             documents: 'Documents',
             litiges: 'Litiges',
+            promotions: 'Coupons & Promotions',
             rapports: 'Rapports',
             logs: 'Journal d\'Activités',
             parametres: 'Paramètres',

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, Shield, Car, Globe, CreditCard, Phone, Moon, Sun, Lock, Smartphone, Volume2, VolumeX, Eye, EyeOff } from 'lucide-react';
-import { apiClient } from '../../../services/apiClient';
+import { apiClient } from '../../services/apiClient';
 
 // Composants réutilisables
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../admin/ui/Card';
