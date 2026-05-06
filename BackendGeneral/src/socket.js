@@ -114,10 +114,14 @@ module.exports = (io) => {
         socket.join(`${ROLE}_${sid}`);
         socket.join(`USER_${sid}`);
         
-        if (ROLE === "CHAUFFEUR") socket.join("CHAUFFEURS");
-        else if (ROLE === "PASSAGER") {
-            socket.join("PASSAGERS");
-            socket.join("CLIENTS"); // Nouveau: room pour tous les clients (loggués ou non)
+        // Room individuelle additionnelle pour compatibilité backend
+        if (ROLE === "CHAUFFEUR") {
+          socket.join(`CHAUFFEUR_${sid}`);
+          socket.join("CHAUFFEURS");
+        } else if (ROLE === "PASSAGER") {
+          socket.join(`PASSAGER_${sid}`);
+          socket.join("PASSAGERS"); // ✅ Pour les diffusions de groupe
+          socket.join("CLIENTS"); // Nouveau: room pour tous les clients (loggués ou non)
         }
         else if (ROLE === "ADMIN") socket.join("ADMINS");
 
