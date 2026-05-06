@@ -15,11 +15,14 @@ const transactionSchema = new mongoose.Schema(
                 "TRANSFERT_ENVOI",  // Envoi d'argent à un ami
                 "TRANSFERT_RECU",   // Réception d'argent d'un ami
                 "PAIEMENT_TRAJET",  // Paiement d'une course
+                "PAIEMENT_LOCATION", // Paiement des frais de location de véhicule
                 "REMBOURSEMENT",    // Retour d'argent suite annulation
+                "REMBOURSEMENT_LOCATION", // Remboursement complet (Caution + Location)
                 "COMMISSION",       // Prélèvement plateforme
                 "COMPENSATION",      // Compensation chauffeur (frais annulation)
                 "VERSEMENT",        // Déversement de la plateforme au chauffeur
-                "GAIN"              // Gain direct d'une course
+                "GAIN",             // Gain direct d'une course
+                "CAUTION_LOCATION"  // Blocage/Sécurisation de caution
             ],
             required: true,
         },

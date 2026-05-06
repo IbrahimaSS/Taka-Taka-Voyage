@@ -14,6 +14,7 @@ import TripConfirmationModal from '../components/passager/TripConfirmationModal'
 import Evaluations from '../components/passager/Evaluation';
 import TripStatusModal from '../components/passager/TripStatusModal';
 import Planning from '../components/passager/Planning';
+import RentalHistory from '../components/passager/RentalHistory';
 import { usePassenger } from '../context/PassengerContext';
 import toast, { Toaster } from 'react-hot-toast';
 import { tripService } from '../services/tripService';
@@ -33,6 +34,7 @@ import {
   Navigation,
   X,
   Calendar,
+  Users,
   Wallet as WalletIcon,
   Gift
 } from 'lucide-react';
@@ -44,6 +46,8 @@ import SearchIndicator from '../components/passager/SearchIndicator';
 import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
 import usePlatformNotifications from '../hooks/usePlatformNotifications';
 import { useSettings } from '../context/SettingsContext';
+import CommunityHub from '../components/community/CommunityHub';
+import CommunityFAB from '../components/community/CommunityFAB';
 
 
 const getStoredUser = () => {
@@ -86,6 +90,7 @@ const Passenger = () => {
   const [isOnTrackingView, setIsOnTrackingView] = useState(false);
 
   const [arrivalSecondsRemaining, setArrivalSecondsRemaining] = useState(null);
+  const [isCommunityOpen, setIsCommunityOpen] = useState(false);
   const arrivalIntervalRef = useRef(null);
   const searchTimeoutRef = useRef(null);
 
@@ -122,7 +127,6 @@ const Passenger = () => {
       
       const expireText = differenceJours > 0 ? `pendant ${differenceJours} jours` : `jusqu'à demain`;
       const valeurText = promo.typeReduction === 'POURCENTAGE' ? `${promo.valeur}%` : `${promo.valeur} GNF`;
-
       toast.custom(
         (t) => (
           <div
@@ -165,20 +169,39 @@ const Passenger = () => {
       );
     };
 
+    const handleLocationStatusChange = (data) => {
+        toast.success(data.message, { 
+            duration: 5000, 
+            position: 'top-center',
+            icon: '🚗'
+        });
+    };
+
     if (socketService.socket) {
         socketService.on('promo:new', handleNewPromo);
+        socketService.on('location:statut_change', handleLocationStatusChange);
     }
     
     return () => {
         if (socketService.socket) {
             socketService.off('promo:new', handleNewPromo);
+            socketService.off('location:statut_change', handleLocationStatusChange);
         }
     };
   }, []);
 
   const tabs = [
     { id: 'home', label: t('nav.home'), icon: Home },
-    { id: 'history', label: t('nav.history'), icon: History },
+    { 
+      id: 'history', 
+      label: t('nav.history'), 
+      icon: History,
+      subItems: [
+        { id: 'history_vtc', label: 'Taxi VTC', icon: Car },
+        { id: 'history_rental', label: 'Locations', icon: Calendar },
+        { id: 'history_covoiturage', label: 'Covoiturage', icon: Users }
+      ]
+    },
     { id: 'payments', label: t('nav.payments'), icon: CreditCard },
     { id: 'planning', label: t('nav.planning'), icon: Calendar },
     { id: 'profile', label: t('nav.profile'), icon: User },
@@ -552,7 +575,18 @@ const Passenger = () => {
 
     switch (activeTab) {
       case 'history':
+      case 'history_vtc':
         return <TripsHistory />;
+      case 'history_rental':
+        return <RentalHistory />;
+      case 'history_covoiturage':
+        return (
+          <div className="p-8 text-center bg-white dark:bg-gray-800 rounded-3xl shadow-xl">
+             <Users className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+             <h2 className="text-2xl font-bold mb-2">Covoiturage</h2>
+             <p className="text-gray-500">Bientôt disponible sur votre application.</p>
+          </div>
+        );
       case 'payments':
         return <Transactions />;
       case 'evaluations':
@@ -762,6 +796,8 @@ const Passenger = () => {
           </div>
         </footer>
       </div>
+      <CommunityFAB onClick={() => setIsCommunityOpen(true)} />
+      <CommunityHub isOpen={isCommunityOpen} onClose={() => setIsCommunityOpen(false)} />
     </>
   );
 };

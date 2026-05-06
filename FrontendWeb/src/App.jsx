@@ -24,6 +24,7 @@ import PlatformMonitor from './components/notifications/PlatformMonitor';
 import ReservationReminder from './components/notifications/ReservationReminder';
 import AssistantIA from './components/assistant/AssistantIA';
 import OfflineBanner from './components/common/OfflineBanner';
+import NouveauVehiculeAlerte from './components/common/NouveauVehiculeAlerte';
 
 
 
@@ -51,6 +52,7 @@ export default function App() {
       <ReservationReminder />
       <AssistantIA />
       <OfflineBanner />
+      <NouveauVehiculeAlerte />
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           {/* PUBLIC */}

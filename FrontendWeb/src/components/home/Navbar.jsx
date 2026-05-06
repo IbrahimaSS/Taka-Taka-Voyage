@@ -18,6 +18,7 @@ const Navbar = () => {
       { id: 'accueil', label: 'Accueil' },
       { id: 'passagers', label: 'Passagers' },
       { id: 'chauffeurs', label: 'Chauffeurs' },
+      { id: 'flotte', label: 'Location' },
       { id: 'fonctionnalites', label: 'Fonctionnalités' },
       { id: 'contact', label: 'Contact' },
     ],

@@ -113,6 +113,10 @@ const utilisateurSchema = new mongoose.Schema(
             type: Number,
             default: 0,
         },
+        soldeGele: {
+            type: Number,
+            default: 0,
+        },
         withdrawalOTP: { type: String, default: null },
         withdrawalOTPExpires: { type: Date, default: null },
     },
