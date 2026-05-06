@@ -91,7 +91,9 @@ app.use("/api/admin", transactionRoutes);
 
 // Sauvegardes
 const backupRoutes = require("./routes/admin/backupRoutes");
+const locationAdminRoutes = require("./routes/admin/locationRoutes");
 app.use("/api/admin/backups", backupRoutes);
+app.use("/api/admin/locations", locationAdminRoutes);
 
 //Personnel
 app.use("/api/admin/personnels", personnelRoutes);
@@ -135,6 +137,14 @@ app.use("/api/passager", statsRoutesPlanning);
 //Profil
 const profileRoutesP = require("./routes/passager/profileRoutes");
 app.use("/api/passager/profile", profileRoutesP);
+
+// Location Public
+const locationPublicRoutes = require("./routes/locations/locationPublicRoutes");
+app.use("/api/public/locations", locationPublicRoutes);
+
+// ===================== MODULE COMMUNAUTÉ =====================
+const communityRoutes = require("./routes/community/communityRoutes");
+app.use("/api/community", communityRoutes);
 
 //Changement Mot de Passe
 const motDePasseRoutesP = require("./routes/passager/motDePasseRoutes");

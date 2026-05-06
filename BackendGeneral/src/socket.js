@@ -102,52 +102,31 @@ module.exports = (io) => {
     console.log(`🟢 Socket connecté : ${socket.id}`);
     console.log("   → Auth:", socket.handshake.auth);
 
-    // ✅ FIX MAJEUR: join rooms IMMÉDIATEMENT (évite de rater course:acceptee)
+    // ✅ [SOCKET_CONNECT] Gestion des identités (Passager, Chauffeur, Admin ou Invité)
     try {
       const { userId, role, nom = "", prenom = "" } = socket.handshake.auth || {};
+      
       if (userId && role) {
         const ROLE = String(role).toUpperCase();
         socket.user = { id: userId, role: ROLE, nom, prenom };
 
         const sid = String(userId);
-        const roomMain = `${ROLE}_${sid}`;
-        const roomUser = `USER_${sid}`;
-
-        socket.join(roomMain);
-        socket.join(roomUser);
+        socket.join(`${ROLE}_${sid}`);
+        socket.join(`USER_${sid}`);
         
-        // Room individuelle additionnelle pour compatibilité backend
-        if (ROLE === "CHAUFFEUR") {
-          socket.join(`CHAUFFEUR_${sid}`);
-        } else if (ROLE === "PASSAGER") {
-          socket.join(`PASSAGER_${sid}`);
-          socket.join("PASSAGERS"); // ✅ Pour les diffusions de groupe
+        if (ROLE === "CHAUFFEUR") socket.join("CHAUFFEURS");
+        else if (ROLE === "PASSAGER") {
+            socket.join("PASSAGERS");
+            socket.join("CLIENTS"); // Nouveau: room pour tous les clients (loggués ou non)
         }
+        else if (ROLE === "ADMIN") socket.join("ADMINS");
 
-        // ✅ Join specific functional rooms based on role
-        if (ROLE === "CHAUFFEUR") {
-          try {
-            const profil = await ChauffeurProfile.findOne({ utilisateur: userId }).select("statut");
-            if (profil && profil.statut === "ACTIF") {
-              socket.join("CHAUFFEURS");
-              console.log(`✅ [SOCKET_CONNECT] Chauffeur ACTIF (${userId}) a rejoint la room CHAUFFEURS`);
-            } else {
-              socket.join(`ATTENTE_${sid}`);
-              // Alerter immédiatement le client qu'il est connecté mais bloqué
-              socket.emit("client:online:blocked", {
-                message: "Votre compte est en attente de validation. Accès aux courses bloqué.",
-                statut: profil?.statut || "EN_ATTENTE"
-              });
-              console.log(`⏳ [SOCKET_CONNECT] Chauffeur EN_ATTENTE (${userId}) - accès aux courses bloqué`);
-            }
-          } catch (profileErr) {
-            console.error("❌ [SOCKET_CONNECT] Erreur vérification profil chauffeur:", profileErr.message);
-          }
-        } else if (ROLE === "ADMIN") {
-          socket.join("ADMINS");
-        }
-
-        console.log(`✅ [SOCKET_CONNECT] Rooms jointes pour ${ROLE} (${userId}): ${roomMain}, ${roomUser}`);
+        console.log(`✅ [SOCKET_CONNECT] Utilisateur connecté : ${ROLE} (${userId})`);
+      } else {
+        // C'est un simple visiteur (GUEST)
+        socket.join("GUESTS");
+        socket.join("CLIENTS"); // Ils font aussi partie des clients à notifier
+        console.log(`👤 [SOCKET_CONNECT] Visiteur anonyme connecté (ID: ${socket.id})`);
       }
     } catch (e) {
       console.error("❌ join rooms on connect:", e.message);

@@ -26,8 +26,10 @@ import Wallet from "../components/chauffeur/Wallet";
 import TrajetEnTempReel from "../components/suivisTrajet/TrajetEnTempReel";
 import TrajetComplete from "../components/suivisTrajet/TrajetComplete";
 import { tripService } from "../services/tripService";
+import DriverRentalSection from "../components/chauffeur/DriverRentalSection";
+import CommunityHub from "../components/community/CommunityHub";
+import RentalHistory from "../components/passager/RentalHistory";
 import TripNotificationToast from "../components/chauffeur/TripNotificationToast";
-
 import DriverProvider, { useDriverContext } from '../context/DriverContext';
 import { Toaster } from 'react-hot-toast';
 import { ROLES } from '../config/navConfig';
@@ -226,6 +228,7 @@ function DriverAppContent() {
               <Routes location={location} key={location.pathname}>
                 <Route index element={<Dashboard onToast={showToast} onModal={showModal} />} />
                 <Route path="trips" element={<Trajets onToast={showToast} onModal={showModal} />} />
+                <Route path="community" element={<CommunityHub isFullPage={true} />} />
                 <Route path="history" element={<HistoriqueTrajet onToast={showToast} onModal={showModal} />} />
                 <Route path="revenues" element={<Revenues onToast={showToast} onModal={showModal} />} />
                 <Route path="tracking" element={<ChauffeurTracking />} />
@@ -236,6 +239,8 @@ function DriverAppContent() {
                 <Route path="evaluations" element={<ChauffeurEvaluations onToast={showToast} onModal={showModal} />} />
                 <Route path="support" element={<ChauffeurSupport onToast={showToast} onModal={showModal} />} />
                 <Route path="profil" element={<ChauffeurProfile onToast={showToast} onModal={showModal} />} />
+                <Route path="locations" element={<DriverRentalSection onToast={showToast} />} />
+                <Route path="rental-history" element={<RentalHistory onToast={showToast} onModal={showModal} />} />
               </Routes>
             </AnimatePresence>
           </div>

@@ -14,6 +14,7 @@ import TripConfirmationModal from '../components/passager/TripConfirmationModal'
 import Evaluations from '../components/passager/Evaluation';
 import TripStatusModal from '../components/passager/TripStatusModal';
 import Planning from '../components/passager/Planning';
+import RentalHistory from '../components/passager/RentalHistory';
 import { usePassenger } from '../context/PassengerContext';
 import toast, { Toaster } from 'react-hot-toast';
 import { tripService } from '../services/tripService';
@@ -33,6 +34,7 @@ import {
   Navigation,
   X,
   Calendar,
+  Users,
   Wallet as WalletIcon,
   Gift
 } from 'lucide-react';
@@ -44,6 +46,8 @@ import SearchIndicator from '../components/passager/SearchIndicator';
 import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
 import usePlatformNotifications from '../hooks/usePlatformNotifications';
 import { useSettings } from '../context/SettingsContext';
+import CommunityHub from '../components/community/CommunityHub';
+import CommunityFAB from '../components/community/CommunityFAB';
 
 
 const getStoredUser = () => {
@@ -86,6 +90,7 @@ const Passenger = () => {
   const [isOnTrackingView, setIsOnTrackingView] = useState(false);
 
   const [arrivalSecondsRemaining, setArrivalSecondsRemaining] = useState(null);
+  const [isCommunityOpen, setIsCommunityOpen] = useState(false);
   const arrivalIntervalRef = useRef(null);
   const searchTimeoutRef = useRef(null);
 
@@ -115,36 +120,28 @@ const Passenger = () => {
   useEffect(() => {
     const handleNewPromo = (promo) => {
       // Calculer le nombre de jours
-      let differenceJours = 0;
-      if (promo.dateExpiration) {
-        differenceJours = differenceInDays(new Date(promo.dateExpiration), new Date());
-      }
-      
-      const expireText = differenceJours > 0 ? `pendant ${differenceJours} jours` : `jusqu'à demain`;
-      const valeurText = promo.typeReduction === 'POURCENTAGE' ? `${promo.valeur}%` : `${promo.valeur} GNF`;
-
       toast.custom(
         (t) => (
           <div
             className={`${
               t.visible ? 'animate-enter' : 'animate-leave'
-            } max-w-sm w-full bg-white dark:bg-gray-800 shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black/5 overflow-hidden border-2 border-primary-100 dark:border-primary-900 absolute bottom-4 left-4`}
+            } max-w-md w-full bg-white dark:bg-gray-800 shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 overflow-hidden`}
           >
             <div className="flex-1 w-0 p-4">
               <div className="flex items-start">
                 <div className="flex-shrink-0 pt-0.5">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-400 to-secondary-500 shadow-inner flex items-center justify-center">
-                    <Gift className="h-5 w-5 text-white" />
-                  </div>
+                   <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                     <Gift className="h-6 w-6 text-emerald-600" />
+                   </div>
                 </div>
                 <div className="ml-3 flex-1">
-                  <p className="text-sm font-black uppercase tracking-widest text-primary-600 dark:text-primary-400">
-                    Nouvelle Promo !!!
+                  <p className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                    🎁 Nouvelle Promotion !
                   </p>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 font-medium">
-                    Bénéficiez de <span className="font-bold text-green-600 dark:text-green-400">{valeurText} de réduction</span> sur tous vos trajets {expireText} avec le code :
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {promo.message}
                   </p>
-                  <div className="mt-3 text-2xl font-black tracking-[0.2em] text-center text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 py-2.5 rounded-xl">
+                  <div className="mt-2 text-xs font-mono bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 px-2 py-1 rounded inline-block">
                     {promo.code}
                   </div>
                 </div>
@@ -165,20 +162,39 @@ const Passenger = () => {
       );
     };
 
+    const handleLocationStatusChange = (data) => {
+        toast.success(data.message, { 
+            duration: 5000, 
+            position: 'top-center',
+            icon: '🚗'
+        });
+    };
+
     if (socketService.socket) {
         socketService.on('promo:new', handleNewPromo);
+        socketService.on('location:statut_change', handleLocationStatusChange);
     }
     
     return () => {
         if (socketService.socket) {
             socketService.off('promo:new', handleNewPromo);
+            socketService.off('location:statut_change', handleLocationStatusChange);
         }
     };
   }, []);
 
   const tabs = [
     { id: 'home', label: t('nav.home'), icon: Home },
-    { id: 'history', label: t('nav.history'), icon: History },
+    { 
+      id: 'history', 
+      label: t('nav.history'), 
+      icon: History,
+      subItems: [
+        { id: 'history_vtc', label: 'Taxi VTC', icon: Car },
+        { id: 'history_rental', label: 'Locations', icon: Calendar },
+        { id: 'history_covoiturage', label: 'Covoiturage', icon: Users }
+      ]
+    },
     { id: 'payments', label: t('nav.payments'), icon: CreditCard },
     { id: 'planning', label: t('nav.planning'), icon: Calendar },
     { id: 'profile', label: t('nav.profile'), icon: User },
@@ -552,7 +568,18 @@ const Passenger = () => {
 
     switch (activeTab) {
       case 'history':
+      case 'history_vtc':
         return <TripsHistory />;
+      case 'history_rental':
+        return <RentalHistory />;
+      case 'history_covoiturage':
+        return (
+          <div className="p-8 text-center bg-white dark:bg-gray-800 rounded-3xl shadow-xl">
+             <Users className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+             <h2 className="text-2xl font-bold mb-2">Covoiturage</h2>
+             <p className="text-gray-500">Bientôt disponible sur votre application.</p>
+          </div>
+        );
       case 'payments':
         return <Transactions />;
       case 'evaluations':
@@ -762,6 +789,8 @@ const Passenger = () => {
           </div>
         </footer>
       </div>
+      <CommunityFAB onClick={() => setIsCommunityOpen(true)} />
+      <CommunityHub isOpen={isCommunityOpen} onClose={() => setIsCommunityOpen(false)} />
     </>
   );
 };

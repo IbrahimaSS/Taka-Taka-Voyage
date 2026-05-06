@@ -21,14 +21,12 @@ class SocketService {
   // ---------------------------------------------------------------------------
   // 2️⃣  Connexion – on ajoute le JWT (authToken) au payload d'authentification
   // ---------------------------------------------------------------------------
-  connect(userId, role = "CHAUFFEUR", nom = "", prenom = "") {
-    if (!userId) throw new Error("socketService.connect: userId manquant");
-
+  connect(userId = null, role = "GUEST", nom = "", prenom = "") {
     const nextIdentity = { userId, role, nom, prenom };
 
-    // Si déjà connecté avec la même identité, on s'assure juste d'émettre client:online pour le serveur
+    // Si déjà connecté avec la même identité
     if (this.socket?.connected && this.identity?.userId === userId && this.identity?.role === role) {
-      this.socket.emit("client:online", { role, userId, nom, prenom });
+      if (userId) this.socket.emit("client:online", { role, userId, nom, prenom });
       return;
     }
 

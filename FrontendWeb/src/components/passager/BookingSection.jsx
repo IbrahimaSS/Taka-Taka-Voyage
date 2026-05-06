@@ -1,10 +1,11 @@
 // src/components/passager/BookingSection.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, Navigation, Car, Search, Check,
   Phone, Calendar, Download, Eye, History,
-  Loader
+  Loader, Star, Users, Fuel, Gauge, Shield,
+  Crown, Truck, Bus, Sparkles, ChevronLeft, ChevronRight, Loader2
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvent, Polyline } from 'react-leaflet';
 import toast from 'react-hot-toast';
@@ -23,6 +24,9 @@ import Modal from '../admin/ui/Modal';
 import { GeolocationService } from '../../services/geolocation';
 import { leafletIcons, ensureLeafletIcons } from '../maps/leafletIcons';
 import MapController from '../maps/MapController';
+import { locationService } from '../../services/locationService';
+import { getFullAssetURL } from '../../utils/urlHelper';
+import ReservationLocationModal from '../home/ReservationLocationModal';
 
 // Gestionnaire d'événements carte
 function MapEvents({ onPickupSelect, onDestinationSelect, selectionMode }) {
@@ -49,6 +53,27 @@ const isValidLatLng = (loc) => {
   return Array.isArray(loc) && loc.length >= 2 && loc[0] != null && loc[1] != null && !isNaN(loc[0]) && !isNaN(loc[1]);
 };
 
+/* ─── CATÉGORIES FLOTTE ─── */
+const flotteCategories = [
+  { id: 'TOUS', label: 'Tous', icon: Sparkles },
+  { id: 'VIP', label: 'VIP', icon: Crown },
+  { id: 'SUV', label: 'SUV', icon: Car },
+  { id: 'BERLINE', label: 'Berline', icon: Car },
+  { id: 'ÉCONOMIQUE', label: 'Économique', icon: Gauge },
+  { id: 'PICK-UP 4X4', label: '4x4', icon: Truck },
+  { id: 'BUS', label: 'Bus', icon: Bus },
+];
+
+const categoryStyles = {
+  VIP: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30',
+  SUV: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30',
+  BERLINE: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30',
+  ÉCONOMIQUE: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+  BUS: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-500/30',
+};
+
+const formatPrix = (prix) => new Intl.NumberFormat('fr-GN').format(prix || 0);
+
 const BookingSection = ({
   onBookTrip,
   currentTrip,
@@ -58,6 +83,45 @@ const BookingSection = ({
   onShowTracking
 }) => {
   const { t } = useTranslation();
+
+  // ─── MODE DE SERVICE : 'vtc' ou 'location' ───
+  const [serviceMode, setServiceMode] = useState('vtc');
+
+  // ─── ÉTATS LOCATION ───
+  const [vehiculesFlotte, setVehiculesFlotte] = useState([]);
+  const [loadingFlotte, setLoadingFlotte] = useState(false);
+  const [activeFlotteCategory, setActiveFlotteCategory] = useState('TOUS');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedVehicule, setSelectedVehicule] = useState(null);
+
+  // Charger la flotte quand on passe en mode location
+  useEffect(() => {
+    if (serviceMode === 'location' && vehiculesFlotte.length === 0) {
+      setLoadingFlotte(true);
+      locationService.getVehiculesPublics()
+        .then(res => {
+          if (res.donnees) {
+            const enriched = res.donnees.map(v => ({
+              ...v,
+              note: v.note || (4.5 + Math.random() * 0.5).toFixed(1)
+            }));
+            setVehiculesFlotte(enriched);
+          }
+        })
+        .catch(err => console.error('Erreur chargement flotte:', err))
+        .finally(() => setLoadingFlotte(false));
+    }
+  }, [serviceMode]);
+
+  const vehiculesFiltres = activeFlotteCategory === 'TOUS'
+    ? vehiculesFlotte
+    : vehiculesFlotte.filter(v => v.categorie === activeFlotteCategory);
+
+  const handleReserverVehicule = (vehicule) => {
+    setSelectedVehicule(vehicule);
+    setIsModalOpen(true);
+  };
+
   const [formData, setFormData] = useState({
     pickup: '',
     destination: '',
@@ -522,7 +586,7 @@ const BookingSection = ({
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
         >
-          <Card hoverable padding="p-4 sm:p-8">
+          <Card hoverable padding="p-4 sm:p-8" className="relative overflow-hidden">
             <CardHeader align="start" className="mb-8">
               <CardTitle size="lg">
                 {isSearching ? t('booking.searching_driver') : shouldShowDriver ? t('booking.your_trip') : t('booking.title')}
@@ -532,192 +596,346 @@ const BookingSection = ({
               </p>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Départ */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center text-gray-700 dark:text-gray-300 font-medium">
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mr-3">
-                        <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      {t('booking.pickup_label')}
-                    </label>
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onClick={() => {
-                        setSelectionMode(selectionMode === 'pickup' ? null : 'pickup');
-                        setSuggestions(prev => ({ ...prev, pickup: [] }));
-                      }}
-                      className={selectionMode === 'pickup' ? 'bg-emerald-500 text-white hover:bg-emerald-600' : ''}
-                    >
-                      {selectionMode === 'pickup' ? (
-                        <span className="flex items-center">
-                          <Check className="w-3 h-3 mr-1" /> {t('booking.selection_mode')}
-                        </span>
-                      ) : t('booking.select_on_map')}
-                    </Button>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.pickup}
-                      onChange={(e) => handleAddressInput('pickup', e.target.value)}
-                      className="w-full px-4 py-3 pl-12 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl transition-all duration-300 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none focus:shadow-lg"
-                      placeholder={t('booking.pickup_placeholder')}
-                      disabled={shouldShowDriver}
-                    />
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                    {isLoading.pickup && (
-                      <Loader className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 animate-spin" />
-                    )}
-                    {/* Suggestions */}
-                    {suggestions.pickup.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto custom-scrollbar-v5">
-                        {suggestions.pickup.map((suggestion, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => handleSelectSuggestion('pickup', suggestion)}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900 dark:text-white">{suggestion.display_name}</div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Destination */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center text-gray-700 dark:text-gray-300 font-medium">
-                      <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mr-3">
-                        <MapPin className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                      </div>
-                      {t('booking.destination_label')}
-                    </label>
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      onClick={() => {
-                        setSelectionMode(selectionMode === 'destination' ? null : 'destination');
-                        setSuggestions(prev => ({ ...prev, destination: [] }));
-                      }}
-                      className={selectionMode === 'destination' ? 'bg-rose-500 text-white hover:bg-rose-600' : ''}
-                    >
-                      {selectionMode === 'destination' ? (
-                        <span className="flex items-center"><Check className="w-3 h-3 mr-1" /> {t('booking.selection_mode')}</span>
-                      ) : t('booking.select_on_map')}
-                    </Button>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.destination}
-                      onChange={(e) => handleAddressInput('destination', e.target.value)}
-                      className="w-full px-4 py-3 pl-12 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl transition-all duration-300 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none focus:shadow-lg"
-                      placeholder={t('booking.destination_placeholder')}
-                      disabled={shouldShowDriver}
-                    />
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-rose-600 dark:text-rose-400" />
-                    {isLoading.destination && (
-                      <Loader className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 animate-spin" />
-                    )}
-                    {suggestions.destination.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto custom-scrollbar-v5">
-                        {suggestions.destination.map((suggestion, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => handleSelectSuggestion('destination', suggestion)}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors"
-                          >
-                            <div className="font-medium text-gray-900 dark:text-white">{suggestion.display_name}</div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Estimation */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30"
+              {/* SÉLECTEUR DE SERVICE */}
+              <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl mb-6">
+                <button
+                  type="button"
+                  onClick={() => setServiceMode('vtc')}
+                  className={`flex-1 flex items-center justify-center py-2.5 rounded-lg font-bold transition-all ${serviceMode === 'vtc'
+                      ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
                 >
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-4">{t('booking.estimation_title')}</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                        {priceData?.price || '—'} GNF
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('booking.estimated_price')}</div>
+                  <Car className="w-4 h-4 mr-2 text-emerald-500" />
+                  Course VTC / Taxi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setServiceMode('location')}
+                  className={`flex-1 flex items-center justify-center py-2.5 rounded-lg font-bold transition-all ${serviceMode === 'location'
+                      ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                >
+                  <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                  Location Véhicule
+                </button>
+              </div>
+
+              {/* ─── MODE VTC : Formulaire classique ─── */}
+              {serviceMode === 'vtc' && (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Départ */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center text-gray-700 dark:text-gray-300 font-medium">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mr-3">
+                          <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        {t('booking.pickup_label')}
+                      </label>
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        onClick={() => {
+                          setSelectionMode(selectionMode === 'pickup' ? null : 'pickup');
+                          setSuggestions(prev => ({ ...prev, pickup: [] }));
+                        }}
+                        className={selectionMode === 'pickup' ? 'bg-emerald-500 text-white hover:bg-emerald-600' : ''}
+                      >
+                        {selectionMode === 'pickup' ? (
+                          <span className="flex items-center">
+                            <Check className="w-3 h-3 mr-1" /> {t('booking.selection_mode')}
+                          </span>
+                        ) : t('booking.select_on_map')}
+                      </Button>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {priceData?.distance || '—'} km
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('booking.distance')}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {priceData?.duration || '—'} min
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('booking.duration')}</div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.pickup}
+                        onChange={(e) => handleAddressInput('pickup', e.target.value)}
+                        className="w-full px-4 py-3 pl-12 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl transition-all duration-300 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none focus:shadow-lg"
+                        placeholder={t('booking.pickup_placeholder')}
+                        disabled={shouldShowDriver}
+                      />
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                      {isLoading.pickup && (
+                        <Loader className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 animate-spin" />
+                      )}
+                      {/* Suggestions */}
+                      {suggestions.pickup.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto custom-scrollbar-v5">
+                          {suggestions.pickup.map((suggestion, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => handleSelectSuggestion('pickup', suggestion)}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900 dark:text-white">{suggestion.display_name}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </motion.div>
 
-                {/* Bouton de confirmation ou contrôles de trajet */}
-                {shouldShowTripControls ? (
+                  {/* Destination */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center text-gray-700 dark:text-gray-300 font-medium">
+                        <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center mr-3">
+                          <MapPin className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                        </div>
+                        {t('booking.destination_label')}
+                      </label>
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        onClick={() => {
+                          setSelectionMode(selectionMode === 'destination' ? null : 'destination');
+                          setSuggestions(prev => ({ ...prev, destination: [] }));
+                        }}
+                        className={selectionMode === 'destination' ? 'bg-rose-500 text-white hover:bg-rose-600' : ''}
+                      >
+                        {selectionMode === 'destination' ? (
+                          <span className="flex items-center"><Check className="w-3 h-3 mr-1" /> {t('booking.selection_mode')}</span>
+                        ) : t('booking.select_on_map')}
+                      </Button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.destination}
+                        onChange={(e) => handleAddressInput('destination', e.target.value)}
+                        className="w-full px-4 py-3 pl-12 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl transition-all duration-300 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none focus:shadow-lg"
+                        placeholder={t('booking.destination_placeholder')}
+                        disabled={shouldShowDriver}
+                      />
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-rose-600 dark:text-rose-400" />
+                      {isLoading.destination && (
+                        <Loader className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 animate-spin" />
+                      )}
+                      {suggestions.destination.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto custom-scrollbar-v5">
+                          {suggestions.destination.map((suggestion, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => handleSelectSuggestion('destination', suggestion)}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900 dark:text-white">{suggestion.display_name}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Estimation */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-emerald-200 dark:border-emerald-800/30"
+                    className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30"
                   >
-                    {/* Information chauffeur gérée par le SearchIndicator et le Modal d'arrivée */}
-                    {tripStatus === 'driver_found' ? (
-                      <button
-                        onClick={() => window.open(`tel:${currentDriver?.phone}`)}
-                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold flex items-center justify-center transition-all shadow-lg shadow-emerald-500/30"
-                      >
-                        <Phone className="w-5 h-5 mr-2" />
-                        {t('booking.call_driver')}
-                      </button>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        onClick={onShowTracking}
-                        className="w-full py-4"
-                        icon={Navigation}
-                      >
-                        {t('booking.follow_live')}
-                      </Button>
-                    )}
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-4">{t('booking.estimation_title')}</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                          {priceData?.price || '—'} GNF
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('booking.estimated_price')}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {priceData?.distance || '—'} km
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('booking.distance')}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {priceData?.duration || '—'} min
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('booking.duration')}</div>
+                      </div>
+                    </div>
                   </motion.div>
-                ) : (
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={!formData.pickup || !formData.destination || isLoading.submit}
-                    className="w-full py-4"
-                    icon={Search}
-                    fullWidth
-                  >
-                    {isLoading.submit ? (
-                      <span className="flex items-center justify-center">
-                        <Loader className="w-5 h-5 mr-2 animate-spin" />
-                        {t('common.loading')}
-                      </span>
-                    ) : (
-                      t('booking.confirm_btn')
-                    )}
-                  </Button>
-                )}
-              </form>
+
+                  {/* Bouton de confirmation ou contrôles de trajet */}
+                  {shouldShowTripControls ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-emerald-200 dark:border-emerald-800/30"
+                    >
+                      {/* Information chauffeur gérée par le SearchIndicator et le Modal d'arrivée */}
+                      {tripStatus === 'driver_found' ? (
+                        <button
+                          onClick={() => window.open(`tel:${currentDriver?.phone}`)}
+                          className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold flex items-center justify-center transition-all shadow-lg shadow-emerald-500/30"
+                        >
+                          <Phone className="w-5 h-5 mr-2" />
+                          {t('booking.call_driver')}
+                        </button>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          onClick={onShowTracking}
+                          className="w-full py-4"
+                          icon={Navigation}
+                        >
+                          {t('booking.follow_live')}
+                        </Button>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={!formData.pickup || !formData.destination || isLoading.submit}
+                      className="w-full py-4"
+                      icon={Search}
+                      fullWidth
+                    >
+                      {isLoading.submit ? (
+                        <span className="flex items-center justify-center">
+                          <Loader className="w-5 h-5 mr-2 animate-spin" />
+                          {t('common.loading')}
+                        </span>
+                      ) : (
+                        t('booking.confirm_btn')
+                      )}
+                    </Button>
+                  )}
+                </form>
+              )}
+
+              {/* ─── MODE LOCATION : Grille des véhicules ─── */}
+              {serviceMode === 'location' && (
+                <div className="space-y-5">
+                  {/* Filtres catégories */}
+                  <div className="flex flex-wrap gap-2">
+                    {flotteCategories.map((cat) => {
+                      const isActive = activeFlotteCategory === cat.id;
+                      const Icon = cat.icon;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => setActiveFlotteCategory(cat.id)}
+                          className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-300 ${isActive
+                              ? 'text-white bg-gradient-to-r from-emerald-500 to-blue-600 shadow-md'
+                              : 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                          <Icon size={12} />
+                          {cat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Grille des véhicules */}
+                  {loadingFlotte ? (
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
+                      <p className="text-gray-500 animate-pulse">Chargement de la flotte...</p>
+                    </div>
+                  ) : vehiculesFiltres.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar-v5">
+                      {vehiculesFiltres.map((vehicule) => {
+                        const isDisponible = vehicule.statut === 'DISPONIBLE';
+                        return (
+                          <motion.div
+                            key={vehicule._id || vehicule.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="group relative overflow-hidden rounded-xl border border-gray-200/60 dark:border-gray-700/50 bg-white dark:bg-gray-900/80 shadow-sm hover:shadow-xl hover:border-emerald-400/40 transition-all duration-300"
+                          >
+                            {/* Image */}
+                            <div className="relative h-36 overflow-hidden bg-gray-100 dark:bg-gray-800">
+                              <img
+                                src={getFullAssetURL(vehicule.photo || (vehicule.photos && vehicule.photos[0]))}
+                                alt={`${vehicule.marque} ${vehicule.modele}`}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                              />
+                              {/* Badge Catégorie */}
+                              <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold border backdrop-blur-md ${categoryStyles[vehicule.categorie] || 'bg-gray-500/20 text-gray-600 border-gray-500/30'}`}>
+                                {vehicule.categorie}
+                              </div>
+                              {/* Badge Statut */}
+                              <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold backdrop-blur-md border ${isDisponible
+                                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                  : 'bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30'
+                                }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${isDisponible ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                                {isDisponible ? 'Disponible' : 'Loué'}
+                              </div>
+                            </div>
+
+                            {/* Infos */}
+                            <div className="p-3">
+                              <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">
+                                {vehicule.marque} {vehicule.modele}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+                                <span className="flex items-center gap-0.5">
+                                  <Users size={10} className="text-emerald-500" />
+                                  {vehicule.places || vehicule.caracteristiques?.nb_places} pl.
+                                </span>
+                                <span className="w-px h-2.5 bg-gray-300 dark:bg-gray-600" />
+                                <span className="flex items-center gap-0.5">
+                                  <Fuel size={10} className="text-blue-500" />
+                                  {vehicule.carburant || vehicule.caracteristiques?.type_carburant || 'Diesel'}
+                                </span>
+                                <span className="w-px h-2.5 bg-gray-300 dark:bg-gray-600" />
+                                <span className="flex items-center gap-0.5">
+                                  <Star size={10} className="fill-yellow-400 text-yellow-400" />
+                                  {vehicule.note}
+                                </span>
+                              </div>
+
+                              {/* Prix + Bouton */}
+                              <div className="flex items-end justify-between mt-3">
+                                <div>
+                                  <p className="text-lg font-extrabold bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">
+                                    {formatPrix(vehicule.prix_jour)}
+                                    <span className="text-[9px] font-medium text-gray-400 ml-1">GNF/j</span>
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => handleReserverVehicule(vehicule)}
+                                  disabled={!isDisponible}
+                                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${isDisponible
+                                      ? 'bg-gradient-to-r from-emerald-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:scale-105 active:scale-95'
+                                      : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                                    }`}
+                                >
+                                  <Calendar size={12} />
+                                  Réserver
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center text-gray-400">
+                      <Car size={40} className="mx-auto mb-3 opacity-30" />
+                      <p className="font-medium">Aucun véhicule dans cette catégorie</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Modal de Réservation Location */}
+              <ReservationLocationModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                vehicule={selectedVehicule}
+              />
             </CardContent>
           </Card>
         </motion.div>

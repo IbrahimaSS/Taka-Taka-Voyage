@@ -75,6 +75,11 @@ export const NAV_CONFIG = {
                 path: 'promotions',
             },
             {
+                icon: Car,
+                label: 'Location BTrans',
+                path: 'locations',
+            },
+            {
                 icon: BarChart3,
                 label: 'Rapports',
                 path: 'rapports',
@@ -90,6 +95,7 @@ export const NAV_CONFIG = {
             utilisateurs: 'Passagers',
             chauffeurs: 'Chauffeurs',
             trajets: 'Trajets',
+            locations: 'Garage Baraka Trans',
             paiements: 'Paiements',
             transactions: 'Gestion du Portefeuille',
             commissions: 'Commissions',
@@ -137,6 +143,20 @@ export const NAV_CONFIG = {
                 label: 'Mes Course',
                 path: 'tracking',
             },
+            {
+                icon: Car,
+                label: 'Location BTrans',
+                path: 'locations',
+                subItems: [
+                    { label: 'Réserver', path: 'locations' },
+                    { label: 'Mes Locations', path: 'rental-history' },
+                ],
+            },
+            {
+                icon: Users,
+                label: 'Communauté',
+                path: 'community',
+            },
             // {
             //     icon: Users,
             //     label: 'Évaluations',
@@ -159,6 +179,8 @@ export const NAV_CONFIG = {
             history: 'Historique des trajets',
             revenues: 'Mes Revenus',
             planning: 'Planning',
+            locations: 'Garage Baraka Trans',
+            community: 'Espace Communauté',
             settings: 'Paramètres',
             evaluations: 'Mes Évaluations',
             support: 'Centre d\'aide',

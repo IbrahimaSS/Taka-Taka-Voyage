@@ -180,6 +180,63 @@ const PlatformMonitor = () => {
             });
         };
 
+        // ── 6. Locations (Baraka Trans) ──
+        const onNouvelleLocation = (data) => {
+            if (isAdmin) {
+                console.log('🚗 [PLATFORM] Nouvelle demande de location', data);
+                const audio = new Audio('/sounds/notification.mp3');
+                audio.play().catch(e => console.warn("Erreur audio:", e));
+                addNotification({
+                    type: NOTIFICATION_TYPES.INFO,
+                    category: NOTIFICATION_CATEGORIES.SYSTEM,
+                    title: "🚗 Nouvelle Location",
+                    message: data.message,
+                    priority: 'high'
+                });
+            }
+        };
+
+        const onLocationStatutChange = (data) => {
+            console.log('📝 [PLATFORM] Statut location mis à jour', data);
+            const audio = new Audio('/sounds/notification.mp3');
+            audio.play().catch(e => console.warn("Erreur audio:", e));
+            addNotification({
+                type: data.statut === 'ANNULÉE' ? NOTIFICATION_TYPES.ERROR : NOTIFICATION_TYPES.SUCCESS,
+                category: NOTIFICATION_CATEGORIES.SYSTEM,
+                title: "Location Mise à jour",
+                message: data.message,
+                priority: 'high'
+            });
+        };
+
+        // ── 7. Communauté ──
+        const onNouveauCommentaire = (data) => {
+            console.log('💬 [COMMUNITY] Nouveau commentaire', data);
+            const audio = new Audio('/sounds/notification.mp3');
+            audio.play().catch(e => console.warn("Erreur audio:", e));
+            addNotification({
+                type: NOTIFICATION_TYPES.INFO,
+                category: NOTIFICATION_CATEGORIES.SYSTEM,
+                title: "💬 Nouveau commentaire",
+                message: data.message,
+                priority: 'normal'
+            });
+        };
+
+        const onNouveauMessageDirect = (data) => {
+            console.log('✉️ [COMMUNITY] Nouveau message direct', data);
+            const audio = new Audio('/sounds/notification.mp3');
+            audio.play().catch(e => console.warn("Erreur audio:", e));
+            addNotification({
+                type: NOTIFICATION_TYPES.INFO,
+                category: NOTIFICATION_CATEGORIES.SYSTEM,
+                title: "✉️ Nouveau message",
+                message: `Vous avez reçu un message de ${data.expediteur?.prenom}`,
+                priority: 'high',
+                link: '/community' // Ou un paramètre pour ouvrir le hub
+            });
+        };
+
         // Enregistrement des listeners
         socketService.on('platform:maintenance:on', onMaintenanceOn);
         socketService.on('platform:maintenance:off', onMaintenanceOff);
@@ -189,6 +246,10 @@ const PlatformMonitor = () => {
         socketService.on('platform:payment:desactive', onPaymentDesactive);
         socketService.on('platform:payment:active', onPaymentActive);
         socketService.on('platform:settings:updated', onSettingsUpdated);
+        socketService.on('location:nouvelle_demande', onNouvelleLocation);
+        socketService.on('location:statut_change', onLocationStatutChange);
+        socketService.on('community:nouveau_commentaire', onNouveauCommentaire);
+        socketService.on('community:nouveau_message', onNouveauMessageDirect);
 
         // Nettoyage au démontage
         return () => {
@@ -200,6 +261,10 @@ const PlatformMonitor = () => {
             socketService.off('platform:payment:desactive', onPaymentDesactive);
             socketService.off('platform:payment:active', onPaymentActive);
             socketService.off('platform:settings:updated', onSettingsUpdated);
+            socketService.off('location:nouvelle_demande', onNouvelleLocation);
+            socketService.off('location:statut_change', onLocationStatutChange);
+            socketService.off('community:nouveau_commentaire', onNouveauCommentaire);
+            socketService.off('community:nouveau_message', onNouveauMessageDirect);
         };
     }, [addNotification, t]);
 
