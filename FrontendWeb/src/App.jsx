@@ -14,6 +14,7 @@ import Inscription from './pages/Inscription';
 import Passenger from './pages/Passager';
 import FinaliserProfil from './pages/FinaliserProfil';
 import DownloadApp from './pages/DownloadApp';
+import GuidePage from './pages/GuidePage';
 import { PassengerProvider } from './context/PassengerContext';
 
 import NotFound from './pages/NotFound';
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/connexion" element={<Connexion />} />
             <Route path="/inscription" element={<Inscription />} />
             <Route path="/telecharger" element={<DownloadApp />} />
+            <Route path="/guide" element={<GuidePage />} />
             <Route path="/finaliser-profil" element={
               <AuthGuard allowedRoles={[]}>
                 <FinaliserProfil />

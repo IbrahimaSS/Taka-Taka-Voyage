@@ -12,7 +12,7 @@ import {
   Mail,
   Globe
 } from 'lucide-react';
-
+import { Link } from 'react-router-dom';
 import Button from '../../ui/Buttons';
 
 import { useSettings } from '../../context/SettingsContext';
@@ -44,6 +44,7 @@ const Footer = () => {
 
   const companyLinks = [
     { label: 'À propos', href: '#about' },
+    { label: 'Centre d\'aide', href: '/guide' },
     { label: 'Carrières', href: '#careers' },
     { label: 'Presse', href: '#press' },
     { label: 'Blog', href: '#blog' },
@@ -135,12 +136,12 @@ const Footer = () => {
               <ul className="space-y-3">
                 {companyLinks.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
+                    <Link
+                      to={link.href}
                       className="footer-link text-gray-400 hover:text-primaryBlue-start transition duration-300"
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -152,12 +153,12 @@ const Footer = () => {
               <ul className="space-y-3">
                 {legalLinks.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
+                    <Link
+                      to={link.href}
                       className="footer-link text-gray-400 hover:text-white transition duration-300"
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

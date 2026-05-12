@@ -14,6 +14,7 @@ import {
     User2,
     History,
     Gift,
+    BookOpen,
 } from 'lucide-react';
 
 export const ROLES = {
@@ -85,6 +86,11 @@ export const NAV_CONFIG = {
                 path: 'rapports',
             },
             {
+                icon: BookOpen,
+                label: 'Guides & Aide',
+                path: 'guides',
+            },
+            {
                 icon: History,
                 label: 'Journal d\'Activités',
                 path: 'logs',
@@ -104,6 +110,7 @@ export const NAV_CONFIG = {
             litiges: 'Litiges',
             promotions: 'Coupons & Promotions',
             rapports: 'Rapports',
+            guides: 'Guides & Documentation d\'Aide',
             logs: 'Journal d\'Activités',
             parametres: 'Paramètres',
             profil: 'Profil',

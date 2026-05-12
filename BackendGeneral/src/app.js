@@ -214,6 +214,10 @@ app.use("/api/wallet", walletRoutes);
 const ticketRoutes = require("./routes/common/ticketRoutes");
 app.use("/api/tickets", ticketRoutes);
 
+// 📚 Guides & Documentation (Public + Admin)
+const guideRoutes = require("./routes/common/guideRoutes");
+app.use("/api/guides", guideRoutes);
+
 // ===================== TÉLÉCHARGEMENT APK =====================
 app.get("/api/download/apk", (req, res) => {
     const filePath = path.join(__dirname, "..", "downloads", "takataka-V1.apk");

@@ -24,6 +24,7 @@ import Reports from '../components/admin/sections/Reports';
 import Commissions from '../components/admin/sections/Commissions';
 import Settings from '../components/admin/sections/Settings';
 import ActivityLogs from '../components/admin/sections/ActivityLogs';
+import Guides from '../components/admin/sections/Guides';
 import Coupons from '../components/admin/sections/Coupons';
 import Transactions from '../components/admin/sections/Transactions';
 import GarageVirtuel from '../components/admin/sections/GarageVirtuel';
@@ -414,6 +415,15 @@ function AdminApp() {
                     exit={{ opacity: 0, y: -20 }}
                   >
                     <ActivityLogs showToast={showToast} />
+                  </motion.div>
+                } />
+                <Route path="guides" element={
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <Guides showToast={showToast} />
                   </motion.div>
                 } />
                 <Route path="transactions" element={

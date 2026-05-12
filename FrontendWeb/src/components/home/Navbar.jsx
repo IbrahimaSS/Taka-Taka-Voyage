@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { Car, Download, LogIn, Menu, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState, useEffect } from 'react';
+import { BookOpen, Car, Download, LogIn, Menu, X } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import Button from '../../ui/Buttons';
 import { ThemeToggle } from '../../ui/ThemeToggle';
@@ -12,6 +12,20 @@ const Navbar = () => {
   const platform = settings?.platform || {};
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Gérer le scroll auto si on arrive d'une autre page avec un hash
+  useEffect(() => {
+    if (location.pathname === '/' && location.hash) {
+      const id = location.hash.replace('#', '');
+      setTimeout(() => {
+        const element = document.getElementById(id);
+        if (element) {
+          window.scrollTo({ top: element.offsetTop - 80, behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, [location]);
 
   const navItems = useMemo(
     () => [
@@ -26,9 +40,13 @@ const Navbar = () => {
   );
 
   const scrollToSection = (sectionId) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      window.scrollTo({ top: element.offsetTop - 80, behavior: 'smooth' });
+    if (location.pathname !== '/') {
+      navigate('/#' + sectionId);
+    } else {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        window.scrollTo({ top: element.offsetTop - 80, behavior: 'smooth' });
+      }
     }
     setMobileMenuOpen(false);
   };
@@ -42,7 +60,7 @@ const Navbar = () => {
             <button
               type="button"
               onClick={() => scrollToSection('accueil')}
-              className="flex items-center gap-3 group"
+              className="flex items-center gap-3 group shrink-0"
             >
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 shadow-sm">
                 {platform.logo ? (
@@ -62,7 +80,7 @@ const Navbar = () => {
             </button>
 
             {/* Desktop nav */}
-            <div className="hidden md:flex items-center gap-1">
+            <div className="hidden md:flex flex-1 justify-center items-center gap-1">
               {navItems.map((item) => (
                 <button
                   key={item.id}
@@ -80,7 +98,7 @@ const Navbar = () => {
             </div>
 
             {/* Right actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
               <ThemeToggle className="hidden sm:inline-flex" />
 
               <button
@@ -103,6 +121,16 @@ const Navbar = () => {
                 icon={<Download className="h-4 w-4" />}
               >
                 <span className="sm:inline">Télécharger</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/guide')}
+                icon={<BookOpen className="h-4 w-4" />}
+                className="hidden sm:inline-flex"
+              >
+                Guide
               </Button>
 
               <button
@@ -159,6 +187,36 @@ const Navbar = () => {
               >
                 <LogIn className="h-4 w-4" />
                 Connexion
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigate('/telecharger');
+                }}
+                className={cn(
+                  'w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium bg-gradient-to-r from-emerald-500 to-blue-600 text-white shadow-lg',
+                )}
+              >
+                <Download className="h-4 w-4" />
+                Télécharger l'App
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigate('/guide');
+                }}
+                className={cn(
+                  'w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium border border-slate-200',
+                  'text-slate-700 hover:bg-slate-100/70 transition-colors',
+                  'dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/50'
+                )}
+              >
+                <BookOpen className="h-4 w-4" />
+                Guide d'utilisation
               </button>
             </div>
           </div>
