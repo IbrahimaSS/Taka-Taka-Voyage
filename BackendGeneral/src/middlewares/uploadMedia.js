@@ -1,20 +1,14 @@
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("../config/cloudinary");
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = "uploads/community";
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname);
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-    }
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'takataka/community',
+    resource_type: 'auto', // Important pour supporter les fichiers audio et vidéo
+    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'mp3', 'wav', 'mp4', 'mkv', 'webm']
+  }
 });
 
 const fileFilter = (req, file, cb) => {
