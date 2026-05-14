@@ -375,8 +375,8 @@ const RealTimeTracking = ({
     if (isSimulating && role === 'driver') {
       simulationIntervalRef.current = setInterval(() => {
         setSimulatedProgress(prev => {
-          // Vitesse de simulation plus réaliste (+0.5% par seconde -> 200s pour 100%)
-          const step = 1.0;
+          // Vitesse de simulation rapide (3.33% par seconde -> 30s pour 100%)
+          const step = 3.33;
           const next = Math.min(100, prev + step);
 
           // Simulation d'une vitesse vivante (entre 30 et 70 km/h)
