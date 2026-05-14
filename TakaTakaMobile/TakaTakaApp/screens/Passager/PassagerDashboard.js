@@ -32,6 +32,7 @@ import { apiClient } from '../../services/apiClient';
 import { socketService } from '../../services/socketService';
 import { authService } from '../../services/authService';
 import { PLATFORM } from '../../constants/platform';
+import { SCREENS } from '../../constants/screens';
 
 // --- Composants extraits et mis à jour ---
 import BookingModal from './composants/BookingModal';
@@ -176,19 +177,19 @@ const recentRidesStyles = StyleSheet.create({
     }
 });
 
-export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen }) {
+export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen, setPreviousScreen }) {
     const {
         maintenanceMode,
         darkMode,
         theme,
         user,
+        updateUser,
         pendingRideIntent,
         setPendingRideIntent,
         navigationIntent,
         setNavigationIntent,
         rideDraft,
         setRideDraft,
-        updateUser,
         t
     } = useApp();
 
@@ -226,7 +227,37 @@ export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen }
     const [showDriverSearchModal, setShowDriverSearchModal] = useState(false);
     const [currentBookingData, setCurrentBookingData] = useState(null);
     const [rideStarted, setRideStarted] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
+    const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+    useEffect(() => {
+        const syncBalance = async () => {
+            try {
+                const res = await apiClient('/wallet/solde');
+                if (res && res.solde !== undefined) {
+                    updateUser({ ...user, solde: res.solde });
+                }
+            } catch (e) {
+                console.log("Sync balance error");
+            }
+        };
+
+        const syncNotifications = async () => {
+            try {
+                const res = await apiClient('/passager/notifications');
+                if (res.succes) {
+                    const unread = res.donnees.filter(n => !n.lue).length;
+                    setUnreadNotificationsCount(unread);
+                }
+            } catch (e) {
+                console.log("Sync notifications error");
+            }
+        };
+
+        syncBalance();
+        syncNotifications();
+    }, []);
 
     // ÉTATS POUR GÉRER LA FIN DU TRAJET
     const [showRideCompletion, setShowRideCompletion] = useState(false);
@@ -393,9 +424,6 @@ export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen }
         } catch (error) { console.error('Location error:', error); }
     };
 
-    const handleTabChange = (tab) => {
-        setActiveTab(tab);
-    };
 
     const handleZoom = (type) => {
         if (!mapRef.current) return;
@@ -577,29 +605,35 @@ export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen }
                     </View>
                 </TouchableOpacity>
 
-                {/* Centre : Logo */}
-                <View style={styles.headerCenter}>
-                    <View style={styles.logoBoxSmall}>
-                        <Image
-                            source={require('../../assets/logo/LogoTT.jpeg')}
-                            style={styles.logoImageSmall}
-                        />
-                    </View>
-                </View>
+                {/* Droite : Wallet et Notifications */}
+                <View style={styles.headerRight}>
+                    <TouchableOpacity 
+                        style={styles.walletHeaderBadge}
+                        onPress={() => {
+                            setPreviousScreen(SCREENS.PASSAGER_DASHBOARD);
+                            setCurrentScreen(SCREENS.WALLET);
+                        }}
+                    >
+                        <Ionicons name="wallet" size={16} color="#10B981" />
+                        <Text style={styles.walletHeaderText}>
+                            {user?.solde?.toLocaleString('fr-FR') || 0}
+                        </Text>
+                    </TouchableOpacity>
 
-                {/* Droite : Notifications */}
-                <TouchableOpacity
-                    style={styles.headerRight}
-                    onPress={() => setShowNotificationModal(true)}
-                >
-                    <View style={styles.notificationButton}>
+                    <TouchableOpacity
+                        style={styles.notificationButton}
+                        onPress={() => setShowNotificationModal(true)}
+                    >
                         <Ionicons name="notifications" size={26} color="#FFFFFF" />
-                        <View style={styles.notificationBadge}>
-                            <Text style={styles.badgeText}>3</Text>
-                        </View>
-                    </View>
-                </TouchableOpacity>
+                        {unreadNotificationsCount > 0 && (
+                            <View style={styles.notificationBadge}>
+                                <Text style={styles.badgeText}>{unreadNotificationsCount}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                </View>
             </View>
+
             <TouchableOpacity style={styles.searchContainer} onPress={() => setBookingModalVisible(true)}>
                 <View style={styles.searchIcon}>
                     <Ionicons name="search" size={20} color="#6B7280" />
@@ -657,7 +691,20 @@ export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen }
         switch (activeTab) {
             case 'planning': return <PlanningScreen onClose={() => setActiveTab('home')} onNewTrip={() => setBookingModalVisible(true)} />;
             case 'history': return <HistoryScreen navigation={{ goBack: () => setActiveTab('home') }} initialTab={activeSubTab} />;
-            case 'profile': return <ProfileScreen navigation={{ goBack: () => setActiveTab('home') }} onLogout={onLogout} onOpenAssistant={setCurrentScreen ? () => setCurrentScreen('assistant') : undefined} />;
+            case 'profile': 
+                return <ProfileScreen 
+                    navigation={{ 
+                        goBack: () => setActiveTab('home'),
+                        navigate: (screen) => {
+                            if (screen === 'forum') {
+                                setPreviousScreen(SCREENS.PASSAGER_DASHBOARD);
+                                setCurrentScreen(SCREENS.FORUM);
+                            }
+                        }
+                    }} 
+                    onLogout={onLogout} 
+                    onOpenAssistant={setCurrentScreen ? () => setCurrentScreen('assistant') : undefined} 
+                />;
             case 'home': default: return renderHomeContent();
         }
     };
