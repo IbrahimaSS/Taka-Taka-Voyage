@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Calendar, Car, MapPin, Clock, History, 
@@ -13,13 +14,16 @@ import Badge from '../admin/ui/Badge';
 import Card, { CardContent } from '../admin/ui/Card';
 import Button from '../admin/ui/Bttn';
 import toast from 'react-hot-toast';
+import PremiumInvoice from '../admin/ui/PremiumInvoice';
 
 const RentalHistory = () => {
+  const { user: currentUser } = useAuth();
   const { t } = useTranslation();
   const [rentals, setRentals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [confirmModal, setConfirmModal] = useState(null);
+  const [selectedRentalForInvoice, setSelectedRentalForInvoice] = useState(null);
 
   useEffect(() => {
     fetchRentals();
@@ -59,6 +63,33 @@ const RentalHistory = () => {
     if (activeFilter === 'completed') return r.statut === 'TERMINÉE';
     return true;
   });
+
+  const mapRentalToInvoice = (rental) => {
+    if (!rental) return null;
+    return {
+      reference: rental.reference || `LOC-${rental._id.substring(18).toUpperCase()}`,
+      amount: `${rental.montant_total?.toLocaleString()} GNF`,
+      date: new Date(rental.updatedAt || rental.createdAt).toLocaleDateString(),
+      method: 'Taka Wallet / Orange Money',
+      status: 'paid',
+      passenger: {
+        name: rental.passager?.nomComplet || currentUser?.nomComplet || 'Client TakaTaka',
+        phone: rental.passager?.telephone || currentUser?.telephone || '-',
+        email: rental.passager?.email || currentUser?.email || '-'
+      },
+      driver: {
+        name: 'Baraka Trans (Flotte)',
+        vehicle: `${rental.vehicule?.marque} ${rental.vehicule?.modele} (${rental.vehicule?.immatriculation || 'En attente'})`,
+        phone: '+224 000 00 00 00',
+        email: 'location@barakatrans.gn'
+      },
+      trip: {
+        route: `Agence de Livraison → Point de Retour`,
+        distance: '-',
+        duration: `${Math.ceil((new Date(rental.date_fin_prevue) - new Date(rental.date_debut)) / (1000 * 60 * 60 * 24))} jours`
+      }
+    };
+  };
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -222,7 +253,12 @@ const RentalHistory = () => {
                           )}
 
                           {rental.statut === 'TERMINÉE' && (
-                            <Button variant="outline" className="w-full border-gray-200 dark:border-gray-700 text-gray-500" icon={Receipt}>
+                            <Button 
+                              variant="outline" 
+                              className="w-full border-gray-200 dark:border-gray-700 text-gray-500 hover:border-emerald-500 hover:text-emerald-600 transition-all" 
+                              icon={Receipt}
+                              onClick={() => setSelectedRentalForInvoice(rental)}
+                            >
                               Voir la facture finale
                             </Button>
                           )}
@@ -291,6 +327,14 @@ const RentalHistory = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Affichage de la Facture Premium */}
+      {selectedRentalForInvoice && (
+        <PremiumInvoice 
+          payment={mapRentalToInvoice(selectedRentalForInvoice)} 
+          onClose={() => setSelectedRentalForInvoice(null)} 
+        />
+      )}
     </div>
   );
 };

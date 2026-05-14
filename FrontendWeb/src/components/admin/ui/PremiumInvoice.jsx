@@ -296,12 +296,12 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                                                 <div className="w-1 h-1 rounded-full bg-blue-500 mt-1.5"></div>
                                                                 <div className="flex flex-col">
                                                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Départ</span>
-                                                                    <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[0]?.trim() || 'Région de Mamou'}</span>
+                                                                    <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[0]?.trim() || '-'}</span>
                                                                 </div>
                                                                 <div className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5"></div>
                                                                 <div className="flex flex-col">
                                                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Arrivée</span>
-                                                                    <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[1]?.trim() || 'Dalaba'}</span>
+                                                                    <span className="text-[10px] font-bold text-slate-700">{payment?.trip?.route?.split('→')[1]?.trim() || '-'}</span>
                                                                 </div>
                                                             </div>
                                                         )}
