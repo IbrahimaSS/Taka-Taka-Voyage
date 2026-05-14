@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { updateNotifications } = require("../../controllers/passager/notificationsControllers");
+const { updateNotifications, getNotifications } = require("../../controllers/passager/notificationsControllers");
 const { verifierToken } = require("../../middlewares/authMiddlewares");
 const { verifierStatutActif } = require("../../middlewares/statutMiddlewares");
 
@@ -36,6 +36,17 @@ router.put(
     verifierToken,
     verifierStatutActif,
     updateNotifications
+);
+
+/**
+ * @desc    Récupérer les notifications du passager
+ * @route   GET /api/passager/notifications
+ */
+router.get(
+    "/notifications",
+    verifierToken,
+    verifierStatutActif,
+    getNotifications
 );
 
 module.exports = router;

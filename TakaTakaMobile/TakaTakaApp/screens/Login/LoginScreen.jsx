@@ -25,7 +25,14 @@ import LogoTT from '../../assets/logo/LogoTT.jpeg';
 
 const { width, height } = Dimensions.get('window');
 
-export default function LoginScreen({ onBack, onLoginSuccess, onSelectProfile, onForgotPassword }) {
+export default function LoginScreen({ onBack, onLoginSuccess, onSelectProfile, onForgotPassword, handleSocialLogin }) {
+    const handleSocialLoginLocal = (provider) => {
+        if (handleSocialLogin) {
+            handleSocialLogin(provider);
+        } else {
+            Alert.alert('Info', `Connexion avec ${provider} bientôt disponible`);
+        }
+    };
     const { darkMode, theme, updateUser } = useApp();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -165,13 +172,16 @@ export default function LoginScreen({ onBack, onLoginSuccess, onSelectProfile, o
                         transform: [{ translateY: slideAnim }]
                     }
                 ]}>
-                    <TouchableOpacity
-                        style={[loginStyles.backButton, { backgroundColor: darkMode ? '#1F2937' : '#F3F4F6' }]}
-                        onPress={isOtpMode ? () => setIsOtpMode(false) : onBack}
-                        disabled={loading}
-                    >
-                        <Ionicons name="arrow-back" size={24} color={theme.text} />
-                    </TouchableOpacity>
+                    {/* Bouton retour uniquement en mode OTP (pour revenir au formulaire de login) */}
+                    {isOtpMode && (
+                        <TouchableOpacity
+                            style={[loginStyles.backButton, { backgroundColor: darkMode ? '#1F2937' : '#F3F4F6' }]}
+                            onPress={() => setIsOtpMode(false)}
+                            disabled={loading}
+                        >
+                            <Ionicons name="arrow-back" size={24} color={theme.text} />
+                        </TouchableOpacity>
+                    )}
 
                     <View style={loginStyles.headerSection}>
                         <View style={loginStyles.logoWrapper}>
@@ -354,21 +364,21 @@ export default function LoginScreen({ onBack, onLoginSuccess, onSelectProfile, o
                                 <View style={loginStyles.socialButtons}>
                                     <TouchableOpacity
                                         style={[loginStyles.socialButton, { backgroundColor: darkMode ? '#1F2937' : '#FFFFFF', borderColor: theme.border }]}
-                                        onPress={() => handleSocialLogin('Google')}
+                                        onPress={() => handleSocialLoginLocal('Google')}
                                         disabled={loading}
                                     >
                                         <Ionicons name="logo-google" size={24} color="#DB4437" />
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         style={[loginStyles.socialButton, { backgroundColor: darkMode ? '#1F2937' : '#FFFFFF', borderColor: theme.border }]}
-                                        onPress={() => handleSocialLogin('Facebook')}
+                                        onPress={() => handleSocialLoginLocal('Facebook')}
                                         disabled={loading}
                                     >
                                         <Ionicons name="logo-facebook" size={24} color="#4267B2" />
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         style={[loginStyles.socialButton, { backgroundColor: darkMode ? '#1F2937' : '#FFFFFF', borderColor: theme.border }]}
-                                        onPress={() => handleSocialLogin('Apple')}
+                                        onPress={() => handleSocialLoginLocal('Apple')}
                                         disabled={loading}
                                     >
                                         <Ionicons name="logo-apple" size={24} color={theme.text} />

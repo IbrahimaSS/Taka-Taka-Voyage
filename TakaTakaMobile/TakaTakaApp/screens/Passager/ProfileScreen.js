@@ -47,6 +47,7 @@ export default function ProfileScreen({ navigation, onLogout, onOpenAssistant })
                 // { icon: 'card', label: 'Moyens de paiement', action: 'payment-methods' },
                 { icon: 'gift', label: t('profile_item_benefits') || 'Mes avantages', action: 'benefits' },
                 { icon: 'receipt', label: 'Mes Tickets', action: 'tickets' },
+                { icon: 'people', label: 'Communauté Taka', action: 'forum' },
                 // { icon: 'trophy', label: 'Programme de fidélité', action: 'loyalty' },
             ]
         },
@@ -136,6 +137,9 @@ export default function ProfileScreen({ navigation, onLogout, onOpenAssistant })
                 break;
             case 'about':
                 setCurrentScreen('about');
+                break;
+            case 'forum':
+                navigation.navigate('forum');
                 break;
             default:
                 Alert.alert('Fonctionnalité', 'Cette fonctionnalité sera bientôt disponible !');
