@@ -1,21 +1,79 @@
-import React, { useEffect } from 'react';
-import { Download, PlayCircle, Star, Users, Car, MapPin } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Download, PlayCircle, Star, Users, Car, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from '../../ui/Buttons';
 import Card from '../../ui/Card';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
 import { apiClient } from '../../services/apiClient';
 
+// ─── Carousel images configuration ───
+const carouselImages = [
+  {
+    src: 'Im1.jpeg',
+    alt: 'Taka Taka — Voyagez en toute sécurité à travers la Guinée',
+  },
+  {
+    src: 'Im2.jpeg',
+    alt: 'Taka Taka — Des trajets rapides et abordables pour tous',
+  },
+];
+
+const CAROUSEL_INTERVAL = 5000; // 5 seconds
+
 const HeroSection = () => {
   const { settings } = useSettings();
   const platform = settings?.platform || {};
   const navigate = useNavigate();
-  const [statsData, setStatsData] = React.useState({
+
+  const [statsData, setStatsData] = useState({
     utilisateurs: '10K+',
     chauffeurs: '5K+',
     trajets: '50K+'
   });
 
+  // ─── Carousel state ───
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const timerRef = useRef(null);
+
+  // ─── Auto-rotate logic ───
+  const startAutoRotate = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
+        setIsTransitioning(false);
+      }, 500); // match CSS transition duration
+    }, CAROUSEL_INTERVAL);
+  }, []);
+
+  const goToSlide = useCallback((index) => {
+    if (index === currentSlide) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentSlide(index);
+      setIsTransitioning(false);
+    }, 500);
+    startAutoRotate(); // reset timer on manual nav
+  }, [currentSlide, startAutoRotate]);
+
+  const goNext = useCallback(() => {
+    goToSlide((currentSlide + 1) % carouselImages.length);
+  }, [currentSlide, goToSlide]);
+
+  const goPrev = useCallback(() => {
+    goToSlide((currentSlide - 1 + carouselImages.length) % carouselImages.length);
+  }, [currentSlide, goToSlide]);
+
+  useEffect(() => {
+    startAutoRotate();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [startAutoRotate]);
+
+  // ─── Fetch stats & particles ───
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -139,20 +197,76 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* Image/Illustration */}
+          {/* ==================== CARROUSEL ==================== */}
           <div className="lg:w-1/2" data-aos="fade-left" data-aos-delay="200">
             <div className="relative">
-              <div className="relative bg-white/10 dark:bg-gray-800/50 backdrop-blur-sm p-8 rounded-3xl shadow-2xl overflow-hidden">
+              <div className="relative bg-white/10 dark:bg-gray-800/50 backdrop-blur-sm p-4 sm:p-6 md:p-8 rounded-3xl shadow-2xl overflow-hidden">
                 {/* Gradient Orbs */}
                 <div className="absolute -top-10 -left-10 w-40 h-40 bg-primaryGreen-start/20 rounded-full mix-blend-multiply filter blur-3xl" />
                 <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-primaryBlue-start/20 rounded-full mix-blend-multiply filter blur-3xl" />
 
-                {/* Image */}
-                <img
-                  src="Passager.jpg"
-                  alt="Passager Taka Taka souriant pendant un trajet en voiture"
-                  className="w-full h-auto rounded-xl shadow-lg"
-                />
+                {/* Carousel Container */}
+                <div className="relative rounded-xl overflow-hidden shadow-lg group">
+                  {/* Images with crossfade */}
+                  <div className="relative aspect-[4/3]">
+                    {carouselImages.map((image, index) => (
+                      <img
+                        key={index}
+                        src={image.src}
+                        alt={image.alt}
+                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
+                          index === currentSlide
+                            ? isTransitioning ? 'opacity-0' : 'opacity-100'
+                            : 'opacity-0'
+                        }`}
+                      />
+                    ))}
+                    {/* Subtle gradient overlay at bottom for dots contrast */}
+                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Navigation Arrows — visible on hover */}
+                  <button
+                    onClick={goPrev}
+                    aria-label="Image précédente"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 dark:bg-gray-900/40 backdrop-blur-md border border-white/30 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white/40 hover:scale-110 cursor-pointer"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button
+                    onClick={goNext}
+                    aria-label="Image suivante"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 dark:bg-gray-900/40 backdrop-blur-md border border-white/30 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white/40 hover:scale-110 cursor-pointer"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+
+                  {/* Dot Indicators */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 z-10">
+                    {carouselImages.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => goToSlide(index)}
+                        aria-label={`Aller à l'image ${index + 1}`}
+                        className={`rounded-full transition-all duration-500 ease-out cursor-pointer ${
+                          index === currentSlide
+                            ? 'w-8 h-3 bg-white shadow-lg shadow-white/30'
+                            : 'w-3 h-3 bg-white/50 hover:bg-white/80'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10">
+                    <div
+                      className="h-full bg-gradient-to-r from-primaryGreen-start to-primaryBlue-start rounded-full"
+                      style={{
+                        animation: `carousel-progress ${CAROUSEL_INTERVAL}ms linear infinite`,
+                      }}
+                    />
+                  </div>
+                </div>
 
                 {/* Rating Badge */}
                 <div className="absolute -bottom-6 -right-6 bg-gradient-to-b from-blue-500/10 via-white to-green-500/10 dark:from-gray-800 dark:to-gray-900 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 p-6 rounded-2xl shadow-xl">
@@ -172,6 +286,14 @@ const HeroSection = () => {
           </div>
         </div>
       </div>
+
+      {/* Carousel progress bar animation */}
+      <style>{`
+        @keyframes carousel-progress {
+          from { width: 0%; }
+          to { width: 100%; }
+        }
+      `}</style>
     </section>
   );
 };
