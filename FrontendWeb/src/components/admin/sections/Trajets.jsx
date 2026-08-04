@@ -1,35 +1,17 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import StatCard from '../layout/StatCard';
-import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
-import Table, { TableRow, TableCell } from '../ui/Table';
 import Button from '../ui/Bttn';
-import Badge from '../ui/Badge';
 import Tabs from '../ui/Tabs';
 import Pagination from '../ui/Pagination';
-import Modal from '../ui/Modal';
 import {
-  Route, PlayCircle, XCircle, DollarSign,
-  RefreshCw, Filter, MapPin, User, Car,
-  CheckCircle, Clock, AlertCircle,
-  Eye, ChevronLeft, ChevronRight, List,
-  ArrowRight, Search, MoreVertical, Download,
-  Calendar, ChevronDown, BarChart3, Activity,
-  FileText, ExternalLink, Share2, Trash2,
-  Edit2, Save, Upload, Grid, Maximize2,
-  Percent, Navigation, Phone, Mail,
-  Star as StarIcon, MessageSquare, Shield,
-  Archive, ArchiveRestore, FileSpreadsheet,
-  FilePieChart, Target, Users, Plus, X,
-  Camera, Video, PhoneCall, Smartphone,
-  TrendingUp, TrendingDown, Award,
-  Zap, Battery, Wifi,
-  Layers, Database, Cpu,
-  Copy, CreditCard
+  Route, PlayCircle, XCircle,
+  RefreshCw, CheckCircle, Clock, List,
+  Calendar, Activity, Grid,
+  Navigation, TrendingUp, Layers
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adminService } from '../../../services/adminService';
-import ExportDropdown from '../ui/ExportDropdown';
 import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
 import { mapBackendTripToFrontend } from './trajets/tripMapper';
 import FollowModal from './trajets/FollowModal';
@@ -39,6 +21,7 @@ import TripActions from './trajets/TripActions';
 import TripCard from './trajets/TripCard';
 import TripDetailsModal from './trajets/TripDetailsModal';
 import TripsMapPanel from './trajets/TripsMapPanel';
+import TripsFilterBar from './trajets/TripsFilterBar';
 
 // TODO API (admin/trajets):
 // Remplacer les donnees simulees et les actions locales par des appels backend
@@ -326,159 +309,30 @@ const Trips = ({ showToast }) => {
       <TripsMapPanel tripsData={tripsData} onFollow={handleStartFollow} />
 
       {/* Barre de recherche et filtres */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white dark:bg-gray-800 dark:border-gray-900/40 rounded-2xl shadow-sm border border-gray-100  p-6"
-      >
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-              <input
-                type="text"
-                placeholder={t('trips.search_placeholder')}
-                className="w-full pl-12 pr-4 py-3.5 bg-white dark:bg-gray-800 dark:border-gray-900/40 border-2 border-gray-200 dark:border-gray-900/40 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 rounded-lg"
-                >
-                  <X className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              icon={Filter}
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className='text-sm'
-            >
-              {t('trips.advanced_filters')}
-            </Button>
-            <ExportDropdown
-              data={selectedTrips.length > 0 ? tripsData.filter(t => selectedTrips.includes(t.id)) : filteredTrips}
-              columns={exportColumns}
-              fileName="trajets_taka_taka"
-              title={t('trips.title')}
-              showToast={(title, msg, type) => showToast(title, msg, type)}
-            />
-          </div>
-        </div>
-
-        {/* Filtres avancés */}
-        <AnimatePresence>
-          {showAdvancedFilters && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-900/40"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Date</label>
-                  <input
-                    type="date"
-                    value={filters.date}
-                    onChange={(e) => handleFilterChange('date', e.target.value)}
-                    className="w-full border border-gray-300 dark:bg-gray-800  dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Statut</label>
-                  <select
-                    className="w-full border dark:bg-gray-800  border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                    value={filters.status}
-                    onChange={(e) => handleFilterChange('status', e.target.value)}
-                  >
-                    <option value="all">{t('common.all_status')}</option>
-                    <option value="pending">{t('trips.status.pending')}</option>
-                    <option value="in-progress">{t('trips.status.in_progress')}</option>
-                    <option value="completed">{t('trips.status.completed')}</option>
-                    <option value="cancelled">{t('trips.status.cancelled')}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Type véhicule</label>
-                  <select
-                    className="w-full border dark:bg-gray-800  border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                    value={filters.vehicleType}
-                    onChange={(e) => handleFilterChange('vehicleType', e.target.value)}
-                  >
-                    <option value="all">Tous les types</option>
-                    <option value="Toyota">Toyota</option>
-                    <option value="Peugeot">Peugeot</option>
-                    <option value="Honda">Honda</option>
-                    <option value="Kia">Kia</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Départ</label>
-                  <input
-                    type="text"
-                    placeholder="Lieu de départ"
-                    value={filters.departure}
-                    onChange={(e) => handleFilterChange('departure', e.target.value)}
-                    className="w-full border dark:bg-gray-800  border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Destination</label>
-                  <input
-                    type="text"
-                    placeholder="Lieu d'arrivée"
-                    value={filters.destination}
-                    onChange={(e) => handleFilterChange('destination', e.target.value)}
-                    className="w-full border dark:bg-gray-800 border-gray-300 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  icon={RefreshCw}
-                  onClick={() => {
-                    setFilters({
-                      departure: '',
-                      destination: '',
-                      date: '',
-                      status: 'all',
-                      vehicleType: 'all',
-                      amountRange: 'all'
-                    });
-                    setSearch('');
-                    setCurrentPage(1);
-                  }}
-                >
-                  Réinitialiser
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    showToast({
-                      type: 'success',
-                      title: 'Filtres appliqués',
-                      message: 'Les filtres ont été appliqués avec succès'
-                    });
-                  }}
-                >
-                  Appliquer les filtres
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+      <TripsFilterBar
+        search={search}
+        onSearchChange={(value) => { setSearch(value); setCurrentPage(1); }}
+        onClearSearch={() => setSearch('')}
+        showAdvancedFilters={showAdvancedFilters}
+        onToggleAdvancedFilters={() => setShowAdvancedFilters(!showAdvancedFilters)}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onResetFilters={() => {
+          setFilters({
+            departure: '',
+            destination: '',
+            date: '',
+            status: 'all',
+            vehicleType: 'all',
+            amountRange: 'all'
+          });
+          setSearch('');
+          setCurrentPage(1);
+        }}
+        showToast={showToast}
+        exportData={selectedTrips.length > 0 ? tripsData.filter(t => selectedTrips.includes(t.id)) : filteredTrips}
+        exportColumns={exportColumns}
+      />
 
       {/* Onglets */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-900/40 overflow-hidden">
