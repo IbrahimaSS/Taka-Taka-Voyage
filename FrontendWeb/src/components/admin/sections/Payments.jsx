@@ -52,6 +52,7 @@ import PaymentActions from './payments/PaymentActions';
 import MobilePaymentCard from './payments/MobilePaymentCard';
 import PaymentDetailsModal from './payments/PaymentDetailsModal';
 import RefundModal from './payments/RefundModal';
+import PaymentsCharts from './payments/PaymentsCharts';
 
 // TODO API (admin/paiements):
 // Remplacer les donnees simulees et les actions locales par des appels backend
@@ -598,101 +599,12 @@ const Payments = ({ showToast }) => {
       </div>
 
       {/* Graphiques */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <CardTitle>{t('payments.evolution_chart')}</CardTitle>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">{t('payments.evolution_desc')}</p>
-                </div>
-                <div className="flex space-x-2">
-                  <Button
-                    variant={timeRange === '30j' ? 'primary' : 'secondary'}
-                    size="small"
-                    onClick={() => setTimeRange('30j')}>
-                    30j
-                  </Button>
-                  <Button
-                    variant={timeRange === '90j' ? 'primary' : 'secondary'}
-                    size="small"
-                    onClick={() => setTimeRange('90j')}>
-                    90j
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ChartCard
-                title=""
-                subtitle=""
-                chartConfig={{
-                  type: 'line',
-                  data: chartData.revenueChart,
-                  options: {
-                    responsive: true,
-                    plugins: {
-                      legend: {
-                        position: 'top',
-                      }
-                    }
-                  }
-                }}
-                height="250px"
-              />
-
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Répartition par méthode</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {paymentMethods.map((method) => (
-                  <div key={method.type} className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 dark:bg-gray-800 rounded-lg transition">
-                    <div className="flex items-center">
-                      <MethodIcon method={method.type} className="w-10 h-10 mr-3" />
-                      <div>
-                        <p className="font-medium text-gray-800 dark:text-gray-100">{method.label}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{method.percentage}% ({method.count})</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-800 dark:text-gray-100">{method.amount}</p>
-                      <p className="text-sm text-green-500 flex items-center justify-end">
-                        <TrendingUp className="w-3 h-3 mr-1" />
-                        {method.trend}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* <Card>
-            <CardHeader>
-              <CardTitle>Statut des paiements</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ChartCard
-                title=""
-                subtitle=""
-                chartConfig={{
-                  type: 'doughnut',
-                  data: chartData.statusDistribution
-                }}
-                height="180px"
-              />
-            </CardContent>
-          </Card> */}
-        </div>
-      </div>
+      <PaymentsCharts
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
+        chartData={chartData}
+        paymentMethods={paymentMethods}
+      />
 
       {/* Recherche et filtres */}
       <Card hoverable={false}>
