@@ -51,6 +51,7 @@ import { getMethodBadge, getStatusBadge } from './payments/paymentBadges';
 import PaymentActions from './payments/PaymentActions';
 import MobilePaymentCard from './payments/MobilePaymentCard';
 import PaymentDetailsModal from './payments/PaymentDetailsModal';
+import RefundModal from './payments/RefundModal';
 
 // TODO API (admin/paiements):
 // Remplacer les donnees simulees et les actions locales par des appels backend
@@ -531,28 +532,6 @@ const Payments = ({ showToast }) => {
     { id: 'refunded', label: t('payments.refunded_payments'), icon: RefreshCw }
   ];
 
-  // Modal de remboursement
-  const RefundModal = () => {
-    const payment = modalState.selectedPayment;
-    if (!payment) return null;
-
-    return (
-      <ConfirmModal
-        isOpen={modalState.showRefund}
-        onClose={() => setModalState(prev => ({ ...prev, showRefund: false }))}
-        onConfirm={() => handleRefundPayment(payment.id)}
-        title={t('payments.confirm_refund')}
-        message={t('payments.refund_confirm_msg', { id: payment.id, amount: payment.amount })}
-        type="warning"
-        confirmText={t('payments.refund')}
-        cancelText={t('common.cancel')}
-        loading={modalState.loading}
-        showComment={true}
-        commentLabel={t('payments.refund_reason')}
-        commentPlaceholder={t('payments.refund_reason_placeholder')}
-      />
-    );
-  };
 
   return (
     <div className="space-y-4 md:space-y-6 px-2 md:px-0">
@@ -567,7 +546,13 @@ const Payments = ({ showToast }) => {
           onDownload={handleDownloadInvoice}
           showToast={showToast}
         />
-        <RefundModal />
+        <RefundModal
+          payment={modalState.selectedPayment}
+          isOpen={modalState.showRefund}
+          onClose={() => setModalState(prev => ({ ...prev, showRefund: false }))}
+          onConfirm={handleRefundPayment}
+          loading={modalState.loading}
+        />
         <AnimatePresence>
           {modalState.showPremiumInvoice && (
             <PremiumInvoice
