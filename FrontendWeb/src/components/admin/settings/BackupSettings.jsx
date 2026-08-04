@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Upload, Download, RefreshCw, Database, History, Trash2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Bttn';
-import Modal from '../ui/Modale';
+import Modal from '../ui/Modal';
 import { adminService } from '../../../services/adminService';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';

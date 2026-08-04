@@ -6,7 +6,7 @@ import { fr } from 'date-fns/locale';
 
 import Card, { CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Bttn';
-import Modal from '../ui/Modale';
+import Modal from '../ui/Modal';
 import { apiClient } from '../../../services/apiClient';
 import { useTranslation } from 'react-i18next';
 

@@ -25,7 +25,7 @@ import {
 import { locationService } from '../../../services/locationService';
 import { getFullAssetURL } from '../../../utils/urlHelper';
 import AdminButton from '../ui/Bttn';
-import Modal from '../ui/Modale';
+import Modal from '../ui/Modal';
 import ReservationsLocation from './ReservationsLocation';
 
 const GarageVirtuel = ({ showToast }) => {

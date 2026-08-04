@@ -8,7 +8,7 @@ import {
 import { locationService } from '../../../services/locationService';
 import { getFullAssetURL } from '../../../utils/urlHelper';
 import AdminButton from '../ui/Bttn';
-import Modal from '../ui/Modale';
+import Modal from '../ui/Modal';
 
 const statutColors = {
   EN_ATTENTE: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',

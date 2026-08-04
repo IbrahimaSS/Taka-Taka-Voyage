@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Bttn';
 import Badge from '../ui/Badge';
-import Modal from '../ui/Modale';
+import Modal from '../ui/Modal';
 import guideService from '../../../services/guideService';
 
 const Guides = ({ showToast }) => {

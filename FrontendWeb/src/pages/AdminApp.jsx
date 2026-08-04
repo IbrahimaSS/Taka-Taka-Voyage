@@ -42,7 +42,7 @@ import { apiClient } from '../services/apiClient';
 
 // UI Components
 import Toast from '../components/admin/ui/Toast';
-import Modal from '../components/admin/ui/Modale';
+import Modal from '../components/admin/ui/Modal';
 
 function AdminApp() {
   const { t } = useTranslation();
