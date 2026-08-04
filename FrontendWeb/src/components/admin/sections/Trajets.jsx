@@ -33,9 +33,10 @@ import { useTranslation } from 'react-i18next';
 import { adminService } from '../../../services/adminService';
 import ExportDropdown from '../ui/ExportDropdown';
 import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
-import { getFullAssetURL } from '../../../utils/urlHelper';
 import { mapBackendTripToFrontend } from './trajets/tripMapper';
 import FollowModal from './trajets/FollowModal';
+import { getAvatarUrl, getUserAvatarInitials } from './trajets/tripHelpers';
+import { getStatusBadge, getPaymentBadge } from './trajets/tripBadges';
 
 // TODO API (admin/trajets):
 // Remplacer les donnees simulees et les actions locales par des appels backend
@@ -115,22 +116,6 @@ const Trips = ({ showToast }) => {
 
     fetchData();
   }, []);
-
-  // Helpers pour les avatars
-  const getAvatarUrl = (path) => getFullAssetURL(path);
-
-  const getUserAvatarInitials = (person) => {
-    if (!person) return '?';
-    if (person.firstName || person.lastName) {
-      return `${person.firstName?.charAt(0) || ''}${person.lastName?.charAt(0) || ''}`.toUpperCase() || '?';
-    }
-    if (person.name) {
-      const parts = person.name.split(' ');
-      if (parts.length >= 2) return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
-      return person.name.charAt(0).toUpperCase();
-    }
-    return '?';
-  };
 
   const LocationMarker = () => {
     const [position, setPosition] = useState(null);
@@ -259,55 +244,6 @@ const Trips = ({ showToast }) => {
   }, [filteredTrips, currentPage, pageSize]);
 
   // Fonctions utilitaires
-  const getStatusBadge = (status) => {
-    const config = {
-      completed: { label: t('trips.status.completed'), color: 'emerald', icon: CheckCircle },
-      'in-progress': { label: t('trips.status.in_progress'), color: 'blue', icon: PlayCircle },
-      pending: { label: t('trips.status.pending'), color: 'amber', icon: Clock },
-      cancelled: { label: t('trips.status.cancelled'), color: 'rose', icon: XCircle }
-    };
-
-    const { label, color, icon: Icon } = config[status] || config.pending;
-    return (
-      <Badge className={`bg-${color}-50 text-${color}-700 border border-${color}-200`}>
-        <Icon className="w-3 h-3 mr-1" />
-        {label}
-      </Badge>
-    );
-  };
-
-  const getPaymentBadge = (method) => {
-    const getMethod = (m) => {
-      if (!m) return 'cash';
-      const lower = m.toLowerCase();
-      if (lower.includes('orange')) return 'orange';
-      if (lower.includes('mtn')) return 'mtn';
-      if (lower.includes('wave')) return 'wave';
-      if (lower.includes('carte') || lower.includes('card')) return 'card';
-      if (lower.includes('mobile') || lower.includes('money')) return 'orange'; // Fallback visuel (Orange par défaut)
-      if (lower.includes('portefeuille') || lower.includes('wallet')) return 'card';
-      return 'cash';
-    };
-
-    const m = getMethod(method);
-
-    const config = {
-      'cash': { label: t('payments.cash') || 'Espèces', color: 'emerald', icon: DollarSign },
-      'orange': { label: t('payments.orange_money') || 'Orange Money', color: 'orange', icon: Phone },
-      'mtn': { label: t('payments.mobile_money') || 'MTN Money', color: 'blue', icon: Smartphone },
-      'wave': { label: t('payments.wave') || 'Wave', color: 'purple', icon: Zap },
-      'card': { label: t('payments.card') || 'Carte', color: 'gray', icon: CreditCard },
-    };
-
-    const { label, color, icon: Icon } = config[m] || config.cash;
-    return (
-      <Badge className={`bg-${color}-50 text-${color}-700 border border-${color}-200`} size="sm">
-        <Icon className="w-3 h-3 mr-1" />
-        {label}
-      </Badge>
-    );
-  };
-
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setCurrentPage(1);
@@ -478,7 +414,7 @@ const Trips = ({ showToast }) => {
                 <Badge className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs">
                   {trip.id}
                 </Badge>
-                {getStatusBadge(trip.status)}
+                {getStatusBadge(trip.status, t)}
               </div>
               <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100 group-hover:text-emerald-700 transition-colors">
                 {trip.route}
@@ -619,8 +555,8 @@ const Trips = ({ showToast }) => {
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">{selectedTrip.route}</h2>
                 <div className="flex items-center flex-wrap gap-2">
                   <Badge className="bg-gray-800 text-white">{selectedTrip.id}</Badge>
-                  {getStatusBadge(selectedTrip.status)}
-                  {getPaymentBadge(selectedTrip.paymentMethod)}
+                  {getStatusBadge(selectedTrip.status, t)}
+                  {getPaymentBadge(selectedTrip.paymentMethod, t)}
                   {selectedTrip.starred && (
                     <Badge className="bg-amber-50 text-amber-700 border border-amber-200">
                       <StarIcon className="w-3 h-3 mr-1" />
@@ -1389,12 +1325,12 @@ const Trips = ({ showToast }) => {
                       <div className="flex flex-col">
                         <span className="font-bold text-gray-800 dark:text-gray-100">{trip.amount}</span>
                         <div className="mt-1">
-                          {getPaymentBadge(trip.paymentMethod)}
+                          {getPaymentBadge(trip.paymentMethod, t)}
                         </div>
                       </div>
                     </td>
                     <td className="py-4">
-                      {getStatusBadge(trip.status)}
+                      {getStatusBadge(trip.status, t)}
                       {trip.efficiency > 0 && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{trip.efficiency}% {t('trips.efficiency')}</div>
                       )}
