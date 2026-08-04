@@ -47,6 +47,7 @@ import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters
 import { mapBackendPaymentToFrontend } from './payments/paymentMapper';
 import MethodIcon from './payments/MethodIcon';
 import Avatar from './payments/Avatar';
+import { getMethodBadge, getStatusBadge } from './payments/paymentBadges';
 
 // Composant pour les actions de paiement
 const PaymentActions = ({ payment, onView, onDownload, onRefund, onExport }) => {
@@ -869,42 +870,6 @@ const Payments = ({ showToast }) => {
     }
   };
 
-  // Helper pour afficher le badge de méthode
-  const getMethodBadge = (method) => {
-    const config = {
-      'cash': { label: t('payments.cash'), color: 'green' },
-      'orange': { label: t('payments.orange_money'), color: 'orange' },
-      'mtn': { label: t('payments.mobile_money'), color: 'blue' },
-      'card': { label: t('payments.card'), color: 'gray' },
-    };
-
-    const { label, color } = config[method] || config.cash;
-    return (
-      <Badge className={`text-${color}-500 flex items-center gap-1`}>
-        <MethodIcon method={method} className="w-3 h-3" />
-        {label}
-      </Badge>
-    );
-  };
-
-  // Helper pour afficher le badge de statut
-  const getStatusBadge = (status) => {
-    const config = {
-      'paid': { label: t('history.status.completed'), color: 'green', icon: CheckCircle },
-      'pending': { label: t('history.status.pending'), color: 'yellow', icon: Hourglass },
-      'failed': { label: t('history.status.cancelled'), color: 'red', icon: XCircle },
-      'refunded': { label: t('payments.refunded_payments'), color: 'gray', icon: RefreshCw }
-    };
-
-    const { label, color, icon: Icon } = config[status] || config.pending;
-    return (
-      <Badge className={`text-${color}-500 `}>
-        <Icon className="w-3 h-3 mr-1" />
-        {label}
-      </Badge>
-    );
-  };
-
   // Configuration des tabs
   const tabs = [
     { id: 'all', label: t('history.status.all'), icon: DollarSign },
@@ -934,8 +899,8 @@ const Payments = ({ showToast }) => {
                 {t('payments.reference')}: {payment.reference} • {payment.date} à {payment.time}
               </p>
               <div className="flex items-center mt-2 space-x-2">
-                {getStatusBadge(payment.status)}
-                {getMethodBadge(payment.method)}
+                {getStatusBadge(payment.status, t)}
+                {getMethodBadge(payment.method, t)}
                 {payment.archived && <Badge variant="secondary">{t('payments.archived')}</Badge>}
               </div>
             </div>
@@ -1490,13 +1455,13 @@ const Payments = ({ showToast }) => {
                     </span>
                   </TableCell>
                   <TableCell>
-                    {getMethodBadge(payment.method)}
+                    {getMethodBadge(payment.method, t)}
                   </TableCell>
                   <TableCell>
                     <div className="font-bold text-gray-800 dark:text-gray-100">{payment.amount}</div>
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(payment.status)}
+                    {getStatusBadge(payment.status, t)}
                   </TableCell>
 
                   <TableCell>
