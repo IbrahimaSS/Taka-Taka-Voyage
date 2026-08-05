@@ -28,64 +28,6 @@ import ReportDetailsModal from './reports/ReportDetailsModal';
 import GenerateReportModal from './reports/GenerateReportModal';
 import ScheduleReportModal from './reports/ScheduleReportModal';
 
-// ============= COMPOSANTS INTERNES =============
-
-// ============= DONNÉES ET LOGIQUE =============
-
-// Données de démonstration
-const generateReports = (count = 50) => {
-  const types = ['financial', 'users', 'geographic', 'performance', 'security'];
-  const statuses = ['generated', 'pending', 'failed', 'processing'];
-  const formats = ['pdf', 'csv', 'word'];
-  const authors = ['Admin', 'System', 'Manager', 'Analyst'];
-
-  return Array.from({ length: count }, (_, i) => {
-    const type = types[i % types.length];
-    const status = statuses[i % statuses.length];
-    const format = formats[i % formats.length];
-    const size = Math.floor(Math.random() * 5000) + 1000;
-    const date = new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000);
-
-    const getTitle = () => {
-      const prefixes = {
-        financial: ['Rapport Financier', 'Analyse Revenus', 'Commissions'],
-        users: ['Activité Utilisateurs', 'Nouveaux Inscrits', 'Engagement'],
-        geographic: ['Distribution Géographique', 'Zones Actives', 'Couverture'],
-        performance: ['Performance Plateforme', 'Métriques Clés', 'KPI'],
-        security: ['Audit Sécurité', 'Conformité', 'Vulnérabilités']
-      };
-      return `${prefixes[type][i % 3]} ${date.getMonth() + 1}/${date.getFullYear()}`;
-    };
-
-    const getDescription = () => {
-      const descriptions = {
-        financial: 'Analyse détaillée des revenus, dépenses et commissions',
-        users: "Statistiques d'utilisation et comportement des utilisateurs",
-        geographic: 'Répartition géographique des trajets et demandes',
-        performance: 'Indicateurs de performance et métriques clés',
-        security: 'Rapport d\'audit de sécurité et conformité'
-      };
-      return descriptions[type];
-    };
-
-    return {
-      id: `RPT-${String(i + 1000).padStart(6, '0')}`,
-      title: getTitle(),
-      description: getDescription(),
-      type,
-      status,
-      format,
-      size,
-      author: authors[Math.floor(Math.random() * authors.length)],
-      createdAt: date.toLocaleDateString('fr-FR'),
-      period: `${date.getDate()}/${date.getMonth() + 1} - ${new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000).getDate()}/${new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000).getMonth() + 1}`,
-      lastAccessed: Math.random() > 0.5 ? new Date(date.getTime() + Math.random() * 15 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR') : null,
-      downloadCount: Math.floor(Math.random() * 100),
-      tags: [type, format, status === 'generated' ? 'disponible' : 'en attente']
-    };
-  });
-};
-
 // ============= COMPOSANT PRINCIPAL =============
 
 // TODO API (admin/rapports):
