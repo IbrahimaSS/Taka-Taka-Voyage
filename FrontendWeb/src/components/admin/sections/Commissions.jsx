@@ -27,6 +27,7 @@ import { getFullAssetURL } from '../../../utils/urlHelper';
 import DriverAvatar from './commissions/DriverAvatar';
 import PaymentActions from './commissions/PaymentActions';
 import { formatGNF } from './commissions/commissionHelpers';
+import { renderStatus, renderService, renderPaymentMethod } from './commissions/commissionBadges';
 
 const Commissions = ({ showToast }) => {
   const { t } = useTranslation();
@@ -321,58 +322,6 @@ const Commissions = ({ showToast }) => {
     { id: 'paid', label: t('history.status.completed'), icon: CheckCircle },
   ];
 
-  // Helper pour afficher le statut
-  const renderStatus = (status) => {
-    if (status === 'PAYE') {
-      return (
-        <Badge variant="success">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          {t('history.status.completed')}
-        </Badge>
-      );
-    }
-    // Style doux pour "À payer" — fond clair, texte coloré
-    return (
-      <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
-        <Clock className="w-3 h-3 mr-1" />
-        {t('commissions.to_pay')}
-      </span>
-    );
-  };
-
-  // Helper pour afficher le service
-  const renderService = (service) => {
-    const config = {
-      MOTO: { label: t('commissions.moto_taxi'), color: 'green', icon: Car },
-      TAXI: { label: t('commissions.taxi'), color: 'blue', icon: Car },
-      VOITURE: { label: t('commissions.private_car'), color: 'purple', icon: Car },
-      BUS: { label: t('commissions.bus'), color: 'orange', icon: Car }
-    };
-    const { label, color: c, icon: Icon } = config[service] || config.MOTO;
-    return (
-      <Badge className={`text-${c} bg-${c}-200 dark:bg-gray-900/40`}>
-        <Icon className="w-3 h-3 mr-1" />
-        {label}
-      </Badge>
-    );
-  };
-
-  // Helper pour afficher la méthode de paiement
-  const renderPaymentMethod = (method) => {
-    const config = {
-      ORANGE_MONEY: { label: t('payments.orange_money'), color: 'orange', icon: CreditCard },
-      MTN_MONEY: { label: t('payments.mobile_money'), color: 'yellow', icon: CreditCard },
-      CASH: { label: t('payments.cash'), color: 'gray', icon: DollarSign }
-    };
-    const { label, color: c, icon: Icon } = config[method] || config.ORANGE_MONEY;
-    return (
-      <Badge variant="secondary" className={`bg-${c}-100 text-${c}-800`}>
-        <Icon className="w-3 h-3 mr-1" />
-        {label}
-      </Badge>
-    );
-  };
-
   // Fonction pour rendre le tableau responsive
   const renderResponsiveTable = () => {
     if (loadingList) {
@@ -403,8 +352,8 @@ const Commissions = ({ showToast }) => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {renderStatus(payment.statut)}
-                  {renderService(payment.service)}
+                  {renderStatus(payment.statut, t)}
+                  {renderService(payment.service, t)}
                 </div>
               </div>
 
@@ -423,7 +372,7 @@ const Commissions = ({ showToast }) => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t('payments.method')}</p>
-                  <p className="font-medium text-gray-800 dark:text-gray-100">{renderPaymentMethod(payment.methode)}</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-100">{renderPaymentMethod(payment.methode, t)}</p>
                 </div>
               </div>
 
@@ -485,7 +434,7 @@ const Commissions = ({ showToast }) => {
                 </div>
               </TableCell>
               <TableCell>
-                {renderService(payment.service)}
+                {renderService(payment.service, t)}
               </TableCell>
               <TableCell>
                 <div className="font-semibold text-gray-800 dark:text-gray-100">{formatGNF(payment.montantBrut)}</div>
@@ -497,7 +446,7 @@ const Commissions = ({ showToast }) => {
                 <div className="font-semibold text-green-600 dark:text-green-400">{formatGNF(payment.montantNet)}</div>
               </TableCell>
               <TableCell>
-                {renderStatus(payment.statut)}
+                {renderStatus(payment.statut, t)}
               </TableCell>
 
               <TableCell className="w-24 text-right">
@@ -557,9 +506,9 @@ const Commissions = ({ showToast }) => {
             <>
               {/* En-tête avec statut et infos */}
               <div className="flex flex-wrap gap-3 mb-6">
-                {renderStatus(payment.statut)}
-                {renderService(payment.service)}
-                {renderPaymentMethod(payment.methode)}
+                {renderStatus(payment.statut, t)}
+                {renderService(payment.service, t)}
+                {renderPaymentMethod(payment.methode, t)}
                 <Badge variant="secondary">
                   <Calendar className="w-3 h-3 mr-1" />
                   {formatDetailDate(meta.creeLe || payment.createdAt) || ''}
@@ -605,7 +554,7 @@ const Commissions = ({ showToast }) => {
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 space-y-3">
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-300">{t('payments.method')} :</span>
-                        <span className="font-medium">{renderPaymentMethod(payment.methode)}</span>
+                        <span className="font-medium">{renderPaymentMethod(payment.methode, t)}</span>
                       </div>
                       {paiementInfo.compte && (
                         <div className="flex justify-between">
