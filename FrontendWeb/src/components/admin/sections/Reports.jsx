@@ -1,11 +1,11 @@
 // src/components/sections/Reports.jsx
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Search, Download, Calendar, ChevronDown, Users, DollarSign,
-  MapPin, Activity, Shield, FileText, FileSpreadsheet, FileDown,
-  RefreshCw, Plus, Eye, MoreVertical, AlertCircle, CheckCircle, XCircle, Clock, CalendarDays, Share2, ChevronLeft, Copy, Trash2, PieChart as PieChartIcon, LineChart as LineChartIcon, Car as CarIcon, Bike as BikeIcon, Cloud,
+  Calendar, Users, DollarSign,
+  MapPin, Activity, FileText,
+  RefreshCw, Plus, AlertCircle, Clock, Trash2,
 } from 'lucide-react';
 import StatCard from '../layout/StatCard';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
@@ -15,12 +15,10 @@ import Badge from '../ui/Badge';
 import Tabs from '../ui/Tabs';
 import ConfirmModal from '../ui/ConfirmModal';
 import Pagination from '../ui/Pagination';
-import Modal from '../ui/Modal';
-import ExportDropdown from '../ui/ExportDropdown';
 import { adminService } from '../../../services/adminService';
 import { exportToPDF, exportToCSV, exportToWord } from '../../../utils/exporters';
 import { findNameInObject, getReportSize } from './reports/reportHelpers';
-import { StatusBadge, TypeBadge, FormatBadge } from './reports/reportBadges';
+import { StatusBadge, TypeBadge } from './reports/reportBadges';
 import ReportActions from './reports/ReportActions';
 import MobileReportCard from './reports/MobileReportCard';
 import ReportFilters from './reports/ReportFilters';
@@ -518,9 +516,6 @@ const Reports = ({ showToast }) => {
     { id: 'performance', label: t('reports.driver_performance', 'Performance'), icon: Activity },
     { id: 'schedule', label: t('reports.planning', 'Planification'), icon: Clock }
   ];
-
-  // Modal pour planifier un rapport
-  // Modal pour générer un nouveau rapport
 
   return (
     <div className="space-y-4 md:space-y-6 p-2 ">
