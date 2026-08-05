@@ -315,23 +315,6 @@ const Disputes = ({ showToast }) => {
     }, 1500);
   };
 
-  const handleSelectDispute = (disputeId, checked) => {
-    setSelectedDisputes(prev =>
-      checked
-        ? [...prev, disputeId]
-        : prev.filter(id => id !== disputeId)
-    );
-  };
-
-  const handleSelectAll = (checked) => {
-    if (checked) {
-      setSelectedDisputes(disputes.map(d => d.id));
-    } else {
-      setSelectedDisputes([]);
-    }
-  };
-
-
 
 
   const handleViewDetails = async (dispute) => {
