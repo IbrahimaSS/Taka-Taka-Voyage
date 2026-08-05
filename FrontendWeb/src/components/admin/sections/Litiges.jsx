@@ -1,32 +1,24 @@
 // src/components/sections/Disputes.jsx
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import clsx from 'clsx';
+import { useState, useMemo, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
-  Search, Eye, Check, X, AlertTriangle,
-  Clock, CheckCircle, Hourglass, XCircle,
-  DollarSign, Download, FileText, FileSpreadsheet,
-  User, Car, Calendar, ChevronDown, Trash2,
-  RefreshCw, FileDown, MoreVertical, BarChart3,
-  File, MessageSquare, Tag, Shield, CreditCard, MapPin
+  Check, AlertTriangle,
+  CheckCircle, Hourglass,
+  DollarSign,
+  User, Car,
 } from 'lucide-react';
 import StatCard from '../layout/StatCard';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
-import Table, { TableRow, TableCell } from '../ui/Table';
 import Button from '../ui/Bttn';
-import Badge from '../ui/Badge';
 import Tabs from '../ui/Tabs';
 import ChartCard from '../ui/ChartCard';
 import ConfirmModal from '../ui/ConfirmModal';
 import Pagination from '../ui/Pagination';
-import Modal from '../ui/Modal';
 import ExportDropdown from '../ui/ExportDropdown';
 import { apiClient } from '../../../services/apiClient';
 import { API_ROUTES } from '../../../services/apiRoutes';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../../../context/NotificationContext';
-import { renderStatus, renderPriority, renderType } from './litiges/disputeBadges';
-import TableActions from './litiges/TableActions';
 import DisputesFilterBar from './litiges/DisputesFilterBar';
 import ResponsiveDisputesTable from './litiges/ResponsiveDisputesTable';
 import DisputeDetailsModal from './litiges/DisputeDetailsModal';
@@ -399,10 +391,6 @@ const Disputes = ({ showToast }) => {
     { id: 'comportement', label: t('disputes.behavior', 'Comportement'), icon: User },
     { id: 'accident', label: t('disputes.accident', 'Accident'), icon: AlertTriangle },
   ];
-
-  // Fonction pour rendre le tableau responsive
-
-  // Modal pour les détails du litige
 
   return (
     <div className="space-y-6 p-4 md:p-6">
