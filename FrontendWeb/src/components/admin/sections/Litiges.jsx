@@ -27,6 +27,7 @@ import { API_ROUTES } from '../../../services/apiRoutes';
 import { useNotificationCenter, NOTIFICATION_TYPES, NOTIFICATION_CATEGORIES } from '../../../context/NotificationContext';
 import { renderStatus, renderPriority, renderType } from './litiges/disputeBadges';
 import TableActions from './litiges/TableActions';
+import DisputesFilterBar from './litiges/DisputesFilterBar';
 
 
 // Données de démonstration
@@ -817,71 +818,16 @@ const Disputes = ({ showToast }) => {
       </div>
 
       {/* Filtres et Recherche */}
-      <Card hoverable={false}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="relative lg:col-span-2">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-            <input
-              type="text"
-              placeholder={t('disputes.search_placeholder', 'Rechercher un litige...')}
-              className="w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-sm md:text-base"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          <select
-            className="border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl px-4 py-3 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition text-sm md:text-base"
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-          >
-            <option value="all">{t('common.status', 'Statuts')}</option>
-            <option value="open">{t('disputes.status.open', 'Ouvert')}</option>
-            <option value="in_progress">{t('disputes.in_review', 'En cours')}</option>
-            <option value="resolved">{t('common.resolved', 'Résolu')}</option>
-            <option value="rejected">{t('common.rejected', 'Rejeté')}</option>
-            <option value="pending">{t('trips.status.pending', 'En attente')}</option>
-          </select>
-
-          <select
-            className="border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl px-4 py-3 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition text-sm md:text-base"
-            value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value);
-              setActiveTab('all');
-              setCurrentPage(1);
-            }}
-          >
-            <option value="all">{t('common.categories', 'Types')}</option>
-            <option value="paiement">{t('nav.paiements', 'Paiement')}</option>
-            <option value="comportement">{t('disputes.behavior', 'Comportement')}</option>
-            <option value="trajet">{t('trips.trajet', 'Trajet')}</option>
-            <option value="accident">{t('disputes.accident', 'Accident')}</option>
-            <option value="agression">{t('disputes.agression', 'Agression')}</option>
-            <option value="urgence_medicale">{t('disputes.medical', 'Urgence Médicale')}</option>
-            <option value="danger">{t('disputes.danger', 'Danger')}</option>
-            <option value="autre">{t('common.other', 'Autre')}</option>
-          </select>
-
-          <select
-            className="border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl px-4 py-3 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition text-sm md:text-base"
-            value={priorityFilter}
-            onChange={(e) => {
-              setPriorityFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-          >
-            <option value="all">{t('disputes.priorities', 'Priorités')}</option>
-            <option value="low">{t('disputes.low', 'Basse')}</option>
-            <option value="medium">{t('disputes.medium', 'Moyenne')}</option>
-            <option value="high">{t('disputes.high', 'Haute')}</option>
-            <option value="critical">{t('disputes.critical', 'Critique')}</option>
-          </select>
-        </div>
-      </Card>
+      <DisputesFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        statusFilter={statusFilter}
+        onStatusFilterChange={(value) => { setStatusFilter(value); setCurrentPage(1); }}
+        typeFilter={typeFilter}
+        onTypeFilterChange={(value) => { setTypeFilter(value); setActiveTab('all'); setCurrentPage(1); }}
+        priorityFilter={priorityFilter}
+        onPriorityFilterChange={(value) => { setPriorityFilter(value); setCurrentPage(1); }}
+      />
 
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-x-auto">
