@@ -1,33 +1,19 @@
 // src/components/sections/Commissions.jsx
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import {
-  Search, Filter, Download, CheckCircle, Clock, Percent,
-  HandCoins, ChartPie, UserCheck, DollarSign, Eye,
-  TrendingUp, Calendar, Sliders, Wallet, Plus,
-  ChevronDown, MoreVertical, Trash2, Edit3, FileText,
-  FileSpreadsheet, FileDown, RefreshCw, ChevronRight,
-  XCircle, AlertCircle, BarChart3, Users, Target, CreditCard,
-  Mail, Phone, MapPin, Car, User, File, MessageSquare, Shield, X, Loader2
+  Search, CheckCircle, Clock, Percent,
+  HandCoins, ChartPie, UserCheck, AlertCircle
 } from 'lucide-react';
 import StatCard from '../layout/StatCard';
-import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
-import Table, { TableRow, TableCell } from '../ui/Table';
+import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Bttn';
-import Badge from '../ui/Badge';
 import Tabs from '../ui/Tabs';
-import ChartCard from '../ui/ChartCard';
 import ConfirmModal from '../ui/ConfirmModal';
 import Pagination from '../ui/Pagination';
-import Modal from '../ui/Modal';
 import ExportDropdown from '../ui/ExportDropdown';
 import { adminService } from '../../../services/adminService';
 import { useTranslation } from 'react-i18next';
-import { getFullAssetURL } from '../../../utils/urlHelper';
-import DriverAvatar from './commissions/DriverAvatar';
-import PaymentActions from './commissions/PaymentActions';
-import { formatGNF } from './commissions/commissionHelpers';
-import { renderStatus, renderService, renderPaymentMethod } from './commissions/commissionBadges';
 import CommissionsCharts from './commissions/CommissionsCharts';
 import ResponsiveCommissionsTable from './commissions/ResponsiveCommissionsTable';
 import PaymentDetailsModal from './commissions/PaymentDetailsModal';
