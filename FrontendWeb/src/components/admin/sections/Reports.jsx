@@ -26,6 +26,7 @@ import MobileReportCard from './reports/MobileReportCard';
 import ReportFilters from './reports/ReportFilters';
 import ReportDetailsModal from './reports/ReportDetailsModal';
 import GenerateReportModal from './reports/GenerateReportModal';
+import ScheduleReportModal from './reports/ScheduleReportModal';
 
 // ============= COMPOSANTS INTERNES =============
 
@@ -577,73 +578,6 @@ const Reports = ({ showToast }) => {
   ];
 
   // Modal pour planifier un rapport
-  const renderSchedulingModal = () => (
-    <Modal
-      isOpen={modalState.showSchedule}
-      onClose={() => setModalState(prev => ({ ...prev, showSchedule: false }))}
-      title={t('reports.schedule_report_title', 'Planifier une génération automatique')}
-      size="lg"
-    >
-      <div className="space-y-6 max-h-[70vh] overflow-y-auto p-1 text-gray-800 dark:text-gray-100">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">{t('reports.report_type', 'Type de rapport')}</label>
-            <select
-              value={newSchedule.type}
-              onChange={(e) => setNewSchedule(prev => ({ ...prev, type: e.target.value }))}
-              className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-4 py-3 outline-none"
-            >
-              <option value="FINANCIER">{t('reports.financial', 'Financier')}</option>
-              <option value="UTILISATEURS">{t('nav.utilisateurs', 'Utilisateurs')}</option>
-              <option value="TRAJETS">{t('reports.geographic', 'Trajets')}</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">{t('reports.frequency', 'Fréquence')}</label>
-            <select
-              value={newSchedule.frequency}
-              onChange={(e) => setNewSchedule(prev => ({ ...prev, frequency: e.target.value }))}
-              className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-4 py-3 outline-none"
-            >
-              <option value="daily">{t('reports.daily', 'Quotidien (chaque jour)')}</option>
-              <option value="weekly">{t('reports.weekly', 'Hebdomadaire (chaque lundi)')}</option>
-              <option value="monthly">{t('reports.monthly', 'Mensuel (chaque 1er du mois)')}</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">{t('reports.recipients', 'Destinataires (email)')}</label>
-          <input
-            type="text"
-            placeholder="admin@takataka.com, manager@takataka.com"
-            value={newSchedule.recipients}
-            onChange={(e) => setNewSchedule(prev => ({ ...prev, recipients: e.target.value }))}
-            className="w-full border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg px-4 py-3 outline-none"
-          />
-          <p className="text-xs text-gray-500 mt-1">Séparez les emails par des virgules</p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
-          <Button
-            variant="outline"
-            onClick={() => setModalState(prev => ({ ...prev, showSchedule: false }))}
-          >
-            {t('common.cancel', 'Annuler')}
-          </Button>
-          <Button
-            variant="perso"
-            icon={Clock}
-            onClick={handleSaveSchedule}
-            loading={modalState.loading}
-          >
-            {t('reports.confirm_schedule', 'Confirmer la planification')}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-
   // Modal pour générer un nouveau rapport
 
   return (
@@ -665,7 +599,14 @@ const Reports = ({ showToast }) => {
         onGenerate={handleGenerateReport}
         loading={modalState.loading}
       />
-      {renderSchedulingModal()}
+      <ScheduleReportModal
+        isOpen={modalState.showSchedule}
+        onClose={() => setModalState(prev => ({ ...prev, showSchedule: false }))}
+        newSchedule={newSchedule}
+        setNewSchedule={setNewSchedule}
+        onSave={handleSaveSchedule}
+        loading={modalState.loading}
+      />
 
 
 
