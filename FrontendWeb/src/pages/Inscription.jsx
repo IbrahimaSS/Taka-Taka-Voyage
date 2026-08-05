@@ -347,9 +347,9 @@ const Inscription = () => {
         }
 
         setCurrentStep(4);
-        showToast('Informations sauvegard�es', 'Passez maintenant aux documents du chauffeur', 'success');
+        showToast('Informations sauvegardées', 'Passez maintenant aux documents du chauffeur', 'success');
       } else {
-        showToast('Compte cr�� !', 'Votre compte passager a �t� cr�� avec succ�s', 'success');
+        showToast('Compte créé !', 'Votre compte passager a été créé avec succès', 'success');
         setTimeout(() => {
           navigate('/connexion');
         }, 2000);
