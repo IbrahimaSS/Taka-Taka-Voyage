@@ -43,12 +43,14 @@ const MobilePaymentCard = ({ payment, isSelected, onSelect, onAction }) => {
     <div className={`bg-white dark:bg-gray-800 rounded-xl border ${isSelected ? 'border-green-400 bg-green-50' : 'border-gray-200 dark:border-gray-900'} p-4 mb-3`}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-start space-x-3">
-          <input
-            type="checkbox"
-            className="mt-1 rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-400"
-            checked={isSelected}
-            onChange={(e) => onSelect(payment.id, e.target.checked)}
-          />
+          <label className="flex items-center justify-center w-11 h-11 -m-2.5 shrink-0 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded border-gray-300 dark:border-gray-700 text-green-500 focus:ring-green-400"
+              checked={isSelected}
+              onChange={(e) => onSelect(payment.id, e.target.checked)}
+            />
+          </label>
           <div>
             <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">{payment.id}</h3>
             <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">{payment.passenger.name} → {payment.driver.name}</p>
