@@ -26,12 +26,7 @@ import { useTranslation } from 'react-i18next';
 import { getFullAssetURL } from '../../../utils/urlHelper';
 import DriverAvatar from './commissions/DriverAvatar';
 import PaymentActions from './commissions/PaymentActions';
-
-// Helper pour formater les montants en GNF
-const formatGNF = (value) => {
-  if (value == null || isNaN(value)) return '0 GNF';
-  return Number(value).toLocaleString('fr-FR') + ' GNF';
-};
+import { formatGNF } from './commissions/commissionHelpers';
 
 const Commissions = ({ showToast }) => {
   const { t } = useTranslation();
@@ -525,16 +520,6 @@ const Commissions = ({ showToast }) => {
     if (!modalState.selectedPayment) return null;
     const payment = modalState.selectedPayment;
 
-    const getServiceLabel = (service) => {
-      const config = {
-        MOTO: t('commissions.moto_taxi'),
-        TAXI: t('commissions.taxi'),
-        VOITURE: t('commissions.private_car'),
-        BUS: t('commissions.bus')
-      };
-      return config[service] || service;
-    };
-
     // Données enrichies du backend (via detailsPaiementAdmin)
     const finances = payment.finances || {};
     const meta = payment.meta || {};
@@ -869,17 +854,6 @@ const Commissions = ({ showToast }) => {
         </div>
       </Modal>
     );
-  };
-
-  // Fonction utilitaire pour obtenir le libellé du service
-  const getServiceLabel = (service) => {
-    const config = {
-      MOTO: t('commissions.moto_taxi'),
-      TAXI: t('commissions.taxi'),
-      VOITURE: t('commissions.private_car'),
-      BUS: t('commissions.bus')
-    };
-    return config[service] || service;
   };
 
   // hauteur du graphique responsive
