@@ -1,6 +1,5 @@
 // src/components/profile/components/UserFormModal.jsx
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { User, Mail, Phone, Shield, Key, UserCheck, UserCog, Save } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Bttn';
