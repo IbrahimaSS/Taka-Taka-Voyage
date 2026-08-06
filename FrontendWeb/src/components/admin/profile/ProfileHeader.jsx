@@ -45,16 +45,18 @@ const ProfileHeader = ({
               variant="secondary"
               icon={X}
               onClick={onCancel}
+              disabled={isSaving}
             >
               Annuler
             </Button>
             <Button
               variant="perso"
-
               icon={Save}
               onClick={onSave}
+              loading={isSaving}
+              disabled={isSaving}
             >
-              Sauvegarder
+              {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
             </Button>
           </>
         ) : (
