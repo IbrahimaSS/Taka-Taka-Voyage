@@ -73,7 +73,7 @@ const PurgeLogsModal = ({ isOpen, onClose, purgeDays, onPurgeDaysChange, onPurge
             </button>
             <button
               className="flex-1 py-3 px-4 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-lg shadow-rose-200 dark:shadow-none transition-all"
-              onClick={onPurge}
+              onClick={() => onPurge()}
             >
               Vider maintenant
             </button>
