@@ -1,15 +1,11 @@
 // src/components/profile/UserProfile.jsx
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  User, Users, Shield, Bell, Settings,
-  Activity, BarChart3, TrendingUp, Calendar,
-  Mail, Phone, MapPin
-} from 'lucide-react';
+import { User, Users, Shield, Bell } from 'lucide-react';
 
 // Composants UI
 import Tabs from '../ui/Tabs';
-import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
+import Card from '../ui/Card';
 import Toast from '../ui/Toast';
 
 // Composants Profile
@@ -21,158 +17,53 @@ import NotificationSettings from './NotificationSettings';
 import UserManagement from './UserManagement';
 import UserFormModal from './UserFormModal';
 import ProfileDocumentsCard from './ProfileDocumentsCard';
-
+import ProfileStatsCard from './ProfileStatsCard';
 
 // Hooks
-import { useImageUpload } from '../../../hooks/useImageUpload';
-import { useUserStore } from '../../../data/userStore';
-import { useAuth } from '../../../context/AuthContext';
-import { profileService } from '../../../services/profileService';
-import { adminService } from '../../../services/adminService';
+import { useProfileData } from './useProfileData';
+import { usePersonnelManagement } from './usePersonnelManagement';
 
 const UserProfile = () => {
   // États principaux
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
-  const [showUserForm, setShowUserForm] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
   const [toast, setToast] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [loadingPersonnels, setLoadingPersonnels] = useState(false);
 
-  // Stats dynamiques
-  const [profileStats, setProfileStats] = useState({ actions: 0, validations: 0, notifications: 0 });
-
-  // Gestion de l'avatar
-  const { uploadImage } = useImageUpload(null);
-
-  // Données du profil (globales)
-  const { profile: staticProfile, updateProfile: updateStaticProfile } = useUserStore();
-  const { user, updateUser } = useAuth();
-
-  // Initialiser profileData avec les données réelles ou statiques
-  const [profileData, setProfileData] = useState({
-    name: user?.prenom && user?.nom ? `${user.prenom} ${user.nom}` : (user?.nom || staticProfile?.name || 'Administrateur'),
-    prenom: user?.prenom || '',
-    nom: user?.nom || '',
-    email: user?.email || staticProfile?.email || '',
-    phone: user?.telephone || staticProfile?.phone || '',
-    avatar: user?.avatar || user?.photoUrl || staticProfile?.avatar || null,
-    role: user?.role || staticProfile?.role || 'Administrateur',
-    joinDate: user?.createdAt ? new Date(user.createdAt).toLocaleDateString('fr-FR') : (staticProfile?.joinDate || '01/01/2024')
-  });
-
-  // Mettre à jour quand user change
-  useEffect(() => {
-    if (user) {
-      setProfileData(prev => ({
-        ...prev,
-        name: user.prenom && user.nom ? `${user.prenom} ${user.nom}` : (user.nom || 'Administrateur'),
-        prenom: user.prenom || '',
-        nom: user.nom || '',
-        email: user.email || '',
-        phone: user.telephone || '',
-        avatar: user.avatar || user.photoUrl || null,
-        role: user.role || 'Administrateur',
-      }));
-    }
-  }, [user]);
-
-  // Données des personnels (depuis le backend)
-  const [users, setUsers] = useState([]);
-
-  // Charger les personnels depuis le backend
-  const fetchPersonnels = useCallback(async () => {
-    setLoadingPersonnels(true);
-    try {
-      const response = await adminService.getPersonnels();
-      if (response.data?.succes && response.data?.personnels) {
-        const mappedUsers = response.data.personnels.map(p => ({
-          id: p._id,
-          name: `${p.prenom || ''} ${p.nom || ''}`.trim(),
-          email: p.email || '',
-          phone: p.telephone || '',
-          role: mapRoleLabel(p.role),
-          roleBackend: p.role,
-          status: p.statut === 'ACTIF' ? 'active' : 'inactive',
-          statusBackend: p.statut,
-          joinDate: p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR') : '',
-          permissions: {
-            view: p.permissions?.lecture ?? true,
-            edit: p.permissions?.edition ?? false,
-            create: p.permissions?.creation ?? false,
-            delete: p.permissions?.suppression ?? false,
-            manageUsers: p.permissions?.gestionUtilisateurs ?? false,
-          },
-          photoProfil: p.photoProfil || null,
-        }));
-        setUsers(mappedUsers);
-      }
-    } catch (error) {
-      console.error('Erreur chargement personnels:', error);
-      showToast('Erreur', 'Impossible de charger les personnels', 'error');
-    } finally {
-      setLoadingPersonnels(false);
-    }
+  const showToast = useCallback((title, message, type = 'success') => {
+    setToast({ title, message, type });
+    setTimeout(() => setToast(null), 5000);
   }, []);
 
-  // Charger les statistiques du profil
-  const fetchProfileStats = useCallback(async () => {
-    try {
-      const [dashRes, valRes, docRes] = await Promise.all([
-        adminService.getDashboardStats().catch(() => ({ data: {} })),
-        adminService.getValidationStats().catch(() => ({ data: {} })),
-        adminService.getDocumentStats().catch(() => ({ data: {} }))
-      ]);
-      // Dashboard: data.stats.{trajetsEffectues, trajetsAujourdhui, ...}
-      const dash = dashRes.data?.stats || dashRes.data || {};
-      // Validation: data.stats.{enAttente, ...}
-      const val = valRes.data?.stats || {};
-      // Documents: data.stats.{enAttente, ...}
-      const doc = docRes.data?.stats || {};
+  const {
+    profileData,
+    profileStats,
+    fetchProfileStats,
+    handleProfileChange,
+    handleAvatarChange,
+    handleSaveProfile,
+    handlePasswordChange,
+  } = useProfileData({ showToast, isSaving, setIsSaving });
 
-      setProfileStats({
-        actions: dash.trajetsAujourdhui || dash.trajetsEffectues || 0,
-        validations: (val.enAttente || 0) + (doc.enAttente || 0),
-        notifications: doc.enAttente || 0,
-      });
-    } catch (error) {
-      console.error('Erreur stats:', error);
-    }
-  }, []);
+  const {
+    users,
+    loadingPersonnels,
+    showUserForm,
+    setShowUserForm,
+    editingUser,
+    setEditingUser,
+    fetchPersonnels,
+    handleAddUser,
+    handleEditUser,
+    handleToggleUserStatus,
+    handleDeleteUser,
+  } = usePersonnelManagement({ showToast, setIsSaving });
 
   // Charger au montage
   useEffect(() => {
     fetchPersonnels();
     fetchProfileStats();
   }, [fetchPersonnels, fetchProfileStats]);
-
-  // Mapper les rôles backend → frontend
-  const mapRoleLabel = (role) => {
-    const map = {
-      'ADMIN': 'Administrateur',
-      'SUPERVISEUR': 'Superviseur',
-      'AGENT': 'Agent',
-      'ANALYSTE': 'Analyste',
-    };
-    return map[role] || role;
-  };
-
-  // Mapper les rôles frontend → backend
-  const mapRoleBackend = (role) => {
-    const map = {
-      'admin': 'ADMIN',
-      'supervisor': 'SUPERVISEUR',
-      'agent': 'AGENT',
-      'analyst': 'ANALYSTE',
-      'Administrateur': 'ADMIN',
-      'Superviseur': 'SUPERVISEUR',
-      'Agent': 'AGENT',
-      'Analyste': 'ANALYSTE',
-    };
-    return map[role] || 'AGENT';
-  };
 
   // Tabs
   const tabs = [
@@ -182,228 +73,10 @@ const UserProfile = () => {
     { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
-  // Handlers
-  const showToast = useCallback((title, message, type = 'success') => {
-    setToast({ title, message, type });
-    setTimeout(() => setToast(null), 5000);
-  }, []);
-
-  const handleProfileChange = useCallback((key, value) => {
-    setProfileData(prev => {
-      const next = { ...prev, [key]: value };
-      if (key === 'prenom' || key === 'nom') {
-        next.name = `${next.prenom || ''} ${next.nom || ''}`.trim();
-      }
-      return next;
-    });
-  }, []);
-
-  const handleAvatarChange = useCallback(async (file) => {
-    try {
-      // Prévisualisation locale
-      const previewUrl = await uploadImage(file);
-      setProfileData(prev => ({ ...prev, avatar: previewUrl }));
-      setAvatarFile(file); // Garder le fichier pour l'envoi au serveur
-      showToast('Succès', 'Photo de profil mise à jour (prévisualisation)', 'success');
-    } catch (error) {
-      showToast('Erreur', error.message, 'error');
-    }
-  }, [uploadImage, showToast]);
-
-  const handleSaveProfile = useCallback(async () => {
-    setIsSaving(true);
-    try {
-      let response;
-      const formData = new FormData();
-
-      // Données de base
-      formData.append('nom', profileData.nom || '');
-      formData.append('prenom', profileData.prenom || '');
-      formData.append('email', profileData.email || '');
-      formData.append('telephone', profileData.phone || '');
-
-      if (avatarFile) {
-        formData.append('photoUrl', avatarFile);
-        response = await profileService.admin.updateProfileWithPhoto(formData);
-      } else {
-        response = await profileService.admin.updateProfile({
-          nom: profileData.nom,
-          prenom: profileData.prenom,
-          email: profileData.email,
-          telephone: profileData.phone
-        });
-      }
-
-      if (response.data?.succes) {
-        updateStaticProfile(profileData);
-        if (updateUser) {
-          updateUser(response.data.utilisateur);
-        }
-        showToast('Succès', 'Profil mis à jour avec succès', 'success');
-        setIsEditing(false);
-        setAvatarFile(null); // Reset file
-      } else {
-        showToast('Erreur', response.data?.message || 'Erreur lors de la mise à jour', 'error');
-      }
-    } catch (error) {
-      console.error('Erreur mise à jour profil admin:', error);
-      showToast('Erreur', error.response?.data?.message || 'Erreur lors de la mise à jour', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [profileData, avatarFile, updateStaticProfile, updateUser, showToast]);
-
-  const handlePasswordChange = useCallback(async (passwordData) => {
-    setIsSaving(true);
-    try {
-      const response = await profileService.changePassword('ADMIN', passwordData);
-      if (response.data?.succes) {
-        showToast('Succès', 'Mot de passe mis à jour avec succès', 'success');
-        if (response.data.forceLogout) {
-          // Si le backend demande la déconnexion
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 2000);
-        }
-      } else {
-        showToast('Erreur', response.data?.message || 'Erreur lors du changement de mot de passe', 'error');
-      }
-    } catch (error) {
-      console.error('Erreur changement mot de passe admin:', error);
-      showToast('Erreur', error.response?.data?.message || 'Erreur lors du changement de mot de passe', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [showToast]);
-
-  // ========================
-  // CRUD Personnel (API réelle)
-  // ========================
-
-  const handleAddUser = useCallback(async (userData) => {
-    setIsSaving(true);
-    try {
-      // Extraire nom et prénom depuis le champ name
-      const nameParts = (userData.name || '').trim().split(' ');
-      const prenom = nameParts[0] || '';
-      const nom = nameParts.slice(1).join(' ') || prenom;
-
-      const payload = {
-        nom,
-        prenom,
-        email: userData.email,
-        telephone: userData.phone || '',
-        role: mapRoleBackend(userData.role),
-        permissions: {
-          lecture: userData.permissions?.view ?? true,
-          edition: userData.permissions?.edit ?? false,
-          creation: userData.permissions?.create ?? false,
-          suppression: userData.permissions?.delete ?? false,
-          gestionUtilisateurs: userData.permissions?.manageUsers ?? false,
-        },
-      };
-
-      const response = await adminService.createPersonnel(payload);
-
-      if (response.data?.succes) {
-        showToast('Succès', `Personnel créé avec succès. Mot de passe temporaire : ${response.data.motDePasseTemporaire || '(envoyé par email)'}`, 'success');
-        setShowUserForm(false);
-        setEditingUser(null);
-        // Recharger la liste
-        await fetchPersonnels();
-      } else {
-        showToast('Erreur', response.data?.message || 'Erreur lors de la création', 'error');
-      }
-    } catch (error) {
-      console.error('Erreur création personnel:', error);
-      showToast('Erreur', error.response?.data?.message || 'Erreur lors de la création du personnel', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [showToast, fetchPersonnels]);
-
-  const handleEditUser = useCallback(async (userData) => {
-    if (!editingUser || !editingUser.id) return;
-    setIsSaving(true);
-    try {
-      const nameParts = (userData.name || '').trim().split(' ');
-      const prenom = nameParts[0] || '';
-      const nom = nameParts.slice(1).join(' ') || prenom;
-
-      const payload = {
-        nom,
-        prenom,
-        email: userData.email,
-        telephone: userData.phone || '',
-        role: mapRoleBackend(userData.role),
-        permissions: {
-          lecture: userData.permissions?.view ?? true,
-          edition: userData.permissions?.edit ?? false,
-          creation: userData.permissions?.create ?? false,
-          suppression: userData.permissions?.delete ?? false,
-          gestionUtilisateurs: userData.permissions?.manageUsers ?? false,
-        },
-      };
-
-      const response = await adminService.updatePersonnel(editingUser.id, payload);
-
-      if (response.data?.succes) {
-        showToast('Succès', 'Personnel modifié avec succès', 'success');
-        setShowUserForm(false);
-        setEditingUser(null);
-        await fetchPersonnels();
-      } else {
-        showToast('Erreur', response.data?.message || 'Erreur lors de la modification', 'error');
-      }
-    } catch (error) {
-      console.error('Erreur modification personnel:', error);
-      showToast('Erreur', error.response?.data?.message || 'Erreur lors de la modification du personnel', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [editingUser, showToast, fetchPersonnels]);
-
-  const handleToggleUserStatus = useCallback(async (userId) => {
-    try {
-      const response = await adminService.togglePersonnelStatus(userId);
-
-      if (response.data?.succes) {
-        const newStatut = response.data.statut;
-        showToast(
-          'Succès',
-          `Personnel ${newStatut === 'ACTIF' ? 'débloqué' : 'bloqué'} avec succès`,
-          'success'
-        );
-        // Mettre à jour localement pour réactivité immédiate
-        setUsers(prev => prev.map(u =>
-          u.id === userId
-            ? { ...u, status: newStatut === 'ACTIF' ? 'active' : 'inactive', statusBackend: newStatut }
-            : u
-        ));
-      } else {
-        showToast('Erreur', response.data?.message || 'Erreur lors du changement de statut', 'error');
-      }
-    } catch (error) {
-      console.error('Erreur toggle statut personnel:', error);
-      showToast('Erreur', error.response?.data?.message || 'Erreur lors du changement de statut', 'error');
-    }
-  }, [showToast]);
-
-  const handleDeleteUser = useCallback(async (userId) => {
-    try {
-      const response = await adminService.deletePersonnel(userId);
-
-      if (response.data?.succes) {
-        showToast('Succès', 'Personnel supprimé avec succès', 'success');
-        setUsers(prev => prev.filter(u => u.id !== userId));
-      } else {
-        showToast('Erreur', response.data?.message || 'Erreur lors de la suppression', 'error');
-      }
-    } catch (error) {
-      console.error('Erreur suppression personnel:', error);
-      showToast('Erreur', error.response?.data?.message || 'Erreur lors de la suppression', 'error');
-    }
-  }, [showToast]);
+  const onSaveProfile = async () => {
+    const ok = await handleSaveProfile();
+    if (ok) setIsEditing(false);
+  };
 
   // Rendu du contenu des onglets
   const renderTabContent = () => {
@@ -436,30 +109,7 @@ const UserProfile = () => {
                 />
 
                 <div className="grid grid-cols-1 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Statistiques</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {[
-                          { label: 'Actions aujourd\'hui', value: profileStats.actions, icon: User, color: 'green' },
-                          { label: 'Validations en attente', value: profileStats.validations, icon: Shield, color: 'blue' },
-                          { label: 'Notifications', value: profileStats.notifications, icon: Bell, color: 'purple' },
-                        ].map((stat, idx) => (
-                          <div key={idx} className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-10 h-10 rounded-lg bg-${stat.color}-100 flex items-center justify-center`}>
-                                <stat.icon className={`text-${stat.color}-500`} />
-                              </div>
-                              <span className="text-gray-700 dark:text-gray-200">{stat.label}</span>
-                            </div>
-                            <span className="text-lg font-bold text-gray-800 dark:text-gray-100">{stat.value}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <ProfileStatsCard stats={profileStats} />
                 </div>
               </div>
             </div>
@@ -534,7 +184,7 @@ const UserProfile = () => {
           description={activeTab === 'users' ? "Gérez les profils, permissions et paramètres système" : "Gérez vos informations personnelles et paramètres de compte"}
           isEditing={isEditing}
           onEdit={() => setIsEditing(true)}
-          onSave={handleSaveProfile}
+          onSave={onSaveProfile}
           isSaving={isSaving}
           onCancel={() => setIsEditing(false)}
           showAddButton={activeTab === 'users'}
