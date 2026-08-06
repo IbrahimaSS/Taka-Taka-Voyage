@@ -1,12 +1,10 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Smartphone, Mail, Bell, Globe } from 'lucide-react';
+import { MessageCircle, Smartphone, Mail, Bell } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Switch from '../ui/Switch';
-import Button from '../ui/Bttn';
 
-const NotificationsSettings = ({ settings, updateSetting, updateNestedSetting, showToast }) => {
+const NotificationsSettings = ({ settings, updateSetting }) => {
   const { t } = useTranslation();
   const notificationChannels = [
     {
