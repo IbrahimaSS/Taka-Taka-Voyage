@@ -162,10 +162,29 @@ function AdminApp() {
               © {new Date().getFullYear()} {platform.name || 'TakaTaka'} Admin. {t('common.all_rights_reserved') || 'Tous droits réservés.'}
             </p>
             <div className="flex items-center space-x-6">
-              <a href="#" className="text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-all duration-200 text-sm hover:underline">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  showModal(
+                    <div className="p-6">
+                      <h3>Aide Admin</h3>
+                      <p>Support 24/7...</p>
+                    </div>
+                  );
+                }}
+                className="text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-all duration-200 text-sm hover:underline"
+              >
                 {t('common.help') || 'Aide'}
               </a>
-              <a href="#" className="text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-all duration-200 text-sm hover:underline">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  showToast('Sécurité', 'Fonctionnalité en cours de développement', 'info');
+                }}
+                className="text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-all duration-200 text-sm hover:underline"
+              >
                 {t('common.security') || 'Sécurité'}
               </a>
               <a href="#" className="text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-all duration-200 text-sm hover:underline">
