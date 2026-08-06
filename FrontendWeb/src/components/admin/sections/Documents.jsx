@@ -78,7 +78,7 @@ const Documents = ({ showToast }) => {
       }
     } catch (error) {
       console.error("Erreur chargement documents:", error);
-      toast.error("Erreur lors de la récupération des documents");
+      showToast(t('common.error'), "Erreur lors de la récupération des documents", 'error');
     } finally {
       setLoading(false);
     }
