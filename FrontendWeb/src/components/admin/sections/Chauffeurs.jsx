@@ -1,20 +1,19 @@
 // src/components/sections/Drivers.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Eye, Ban, Check, Phone, Calendar, User, Car, UserCircle, Star, Download, MapPin, CheckCircle, XCircle, Clock, Filter, X, ChevronDown, RefreshCw, Mail } from 'lucide-react';
+import { Search, User, Car } from 'lucide-react';
 import StatCard from '../layout/StatCard';
-import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
+import Card, { CardTitle, CardContent } from '../ui/Card';
 import Button from '../ui/Bttn';
-import Modal from '../ui/Modal';
 import Pagination from '../ui/Pagination';
 import ConfirmModal from '../ui/ConfirmModal';
-import ExportDropdown from '../ui/ExportDropdown';
 import useDriverActions from '../../../hooks/useDriver';
 import { adminService } from '../../../services/adminService';
 import { useTranslation } from 'react-i18next';
-import HistoriqueTrajet from '../../chauffeur/HistoriqueTrajet'; // Import du composant partagé
-
-import { getFullAssetURL } from '../../../utils/urlHelper';
+import DriversFilterBar from './chauffeurs/DriversFilterBar';
+import DriverCard from './chauffeurs/DriverCard';
+import DriverDetailsModal from './chauffeurs/DriverDetailsModal';
+import { formatDate } from './chauffeurs/driverHelpers';
 
 const Drivers = ({ showToast }) => {
   const { t, i18n } = useTranslation();
@@ -110,12 +109,6 @@ const Drivers = ({ showToast }) => {
       { value: 'active', label: t('common.active') || 'Actif' },
       { value: 'inactive', label: t('common.inactive') || 'Inactif' },
       { value: 'suspended', label: t('common.suspended') || 'Suspendu' },
-    ],
-    verification: [
-      { value: 'all', label: t('drivers.all_states') || 'Tous les états' },
-      { value: 'verified', label: t('drivers.status_verified') || 'Vérifié' },
-      { value: 'pending', label: t('drivers.status_pending') || 'En attente' },
-      { value: 'rejected', label: t('drivers.status_rejected') || 'Rejeté' },
     ],
     type: [
       { value: 'all', label: t('drivers.all_types') || 'Tous les types' },
@@ -222,142 +215,6 @@ const Drivers = ({ showToast }) => {
     setSearchTerm('');
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return t('common.not_available') || 'Non disponible';
-    const date = new Date(dateString);
-    return date.toLocaleDateString(i18n.language === 'fr' ? 'fr-FR' : 'en-US', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  // Fonction pour obtenir les initiales
-  const getInitials = (name) => {
-    if (!name) return '??';
-    return name.split(' ').filter(Boolean).map(n => n[0]?.toUpperCase()).join('');
-  };
-
-  const getAvatarUrl = (path) => getFullAssetURL(path);
-
-  // Fonctions pour les badges
-  const getStatusBadge = (statut) => {
-    switch (statut) {
-      case 'ACTIF':
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
-            {t('common.active') || 'Actif'}
-          </span>
-        );
-      case 'INACTIF':
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
-            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1.5"></span>
-            {t('common.inactive') || 'Inactif'}
-          </span>
-        );
-      case 'SUSPENDU':
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700">
-            <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1.5"></span>
-            {t('common.suspended') || 'Suspendu'}
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-700">
-            {statut}
-          </span>
-        );
-    }
-  };
-
-  const getVerificationBadge = (verifie) => {
-    if (verifie) {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          {t('drivers.status_verified') || 'Vérifié'}
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700">
-        <Clock className="w-3 h-3 mr-1" />
-        {t('drivers.status_pending') || 'En attente'}
-      </span>
-    );
-  };
-
-  const getTypeBadge = (type) => {
-    const colors = {
-      'Moto-taxi': 'bg-blue-100 text-blue-800',
-      'Taxi partagé': 'bg-purple-100 text-purple-800',
-      'Voiture privée': 'bg-indigo-100 text-indigo-800',
-    };
-
-    const typeLabel = type === 'Moto-taxi' ? (t('services.moto_taxi') || 'Moto-taxi') :
-      type === 'Taxi partagé' ? (t('services.taxi_partage') || 'Taxi partagé') :
-        type === 'Voiture privée' ? (t('services.voiture_privee') || 'Voiture privée') : type;
-
-    return (
-      <span className={`px-2 py-0.5 text-xs font-medium rounded ${colors[type] || 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100'}`}>
-        {typeLabel}
-      </span>
-    );
-  };
-
-  const getDocBadge = (status) => {
-    switch (status) {
-      case 'VALIDE':
-        return (
-          <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-3 transition-all hover:shadow-sm">
-            <div className="flex items-center justify-center gap-1.5 mb-1">
-              <CheckCircle className="w-4 h-4" />
-              <span className="text-[10px] font-bold tracking-tight">{t('common.status_valid_caps') || 'VALIDE'}</span>
-            </div>
-          </div>
-        );
-      case 'EXPIRE':
-        return (
-          <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border border-orange-100 dark:border-orange-900/30 rounded-lg p-3 transition-all hover:shadow-sm">
-            <div className="flex items-center justify-center gap-1.5 mb-1">
-              <Clock className="w-4 h-4" />
-              <span className="text-[10px] font-bold tracking-tight">{t('common.status_expired_caps') || 'EXPIRÉ'}</span>
-            </div>
-          </div>
-        );
-      case 'VERIFIER':
-        return (
-          <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 rounded-lg p-3 transition-all hover:shadow-sm">
-            <div className="flex items-center justify-center gap-1.5 mb-1">
-              <RefreshCw className="w-4 h-4 animate-spin-slow" />
-              <span className="text-[10px] font-bold tracking-tight">{t('common.status_in_progress_caps') || 'EN COURS'}</span>
-            </div>
-          </div>
-        );
-      case 'REFUSE':
-        return (
-          <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30 rounded-lg p-3 transition-all hover:shadow-sm">
-            <div className="flex items-center justify-center gap-1.5 mb-1">
-              <XCircle className="w-4 h-4" />
-              <span className="text-[10px] font-bold tracking-tight">{t('common.status_refused_caps') || 'REFUSÉ'}</span>
-            </div>
-          </div>
-        );
-      default:
-        return (
-          <div className="bg-gray-50 dark:bg-gray-800/40 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-800/50 rounded-lg p-3">
-            <div className="flex items-center justify-center gap-1.5 mb-1">
-              <Ban className="w-4 h-4" />
-              <span className="text-[10px] font-bold tracking-tight uppercase">{t('common.missing') || 'Manquant'}</span>
-            </div>
-          </div>
-        );
-    }
-  };
-
   // Colonnes d'export (utilisées par <ExportDropdown />)
   const exportColumns = useMemo(() => ([
     { header: t('common.name') || 'Nom', accessor: 'name' },
@@ -374,11 +231,8 @@ const Drivers = ({ showToast }) => {
     { header: t('nav.trajets') || 'Trajets', accessor: 'trips', formatter: (v) => v ?? 0 },
     { header: t('common.note') || 'Note', accessor: 'rating', formatter: (v) => v ?? '-' },
     { header: `${t('drivers.earnings') || 'Gains'} (${t('common.currency_symbol') || 'GNF'})`, accessor: 'earnings', formatter: (v) => (v ?? 0).toLocaleString() },
-    { header: t('common.registration') || 'Inscription', accessor: 'joinDate', formatter: (v) => formatDate(v) },
+    { header: t('common.registration') || 'Inscription', accessor: 'joinDate', formatter: (v) => formatDate(v, i18n.language, t) },
   ]), [t, i18n.language]);
-
-  // Compte des filtres actifs
-  const activeFilterCount = Object.values(selectedFilters).filter(v => v && v !== 'all').length;
 
   return (
     <div className="space-y-4 md:space-y-6 px-2 md:px-0">
@@ -396,160 +250,19 @@ const Drivers = ({ showToast }) => {
       />
 
       {/* Modale de détails du chauffeur */}
-      <Modal
+      <DriverDetailsModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
-        size="lg"
-        title={t('drivers.details_title') || 'Détails du chauffeur'}
-      >
-        {selectedDriver ? (
-          <div className="space-y-6 scroll-m-t-2 overflow-auto h-[70vh] pr-2">
-            {/* En-tête du chauffeur */}
-            <div className="flex items-center space-x-4">
-              <div className={`w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-green-500 to-blue-700 flex items-center justify-center`}>
-                {selectedDriver.photoUrl ? (
-                  <img src={getAvatarUrl(selectedDriver.photoUrl)} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-white text-xl font-bold">
-                    {getInitials(selectedDriver.name || `${selectedDriver.prenom} ${selectedDriver.nom}`)}
-                  </span>
-                )}
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                  {selectedDriver.name || `${selectedDriver.prenom} ${selectedDriver.nom}`}
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">{selectedDriver.email}</p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {getStatusBadge(selectedDriver.statut)}
-                  {getVerificationBadge(selectedDriver.verifie || selectedDriver.statut === 'ACTIF')}
-                  {getTypeBadge(selectedDriver.type || selectedDriver.typeChauffeur)}
-                </div>
-              </div>
-            </div>
-
-            {/* Informations de contact */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-4 border-t border-gray-200 dark:border-gray-900 ms-8">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.phone') || 'Téléphone'}</p>
-                <p className="font-medium">{selectedDriver.phone || selectedDriver.telephone}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.registration') || 'Inscription'}</p>
-                <p className="font-medium">{formatDate(selectedDriver.joinDate || selectedDriver.inscritLe)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.last_activity') || 'Dernière activité'}</p>
-                <p className="font-medium">{selectedDriver.derniereActivite ? formatDate(selectedDriver.derniereActivite) : (t('common.not_available') || 'Indisponible')}</p>
-              </div>
-            </div>
-
-            {/* Véhicule et note */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('drivers.vehicle') || 'Véhicule'}</p>
-                <p className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">
-                  {selectedDriver.vehicle || selectedDriver.vehicule?.marque}
-                </p>
-                <p className="text-gray-600 dark:text-gray-300">
-                  {selectedDriver.plate || selectedDriver.vehicule?.plaque}
-                </p>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('passengers.average_rating') || 'Note moyenne'}</p>
-                <div className="flex items-center">
-                  <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                  <span className="ml-2 text-2xl font-bold text-gray-800 dark:text-gray-100">
-                    {selectedDriver.rating || selectedDriver.stats?.noteMoyenne || '0'}
-                  </span>
-                  <span className="ml-2 text-gray-500 dark:text-gray-400">/5</span>
-                </div>
-                <p className="text-gray-600 dark:text-gray-300 mt-1">
-                  {selectedDriver.trips || selectedDriver.stats?.nombreTrajets || '0'} {t('drivers.trips_completed_text') || 'trajets effectués'}
-                </p>
-              </div>
-            </div>
-
-            {/* Documents */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-900">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-4">{t('drivers.documents_title') || 'Documents du chauffeur'}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                <div className="text-center">
-                  {getDocBadge(selectedDriver.documents?.permis)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('drivers.license') || 'Permis'}</p>
-                </div>
-                <div className="text-center">
-                  {getDocBadge(selectedDriver.documents?.assurance)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('drivers.insurance') || 'Assurance'}</p>
-                </div>
-                <div className="text-center">
-                  {getDocBadge(selectedDriver.documents?.carteGrise)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('drivers.reg_card') || 'Carte grise'}</p>
-                </div>
-                <div className="text-center">
-                  {getDocBadge(selectedDriver.documents?.identite)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('common.identity') || 'Identité'}</p>
-                </div>
-                <div className="text-center">
-                  {getDocBadge(selectedDriver.documents?.photoVehicule)}
-                  <p className="text-[10px] mt-1.5 font-medium text-gray-500 uppercase tracking-wider">{t('drivers.vehicle_photo') || 'Photo Véhicule'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Revenus */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-900">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('drivers.total_earnings') || 'Revenus totaux'}</p>
-              <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-4 text-center border border-green-100 dark:border-green-900/50">
-                <p className="text-3xl font-bold text-green-700 dark:text-green-400">
-                  {t('common.currency_symbol') || 'GNF'} {(selectedDriver.earnings || selectedDriver.revenus?.totalGagne || 0).toLocaleString()}
-                </p>
-                <p className="text-green-600 dark:text-green-500/80 mt-1">{t('drivers.total_platform_earnings') || 'Total gagné sur la plateforme'}</p>
-              </div>
-            </div>
-
-            {/* Historique des trajets */}
-            <div className="pt-6 border-t border-gray-200 dark:border-gray-900 overflow-hidden">
-              <p className="text-sm font-black text-gray-800 dark:text-gray-100 uppercase tracking-widest mb-4">{t('nav.history') || 'Historique des trajets'}</p>
-              <div className="max-h-[500px] overflow-y-auto px-1 -mx-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800">
-                <HistoriqueTrajet chauffeurId={selectedDriver.userId || selectedDriver.id} />
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-900 flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setIsDetailModalOpen(false)}
-              >
-                {t('common.close') || 'Quitter'}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setIsDetailModalOpen(false);
-                  openStatusModal(selectedDriver, selectedDriver.statut === 'ACTIF' ? 'deactivate' : 'activate');
-                }}
-              >
-                {selectedDriver.statut === 'ACTIF' ? (t('common.deactivate') || 'Désactiver') : (t('common.activate') || 'Activer')}
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => {
-                  setIsDetailModalOpen(false);
-                  openStatusModal(selectedDriver, 'suspend');
-                }}
-              >
-                {t('common.suspend', 'Suspendre')}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-gray-500 dark:text-gray-400">{t('drivers.no_driver_selected') || 'Aucun chauffeur sélectionné'}</p>
-          </div>
-        )}
-      </Modal>
+        driver={selectedDriver}
+        onActivateToggle={(driver) => {
+          setIsDetailModalOpen(false);
+          openStatusModal(driver, driver.statut === 'ACTIF' ? 'deactivate' : 'activate');
+        }}
+        onSuspend={(driver) => {
+          setIsDetailModalOpen(false);
+          openStatusModal(driver, 'suspend');
+        }}
+      />
 
       {/* En-tête */}
       <motion.div
@@ -581,75 +294,18 @@ const Drivers = ({ showToast }) => {
       </div>
 
       {/* En-tête avec stats et actions */}
-      <Card>
-
-        <CardContent>
-          <div className="space-y-4">
-            {/* Barre de recherche */}
-            <div className="grid justify-end grid-cols-1 md:grid-cols-1 gap-4">
-              <div className="relative ">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder={`${t('drivers.search_placeholder') || 'Rechercher par nom, téléphone, email, véhicule'}...`}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:bg-gray-800 dark:border-gray-900 rounded-xl focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition text-base"
-                  value={searchTerm}
-                  onChange={handleSearch}
-                />
-              </div>
-
-            </div>
-            {/* Boutons d'action des filtres */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-2 items-center">
-              <div className='relative w-full'>
-                <select
-                  className="w-full dark:bg-gray-800 lg:w-[200px]  border border-gray-200 dark:border-gray-900 rounded-lg py-3 pr-10  text-sm outline-none focus:border-green-400 transition"
-                  value={selectedFilters.status || 'all'}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                >
-                  {filterOptions.status.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className='relative w-full'>
-                <select
-                  className="border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl py-3 pr-10 w-full  lg:w-[200px] text-sm outline-none focus:border-green-400 transition"
-                  value={selectedFilters.type || 'all'}
-                  onChange={(e) => handleFilterChange('type', e.target.value)}
-                >
-                  {filterOptions.type.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="relative w-full">
-                <ExportDropdown
-                  data={filteredDrivers}
-                  columns={exportColumns}
-                  fileName="chauffeurs_taka_taka"
-                  title={t('drivers.export_title') || 'Liste des chauffeurs - Taka Taka'}
-                  showToast={showToast}
-                  className="w-full sm:w-auto"
-                />
-              </div>
-              <button
-                onClick={clearFilters}
-                className="text-sm text-red-600 hover:text-red-700 flex items-center"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                {t('common.reset_filters') || 'Réinitialiser tous les filtres'}
-              </button>
-            </div>
-
-
-          </div>
-        </CardContent>
-      </Card>
+      <DriversFilterBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        filterOptions={filterOptions}
+        selectedFilters={selectedFilters}
+        onFilterChange={handleFilterChange}
+        exportColumns={exportColumns}
+        filteredDrivers={filteredDrivers}
+        onClearFilters={clearFilters}
+        showToast={showToast}
+        t={t}
+      />
 
       {/* Grille des chauffeurs */}
       {
@@ -682,129 +338,14 @@ const Drivers = ({ showToast }) => {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
               {paginatedDrivers.map((driver) => (
-                <motion.div
+                <DriverCard
                   key={driver.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Card hoverable className="p-6">
-                    <div className="flex items-center justify-between  mb-4">
-                      <div className="flex items-center">
-                        <div className={`w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center mr-4`}>
-                          {driver.photoUrl ? (
-                            <img src={getAvatarUrl(driver.photoUrl)} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-white text-xl font-bold">
-                              {getInitials(driver.name)}
-                            </span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-gray-800 dark:text-gray-100 truncate">{driver.name}</h4>
-                          <div className="flex flex-wrap gap-1.5 mt-1">
-                            {getStatusBadge(driver.statut)}
-                            {getVerificationBadge(driver.statut === 'ACTIF')}
-                            {getTypeBadge(driver.type)}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center">
-                          <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                          <span className="ml-1 font-bold text-gray-800 dark:text-gray-100 text-lg">{driver.rating}</span>
-                        </div>
-                      </div>
-
-                    </div>
-
-                    <div className="mb-4 flex items-center gap-10">
-                      <div className="">
-                        {getTypeBadge(driver.type)}
-                      </div>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">{driver.trips} {t('nav.trajets') || 'trajets'}</p>
-
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-gray-50 dark:bg-gray-900/40 rounded-xl p-3">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('drivers.vehicle') || 'Véhicule'}</p>
-                        <p className="font-medium text-gray-800 dark:text-gray-100 text-sm truncate">{driver.vehicle}</p>
-                      </div>
-                      <div className="bg-gray-50 dark:bg-gray-900/40 rounded-xl p-3">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('drivers.plate') || 'Plaque'}</p>
-                        <p className="font-medium text-gray-800 dark:text-gray-100 text-sm">{driver.plate}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300 mb-4">
-                      <div className="flex items-center truncate">
-                        <Phone className="w-4 h-4 mr-1.5 flex-shrink-0" />
-                        <span className="truncate">{driver.phone}</span>
-                      </div>
-                      <div className="flex items-center flex-shrink-0 ml-2">
-                        <Mail className="w-4 h-4 mr-1.5" />
-                        <span className="truncate text-xs">{driver.email?.split('@')[0]}...</span>
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{t('drivers.total_earnings') || 'Gains totaux'}</p>
-                      <p className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                        <span className='text-gray-800 dark:text-gray-100'>{t('common.currency_symbol') || 'GNF'}</span> {driver.earnings.toLocaleString()}
-                      </p>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {t('common.registered_on') || 'Inscrit le'} {formatDate(driver.joinDate)}
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="secondary"
-                          size="small"
-                          icon={Eye}
-                          onClick={() => handleViewDriver(driver)}
-                          title={t('common.view_details') || 'Voir les détails'}
-                          className="p-2"
-                        />
-
-                        {driver.statut !== 'ACTIF' && (
-                          <Button
-                            variant="secondary"
-                            size="small"
-                            icon={CheckCircle}
-                            onClick={() => openStatusModal(driver, 'activate')}
-                            title={t('common.activate') || 'Activer'}
-                            className="p-2 text-green-600 hover:text-green-700"
-                          />
-                        )}
-
-                        {driver.statut !== 'INACTIF' && (
-                          <Button
-                            variant="secondary"
-                            size="small"
-                            icon={XCircle}
-                            onClick={() => openStatusModal(driver, 'deactivate')}
-                            title={t('common.deactivate') || 'Désactiver'}
-                            className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-700 dark:text-gray-200"
-                          />
-                        )}
-
-                        {driver.statut !== 'SUSPENDU' && (
-                          <Button
-                            variant="secondary"
-                            size="small"
-                            icon={Ban}
-                            onClick={() => openStatusModal(driver, 'suspend')}
-                            title={t('common.suspend', 'Suspendre')}
-                            className="p-2 text-red-600 hover:text-red-700"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
+                  driver={driver}
+                  onView={handleViewDriver}
+                  onActivate={(d) => openStatusModal(d, 'activate')}
+                  onDeactivate={(d) => openStatusModal(d, 'deactivate')}
+                  onSuspend={(d) => openStatusModal(d, 'suspend')}
+                />
               ))}
             </div>
 
