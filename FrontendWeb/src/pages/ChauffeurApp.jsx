@@ -218,7 +218,7 @@ function DriverAppContent() {
             onMenuToggle={() => setMobileSidebarOpen(!mobileSidebarOpen)}
             onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
             sidebarCollapsed={sidebarCollapsed}
-            onToast={showToast}
+            showToast={showToast}
           />
         )}
 

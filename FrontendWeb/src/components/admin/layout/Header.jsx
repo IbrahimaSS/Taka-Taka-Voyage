@@ -55,14 +55,9 @@ export default function Header({
   const TITLES = config.titles;
 
   // Driver context for tracking button
-  let driverContext = null;
-  try {
-    if (role === ROLES.CHAUFFEUR) {
-      driverContext = useDriverContext();
-    }
-  } catch (e) {
-    console.warn("DriverContext not found in Header");
-  }
+  // useDriverContext() ne lance jamais d'erreur hors du Provider (retourne null via useContext),
+  // donc l'appel peut être inconditionnel comme l'exigent les règles des Hooks React.
+  const driverContext = useDriverContext();
 
   const tripInProgress = driverContext?.tripStep === 'in_progress';
 
