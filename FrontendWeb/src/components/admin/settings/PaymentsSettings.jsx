@@ -1,15 +1,13 @@
 // src/components/settings/components/PaymentsSettings.jsx
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { CreditCard, Smartphone, DollarSign, Wallet, Clock, Shield, TrendingUp } from 'lucide-react';
+import { CreditCard, Smartphone, DollarSign, Wallet, Shield, TrendingUp } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Switch from '../ui/Switch';
-import Button from '../ui/Bttn';
 import Badge from '../ui/Badge';
 
 const PaymentsSettings = ({ settings, updateNestedSetting, showToast }) => {
   const { t } = useTranslation();
-  const [showApiKeys, setShowApiKeys] = useState({});
 
   const paymentMethods = [
     {
@@ -41,10 +39,6 @@ const PaymentsSettings = ({ settings, updateNestedSetting, showToast }) => {
       description: t('payments.card_desc')
     }
   ];
-
-  const toggleKeyVisibility = (key) => {
-    setShowApiKeys(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   return (
     <div className="space-y-8">
