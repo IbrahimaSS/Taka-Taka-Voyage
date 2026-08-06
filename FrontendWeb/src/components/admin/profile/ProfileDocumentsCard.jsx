@@ -110,15 +110,15 @@ const ProfileDocumentsCard = ({ showToast }) => {
                                     <div className="flex items-center gap-3">
                                         {getStatusBadge(doc.status)}
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Voir">
+                                            <button className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors" title="Voir">
                                                 <Eye className="w-4 h-4" />
                                             </button>
-                                            <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Télécharger">
+                                            <button className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors" title="Télécharger">
                                                 <Download className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => removeDocument(doc.id)}
-                                                className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                                                className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 transition-colors"
                                                 title="Supprimer"
                                             >
                                                 <Trash2 className="w-4 h-4" />
