@@ -1,6 +1,6 @@
 // src/components/profile/components/SecuritySettings.jsx
 import React, { useState } from 'react';
-import { Shield, Bell, Smartphone, Key, Eye, EyeOff } from 'lucide-react';
+import { Shield, Bell, Key, Eye, EyeOff } from 'lucide-react';
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../ui/Card';
 import Switch from '../ui/Switch';
 import Button from '../ui/Bttn';
