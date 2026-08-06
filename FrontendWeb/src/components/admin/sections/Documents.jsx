@@ -1,26 +1,18 @@
 // src/components/sections/Documents.jsx
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Search, Filter, Upload, Eye, Download, Trash2, Bell, FileCheck,
-  FileX, FileText, IdCard, Car, Shield, Plus, Calendar, AlertTriangle,
-  CheckCircle, Clock, XCircle, User, FileUp, FileWarning, BarChart3,
-  TrendingUp, TrendingDown, RefreshCw, MoreVertical, ChevronRight,
-  CheckSquare, Square, FileDown, Image as ImageIcon, File, ExternalLink,
-  Printer, FileSpreadsheet, FileText as FileWord, Users, Archive, Check
-} from 'lucide-react';
+import { Clock, FileWarning, Users, FileText } from 'lucide-react';
 import StatCard from '../layout/StatCard';
-import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
-import Button from '../ui/Bttn';
-import Modal from '../ui/Modal';
+import Card, { CardContent } from '../ui/Card';
 import Pagination from '../ui/Pagination';
-import Progress from '../ui/Progress';
 import DocumentViewer from '../ui/DocumentViewer';
 import ExportDropdown from '../ui/ExportDropdown';
-import { exportToCSV, exportToPDF, exportToWord } from '../../../utils/exporters';
 import { adminService } from '../../../services/adminService';
 import { useTranslation } from 'react-i18next';
-import { getFullAssetURL } from '../../../utils/urlHelper';
+import { documentTypes, statusTypes } from './documents/documentConstants';
+import DocumentsFilterBar from './documents/DocumentsFilterBar';
+import DriverDocumentsCard from './documents/DriverDocumentsCard';
+import DriverDocumentsModal from './documents/DriverDocumentsModal';
 
 // TODO API (admin/documents):
 // Remplacer les donnees simulees et les validations locales par des appels backend
@@ -35,32 +27,13 @@ const Documents = ({ showToast }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilters, setSelectedFilters] = useState({});
   const [showFilters, setShowFilters] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [viewingDocument, setViewingDocument] = useState(null);
-  const [uploading, setUploading] = useState(false);
 
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
-
-  // Types de documents
-  const documentTypes = [
-    { id: 'PERMIS', label: 'Permis de conduire', icon: IdCard, color: 'blue', required: true },
-    { id: 'IDENTITE', label: "Carte d'identité", icon: User, color: 'purple', required: true },
-    { id: 'CARTE_GRISE', label: 'Carte grise', icon: Car, color: 'green', required: true },
-    { id: 'ASSURANCE', label: 'Assurance', icon: Shield, color: 'orange', required: true },
-    { id: 'PHOTO_VEHICULE', label: 'Photo véhicule', icon: Car, color: 'red', required: true }
-  ];
-
-  // Statuts de documents
-  const statusTypes = [
-    { id: 'VALIDE', label: 'Valide', icon: CheckCircle, color: 'success', bgColor: 'bg-green-50', textColor: 'text-green-700' },
-    { id: 'REFUSE', label: 'Rejeté', icon: FileX, color: 'error', bgColor: 'bg-red-50', textColor: 'text-red-700' },
-    { id: 'VERIFIER', label: 'En attente', icon: Clock, color: 'warning', bgColor: 'bg-yellow-50', textColor: 'text-yellow-700' },
-    { id: 'EXPIRE', label: 'Expiré', icon: XCircle, color: 'error', bgColor: 'bg-red-100', textColor: 'text-red-800' }
-  ];
 
   // Données réelles chargées depuis le backend
   const [statsData, setStatsData] = useState({ documentsTotaux: 0, aVerifier: 0, expirentBientot: 0 });
@@ -314,319 +287,26 @@ const Documents = ({ showToast }) => {
     }
   };
 
-  // Utilitaires
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const getDaysUntilExpiry = (expiryDate) => {
-    if (!expiryDate) return null;
-    const today = new Date();
-    const expiry = new Date(expiryDate);
-    const diffTime = expiry - today;
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
-  const getStatusBadge = (status) => {
-    const statusType = statusTypes.find(s => s.id === status);
-    if (!statusType) return null;
-
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusType.bgColor} ${statusType.textColor}`}>
-        <statusType.icon className="w-3 h-3 mr-1" />
-        {statusType.label}
-      </span>
-    );
-  };
-
-  const getDocumentIcon = (type) => {
-    const docType = documentTypes.find(t => t.id === type);
-    return docType ? docType.icon : FileText;
-  };
-
-  const getTypeColor = (typeId) => {
-    const type = documentTypes.find(t => t.id === typeId);
-    const colorMap = {
-      blue: 'bg-blue-100 text-blue-600',
-      green: 'bg-green-100 text-green-600',
-      red: 'bg-red-100 text-red-600',
-      orange: 'bg-orange-100 text-orange-600',
-      purple: 'bg-purple-100 text-purple-600',
-      teal: 'bg-teal-100 text-teal-600',
-      indigo: 'bg-indigo-100 text-indigo-600',
-      pink: 'bg-pink-100 text-pink-600',
-    };
-    return colorMap[type?.color] || 'bg-gray-100 dark:bg-gray-950 text-gray-600 dark:text-gray-300';
-  };
-
-  // Options de filtre
-  const statusOptions = [
-    { value: 'all', label: 'Tous les statuts' },
-    ...statusTypes.map(status => ({ value: status.id, label: status.label })),
-  ];
-
-  const completenessOptions = [
-    { value: 'all', label: 'Tous' },
-    { value: 'complete', label: 'Profil complet' },
-    { value: 'incomplete', label: 'Profil incomplet' },
-  ];
-
-  // Fonction d'export unifiée
-  const handleExport = (format, data = documents) => {
-    const payload = {
-      data,
-      columns: exportConfig.columns,
-      fileName: exportConfig.fileName,
-      title: exportConfig.title,
-      orientation: exportConfig.orientation,
-      onToast: showToast
-    };
-
-    switch (format) {
-      case 'csv': exportToCSV(payload); break;
-      case 'word': exportToWord(payload); break;
-      case 'pdf': exportToPDF(payload); break;
-      default: break;
-    }
-  };
-
-  const handleDownloadDocument = async (document) => {
-    try {
-      const url = getFullAssetURL(document.fichier || document.fileUrl);
-      window.open(url, '_blank');
-    } catch (error) {
-      showToast(t('common.error'), "Erreur lors du téléchargement", 'error');
-    }
-  };
-
   return (
     <div className="space-y-6">
-      {/* Barre de recherche et filtres */}
-      {selectedDriver && (
-        <Modal
-          isOpen={!!selectedDriver}
-          onClose={() => {
-            setSelectedDriver(null);
-            setSelectedDocuments([]);
-          }}
-          title={`Documents de ${selectedDriver.name}`}
-          size="xl"
-        >
-          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-            {/* En-tête */}
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900 dark:to-blue-900 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4 overflow-hidden shadow-md">
-                    {selectedDriver.photoUrl ? (
-                      <img src={getFullAssetURL(selectedDriver.photoUrl)} className="w-full h-full object-cover" />
-                    ) : selectedDriver.name.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg">{selectedDriver.name}</h3>
-                    <p className="text-gray-600 dark:text-gray-300">{selectedDriver.phone || ''} {selectedDriver.phone && selectedDriver.email ? '•' : ''} {selectedDriver.email || ''}</p>
-                    <div className="flex items-center mt-2">
-                      <div className="w-48 bg-gray-200 dark:bg-gray-800 rounded-full h-2 mr-3">
-                        <div
-                          className="bg-green-500 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${selectedDriver.completeness}%` }}
-                        />
-                      </div>
-                      <span className="font-semibold">{selectedDriver.completeness}% complet</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Documents</p>
-                  <p className="text-2xl font-bold">{selectedDriver.totalDocuments}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions batch */}
-            {selectedDocuments.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-blue-50 border border-blue-200 rounded-lg p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <CheckCircle className="w-5 h-5 text-blue-600 mr-2" />
-                    <span className="font-medium">
-                      {selectedDocuments.length} document(s) sélectionné(s)
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="primary"
-                      size="small"
-                      icon={CheckCircle}
-                      onClick={handleBatchValidate}
-                    >
-                      Valider
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="small"
-                      icon={XCircle}
-                      onClick={handleBatchReject}
-                    >
-                      Rejeter
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      icon={Trash2}
-                      onClick={() => setSelectedDocuments([])}
-                    >
-                      Annuler
-                    </Button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Liste des documents */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold">Tous les documents ({selectedDriver.documents.length})</h4>
-                <button
-                  onClick={handleSelectAllDocuments}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                >
-                  {selectedDocuments.length === selectedDriver.documents.length ? (
-                    <CheckSquare className="w-4 h-4 mr-1" />
-                  ) : (
-                    <Square className="w-4 h-4 mr-1" />
-                  )}
-                  {selectedDocuments.length === selectedDriver.documents.length
-                    ? 'Tout désélectionner'
-                    : 'Tout sélectionner'}
-                </button>
-              </div>
-
-              {selectedDriver.documents.map((doc, index) => {
-                const DocIcon = getDocumentIcon(doc.type);
-                const docType = documentTypes.find(t => t.id === doc.type);
-                const isSelected = selectedDocuments.includes(doc.id);
-
-                return (
-                  <motion.div
-                    key={doc.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className={`border rounded-lg p-4 transition-all duration-200 ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:border-gray-700'
-                      }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => handleSelectDocument(doc.id)}
-                          className={`w-5 h-5 border rounded flex items-center justify-center ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-700'
-                            }`}
-                        >
-                          {isSelected && <Check className="w-3 h-3 text-white" />}
-                        </button>
-                        <div className={`w-10 h-10 rounded-lg ${getTypeColor(doc.type)} flex items-center justify-center`}>
-                          <DocIcon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{docType?.label || doc.type}</p>
-                          <div className="flex items-center space-x-3 text-sm text-gray-500 dark:text-gray-400">
-                            <span>Mis en ligne le {new Date(doc.createdAt).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        {getStatusBadge(doc.statut)}
-
-                        <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="small"
-                            icon={Eye}
-                            onClick={() => setViewingDocument({
-                              id: doc.id,
-                              type: doc.type,
-                              fileName: docType?.label || doc.type,
-                              fileUrl: getFullAssetURL(doc.fichier),
-                              owner: { name: selectedDriver.name },
-                              createdAt: doc.createdAt
-                            })}
-                            title="Visualiser"
-                          />
-                          <a
-                            href={getFullAssetURL(doc.fichier)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 hover:bg-gray-100 rounded-lg transition"
-                            title="Télécharger"
-                          >
-                            <Download className="w-4 h-4 text-gray-500" />
-                          </a>
-
-                          {doc.statut === 'VERIFIER' && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="small"
-                                icon={CheckCircle}
-                                onClick={() => handleValidateDocument(doc.id)}
-                                title="Valider"
-                                className="text-green-600 hover:text-green-700"
-                              />
-                              <Button
-                                variant="ghost"
-                                size="small"
-                                icon={XCircle}
-                                onClick={() => handleRejectDocument(doc.id)}
-                                title="Rejeter"
-                                className="text-red-600 hover:text-red-700"
-                              />
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {/* ExportDropdown dans le modal */}
-            <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold">Exporter les données</h4>
-                <ExportDropdown
-                  data={(selectedDriver.documents || []).map(doc => ({
-                    ...doc,
-                    chauffeur: { nom: selectedDriver.name || selectedDriver.nom || 'Inconnu' }
-                  }))}
-                  columns={exportConfig.columns}
-                  fileName={`documents_${(selectedDriver.name || 'chauffeur').toLowerCase().replace(/\s+/g, '_')}`}
-                  title={`Documents de ${selectedDriver.name}`}
-                  orientation="landscape"
-                  showToast={showToast}
-                  onPrint={() => window.print()}
-                  className="w-auto"
-                />
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Exportez les documents de {selectedDriver.name} en CSV, Word ou PDF
-              </p>
-            </div>
-          </div>
-        </Modal>
-      )}
+      <DriverDocumentsModal
+        driver={selectedDriver}
+        onClose={() => {
+          setSelectedDriver(null);
+          setSelectedDocuments([]);
+        }}
+        selectedDocuments={selectedDocuments}
+        onSelectDocument={handleSelectDocument}
+        onSelectAllDocuments={handleSelectAllDocuments}
+        onBatchValidate={handleBatchValidate}
+        onBatchReject={handleBatchReject}
+        onCancelSelection={() => setSelectedDocuments([])}
+        onViewDocument={setViewingDocument}
+        onValidateDocument={handleValidateDocument}
+        onRejectDocument={handleRejectDocument}
+        exportColumns={exportConfig.columns}
+        showToast={showToast}
+      />
 
       {/* Header avec ExportDropdown */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -668,122 +348,19 @@ const Documents = ({ showToast }) => {
       </div>
 
       {/* Barre de recherche et filtres */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <CardTitle>{t('drivers.search_driver', 'Recherche de chauffeurs')}</CardTitle>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
-                {filteredDrivers.length} {t('drivers.driver_found', 'chauffeur(s) trouvé(s)')}
-              </p>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                icon={Filter}
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                {showFilters ? t('common.hide_filters', 'Masquer filtres') : t('common.filters', 'Filtres')}
-              </Button>
-
-              {(searchTerm || Object.values(selectedFilters).some(v => v && v !== 'all')) && (
-                <Button
-                  variant="ghost"
-                  icon={Trash2}
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSelectedFilters({});
-                  }}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  Effacer
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-              <input
-                type="text"
-                placeholder={t('documents.search_placeholder', 'Rechercher un chauffeur ou un document...')}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-xl focus:border-green-400 focus:ring-2 focus:ring-green-100 outline-none transition"
-                value={searchTerm}
-                onChange={handleSearch}
-              />
-            </div>
-
-            <AnimatePresence>
-              {showFilters && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        Statut des documents
-                      </label>
-                      <select
-                        className="w-full border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400 transition"
-                        value={selectedFilters.status || 'all'}
-                        onChange={(e) => handleFilterChange('status', e.target.value)}
-                      >
-                        {statusOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        Complétude du profil
-                      </label>
-                      <select
-                        className="w-full border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400 transition"
-                        value={selectedFilters.completeness || 'all'}
-                        onChange={(e) => handleFilterChange('completeness', e.target.value)}
-                      >
-                        {completenessOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        Type de document
-                      </label>
-                      <select
-                        className="w-full border border-gray-200 dark:border-gray-900 dark:bg-gray-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400 transition"
-                        value={selectedFilters.type || 'all'}
-                        onChange={(e) => handleFilterChange('type', e.target.value)}
-                      >
-                        <option value="all">Tous les types</option>
-                        {documentTypes.map(type => (
-                          <option key={type.id} value={type.id}>
-                            {type.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </CardContent>
-      </Card>
+      <DocumentsFilterBar
+        filteredCount={filteredDrivers.length}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+        selectedFilters={selectedFilters}
+        onFilterChange={handleFilterChange}
+        onClearFilters={() => {
+          setSearchTerm('');
+          setSelectedFilters({});
+        }}
+      />
 
       {/* Grille des chauffeurs */}
       {loading ? (
@@ -805,75 +382,7 @@ const Documents = ({ showToast }) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <AnimatePresence>
               {paginatedDrivers.map((driver, index) => (
-                <motion.div
-                  key={driver.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card
-                    hoverable
-                    className="h-full  transition-all duration-300 hover:shadow-lg cursor-pointer"
-                    onClick={() => handleViewDriver(driver)}
-                  >
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center">
-                          <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg mr-3 overflow-hidden shadow-sm">
-                            {driver.photoUrl ? (
-                              <img src={getFullAssetURL(driver.photoUrl)} className="w-full h-full object-cover" />
-                            ) : (
-                              driver.name.charAt(0)
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg">{driver.name}</h3>
-                            <p className="text-gray-600 dark:text-gray-300 text-sm">{t('users.driver', 'Chauffeur')}</p>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                      </div>
-
-                      <div className="space-y-4">
-
-                        {/* Statistiques rapides */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="text-center p-3 bg-green-50 rounded-lg">
-                            <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-1" />
-                            <p className="text-2xl font-bold text-gray-800 dark:text-gray-900/90 font-bold ">{driver.validCount}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-800/90 font-bold">{t('common.valid', 'Valides')}</p>
-                          </div>
-                          <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                            <Clock className="w-6 h-6 text-yellow-600 mx-auto mb-1" />
-                            <p className="text-2xl font-bold text-gray-800 dark:text-gray-900/90 font-bold">{driver.pendingCount}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-800/50 font-bold">{t('trips.status.pending', 'En attente')}</p>
-                          </div>
-                        </div>
-
-                        {/* Documents requis manquants */}
-                        {driver.completeness < 100 && (
-                          <div className="mt-4 pt-4 border-t">
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                              {t('documents.missing_required_docs', 'Documents requis manquants:')}
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {driver.manquants.map((label, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-100/80 text-red-700 border border-red-200"
-                                >
-                                  <AlertTriangle className="w-3 h-3 mr-1" />
-                                  {label}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
+                <DriverDocumentsCard key={driver.id} driver={driver} index={index} onSelect={handleViewDriver} />
               ))}
             </AnimatePresence>
           </div>
