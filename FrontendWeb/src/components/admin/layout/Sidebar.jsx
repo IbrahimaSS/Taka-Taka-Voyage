@@ -1,13 +1,14 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Car,
   LogOut,
   ChevronLeft,
   Star,
   User,
 } from 'lucide-react';
 import MenuItem from './MenuItem';
+import SidebarLogo from './sidebar/SidebarLogo';
+import { useNavCounts } from './sidebar/useNavCounts';
 import { cn } from '../../../utils/cn';
 import { useSettings } from '../../../context/SettingsContext';
 import { NAV_CONFIG, ROLES } from '../../../config/navConfig';
@@ -15,8 +16,6 @@ import { useUserStore } from '../../../data/userStore';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { adminService } from '../../../services/adminService';
-import { apiClient } from '../../../services/apiClient';
 import { getFullAssetURL } from '../../../utils/urlHelper';
 
 const Sidebar = ({
@@ -37,61 +36,7 @@ const Sidebar = ({
 
   const config = NAV_CONFIG[role] || NAV_CONFIG[ROLES.ADMIN];
 
-  const [navCounts, setNavCounts] = useState({});
-
-  useEffect(() => {
-    let mounted = true;
-    const fetchDynamicCounts = async () => {
-      if (role !== ROLES.ADMIN) return;
-      try {
-        const [dashRes, passRes, driverRes, valRes, docRes, litRes] = await Promise.all([
-          adminService.getDashboardStats().catch(() => ({ data: {} })),
-          adminService.getPassengerStats().catch(() => ({ data: {} })),
-          adminService.getDriverStats().catch(() => ({ data: {} })),
-          adminService.getValidationStats().catch(() => ({ data: {} })),
-          adminService.getDocumentStats().catch(() => ({ data: {} })),
-          apiClient.get('/admin/litiges/stats').catch(() => ({ data: {} })),
-        ]);
-
-        if (!mounted) return;
-
-        // Dashboard: data.stats.{trajetsEffectues, passagersTotal, ...}
-        const dash = dashRes.data?.stats || dashRes.data || {};
-        // Passenger stats: data.stats.{utilisateursActifs, ...}
-        const pass = passRes.data?.stats || {};
-        // Driver stats: data.stats.{...}
-        const driver = driverRes.data?.stats || {};
-        // Validation stats: data.stats.{enAttente, ...}
-        const val = valRes.data?.stats || {};
-        // Document stats: data.stats.{...}
-        const doc = docRes.data?.stats || {};
-        // Litiges stats: data.cards.{ouverts, enCours, resolus, total}
-        const lit = litRes.data?.cards || litRes.data?.stats || {};
-
-        const totalPassagers = pass.utilisateursActifs || dash.passagersTotal || 0;
-        const totalChauffeurs = driver.totalChauffeurs || driver.chauffeursActifs || dash.chauffeursActifs || dash.chauffeursTotal || 0;
-        const totalTrajets = dash.trajetsEffectues || 0;
-        const validationsEnAttente = val.enAttente || 0;
-        const documentsEnAttente = doc.enAttente || 0;
-        const litigesOuverts = lit.ouverts || lit.total || 0;
-
-        setNavCounts({
-          'trajets': totalTrajets,
-          'utilisateurs': totalPassagers + totalChauffeurs,
-          'utilisateurs_utilisateurs': totalPassagers,
-          'utilisateurs_chauffeurs': totalChauffeurs,
-          'validations': validationsEnAttente + documentsEnAttente,
-          'validations_documents': documentsEnAttente,
-          'validations_validations': validationsEnAttente,
-          'litiges': litigesOuverts,
-        });
-      } catch (err) {
-        console.error('Failed to load nav counts', err);
-      }
-    };
-    fetchDynamicCounts();
-    return () => { mounted = false; };
-  }, [role]);
+  const navCounts = useNavCounts(role);
 
   const menuItems = useMemo(() => {
     return config.menuItems.map(item => {
@@ -113,28 +58,6 @@ const Sidebar = ({
     if (!collapsed) setActiveSubMenu(null);
   };
 
-  const Logo = ({ compact = false }) => (
-    <div className={cn('flex items-center gap-3', compact && 'justify-center')}>
-      <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-secondary-600 shadow-sm overflow-hidden">
-        {platform.logo ? (
-          <img src={platform.logo} alt="Logo" className="w-full h-full object-cover" />
-        ) : (
-          <Car className="h-7 w-7 text-white" />
-        )}
-      </div>
-      {!compact && (
-        <div className="leading-tight min-w-0 flex-1">
-          <div className="text-xl font-bold bg-gradient-to-r from-green-500 to-blue-600 bg-clip-text text-transparent">
-            {platform.name || 'Taka Taka'}
-          </div>
-          <div className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200 uppercase">
-            {t(`nav.${config.title.toLowerCase()}`, config.title)}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <>
       {/* Desktop */}
@@ -148,7 +71,7 @@ const Sidebar = ({
         )}
       >
         <div className="p-5 border-b-[2px] border-gray-200 dark:border-gray-900">
-          <Logo compact={collapsed} />
+          <SidebarLogo compact={collapsed} platform={platform} title={config.title} t={t} />
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin py-4 px-2">
@@ -270,7 +193,7 @@ const Sidebar = ({
             >
               <div className="h-full flex flex-col">
                 <div className="p-5 flex items-center justify-between border-b border-gray-200 dark:border-gray-900">
-                  <Logo />
+                  <SidebarLogo platform={platform} title={config.title} t={t} />
                   <button
                     type="button"
                     onClick={onCloseMobile}
