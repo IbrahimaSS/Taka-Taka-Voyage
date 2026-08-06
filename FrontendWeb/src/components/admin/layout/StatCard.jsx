@@ -1,10 +1,7 @@
 // src/components/layout/StatCard.jsx - DESIGN MODERNE ET FLUIDE
 import React from 'react';
 import { motion } from 'framer-motion';
-import {
-  TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
-  ChevronRight, Sparkles, Activity, Zap, Award, Target
-} from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 
 const StatCard = ({
