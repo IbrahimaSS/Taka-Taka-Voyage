@@ -6,6 +6,7 @@ const Badge = ({
   children,
   variant = 'default',
   size = 'md',
+  dot = false,
   className = '',
   ...props
 }) => {
@@ -23,6 +24,22 @@ const Badge = ({
     admin: 'bg-gradient-to-r from-purple-600 to-purple-700 text-white',
     supervisor: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white',
     agent: 'bg-gradient-to-r from-teal-600 to-teal-700 text-white',
+    slate: 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200',
+  };
+
+  const dotColors = {
+    default: 'bg-gray-500',
+    primary: 'bg-blue-200',
+    secondary: 'bg-teal-200',
+    success: 'bg-green-200',
+    danger: 'bg-red-200',
+    warning: 'bg-amber-200',
+    info: 'bg-blue-100',
+    outline: 'bg-blue-600',
+    admin: 'bg-purple-200',
+    supervisor: 'bg-blue-200',
+    agent: 'bg-teal-200',
+    slate: 'bg-slate-500',
   };
 
   const sizes = {
@@ -36,12 +53,15 @@ const Badge = ({
     <span
       className={clsx(
         baseClasses,
-        variants[variant],
+        variants[variant] || variants.default,
         sizes[size],
         className
       )}
       {...props}
     >
+      {dot && (
+        <span className={clsx('w-1.5 h-1.5 rounded-full mr-1.5', dotColors[variant] || dotColors.default)} />
+      )}
       {children}
     </span>
   );
