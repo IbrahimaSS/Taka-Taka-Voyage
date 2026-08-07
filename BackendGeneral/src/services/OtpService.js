@@ -35,25 +35,39 @@ exports.genererOtp = async ({ telephone, email }) => {
     { upsert: true, new: true }
   );
 
-  await envoyerEmailBrevo({
-    toEmail: email,
-    subject: "Votre code de vérification (OTP)",
-    html: `
-      <div style="font-family:Arial,sans-serif">
-        <h2>Code OTP</h2>
-        <p>Valable ${ttlMin} minutes :</p>
-        <div style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</div>
-      </div>
-    `,
-  });
+  // --- 📧 ENVOI EMAIL BREVO ---
+  let emailOk = false;
+  try {
+    await envoyerEmailBrevo({
+      toEmail: email,
+      subject: "Votre code de vérification (OTP)",
+      html: `
+        <div style="font-family:Arial,sans-serif">
+          <h2>Code OTP</h2>
+          <p>Valable ${ttlMin} minutes :</p>
+          <div style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</div>
+        </div>
+      `,
+    });
+    emailOk = true;
+  } catch (err) {
+    console.error("❌ Erreur envoi Email OTP :", err.message);
+    // On ne bloque pas ici : le SMS est un canal independant qui peut encore reussir
+  }
 
   // --- 📱 ENVOI SMS AFRICA'S TALKING ---
+  let smsOk = false;
   try {
     const smsMessage = `Code TAKA-TAKA : ${code}. Valable ${ttlMin} minutes. Ne le partagez jamais.`;
     await sendSMS(telephone, smsMessage);
+    smsOk = true;
   } catch (err) {
     console.error("❌ Erreur envoi SMS OTP :", err.message);
     // On ne bloque pas si le SMS échoue mais l'email a réussi
+  }
+
+  if (!emailOk && !smsOk) {
+    throw new Error("Impossible d'envoyer le code de vérification pour le moment (email et SMS indisponibles). Réessayez plus tard.");
   }
 
   return true;
