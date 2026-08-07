@@ -1,7 +1,7 @@
 // src/components/layout/StatCard.jsx - DESIGN MODERNE ET FLUIDE
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
 import clsx from 'clsx';
 
 const StatCard = ({
@@ -13,8 +13,22 @@ const StatCard = ({
   animated = true,
   compact = false,
   highlight = false,
-  sparkle = false
+  sparkle = false,
+  trend,
+  percentage,
+  progress,
+  description,
+  subtitle
 }) => {
+  const caption = description || subtitle;
+  const hasProgress = typeof progress === 'number';
+  const hasTrend = typeof percentage === 'number' && percentage > 0;
+  const TrendIcon = trend === 'down' ? TrendingDown : trend === 'up' ? TrendingUp : null;
+  const trendColor = trend === 'down'
+    ? 'text-rose-600 dark:text-rose-400'
+    : trend === 'up'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-gray-500 dark:text-gray-400';
   // Configuration des couleurs
   const colorConfig = {
 
@@ -108,6 +122,36 @@ const StatCard = ({
             <Icon className="w-6 h-6 text-white" />
           </motion.div>
         </div>
+
+        {/* Description / sous-titre */}
+        {caption && (
+          <p className={clsx(
+            'text-xs text-gray-500 dark:text-gray-400 line-clamp-1',
+            (hasProgress || hasTrend) ? 'mb-3' : ''
+          )}>
+            {caption}
+          </p>
+        )}
+
+        {/* Barre de progression */}
+        {hasProgress && (
+          <div className={clsx('h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden', hasTrend ? 'mb-2' : '')}>
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+              className={clsx('h-full rounded-full bg-gradient-to-r', config.progress)}
+            />
+          </div>
+        )}
+
+        {/* Tendance et pourcentage */}
+        {hasTrend && (
+          <div className={clsx('flex items-center gap-1 text-xs font-semibold', trendColor)}>
+            {TrendIcon && <TrendIcon className="w-3.5 h-3.5" />}
+            <span>{percentage}%</span>
+          </div>
+        )}
 
 
 
