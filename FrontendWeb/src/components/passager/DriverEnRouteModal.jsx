@@ -14,9 +14,9 @@ const DriverEnRouteModal = ({ driver, onTrack, onContact, status, tripDetails })
             initial={{ x: 100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 100, opacity: 0 }}
-            className="fixed bottom-24 right-4 z-[9999] pointer-events-none flex justify-end"
+            className="fixed bottom-24 md:bottom-6 right-3 sm:right-4 z-[9999] pointer-events-none flex justify-end"
         >
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border-l-4 border-green-500 p-4 w-80 max-w-[calc(100vw-2rem)] pointer-events-auto backdrop-blur-xl">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border-l-4 border-green-500 p-4 w-80 max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-2rem)] pointer-events-auto backdrop-blur-xl">
                 <div className="flex items-center space-x-4">
                     {/* Photo Chauffeur */}
                     <div className="relative">

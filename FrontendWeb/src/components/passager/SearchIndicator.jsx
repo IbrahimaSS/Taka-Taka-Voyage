@@ -58,13 +58,13 @@ const SearchIndicator = ({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed bottom-6 left-0 right-0 z-[9998] px-4 pointer-events-none flex justify-center"
+        className="fixed bottom-20 md:bottom-6 left-0 right-0 z-[9998] px-3 sm:px-4 pointer-events-none flex justify-center"
       >
         <div className="w-full max-w-lg pointer-events-auto">
           {/* CAS 1: RECHERCHE EN COURS */}
           {isSearching && (
             <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative p-3 sm:p-4">
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gray-100 dark:bg-gray-800 overflow-hidden">
                   <motion.div
                     className="h-full bg-gradient-to-r from-green-500 via-blue-500 to-green-500"
@@ -74,15 +74,15 @@ const SearchIndicator = ({
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="relative">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                    <div className="relative shrink-0">
                       <motion.div
                         animate={{ scale: [1, 1.1, 1] }}
                         transition={{ duration: 1.5, repeat: Infinity }}
-                        className="w-14 h-14 rounded-full bg-gradient-to-r from-green-500 to-blue-600 flex items-center justify-center"
+                        className="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-green-500 to-blue-600 flex items-center justify-center"
                       >
-                        <Loader className="w-6 h-6 text-white animate-spin" />
+                        <Loader className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                       </motion.div>
                       <motion.div
                         animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
@@ -91,9 +91,9 @@ const SearchIndicator = ({
                       />
                     </div>
 
-                    <div>
-                      <h4 className="font-bold text-gray-900 dark:text-gray-100">Recherche en cours...</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Recherche du meilleur chauffeur</p>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-gray-900 dark:text-gray-100 truncate">Recherche en cours...</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">Recherche du meilleur chauffeur</p>
                     </div>
                   </div>
 
@@ -108,9 +108,9 @@ const SearchIndicator = ({
 
                 {tripDetails && (
                   <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-                    <span className="truncate max-w-[200px]">{tripDetails.pickup}</span>
-                    <span className="mx-2">→</span>
-                    <span className="truncate max-w-[200px]">{tripDetails.destination}</span>
+                    <span className="truncate min-w-0 flex-1">{tripDetails.pickup}</span>
+                    <span className="mx-2 shrink-0">→</span>
+                    <span className="truncate min-w-0 flex-1 text-right">{tripDetails.destination}</span>
                   </div>
                 )}
               </motion.div>

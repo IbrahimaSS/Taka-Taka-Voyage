@@ -82,25 +82,25 @@ const DriverDetailCard = ({ driver, onContact, onCancel, onTrack }) => {
 
           {/* Infos Chauffeur */}
           <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">{driver.name}</h2>
+            <div className="flex justify-between items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight truncate">{driver.name}</h2>
                 <div className="flex items-center mt-1">
-                  <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 mr-1" />
+                  <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 mr-1 shrink-0" />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{driver.rating || "5.0"}</span>
                   <span className="text-xs text-gray-500 ml-1">({driver.tripsCount || "100+"})</span>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <p className="text-sm font-bold text-green-600 dark:text-green-400">{driver.eta || "Proche"}</p>
                 <p className="text-xs text-gray-500">{driver.distance}</p>
               </div>
             </div>
 
             <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-0.5">
-              <div className="flex items-center">
-                <Car className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
-                <span className="truncate">{driver.vehicle?.brand} {driver.vehicle?.model} • {driver.vehicle?.plate}</span>
+              <div className="flex items-center min-w-0">
+                <Car className="w-3.5 h-3.5 mr-1.5 text-gray-400 shrink-0" />
+                <span className="truncate min-w-0">{driver.vehicle?.brand} {driver.vehicle?.model} • {driver.vehicle?.plate}</span>
               </div>
               {(driver.phone || driver.email) && (
                 <div className="flex items-center text-xs text-gray-500 pt-1">
@@ -115,7 +115,7 @@ const DriverDetailCard = ({ driver, onContact, onCancel, onTrack }) => {
         <div className="grid grid-cols-5 gap-3 mt-4">
           <button
             onClick={onContact}
-            className="col-span-4 bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-xl font-bold text-base flex items-center justify-center shadow-lg shadow-green-500/20 active:scale-95 transition-all"
+            className="col-span-4 bg-green-500 hover:bg-green-600 text-white min-h-[44px] py-2.5 rounded-xl font-bold text-base flex items-center justify-center shadow-lg shadow-green-500/20 active:scale-95 transition-all"
           >
             <Phone className="w-4 h-4 mr-2" />
             Appeler
@@ -123,7 +123,7 @@ const DriverDetailCard = ({ driver, onContact, onCancel, onTrack }) => {
 
           <button
             onClick={onTrack}
-            className="col-span-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-gray-700 dark:text-gray-300 rounded-xl flex items-center justify-center transition-colors"
+            className="col-span-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 text-gray-700 dark:text-gray-300 rounded-xl min-h-[44px] flex items-center justify-center transition-colors"
             title="Voir sur la carte"
           >
             <Navigation className="w-5 h-5" />
