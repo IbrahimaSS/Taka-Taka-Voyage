@@ -132,6 +132,7 @@ export const useTripLifecycle = ({ user, passenger, addNotification, userLocatio
           driver: r.chauffeur,
           price: r.prix,
           vehicleType: r.typeVehicule,
+          typeCourse: r.typeCourse,
           paymentMethod: r.paiement?.methode || "CASH",
           payment: r.paiement,
           momentPaiement: r.momentPaiement,
