@@ -26,15 +26,16 @@ const DesktopPlusMenu = ({ activeTab, onTabChange, badges }) => {
     <div ref={menuRef} className="relative">
       <button
         onClick={() => setIsOpen((v) => !v)}
-        className={`relative px-3 xl:px-5 py-3 text-sm font-medium rounded-lg transition-colors flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${isActive || isOpen ? 'text-green-600 dark:text-green-500 bg-white dark:bg-gray-800 shadow-sm' : 'text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+        title={t('nav.more', 'Plus')}
+        className={`relative shrink-0 px-2.5 xl:px-5 py-3 text-sm font-medium rounded-lg transition-colors flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${isActive || isOpen ? 'text-green-600 dark:text-green-500 bg-white dark:bg-gray-800 shadow-sm' : 'text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'
           }`}
       >
-        <span className="relative mr-2">
+        <span className="relative xl:mr-2">
           <MoreHorizontal className="w-4 h-4" />
           <NavBadgeDot count={badges.secondaryTotal} className="-top-1.5 -right-1.5" />
         </span>
-        {t('nav.more', 'Plus')}
-        <ChevronDown className={`w-3.5 h-3.5 ml-1.5 opacity-50 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <span className="hidden xl:inline">{t('nav.more', 'Plus')}</span>
+        <ChevronDown className={`hidden xl:block w-3.5 h-3.5 ml-1.5 opacity-50 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence>

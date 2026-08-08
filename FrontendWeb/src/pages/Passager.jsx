@@ -27,6 +27,9 @@ const Passenger = () => {
   const { passenger: user, isLoadingProfile } = usePassenger();
 
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
+  // Réduit par défaut sur tablette ; l'utilisateur peut l'agrandir via le bouton du rail.
+  // Levé jusqu'ici pour que le décalage du contenu (pl-*) suive exactement la largeur du rail.
+  const [tabletSidebarCollapsed, setTabletSidebarCollapsed] = useState(true);
 
   // Notifications temps réel plateforme (maintenance, services) et promotions
   usePlatformNotifications();
@@ -119,11 +122,13 @@ const Passenger = () => {
           onTabChange={handleTabChange}
           isTripInProgress={isTripInProgress}
           onNavigateToTracking={handleNavigateToTracking}
+          tabletSidebarCollapsed={tabletSidebarCollapsed}
+          onToggleTabletSidebar={() => setTabletSidebarCollapsed((v) => !v)}
         />
 
-        {/* Décalage réservé à la sidebar tablette (icônes, md-to-lg) + marge basse pour ne pas
-            passer sous la bottom bar flottante mobile */}
-        <div className="md:pl-[72px] lg:pl-0 pb-24 md:pb-0">
+        {/* Décalage réservé à la sidebar tablette (md-to-lg), suit sa largeur réduite/agrandie
+            + marge basse pour ne pas passer sous la bottom bar flottante mobile */}
+        <div className={`${tabletSidebarCollapsed ? 'md:pl-[72px]' : 'md:pl-60'} lg:pl-0 pb-24 md:pb-0 transition-[padding] duration-300`}>
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <AnimatePresence mode="wait">
               <motion.div

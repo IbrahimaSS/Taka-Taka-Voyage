@@ -1,5 +1,5 @@
 import {
-  Home, History, CreditCard, User, Settings as SettingsIcon,
+  Home, History, CreditCard, Settings as SettingsIcon,
   Headphones, Car, Star, Calendar, Users, Wallet as WalletIcon,
 } from 'lucide-react';
 
@@ -18,12 +18,13 @@ export const PRIMARY_TABS = [
     ],
   },
   { id: 'wallet', icon: WalletIcon },
-  { id: 'profile', icon: User },
+  { id: 'planning', icon: Calendar },
 ];
 
+// 'profile' n'est volontairement pas dans cette liste : le Profil se consulte
+// depuis le Menu Profil (avatar), pas comme un onglet de navigation classique.
 export const SECONDARY_TABS = [
   { id: 'payments', icon: CreditCard },
-  { id: 'planning', icon: Calendar },
   { id: 'evaluations', icon: Star },
   { id: 'settings', icon: SettingsIcon },
   { id: 'support', icon: Headphones },

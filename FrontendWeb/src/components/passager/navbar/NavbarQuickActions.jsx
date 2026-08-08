@@ -32,11 +32,6 @@ const NavbarQuickActions = ({
         </motion.div>
       )}
 
-      {/* Language Switcher (masqué sur mobile, accessible depuis les Paramètres) */}
-      <div className="hidden sm:block">
-        <LanguageSwitcher />
-      </div>
-
       {/* Theme Toggle */}
       <button
         onClick={onToggleTheme}
@@ -60,16 +55,25 @@ const NavbarQuickActions = ({
         </AnimatePresence>
       </button>
 
-      {/* Wallet Quick Look (Dynamic Balance) */}
+      {/* Wallet Quick Look (Dynamic Balance) - visible sur tablette (espace disponible) et sur
+          grand desktop ; masqué en desktop compact/moyen pour laisser sa place aux onglets.
+          Le solde reste de toute façon consultable en un clic via l'onglet Wallet. */}
       <button
         onClick={onOpenWallet}
-        className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 transition-all shrink-0"
+        className="hidden md:flex lg:hidden 2xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 transition-all shrink-0"
       >
         <Gift className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
         <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
           {walletBalance.toLocaleString()} GNF
         </span>
       </button>
+
+      {/* Sélecteur de langue - visible sur tablette uniquement (assez de place dans le header).
+          Sur desktop il reste volontairement accessible via Menu Profil > Paramètres pour ne
+          pas reprendre la place gagnée par les onglets ; sur mobile via le sheet "Plus". */}
+      <div className="hidden md:block lg:hidden">
+        <LanguageSwitcher />
+      </div>
     </>
   );
 };

@@ -17,7 +17,9 @@ const PassengerNavbar = ({
   activeTab,
   onTabChange,
   isTripInProgress = false,
-  onNavigateToTracking
+  onNavigateToTracking,
+  tabletSidebarCollapsed,
+  onToggleTabletSidebar,
 }) => {
   const { settings } = useSettings();
   const platform = settings?.platform || {};
@@ -49,13 +51,20 @@ const PassengerNavbar = ({
 
               <NotificationsMenu />
 
-              <ProfileMenu />
+              {/* Profile Menu */}
+              <ProfileMenu onTabChange={onTabChange} badges={badges} />
             </div>
           </div>
         </div>
       </nav>
 
-      <TabletSidebar activeTab={activeTab} onTabChange={onTabChange} badges={badges} />
+      <TabletSidebar
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+        badges={badges}
+        collapsed={tabletSidebarCollapsed}
+        onToggleCollapsed={onToggleTabletSidebar}
+      />
 
       <MobileBottomNav
         activeTab={activeTab}

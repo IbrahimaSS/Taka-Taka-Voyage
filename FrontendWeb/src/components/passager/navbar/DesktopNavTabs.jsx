@@ -8,7 +8,12 @@ const DesktopNavTabs = ({ activeTab, onTabChange, badges }) => {
   const { t } = useTranslation();
 
   return (
-    <div className="hidden lg:flex flex-1 items-center justify-center space-x-1 rounded-xl p-1">
+    // En dessous de xl, les onglets passent en icône seule (+ tooltip) pour ne jamais
+    // déborder ; les libellés reviennent à partir de xl quand la largeur le permet.
+    // Pas d'overflow-x-auto ici : sur cet axe, poser overflow-x force le navigateur à
+    // calculer overflow-y comme "auto" aussi (règle CSS des deux axes liés), ce qui
+    // coupait les sous-menus (Historique, Plus) qui s'ouvrent vers le bas.
+    <div className="hidden lg:flex flex-1 min-w-0 items-center justify-center space-x-1 rounded-xl p-1">
       {PRIMARY_TABS.map((tab) => {
         const Icon = tab.icon;
         const hasSubItems = tab.subItems && tab.subItems.length > 0;
@@ -16,10 +21,11 @@ const DesktopNavTabs = ({ activeTab, onTabChange, badges }) => {
         const count = badges.perTab[tab.id];
 
         return (
-          <div key={tab.id} className="relative group">
+          <div key={tab.id} className="relative group shrink-0">
             <button
               onClick={() => !hasSubItems && onTabChange(tab.id)}
-              className={`relative px-3 xl:px-5 py-3 text-sm font-medium rounded-lg transition-colors flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${isActive ? 'text-green-600 dark:text-green-500' : 'text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+              title={t(`nav.${tab.id}`)}
+              className={`relative px-2.5 xl:px-5 py-3 text-sm font-medium rounded-lg transition-colors flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${isActive ? 'text-green-600 dark:text-green-500' : 'text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                 }`}
             >
               {isActive && (
@@ -30,13 +36,13 @@ const DesktopNavTabs = ({ activeTab, onTabChange, badges }) => {
                 />
               )}
               <span className="relative flex items-center">
-                <span className="relative mr-2">
+                <span className="relative xl:mr-2">
                   <Icon className="w-4 h-4" />
                   <NavBadgeDot count={count} className="-top-1.5 -right-1.5" />
                 </span>
-                {t(`nav.${tab.id}`)}
+                <span className="hidden xl:inline">{t(`nav.${tab.id}`)}</span>
                 {hasSubItems && (
-                  <svg className="w-3.5 h-3.5 ml-1.5 opacity-50 group-hover:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="hidden xl:block w-3.5 h-3.5 ml-1.5 opacity-50 group-hover:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 )}
@@ -67,7 +73,7 @@ const DesktopNavTabs = ({ activeTab, onTabChange, badges }) => {
           </div>
         );
       })}
-
+      
       <DesktopPlusMenu activeTab={activeTab} onTabChange={onTabChange} badges={badges} />
     </div>
   );

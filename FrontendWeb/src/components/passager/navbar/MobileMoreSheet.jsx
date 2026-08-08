@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, Globe } from 'lucide-react';
 import { SECONDARY_TABS } from './navTabsConfig';
 import NavBadgeDot from './NavBadgeDot';
+import LanguageSwitcher from '../../common/LanguageSwitcher';
 
 const MobileMoreSheet = ({ isOpen, onClose, activeTab, onTabChange, badges }) => {
   const { t } = useTranslation();
@@ -60,6 +61,17 @@ const MobileMoreSheet = ({ isOpen, onClose, activeTab, onTabChange, badges }) =>
                   </button>
                 );
               })}
+            </div>
+
+            {/* Langue (aussi modifiable depuis Paramètres) */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+              <span className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                <Globe className="w-4 h-4 mr-2 opacity-70" />
+                {t('nav.language', 'Langue')}
+              </span>
+              {/* position="top" : cette ligne est collee au bord bas du sheet, une ouverture
+                  vers le bas sortirait de l'ecran / serait coupee */}
+              <LanguageSwitcher position="top" />
             </div>
           </motion.div>
         </>
