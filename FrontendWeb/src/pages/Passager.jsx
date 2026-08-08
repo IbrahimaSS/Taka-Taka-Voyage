@@ -1,200 +1,67 @@
 // Passenger.jsx — VERSION FINALE COMPLETE (searching OK + stop searching on accept)
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { differenceInDays } from 'date-fns';
 import PassengerNavbar from '../components/passager/PassengerNavbar';
-import BookingSection from '../components/passager/BookingSection';
-import TripsHistory from '../components/passager/TripsHistory';
-import Transactions from '../components/passager/Paiement';
-import Profile from '../components/passager/Profile';
-import Wallet from '../components/passager/Wallet';
-import Settings from '../components/passager/Settings';
-import Support from '../components/passager/Support';
 import TripConfirmationModal from '../components/passager/TripConfirmationModal';
-import Evaluations from '../components/passager/Evaluation';
 import TripStatusModal from '../components/passager/TripStatusModal';
-import Planning from '../components/passager/Planning';
-import RentalHistory from '../components/passager/RentalHistory';
+import SearchIndicator from '../components/passager/SearchIndicator';
 import { usePassenger } from '../context/PassengerContext';
 import toast, { Toaster } from 'react-hot-toast';
-import { tripService } from '../services/tripService';
-import socketService from '../services/socketService';
 import { useTranslation } from 'react-i18next';
-
-import {
-  Home,
-  History,
-  CreditCard,
-  User,
-  Settings as SettingsIcon,
-  Headphones,
-  Car,
-  Star,
-  Phone,
-  Navigation,
-  X,
-  Calendar,
-  Users,
-  Wallet as WalletIcon,
-  Gift
-} from 'lucide-react';
-
-import RealTimeTracking from '../components/suivisTrajet/TrajetEnTempReel';
-import TrajetComplete from '../components/suivisTrajet/TrajetComplete';
-import TrajetNote from '../components/suivisTrajet/TrajetNote';
-import SearchIndicator from '../components/passager/SearchIndicator';
-import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
-import usePlatformNotifications from '../hooks/usePlatformNotifications';
 import { useSettings } from '../context/SettingsContext';
+import usePlatformNotifications from '../hooks/usePlatformNotifications';
 import CommunityHub from '../components/community/CommunityHub';
 import CommunityFAB from '../components/community/CommunityFAB';
 
+import {
+  Home, History, CreditCard, User, Settings as SettingsIcon,
+  Headphones, Star, Calendar, Users, Wallet as WalletIcon, Car,
+} from 'lucide-react';
 
-const getStoredUser = () => {
-  try {
-    const raw = localStorage.getItem('user') || localStorage.getItem('authUser');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
+import { usePromoNotifications } from './passager/usePromoNotifications';
+import { useTripStatusFlow } from './passager/useTripStatusFlow';
+import { useTripBooking } from './passager/useTripBooking';
+import PassengerTabContent from './passager/PassengerTabContent';
+import FullScreenTripOverlay from './passager/FullScreenTripOverlay';
+import PassengerFooter from './passager/PassengerFooter';
 
 const Passenger = () => {
   const { t } = useTranslation();
   const { settings } = useSettings();
   const platform = settings?.platform || {};
-  const {
-    passenger: user,
-    currentTrip,
-    setCurrentTrip,
-    tripStatus,
-    setTripStatus,
-    selectedDriver: currentDriver,
-    setSelectedDriver: setCurrentDriver,
-    isLoadingProfile,
-    currentPage: activeTab,
-    setCurrentPage: setActiveTab,
-  } = usePassenger();
+  const { passenger: user, isLoadingProfile } = usePassenger();
 
-  const [showTripModal, setShowTripModal] = useState(false);
-  const [showTripStatusModal, setShowTripStatusModal] = useState(false);
-  const [showTripComplete, setShowTripComplete] = useState(false);
-  const [showTripRating, setShowTripRating] = useState(false);
-
-  // ⚡ Notifications temps réel plateforme (maintenance, services)
-  usePlatformNotifications();
-
-
-
-  const [isOnMapView, setIsOnMapView] = useState(false);
-  const [isOnTrackingView, setIsOnTrackingView] = useState(false);
-
-  const [arrivalSecondsRemaining, setArrivalSecondsRemaining] = useState(null);
   const [isCommunityOpen, setIsCommunityOpen] = useState(false);
-  const arrivalIntervalRef = useRef(null);
-  const searchTimeoutRef = useRef(null);
 
-  // user is now managed by context
+  // Notifications temps réel plateforme (maintenance, services) et promotions
+  usePlatformNotifications();
+  usePromoNotifications();
 
-  const clearTimers = () => {
-    if (arrivalIntervalRef.current) {
-      clearInterval(arrivalIntervalRef.current);
-      arrivalIntervalRef.current = null;
-    }
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-      searchTimeoutRef.current = null;
-    }
-    setArrivalSecondsRemaining(null);
-  };
+  const {
+    currentTrip, setCurrentTrip, tripStatus, setTripStatus, currentDriver, setCurrentDriver,
+    activeTab, setActiveTab,
+    showTripStatusModal, setShowTripStatusModal,
+    showTripComplete, setShowTripComplete,
+    showTripRating, setShowTripRating,
+    isOnMapView, setIsOnMapView, isOnTrackingView, setIsOnTrackingView,
+    arrivalSecondsRemaining,
+    clearTimers, searchTimeoutRef,
+    shouldShowSearchIndicator,
+    handleDriverFound, handleShowOnMap, handleNavigateToTracking,
+    handleViewPlanning, handleBackToMap, handleCancelTrip,
+    handleCompleteTrip, handlePostTripPaymentSuccess,
+    handleRatingComplete, handleRateTrip,
+  } = useTripStatusFlow();
 
-  // ✅ [FIX] Redirection automatique si le statut passe à 'completed' (via socket)
-  useEffect(() => {
-    if (tripStatus === 'completed' && !showTripComplete && !showTripRating) {
-      console.log("🏁 Redirection automatique: Trajet marqué 'completed'");
-      handleCompleteTrip();
-    }
-  }, [tripStatus, showTripComplete, showTripRating]);
-
-  // 🎁 🔔 Écoute des nouveaux Codes Promos en temps réel
-  useEffect(() => {
-    const handleNewPromo = (promo) => {
-      // Calculer le nombre de jours
-      let differenceJours = 0;
-      if (promo.dateExpiration) {
-        differenceJours = differenceInDays(new Date(promo.dateExpiration), new Date());
-      }
-      
-      const expireText = differenceJours > 0 ? `pendant ${differenceJours} jours` : `jusqu'à demain`;
-      const valeurText = promo.typeReduction === 'POURCENTAGE' ? `${promo.valeur}%` : `${promo.valeur} GNF`;
-      toast.custom(
-        (t) => (
-          <div
-            className={`${
-              t.visible ? 'animate-enter' : 'animate-leave'
-            } max-w-sm w-full bg-white dark:bg-gray-800 shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black/5 overflow-hidden border-2 border-primary-100 dark:border-primary-900 absolute bottom-4 left-4`}
-          >
-            <div className="flex-1 w-0 p-4">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 pt-0.5">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-400 to-secondary-500 shadow-inner flex items-center justify-center">
-                    <Gift className="h-5 w-5 text-white" />
-                  </div>
-                </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-sm font-black uppercase tracking-widest text-primary-600 dark:text-primary-400">
-                    Nouvelle Promo !!!
-                  </p>
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 font-medium">
-                    Bénéficiez de <span className="font-bold text-green-600 dark:text-green-400">{valeurText} de réduction</span> sur tous vos trajets {expireText} avec le code :
-                  </p>
-                  <div className="mt-3 text-2xl font-black tracking-[0.2em] text-center text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 py-2.5 rounded-xl">
-                    {promo.code}
-                  </div>
-                </div>
-                <div className="ml-4 flex-shrink-0 flex">
-                  <button
-                    onClick={() => toast.dismiss(t.id)}
-                    className="bg-white dark:bg-gray-800 rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <span className="sr-only">Fermer</span>
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ),
-        { duration: 6000, position: 'bottom-left' }
-      );
-    };
-
-    const handleLocationStatusChange = (data) => {
-        toast.success(data.message, { 
-            duration: 5000, 
-            position: 'top-center',
-            icon: '🚗'
-        });
-    };
-
-    if (socketService.socket) {
-        socketService.on('promo:new', handleNewPromo);
-        socketService.on('location:statut_change', handleLocationStatusChange);
-    }
-    
-    return () => {
-        if (socketService.socket) {
-            socketService.off('promo:new', handleNewPromo);
-            socketService.off('location:statut_change', handleLocationStatusChange);
-        }
-    };
-  }, []);
+  const { showTripModal, setShowTripModal, handleBookTrip, handleConfirmTrip } = useTripBooking({
+    clearTimers, searchTimeoutRef, setShowTripStatusModal,
+  });
 
   const tabs = [
     { id: 'home', label: t('nav.home'), icon: Home },
-    { 
-      id: 'history', 
-      label: t('nav.history'), 
+    {
+      id: 'history',
+      label: t('nav.history'),
       icon: History,
       subItems: [
         { id: 'history_vtc', label: 'Taxi VTC', icon: Car },
@@ -211,253 +78,13 @@ const Passenger = () => {
     { id: 'support', label: t('nav.support'), icon: Headphones },
   ];
 
-  const shouldShowSearchIndicator = useMemo(() => {
-    const rid = currentTrip?.reservationId;
-    const isImmediate = currentTrip?.typeCourse === 'IMMEDIATE';
-    const okStatus = tripStatus === 'searching' || tripStatus === 'driver_found' || tripStatus === 'approaching' || tripStatus === 'arrived';
-    return !!rid && isImmediate && okStatus;
-  }, [currentTrip?.reservationId, currentTrip?.typeCourse, tripStatus]);
-
-  const handleBookTrip = (tripData) => {
-    setCurrentTrip(tripData);
-    setShowTripModal(true);
-  };
-
-  const handleConfirmTrip = async (confirmedTripData, paymentResult = null) => {
-    if (!currentTrip) throw new Error('Aucun trajet à confirmer');
-
-    const momentPaiement = confirmedTripData.paymentTime === 'advance' ? 'MAINTENANT' : 'APRES';
-    const typeCourse = confirmedTripData.tripType === 'now' ? 'IMMEDIATE' : 'PLANIFIEE';
-
-    const paiementRequis = momentPaiement === 'MAINTENANT';
-    if (paiementRequis && !paymentResult?.success) {
-      throw new Error('Paiement requis avant de confirmer la réservation.');
-    }
-
-    const payload = {
-      depart: currentTrip.depart ?? currentTrip.pickup,
-      destination: currentTrip.destination,
-      departLat: currentTrip.departLat ?? currentTrip.pickupCoords?.[0],
-      departLng: currentTrip.departLng ?? currentTrip.pickupCoords?.[1],
-      destinationLat: currentTrip.destinationLat ?? currentTrip.destinationCoords?.[0],
-      destinationLng: currentTrip.destinationLng ?? currentTrip.destinationCoords?.[1],
-      distanceKm: currentTrip.distanceKm,
-      dureeMin: currentTrip.dureeMin,
-      typeVehicule: confirmedTripData.vehicleType || currentTrip.vehicleType || 'taxi',
-      prix: String(confirmedTripData.price ?? currentTrip.estimatedPrice ?? '').replace(/[^0-9]/g, ''),
-      momentPaiement,
-      typeCourse,
-      date: confirmedTripData.scheduleDate, // Requis pour les réservations planifiées
-      heure: confirmedTripData.scheduleTime, // Requis pour les réservations planifiées
-      paymentResult: paiementRequis ? paymentResult : null,
-    };
-
-    const creatingToast = toast.loading('Création de la réservation...');
-    try {
-      const response =
-        typeCourse === 'IMMEDIATE'
-          ? await tripService.create(payload)
-          : await tripService.createPlanned(payload);
-
-      toast.dismiss(creatingToast);
-      toast.success('Réservation créée !');
-
-      const reservationId = response.data?.reservation?._id || response.data?.reservationId;
-
-      setCurrentTrip((prev) => ({
-        ...prev,
-        ...confirmedTripData,
-        ...payload,
-        reservationId,
-        id: reservationId || `TRIP-${Date.now()}`,
-        typeCourse,
-        // ✅ Garder le statut si déjà "driver_found" (via socket)
-        status:
-          prev?.status === 'driver_found'
-            ? 'driver_found'
-            : typeCourse === 'IMMEDIATE'
-              ? 'searching'
-              : 'scheduled',
-        createdAt: prev?.createdAt || new Date().toISOString(),
-      }));
-
-      clearTimers();
-
-      if (typeCourse === 'IMMEDIATE') {
-        // ✅ Ne passer en 'searching' que si on n'a pas déjà trouvé un chauffeur (via socket)
-        if (tripStatus !== 'driver_found' && tripStatus !== 'arrived') {
-          toast.loading("🔍 Recherche d'un chauffeur...", { id: 'searching' });
-          setTripStatus('searching');
-        }
-
-        searchTimeoutRef.current = setTimeout(() => {
-          setTripStatus((prev) => {
-            if (prev === 'searching') {
-              toast.dismiss('searching');
-              toast.error('Aucun chauffeur disponible. Veuillez réessayer.');
-              
-              if (reservationId) {
-                // Appel API pour annuler la réservation et ré-créditer le solde du passager ! 💰
-                tripService.cancelAndRefund(reservationId).then(() => {
-                  toast.success('Remboursement automatique effectué dans votre Portefeuille', { icon: '🔄' });
-                }).catch(err => {
-                  console.error("Erreur annulation/remboursement:", err);
-                });
-              }
-
-              setCurrentTrip(null);
-              setCurrentDriver(null);
-              return 'idle';
-            }
-            return prev;
-          });
-        }, 120000);
-
-        // join room RESERVATION_{id}
-        if (reservationId) {
-          socketService.onceConnected(() => {
-            socketService.emit('reservation:join', { reservationId });
-          });
-        }
-      } else {
-        setTripStatus('scheduled');
-        setShowTripStatusModal(true);
-        toast.success('Course planifiée avec succès !');
-      }
-    } catch (error) {
-      toast.dismiss(creatingToast);
-      toast.dismiss('searching');
-      throw error;
-    }
-  };
-
-  // 🔄 GESTION AUTOMATIQUE DES RÉDIRECTIONS SELON LE STATUT
-  useEffect(() => {
-    // 🚀 Quand le trajet démarre (clic Chauffeur sur Démarrer)
-    if (tripStatus === 'en_route') {
-      setIsOnTrackingView(true);
-      setIsOnMapView(false);
-      setActiveTab('home');
-      // Toast déjà géré dans le contexte ou ici
-      console.log("🚀 [Passager] Basculement automatique en mode suivi plein écran.");
-    }
-    // 🚗 Quand le chauffeur est en approche ou arrivé
-    if (tripStatus === 'approaching' || tripStatus === 'arrived') {
-      setIsOnMapView(true); // Se focaliser sur la carte d'accueil
+  const handleTabChange = (tabId) => {
+    if (tabId !== 'home') {
       setIsOnTrackingView(false);
-    }
-  }, [tripStatus]);
-
-  // ✅ [SYNC URL -> TABS] Support pour la redirection /passager/tickets
-  useEffect(() => {
-    const path = window.location.pathname;
-    if (path.includes('/tickets')) {
-      setActiveTab('profile');
-    }
-  }, [setActiveTab]);
-
-  // Gestion des notifications de statut
-  useEffect(() => {
-    if (currentTrip?.status) {
-      setTripStatus(currentTrip.status);
-    }
-  }, [currentTrip]);
-
-  const handleDriverFound = (driver) => {
-    setCurrentDriver(driver);
-    setTripStatus('driver_found');
-    setCurrentTrip((prev) => ({ ...prev, driver, status: 'driver_found' }));
-    setShowTripStatusModal(true);
-  };
-
-  // ✅ [FIX] Faire disparaître le modal chauffeur après 10s (Demande utilisateur)
-  useEffect(() => {
-    let timer;
-    if (tripStatus === 'driver_found' && showTripStatusModal) {
-      timer = setTimeout(() => {
-        setShowTripStatusModal(false);
-      }, 10000);
-    }
-    return () => clearTimeout(timer);
-  }, [tripStatus, showTripStatusModal]);
-
-  const handleShowOnMap = () => {
-    // Si la course a démarré, on va sur la vue tracking
-    if (tripStatus === 'en_route') {
-      setIsOnTrackingView(true);
       setIsOnMapView(false);
-    } else {
-      // Sinon (approche/arrivée), on reste sur la home avec la carte
-      setIsOnMapView(true);
-      setIsOnTrackingView(false);
     }
-    setShowTripStatusModal(false);
-    setActiveTab('home');
-    toast.success('Suivi du chauffeur activé');
+    setActiveTab(tabId);
   };
-
-  const handleNavigateToTracking = () => {
-    if (tripStatus === 'en_route') {
-      setIsOnTrackingView(true);
-      setIsOnMapView(false);
-      setActiveTab('home');
-      toast.success('Retour au suivi en temps réel');
-    }
-  };
-
-  const hadalOnViewPlanning = () => {
-    setShowTripStatusModal(false);
-    setActiveTab('planning');
-  };
-
-  const handleBackToMap = () => {
-    setIsOnTrackingView(false);
-    setIsOnMapView(true);
-    setActiveTab('home');
-  };
-
-  const handleCancelTrip = async () => {
-    clearTimers();
-    toast.dismiss('searching');
-
-    const reservationId = currentTrip?.reservationId;
-    if (reservationId) {
-      try {
-        if (currentTrip?.typeCourse === 'IMMEDIATE') {
-          await tripService.cancelAndRefund(reservationId);
-        } else {
-          await tripService.cancel(reservationId, { reason: 'CANCELLED_BY_PASSENGER' });
-        }
-      } catch (e) {
-        console.warn('Cancel API failed:', e?.message);
-      }
-      socketService.emit('course:annuler', { reservationId, source: 'PASSAGER' });
-    }
-
-    setTripStatus('cancelled');
-    setIsOnTrackingView(false);
-    setIsOnMapView(false);
-    setCurrentDriver(null);
-    setCurrentTrip(null);
-    
-    if (currentTrip?.typeCourse === 'IMMEDIATE') {
-      toast.success('Course annulée • Remboursement effectué 💸');
-    } else {
-      toast('Course annulée', { icon: 'ℹ️' });
-    }
-    
-    setShowTripStatusModal(false);
-  };
-
-  useEffect(() => {
-    return () => {
-      clearTimers();
-      toast.dismiss('searching');
-    };
-  }, []);
-
-  // Suppression du hook tripStatus redondant déplacé en haut
-
 
   if (isLoadingProfile) {
     return (
@@ -470,221 +97,29 @@ const Passenger = () => {
     );
   }
 
-  const handleCompleteTrip = () => {
-    setTripStatus('completed');
-    setIsOnTrackingView(false);
-    setIsOnMapView(false);
-
-    const completedTrip = {
-      ...currentTrip,
-      status: 'completed',
-      completedAt: new Date().toISOString(),
-      driver: currentDriver,
-    };
-
-    setCurrentTrip(completedTrip);
-
-    // ✅ [REFINE] Toujours afficher le résumé du trajet d'abord
-    setShowTripComplete(true);
-    setShowTripStatusModal(false);
-
-    toast.success('Trajet terminé avec succès !', { id: 'trip-completion' });
-  };
-
-  const handlePostTripPaymentSuccess = useCallback((paymentData) => {
-    setShowTripComplete(false);
-
-    const updatedTrip = {
-      ...currentTrip,
-      payment: {
-        ...paymentData,
-        status: 'completed',
-        paidAt: new Date().toISOString(),
-      },
-      paid: true,
-    };
-
-    setCurrentTrip(updatedTrip);
-    setShowTripRating(true);
-    toast.success('Paiement effectué avec succès !', { id: 'payment-status' });
-  }, [currentTrip, setCurrentTrip]);
-
-  const handleRatingComplete = () => {
-    setShowTripRating(false);
-    setCurrentTrip(null);
-    setCurrentDriver(null);
-    setTripStatus('idle');
-    toast.success('Merci pour votre évaluation !', { id: 'rating-status' });
-  };
-
-  const handleRateTrip = (ratingData) => {
-    console.log('Trip rated:', ratingData);
-    setShowTripStatusModal(false);
-    setCurrentTrip(null);
-    setCurrentDriver(null);
-    setTripStatus('idle');
-    toast.success('Merci pour votre évaluation !', { id: 'rating-status' });
-  };
-
-  const handleTabChange = (tabId) => {
-    if (tabId !== 'home') {
-      setIsOnTrackingView(false);
-      setIsOnMapView(false);
-    }
-    setActiveTab(tabId);
-  };
-
-  // 🔄 Écouter la redirection vers le Wallet (depuis le modal de paiement)
-  useEffect(() => {
-    const handleGoToWallet = () => {
-      setActiveTab('wallet');
-      setIsOnMapView(false);
-      setIsOnTrackingView(false);
-      setShowTripModal(false); // ✅ Fix: also close the TripConfirmationModal when redirecting
-    };
-    window.addEventListener('navigate-to-wallet', handleGoToWallet);
-    return () => window.removeEventListener('navigate-to-wallet', handleGoToWallet);
-  }, []);
-
-  useEffect(() => {
-    const handleOpenTicketGlobal = (e) => {
-      console.log("🚀 [PASSENGER] Event taka:open_ticket reçu. Forçage ouverture ticket...", e.detail);
-      setActiveTab('profile');
-      // On déclenche un petit délai pour laisser l'onglet se monter si besoin
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('taka:open_ticket_delay', { detail: e.detail }));
-      }, 100);
-    };
-    window.addEventListener('taka:open_ticket', handleOpenTicketGlobal);
-    return () => window.removeEventListener('taka:open_ticket', handleOpenTicketGlobal);
-  }, [setActiveTab]);
-
-  const renderContent = () => {
-    if (activeTab === 'home') {
-      return (
-        <BookingSection
-          onBookTrip={handleBookTrip}
-          currentTrip={currentTrip}
-          currentDriver={currentDriver}
-          tripStatus={tripStatus}
-          isOnMapView={isOnMapView}
-          onShowTracking={handleShowOnMap}
-        />
-      );
-    }
-
-    switch (activeTab) {
-      case 'history':
-      case 'history_vtc':
-        return <TripsHistory />;
-      case 'history_rental':
-        return <RentalHistory />;
-      case 'history_covoiturage':
-        return (
-          <div className="p-8 text-center bg-white dark:bg-gray-800 rounded-3xl shadow-xl">
-             <Users className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-             <h2 className="text-2xl font-bold mb-2">Covoiturage</h2>
-             <p className="text-gray-500">Bientôt disponible sur votre application.</p>
-          </div>
-        );
-      case 'payments':
-        return <Transactions />;
-      case 'evaluations':
-        return <Evaluations />;
-      case 'profile':
-        return <Profile />;
-      case 'wallet':
-        return <Wallet />;
-      case 'settings':
-        return <Settings />;
-      case 'planning':
-        return <Planning onBookNewTrip={() => setActiveTab('home')} />;
-      case 'support':
-        return <Support />;
-      default:
-        return <BookingSection onBookTrip={handleBookTrip} />;
-    }
-  };
-
   const isFullScreenViewActive = (isOnTrackingView || showTripComplete || showTripRating) && currentTrip;
   const isTripInProgress = tripStatus === 'en_route';
 
-
   return (
     <>
-      <AnimatePresence mode="wait">
-        {/* ... existing Tracking and Complete modals ... */}
-        {isOnTrackingView && tripStatus === 'en_route' && (
-          <motion.div
-            key="realtime-tracking"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-50 bg-gray-100 overflow-y-auto"
-          >
-            <RealTimeTracking
-              trip={currentTrip}
-              driver={currentDriver}
-              onBack={handleBackToMap}
-              onEmergency={() => toast.error("Signal d'urgence envoyé !")}
-              onContactDriver={() => window.open(`tel:${currentDriver?.phone}`)}
-              onCancelTrip={handleCancelTrip}
-              onEndTrip={handleCompleteTrip}
-              onShareTrip={(data) => {
-                console.log('Share trip:', data);
-                toast.success('Trajet partagé !');
-              }}
-            />
-          </motion.div>
-        )}
-
-        {showTripComplete && currentTrip && (
-          <motion.div
-            key="trip-complete"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-50 bg-gradient-to-br from-gray-50 to-gray-100 overflow-y-auto"
-          >
-            <TrajetComplete
-              role="passenger"
-              trip={currentTrip}
-              driver={currentDriver}
-              onPaymentSuccess={handlePostTripPaymentSuccess}
-              onBack={() => {
-                setShowTripComplete(false);
-                setActiveTab('home');
-              }}
-            />
-          </motion.div>
-        )}
-
-        {showTripRating && currentTrip && (
-          <motion.div
-            key="trip-rating"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-50 bg-gradient-to-br from-gray-50 to-gray-100 overflow-y-auto"
-          >
-            <TrajetNote
-              trip={currentTrip}
-              onRatingComplete={handleRatingComplete}
-              onBack={() => {
-                setShowTripRating(false);
-                setShowTripComplete(true);
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <FullScreenTripOverlay
+        isOnTrackingView={isOnTrackingView}
+        tripStatus={tripStatus}
+        currentTrip={currentTrip}
+        currentDriver={currentDriver}
+        showTripComplete={showTripComplete}
+        showTripRating={showTripRating}
+        onBackToMap={handleBackToMap}
+        onCancelTrip={handleCancelTrip}
+        onCompleteTrip={handleCompleteTrip}
+        onPaymentSuccess={handlePostTripPaymentSuccess}
+        onRatingComplete={handleRatingComplete}
+        setActiveTab={setActiveTab}
+        setShowTripComplete={setShowTripComplete}
+        setShowTripRating={setShowTripRating}
+      />
 
       <Toaster position="top-right" containerStyle={{ zIndex: 9999 }} />
-
-
 
       {shouldShowSearchIndicator && (
         <SearchIndicator
@@ -722,7 +157,16 @@ const Passenger = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              {renderContent()}
+              <PassengerTabContent
+                activeTab={activeTab}
+                onBookTrip={handleBookTrip}
+                currentTrip={currentTrip}
+                currentDriver={currentDriver}
+                tripStatus={tripStatus}
+                isOnMapView={isOnMapView}
+                onShowTracking={handleShowOnMap}
+                onGoToHome={() => setActiveTab('home')}
+              />
             </motion.div>
           </AnimatePresence>
         </main>
@@ -745,7 +189,7 @@ const Passenger = () => {
           onCancel={handleCancelTrip}
           onContact={() => window.open(`tel:${currentDriver?.phone}`)}
           onTrack={handleShowOnMap}
-          onViewPlanning={hadalOnViewPlanning}
+          onViewPlanning={handleViewPlanning}
           onTripComplete={handleCompleteTrip}
           onSearchAgain={() => {
             toast.dismiss('searching');
@@ -760,47 +204,12 @@ const Passenger = () => {
           onRateTrip={handleRateTrip}
         />
 
-        <footer className="mt-12 py-12 bg-gradient-to-r from-gray-900 to-gray-800 dark:bg-gray-800/40 text-white transition-colors duration-300">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="mb-8 md:mb-0 text-center md:text-left">
-                <div className="flex items-center justify-center md:justify-start space-x-3 mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 flex items-center justify-center shadow-lg">
-                    {platform.logo ? (
-                      <img src={platform.logo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
-                    ) : (
-                      <Car className="w-6 h-6 text-white" />
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold uppercase bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent">
-                      {platform.name || 'TakaTaka'}
-                    </h2>
-                    <p className="text-gray-400 text-sm dark:text-gray-100">{platform.tagline || t('common.welcome')}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-8 justify-center">
-                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">{t('common.about')}</a>
-                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">{t('common.help')}</a>
-                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">{t('common.privacy')}</a>
-                <a href="#" className="text-gray-400 hover:text-white transition-all hover:scale-105">{t('common.terms')}</a>
-              </div>
-            </div>
-
-            <div className="mt-12 pt-8 border-t border-gray-800 dark:border-gray-800/50 text-center">
-              <p className="text-gray-500">© {new Date().getFullYear()} {platform.name || 'Taka Taka'}. {t('common.all_rights_reserved')}</p>
-              <p className="text-gray-600 text-xs mt-2 uppercase tracking-widest">{t('common.availability')}</p>
-            </div>
-          </div>
-        </footer>
+        <PassengerFooter platform={platform} />
       </div>
       <CommunityFAB onClick={() => setIsCommunityOpen(true)} />
       <CommunityHub isOpen={isCommunityOpen} onClose={() => setIsCommunityOpen(false)} />
     </>
   );
 };
-
 
 export default Passenger;
