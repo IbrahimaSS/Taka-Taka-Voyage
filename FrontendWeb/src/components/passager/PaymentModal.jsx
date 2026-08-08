@@ -1,305 +1,24 @@
 // PaymentModal.jsx - Version finale corrigée (_id + telephone/phone)
-import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { X, Smartphone, CreditCard, Wallet, Loader, Shield, Lock, AlertCircle } from "lucide-react";
-import toast from "react-hot-toast";
-import { PaymentService } from "../../services/paymentService";
-import { useSettings } from "../../context/SettingsContext";
-import AppLogo from "../../assets/logo.jpeg";
-import MtnLogo from "../../assets/mtn_logo.png";
-import CardLogo from "../../assets/card_logo.png";
+import { X, Shield } from "lucide-react";
+
+import { usePaymentModal } from "./paymentModal/usePaymentModal";
+import PaymentMethodGrid from "./paymentModal/PaymentMethodGrid";
+import PaymentMethodForm from "./paymentModal/PaymentMethodForm";
+import PaymentActionButton from "./paymentModal/PaymentActionButton";
 
 const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, user }) => {
-  const { settings, isLoading: settingsLoading } = useSettings();
-  const [selectedMethod, setSelectedMethod] = useState("orange_money");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState(user?.telephone || user?.phone || "");
-  const [cardDetails, setCardDetails] = useState({ number: "", expiry: "", cvv: "", name: "" });
-  const [walletBalance, setWalletBalance] = useState(null);
-
-  const userId = user?.id || user?._id;
-
-  const paymentMethods = useMemo(() => {
-    const methods = settings?.payments?.methods || {};
-
-    return [
-      {
-        id: "orange_money",
-        name: "Orange Money",
-        image: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Orange_logo.svg/120px-Orange_logo.svg.png",
-        color: "text-orange-600",
-        description: "Paiement instantané",
-        enabled: methods.orangeMoney?.enabled ?? true
-      },
-      {
-        id: "mtn_money",
-        name: "MTN Mobile Money",
-        image: MtnLogo,
-        color: "text-yellow-600",
-        description: "Paiement instantané",
-        enabled: methods.mtnMoney?.enabled ?? true
-      },
-      {
-        id: "wallet",
-        name: "Portefeuille TakaTaka",
-        image: AppLogo,
-        color: "text-green-600",
-        description: walletBalance !== null ? `${walletBalance.toLocaleString()} GNF disponibles` : "Chargement...",
-        enabled: true
-      },
-      {
-        id: "card",
-        name: "Carte bancaire",
-        image: CardLogo,
-        color: "text-indigo-600",
-        description: "Visa / Mastercard",
-        enabled: methods.stripe?.enabled ?? true
-      },
-      {
-        id: "cash",
-        name: "Espèces",
-        image: "https://cdn-icons-png.flaticon.com/512/261/261906.png",
-        color: "text-emerald-600",
-        description: "Payer au chauffeur",
-        enabled: methods.cash?.enabled ?? true
-      },
-    ];
-  }, [settings, walletBalance]);
-
-  // Sélection automatique d'une méthode activée si celle par défaut est inactive
-  useEffect(() => {
-    if (isOpen && settings?.payments?.methods) {
-      const currentMethodData = paymentMethods.find(m => m.id === selectedMethod);
-      if (currentMethodData && !currentMethodData.enabled) {
-        const firstEnabled = paymentMethods.find(m => m.enabled);
-        if (firstEnabled) setSelectedMethod(firstEnabled.id);
-      }
-    }
-  }, [isOpen, settings, paymentMethods, selectedMethod]);
-
-  // Reset
-  useEffect(() => {
-    if (!isOpen) return;
-
-    setIsProcessing(false);
-    setWalletBalance(null);
-    setPhoneNumber(user?.telephone || user?.phone || "");
-    setCardDetails({ number: "", expiry: "", cvv: "", name: "" });
-  }, [isOpen, user?.telephone, user?.phone]);
-
-  // Charger le solde du wallet dès l'ouverture pour l'injecter dans la méthode de paiement
-  useEffect(() => {
-    if (!isOpen) return;
-
-    (async () => {
-      try {
-        const balance = await PaymentService.checkWalletBalance();
-        setWalletBalance(Number(balance?.balance ?? 0));
-      } catch (e) {
-        setWalletBalance(null);
-        console.error("Erreur solde wallet:", e);
-      }
-    })();
-  }, [isOpen]);
-
-  const validatePhoneNumber = (number) => {
-    const guineanRegex = /^(?:\+224|0)?[6-7]\d{8}$/;
-    return guineanRegex.test(String(number || "").replace(/\s/g, ""));
-  };
-
-  const validateCard = () => {
-    if (String(cardDetails.number || "").length !== 16) return false;
-    if (!String(cardDetails.expiry || "").match(/^\d{2}\/\d{2}$/)) return false;
-    if (String(cardDetails.cvv || "").length !== 3) return false;
-    return true;
-  };
-
-  const canPay =
-    !isProcessing &&
-    amount > 0 &&
-    (
-      (selectedMethod === "wallet" && walletBalance != null && walletBalance >= amount) ||
-      ((selectedMethod === "orange_money" || selectedMethod === "mtn_money") && validatePhoneNumber(phoneNumber)) ||
-      (selectedMethod === "card" && validateCard())
-    );
-
-  const handlePayment = async () => {
-    if (!canPay) return;
-    setIsProcessing(true);
-
-    try {
-      let result;
-
-      if (selectedMethod === "orange_money" || selectedMethod === "mtn_money") {
-        result = await PaymentService.processMobileMoneyPayment(
-          amount,
-          phoneNumber,
-          selectedMethod === "orange_money" ? "ORANGE" : "MTN"
-        );
-      }
-
-      if (selectedMethod === "wallet") {
-        if (!userId) throw new Error("Utilisateur non identifié");
-        const balance = await PaymentService.checkWalletBalance(userId);
-        const current = Number(balance?.balance ?? 0);
-        setWalletBalance(current);
-
-        if (current < amount) throw new Error("Solde insuffisant");
-        result = await PaymentService.debitWallet(userId, amount);
-      }
-
-      if (selectedMethod === "card") {
-        if (!validateCard()) throw new Error("Informations carte incomplètes");
-        result = await PaymentService.processCardPayment(amount, cardDetails);
-      }
-
-      if (result?.success) {
-        toast.success("Paiement effectué avec succès !");
-        onSuccess?.({
-          ...result,
-          paymentMethod: selectedMethod,
-          tripId: tripDetails?.id,
-        });
-        return;
-      }
-
-      throw new Error(result?.message || "Paiement non confirmé");
-    } catch (error) {
-      toast.error(error?.message || "Erreur lors du paiement");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const renderPaymentForm = () => {
-    if (selectedMethod === "orange_money" || selectedMethod === "mtn_money") {
-      return (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Numéro de téléphone
-            </label>
-            <input
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="Ex: +224 623 09 07 41"
-              className="passenger-input w-full dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-              disabled={isProcessing}
-            />
-            {phoneNumber && !validatePhoneNumber(phoneNumber) && (
-              <p className="text-red-500 dark:text-red-400 text-sm mt-1 flex items-center">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                Format de numéro invalide
-              </p>
-            )}
-          </div>
-
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800/30">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              💡 Vous recevrez une demande de confirmation sur votre téléphone. Entrez votre code PIN pour confirmer.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    if (selectedMethod === "card") {
-      return (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Numéro de carte
-            </label>
-            <input
-              type="text"
-              value={cardDetails.number}
-              onChange={(e) => setCardDetails({ ...cardDetails, number: e.target.value.replace(/\D/g, "").slice(0, 16) })}
-              placeholder="1234 5678 9012 3456"
-              maxLength={16}
-              className="passenger-input w-full dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-              disabled={isProcessing}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Date d'expiration
-              </label>
-              <input
-                type="text"
-                value={cardDetails.expiry}
-                onChange={(e) => {
-                  let value = e.target.value.replace(/\D/g, "").slice(0, 4);
-                  if (value.length >= 2) value = value.slice(0, 2) + "/" + value.slice(2, 4);
-                  setCardDetails({ ...cardDetails, expiry: value });
-                }}
-                placeholder="MM/AA"
-                maxLength={5}
-                className="passenger-input w-full dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                disabled={isProcessing}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                CVV
-              </label>
-              <input
-                type="text"
-                value={cardDetails.cvv}
-                onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value.replace(/\D/g, "").slice(0, 3) })}
-                placeholder="123"
-                maxLength={3}
-                className="passenger-input w-full dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                disabled={isProcessing}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Nom sur la carte
-            </label>
-            <input
-              type="text"
-              value={cardDetails.name}
-              onChange={(e) => setCardDetails({ ...cardDetails, name: e.target.value })}
-              placeholder="John Doe"
-              className="passenger-input w-full dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-              disabled={isProcessing}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    if (selectedMethod === "wallet") {
-      return (
-        <div className="space-y-4">
-          <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-xl text-center border border-green-100 dark:border-green-800/30">
-            <Wallet className="w-12 h-12 text-green-600 dark:text-green-400 mx-auto mb-3" />
-            <p className="text-2xl font-bold text-green-700 dark:text-green-400">
-              {(walletBalance ?? 0).toLocaleString()} GNF
-            </p>
-            <p className="text-gray-600 dark:text-gray-400">Solde disponible</p>
-          </div>
-
-          {walletBalance != null && walletBalance < amount && (
-            <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-lg border border-rose-100 dark:border-rose-800/30 text-center mt-4">
-              <p className="text-rose-700 dark:text-rose-400 text-sm flex items-center justify-center font-bold">
-                <AlertCircle className="w-4 h-4 mr-2" />
-                Vous avez besoin de {(amount - walletBalance).toLocaleString()} GNF supplémentaires.
-              </p>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return null;
-  };
+  const {
+    selectedMethod, setSelectedMethod,
+    isProcessing,
+    phoneNumber, setPhoneNumber,
+    cardDetails, setCardDetails,
+    walletBalance,
+    paymentMethods,
+    validatePhoneNumber,
+    canPay,
+    handlePayment,
+  } = usePaymentModal({ isOpen, amount, user, tripDetails, onSuccess });
 
   if (!isOpen) return null;
 
@@ -316,7 +35,7 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
             <button
               onClick={onClose}
               disabled={isProcessing}
-              className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center disabled:opacity-50 transition-colors"
+              className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center disabled:opacity-50 transition-colors"
             >
               <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
@@ -334,102 +53,34 @@ const PaymentModal = ({ isOpen, onClose, onSuccess, amount = 0, tripDetails, use
             </div>
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Choisissez votre moyen de paiement
-            </label>
+          <PaymentMethodGrid
+            paymentMethods={paymentMethods}
+            selectedMethod={selectedMethod}
+            onSelect={setSelectedMethod}
+            isProcessing={isProcessing}
+          />
 
-            <div className="grid grid-cols-2 gap-3">
-              {paymentMethods.map((method) => {
-                const active = selectedMethod === method.id;
-                const isDisabled = !method.enabled;
-                const Icon = method.icon;
+          <PaymentMethodForm
+            selectedMethod={selectedMethod}
+            isProcessing={isProcessing}
+            phoneNumber={phoneNumber}
+            onPhoneNumberChange={setPhoneNumber}
+            validatePhoneNumber={validatePhoneNumber}
+            cardDetails={cardDetails}
+            onCardDetailsChange={setCardDetails}
+            walletBalance={walletBalance}
+            amount={amount}
+          />
 
-                return (
-                  <button
-                    key={method.id}
-                    onClick={() => !isDisabled && setSelectedMethod(method.id)}
-                    disabled={isProcessing || (isDisabled && !active)}
-                    className={`relative p-3 rounded-xl border-2 transition-all ${isDisabled
-                      ? "border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-700/30 opacity-60 grayscale cursor-not-allowed"
-                      : active
-                        ? "border-green-500 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 shadow-md ring-2 ring-green-500/20"
-                        : "border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-400"
-                      } disabled:opacity-50 transition-all duration-300`}
-                  >
-                    {isDisabled && (
-                      <div className="absolute -top-1 -right-1 z-10">
-                        <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-500 border border-gray-200 dark:border-gray-700 uppercase">
-                          Indisponible
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex flex-col items-center">
-                      {method.image ? (
-                        <div className={`w-10 h-10 mb-2 flex items-center justify-center rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 ${isDisabled ? 'grayscale opacity-50' : ''}`}>
-                          <img
-                            src={method.image}
-                            alt={method.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'block';
-                            }}
-                          />
-                          <div style={{ display: 'none' }}>
-                            <Smartphone className={`w-10 h-10 ${isDisabled ? 'text-gray-400' : method.color}`} />
-                          </div>
-                        </div>
-                      ) : (
-                        <Icon className={`w-10 h-10 ${isDisabled ? 'text-gray-400 shadow-none' : method.color} mb-2 transition-colors`} />
-                      )}
-                      <span className={`text-sm font-bold text-center leading-tight ${isDisabled ? 'text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
-                        {method.name}
-                      </span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-1 mt-1">
-                        {method.description}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {renderPaymentForm()}
-
-          {selectedMethod === "wallet" && walletBalance != null && walletBalance < amount ? (
-            <button
-              onClick={() => {
-                onClose();
-                if (window.dispatchEvent) {
-                  window.dispatchEvent(new CustomEvent('navigate-to-wallet'));
-                }
-              }}
-              className="w-full passenger-btn-primary py-3 mt-6 flex items-center justify-center shadow-lg"
-            >
-              <Wallet className="w-5 h-5 mr-2" />
-              Recharger mon compte
-            </button>
-          ) : (
-            <button
-              onClick={handlePayment}
-              disabled={!canPay}
-              className="w-full passenger-btn-primary py-3 mt-6 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader className="w-5 h-5 mr-2 animate-spin" />
-                  Traitement en cours...
-                </>
-              ) : (
-                <>
-                  <Lock className="w-5 h-5 mr-2" />
-                  Payer {Number(amount).toLocaleString()} GNF
-                </>
-              )}
-            </button>
-          )}
+          <PaymentActionButton
+            selectedMethod={selectedMethod}
+            walletBalance={walletBalance}
+            amount={amount}
+            canPay={canPay}
+            isProcessing={isProcessing}
+            onClose={onClose}
+            onPay={handlePayment}
+          />
 
           <div className="mt-4 text-center">
             <p className="text-xs text-gray-500 flex items-center justify-center">
