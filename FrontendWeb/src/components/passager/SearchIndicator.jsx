@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader, X, Phone, Navigation, User } from 'lucide-react';
+import { Loader, X } from 'lucide-react';
 import DriverDetailCard from './DriverDetailCard'; // Import du nouveau composant
 import DriverEnRouteModal from './DriverEnRouteModal';
 
@@ -99,7 +99,7 @@ const SearchIndicator = ({
 
                   <button
                     onClick={onCancel}
-                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                    className="w-11 h-11 flex items-center justify-center shrink-0 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
                     title="Annuler la recherche"
                   >
                     <X className="w-5 h-5" />

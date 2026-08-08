@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import {
   Phone,
   X,
-  MapPin,
   ShieldCheck,
   Star,
   Navigation,
@@ -30,7 +29,7 @@ const DriverDetailCard = ({ driver, onContact, onCancel, onTrack }) => {
 
         <button
           onClick={onCancel}
-          className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors backdrop-blur-sm relative z-10"
+          className="w-11 h-11 flex items-center justify-center shrink-0 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors backdrop-blur-sm relative z-10"
           title="Annuler la course"
         >
           <X className="w-4 h-4" />
