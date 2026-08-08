@@ -7,7 +7,7 @@ import { usePassenger } from '../../../context/PassengerContext';
 import { useAuth } from '../../../context/AuthContext';
 import { getFullAssetURL } from '../../../utils/urlHelper';
 
-const ProfileMenu = ({ tabs, onTabChange }) => {
+const ProfileMenu = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { passenger } = usePassenger();
@@ -62,24 +62,6 @@ const ProfileMenu = ({ tabs, onTabChange }) => {
             <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{passenger?.email || ""}</p>
           </div>
           <div className="py-1">
-            {tabs.slice(4).map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    onTabChange(tab.id);
-                    setShowProfileMenu(false);
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-600 dark:hover:text-green-400 transition-colors flex items-center"
-                >
-                  <Icon className="w-4 h-4 mr-3 opacity-70" />
-                  <span className="text-sm font-medium">{t(`nav.${tab.id}`)}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="border-t border-gray-100 dark:border-gray-700 pt-1">
             <button
               onClick={async () => {
                 await logout();

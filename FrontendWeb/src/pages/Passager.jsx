@@ -13,11 +13,6 @@ import usePlatformNotifications from '../hooks/usePlatformNotifications';
 import CommunityHub from '../components/community/CommunityHub';
 import CommunityFAB from '../components/community/CommunityFAB';
 
-import {
-  Home, History, CreditCard, User, Settings as SettingsIcon,
-  Headphones, Star, Calendar, Users, Wallet as WalletIcon, Car,
-} from 'lucide-react';
-
 import { usePromoNotifications } from './passager/usePromoNotifications';
 import { useTripStatusFlow } from './passager/useTripStatusFlow';
 import { useTripBooking } from './passager/useTripBooking';
@@ -56,27 +51,6 @@ const Passenger = () => {
   const { showTripModal, setShowTripModal, handleBookTrip, handleConfirmTrip } = useTripBooking({
     clearTimers, searchTimeoutRef, setShowTripStatusModal,
   });
-
-  const tabs = [
-    { id: 'home', label: t('nav.home'), icon: Home },
-    {
-      id: 'history',
-      label: t('nav.history'),
-      icon: History,
-      subItems: [
-        { id: 'history_vtc', label: 'Taxi VTC', icon: Car },
-        { id: 'history_rental', label: 'Locations', icon: Calendar },
-        { id: 'history_covoiturage', label: 'Covoiturage', icon: Users }
-      ]
-    },
-    { id: 'payments', label: t('nav.payments'), icon: CreditCard },
-    { id: 'planning', label: t('nav.planning'), icon: Calendar },
-    { id: 'profile', label: t('nav.profile'), icon: User },
-    { id: 'wallet', label: t('nav.wallet') || "Portefeuille", icon: WalletIcon },
-    { id: 'evaluations', label: t('nav.evaluations'), icon: Star },
-    { id: 'settings', label: t('nav.settings'), icon: SettingsIcon },
-    { id: 'support', label: t('nav.support'), icon: Headphones },
-  ];
 
   const handleTabChange = (tabId) => {
     if (tabId !== 'home') {
@@ -143,33 +117,38 @@ const Passenger = () => {
         <PassengerNavbar
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          tabs={tabs}
           isTripInProgress={isTripInProgress}
           onNavigateToTracking={handleNavigateToTracking}
         />
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`${activeTab}-${isOnMapView}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <PassengerTabContent
-                activeTab={activeTab}
-                onBookTrip={handleBookTrip}
-                currentTrip={currentTrip}
-                currentDriver={currentDriver}
-                tripStatus={tripStatus}
-                isOnMapView={isOnMapView}
-                onShowTracking={handleShowOnMap}
-                onGoToHome={() => setActiveTab('home')}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </main>
+        {/* Décalage réservé à la sidebar tablette (icônes, md-to-lg) + marge basse pour ne pas
+            passer sous la bottom bar flottante mobile */}
+        <div className="md:pl-[72px] lg:pl-0 pb-24 md:pb-0">
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${activeTab}-${isOnMapView}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <PassengerTabContent
+                  activeTab={activeTab}
+                  onBookTrip={handleBookTrip}
+                  currentTrip={currentTrip}
+                  currentDriver={currentDriver}
+                  tripStatus={tripStatus}
+                  isOnMapView={isOnMapView}
+                  onShowTracking={handleShowOnMap}
+                  onGoToHome={() => setActiveTab('home')}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </main>
+
+          <PassengerFooter platform={platform} />
+        </div>
 
         <TripConfirmationModal
           isOpen={showTripModal}
@@ -203,8 +182,6 @@ const Passenger = () => {
           onDriverFound={handleDriverFound}
           onRateTrip={handleRateTrip}
         />
-
-        <PassengerFooter platform={platform} />
       </div>
       <CommunityFAB onClick={() => setIsCommunityOpen(true)} />
       <CommunityHub isOpen={isCommunityOpen} onClose={() => setIsCommunityOpen(false)} />

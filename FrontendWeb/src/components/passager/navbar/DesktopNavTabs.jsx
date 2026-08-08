@@ -1,33 +1,49 @@
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
+import { PRIMARY_TABS } from './navTabsConfig';
+import NavBadgeDot from './NavBadgeDot';
+import DesktopPlusMenu from './DesktopPlusMenu';
 
-const DesktopNavTabs = ({ tabs, activeTab, onTabChange }) => {
+const DesktopNavTabs = ({ activeTab, onTabChange, badges }) => {
   const { t } = useTranslation();
 
   return (
-    <div className="hidden md:flex flex-1 items-center justify-center space-x-1 rounded-xl p-1">
-      {tabs.slice(0, 4).map((tab) => {
+    <div className="hidden lg:flex flex-1 items-center justify-center space-x-1 rounded-xl p-1">
+      {PRIMARY_TABS.map((tab) => {
         const Icon = tab.icon;
         const hasSubItems = tab.subItems && tab.subItems.length > 0;
+        const isActive = activeTab === tab.id || (hasSubItems && tab.subItems.some(s => s.id === activeTab));
+        const count = badges.perTab[tab.id];
 
         return (
           <div key={tab.id} className="relative group">
             <button
               onClick={() => !hasSubItems && onTabChange(tab.id)}
-              className={`px-3 lg:px-5 py-3 text-sm font-medium rounded-lg transition-all duration-300 flex items-center ${(activeTab === tab.id || (hasSubItems && tab.subItems.some(s => s.id === activeTab)))
-                ? 'bg-white dark:bg-gray-800 text-green-600 dark:text-green-500 shadow-sm'
-                : 'text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+              className={`relative px-3 xl:px-5 py-3 text-sm font-medium rounded-lg transition-colors flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${isActive ? 'text-green-600 dark:text-green-500' : 'text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                 }`}
             >
-              <Icon className="w-4 h-4 mr-2" />
-              {t(`nav.${tab.id}`)}
-              {hasSubItems && (
-                <svg className="w-3.5 h-3.5 ml-1.5 opacity-50 group-hover:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+              {isActive && (
+                <motion.span
+                  layoutId="desktop-nav-active"
+                  className="absolute inset-0 bg-white dark:bg-gray-800 shadow-sm rounded-lg"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
               )}
+              <span className="relative flex items-center">
+                <span className="relative mr-2">
+                  <Icon className="w-4 h-4" />
+                  <NavBadgeDot count={count} className="-top-1.5 -right-1.5" />
+                </span>
+                {t(`nav.${tab.id}`)}
+                {hasSubItems && (
+                  <svg className="w-3.5 h-3.5 ml-1.5 opacity-50 group-hover:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </span>
             </button>
 
-            {/* Sous-menu (Dropdown) */}
+            {/* Sous-menu (Historique) */}
             {hasSubItems && (
               <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top translate-y-2 group-hover:translate-y-0 z-50">
                 {tab.subItems.map((sub) => {
@@ -51,6 +67,8 @@ const DesktopNavTabs = ({ tabs, activeTab, onTabChange }) => {
           </div>
         );
       })}
+
+      <DesktopPlusMenu activeTab={activeTab} onTabChange={onTabChange} badges={badges} />
     </div>
   );
 };
