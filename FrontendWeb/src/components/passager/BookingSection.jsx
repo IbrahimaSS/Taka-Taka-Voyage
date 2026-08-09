@@ -195,13 +195,13 @@ const BookingSection = ({
         >
           <Card hoverable padding="p-6">
             <div className="flex items-center space-x-4">
-              <div className="relative">
+              <div className="relative shrink-0">
                 <motion.div
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
-                  className="w-16 h-16 rounded-full bg-gradient-to-r from-primary-500 to-secondary-600 flex items-center justify-center"
+                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-primary-500 to-secondary-600 flex items-center justify-center"
                 >
-                  <Loader className="w-12 h-12 text-green-600 animate-spin" />
+                  <Loader className="w-8 h-8 sm:w-12 sm:h-12 text-green-600 animate-spin" />
                 </motion.div>
                 <motion.div
                   animate={{ scale: [1, 1.8, 1], opacity: [0.5, 0, 0.5] }}
@@ -209,16 +209,16 @@ const BookingSection = ({
                   className="absolute inset-0 rounded-full bg-gradient-to-r from-primary-500 to-secondary-600"
                 />
               </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('booking.searching_driver')}</h3>
-                <p className="text-gray-600 dark:text-gray-400">{t('booking.best_driver_msg')}</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 truncate">{t('booking.searching_driver')}</h3>
+                <p className="text-gray-600 dark:text-gray-400 truncate">{t('booking.best_driver_msg')}</p>
                 {currentTrip && (
-                  <div className="mt-2 flex items-center text-sm text-gray-500">
-                    <MapPin className="w-4 h-4 mr-1 text-emerald-500" />
-                    <span className="truncate max-w-[150px]">{currentTrip.pickup}</span>
-                    <span className="mx-2">→</span>
-                    <MapPin className="w-4 h-4 mr-1 text-rose-500" />
-                    <span className="truncate max-w-[150px]">{currentTrip.destination}</span>
+                  <div className="mt-2 flex items-center text-sm text-gray-500 min-w-0">
+                    <MapPin className="w-4 h-4 mr-1 text-emerald-500 shrink-0" />
+                    <span className="truncate min-w-0 flex-1">{currentTrip.pickup}</span>
+                    <span className="mx-2 shrink-0">→</span>
+                    <MapPin className="w-4 h-4 mr-1 text-rose-500 shrink-0" />
+                    <span className="truncate min-w-0 flex-1">{currentTrip.destination}</span>
                   </div>
                 )}
               </div>
