@@ -107,9 +107,9 @@ const SearchIndicator = ({
                 </div>
 
                 {tripDetails && (
-                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                     <span className="truncate min-w-0 flex-1">{tripDetails.pickup}</span>
-                    <span className="mx-2 shrink-0">→</span>
+                    <span className="shrink-0 text-gray-400 dark:text-gray-500">→</span>
                     <span className="truncate min-w-0 flex-1 text-right">{tripDetails.destination}</span>
                   </div>
                 )}
