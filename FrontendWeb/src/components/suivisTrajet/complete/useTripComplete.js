@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../../../services/socketService';
+import { tripService } from '../../../services/tripService';
 import toast from 'react-hot-toast';
 
 export const useTripComplete = ({ trip, driver, onPaymentSuccess, onBack, role }) => {
