@@ -27,7 +27,6 @@ const Planning = () => {
     formatDisplayDate,
     isToday,
     isSameDay,
-    getStatusColor,
     currentMonth,
     daysGrid,
     weekDays,
@@ -74,7 +73,6 @@ const Planning = () => {
           selectedDate={selectedDate}
           selectedReservations={selectedReservations}
           formatDisplayDate={formatDisplayDate}
-          getStatusColor={getStatusColor}
           editingReservation={editingReservation}
           actionPosition={actionPosition}
           actionMenuRef={actionMenuRef}

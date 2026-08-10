@@ -222,15 +222,6 @@ export const useDriverPlanning = ({ t, i18n }) => {
     return days;
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'confirmée': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700';
-      case 'en attente': return 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700';
-      case 'annulée': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600';
-    }
-  };
-
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
   const daysGrid = getMonthDays(currentYear, currentMonth);
@@ -269,7 +260,6 @@ export const useDriverPlanning = ({ t, i18n }) => {
     formatDisplayDate,
     isToday,
     isSameDay,
-    getStatusColor,
     currentMonth,
     daysGrid,
     weekDays,

@@ -1,16 +1,23 @@
 import { useTranslation } from 'react-i18next';
 import { Calendar, Car as CarIcon, Clock, MapPin, Eye, MoreVertical } from 'lucide-react';
 import Card from '../../admin/ui/Card';
+import Badge from '../../admin/ui/Badge';
 import ReservationActionMenu from './ReservationActionMenu';
 
-const StatusBadge = ({ status, getStatusColor }) => (
-  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(status)}`}>
+const STATUS_VARIANT = {
+  'confirmée': 'success',
+  'en attente': 'warning',
+  'annulée': 'danger',
+};
+
+const StatusBadge = ({ status }) => (
+  <Badge variant={STATUS_VARIANT[status] || 'default'} size="xs" className="uppercase">
     {status}
-  </span>
+  </Badge>
 );
 
 // Carte mobile/tablette (< lg) : une reservation = une carte empilee
-const ReservationCard = ({ reservation, getStatusColor, onViewDetails, onOpenMenu }) => (
+const ReservationCard = ({ reservation, onViewDetails, onOpenMenu }) => (
   <div className="px-4 py-4">
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-center gap-3 min-w-0">
@@ -57,7 +64,7 @@ const ReservationCard = ({ reservation, getStatusColor, onViewDetails, onOpenMen
     </div>
 
     <div className="mt-3">
-      <StatusBadge status={reservation.status} getStatusColor={getStatusColor} />
+      <StatusBadge status={reservation.status} />
     </div>
   </div>
 );
@@ -66,7 +73,6 @@ const ReservationsPanel = ({
   selectedDate,
   selectedReservations,
   formatDisplayDate,
-  getStatusColor,
   editingReservation,
   actionPosition,
   actionMenuRef,
@@ -126,7 +132,6 @@ const ReservationsPanel = ({
                 <div className="lg:hidden">
                   <ReservationCard
                     reservation={reservation}
-                    getStatusColor={getStatusColor}
                     onViewDetails={onViewDetails}
                     onOpenMenu={onActionClick}
                   />
@@ -164,7 +169,7 @@ const ReservationsPanel = ({
                     </div>
                   </div>
                   <div className="col-span-2">
-                    <StatusBadge status={reservation.status} getStatusColor={getStatusColor} />
+                    <StatusBadge status={reservation.status} />
                   </div>
                   <div className="col-span-1 relative text-right flex items-center justify-end gap-2">
                     <button
