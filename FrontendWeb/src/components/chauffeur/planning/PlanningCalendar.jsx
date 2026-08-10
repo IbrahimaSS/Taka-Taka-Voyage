@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Card from '../../admin/ui/Card';
 
 const PlanningCalendar = ({
   currentDate,
@@ -20,7 +21,11 @@ const PlanningCalendar = ({
   const { t } = useTranslation();
 
   return (
-    <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+    <Card
+      padding="p-4 sm:p-6"
+      animate={false}
+      className="lg:col-span-1 !rounded-xl !shadow-lg dark:!border-gray-700"
+    >
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={onPrevMonth}
@@ -115,7 +120,7 @@ const PlanningCalendar = ({
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };
 
