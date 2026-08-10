@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Car, RefreshCw } from 'lucide-react';
+import Card from '../admin/ui/Card';
 
 import { useDriverTrips } from './trajets/useDriverTrips';
 import TripStatsRow from './trajets/TripStatsRow';
@@ -81,7 +82,7 @@ const Trajets = () => {
           </div>
 
           {filteredTrips.length === 0 && (
-            <div className="text-center py-24 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <Card padding="py-24" animate={false} className="text-center !rounded-3xl !border-gray-100 dark:!border-gray-700">
               <div className="w-20 h-20 bg-gray-100 dark:bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Car className="w-10 h-10 text-gray-400" />
               </div>
@@ -95,7 +96,7 @@ const Trajets = () => {
               >
                 {t('trips.refresh_search')}
               </button>
-            </div>
+            </Card>
           )}
         </>
       )}
