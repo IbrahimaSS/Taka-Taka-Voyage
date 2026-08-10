@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import {
-    Bell, Shield, Car, Globe, CreditCard, Phone,
-    Moon, Sun, Lock, Smartphone, Volume2, VolumeX,
-    Eye, EyeOff, Map, Zap, Clock, ShieldCheck
-} from 'lucide-react';
+import { Bell, Zap, ShieldCheck } from 'lucide-react';
 
 // Composants réutilisables
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../../admin/ui/Card';
@@ -12,32 +8,31 @@ import Switch from '../../admin/ui/Switch';
 import Badge from '../../admin/ui/Badge';
 import ConfirmModal from '../../admin/ui/ConfirmModal';
 
-const ChauffeurSettings = () => {
-    const [settings, setSettings] = useState({
-        notifications: {
-            newTrips: true,
-            priceUpdates: true,
-            sms: true,
-            promotions: false,
-        },
-        privacy: {
-            locationOnOffline: true,
-            showRatingToUsers: true,
-            anonymousAnalytics: true,
-        },
-        preferences: {
-            maxDistance: '15',
-            language: 'fr',
-            autoAccept: false,
-            optimizedRoutes: true,
-        },
-        theme: 'light',
-        sound: true,
-    });
+const DEFAULT_SETTINGS = {
+    notifications: {
+        newTrips: true,
+        priceUpdates: true,
+        sms: true,
+        promotions: false,
+    },
+    privacy: {
+        locationOnOffline: true,
+        showRatingToUsers: true,
+        anonymousAnalytics: true,
+    },
+    preferences: {
+        maxDistance: '15',
+        language: 'fr',
+        autoAccept: false,
+        optimizedRoutes: true,
+    },
+    theme: 'light',
+    sound: true,
+};
 
+const ChauffeurSettings = () => {
+    const [settings, setSettings] = useState(DEFAULT_SETTINGS);
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-    const [resetKey, setResetKey] = useState(0);
 
     const toggleSetting = (category, key) => {
         setSettings(prev => ({
@@ -52,6 +47,8 @@ const ChauffeurSettings = () => {
             preferences: { ...prev.preferences, [key]: value }
         }));
     };
+
+    const resetSettings = () => setSettings(DEFAULT_SETTINGS);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-1">
@@ -121,11 +118,11 @@ const ChauffeurSettings = () => {
                     </Card>
 
                     <Card className="surface">
-                        <CardFooter align="between">
-                            <Button variant="danger" ghost>Réinitialiser</Button>
-                            <div className="flex space-x-3">
-                                <Button variant="secondary" onClick={() => setShowCancelConfirm(true)}>Annuler</Button>
-                                <Button variant="primary" onClick={() => setShowSaveConfirm(true)}>Appliquer</Button>
+                        <CardFooter align="between" className="flex-col sm:flex-row gap-3">
+                            <Button variant="danger" ghost onClick={resetSettings}>Réinitialiser</Button>
+                            <div className="flex gap-3 w-full sm:w-auto">
+                                <Button className="flex-1 sm:flex-none" variant="secondary" onClick={resetSettings}>Annuler</Button>
+                                <Button className="flex-1 sm:flex-none" variant="primary" onClick={() => setShowSaveConfirm(true)}>Appliquer</Button>
                             </div>
                         </CardFooter>
                     </Card>
@@ -155,11 +152,17 @@ const ChauffeurSettings = () => {
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Mode Sombre</p>
-                            <Switch checked={settings.theme === 'dark'} />
+                            <Switch
+                                checked={settings.theme === 'dark'}
+                                onChange={() => setSettings(prev => ({ ...prev, theme: prev.theme === 'dark' ? 'light' : 'dark' }))}
+                            />
                         </div>
                         <div className="flex items-center justify-between">
                             <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Sons & Vibrations</p>
-                            <Switch checked={settings.sound} />
+                            <Switch
+                                checked={settings.sound}
+                                onChange={() => setSettings(prev => ({ ...prev, sound: !prev.sound }))}
+                            />
                         </div>
                     </CardContent>
                 </Card>
