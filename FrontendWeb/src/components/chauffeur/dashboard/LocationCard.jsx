@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import UserLocationMap from '../../maps/UserLocationMap';
 import { GeolocationService } from '../../../services/geolocation';
+import Card from '../../admin/ui/Card';
 
 // Composant de localisation en temps réel
 const LocationCard = () => {
@@ -35,16 +36,16 @@ const LocationCard = () => {
 
     if (isLoading) {
         return (
-            <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
+            <Card padding="p-8" animate={false} className="mt-6 text-center !shadow-lg !border-gray-100 dark:!border-gray-700">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
                 <p className="text-gray-600 dark:text-gray-400">{t('dashboard.locating_msg')}</p>
-            </div>
+            </Card>
         );
     }
 
     return (
         <div className="mt-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <Card padding="p-0" animate={false} className="!shadow-lg !border-gray-100 dark:!border-gray-700 overflow-hidden">
                 {/* En-tête */}
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-blue-500/5 to-green-500/5">
                     <h2 className="text-lg font-bold text-gray-800 dark:text-white">{t('dashboard.position_guinea')}</h2>
@@ -57,7 +58,7 @@ const LocationCard = () => {
                 <div className="relative h-72 sm:h-96">
                     <UserLocationMap lat={userLocation.lat} lng={userLocation.lng} height={384} />
                 </div>
-            </div>
+            </Card>
         </div>
     );
 };
