@@ -1,5 +1,5 @@
 // src/pages/ChauffeurApp.jsx
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Routes, Route, useLocation, Navigate, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -23,9 +23,6 @@ import ChauffeurSupport from "../components/chauffeur/shared/ChauffeurSupport";
 import ChauffeurEvaluations from "../components/chauffeur/shared/ChauffeurEvaluations";
 import ChauffeurTracking from "../components/chauffeur/ChauffeurTracking";
 import Wallet from "../components/chauffeur/Wallet";
-import TrajetEnTempReel from "../components/suivisTrajet/TrajetEnTempReel";
-import TrajetComplete from "../components/suivisTrajet/TrajetComplete";
-import { tripService } from "../services/tripService";
 import DriverRentalSection from "../components/chauffeur/DriverRentalSection";
 import CommunityHub from "../components/community/CommunityHub";
 import RentalHistory from "../components/passager/RentalHistory";
@@ -33,111 +30,10 @@ import TripNotificationToast from "../components/chauffeur/TripNotificationToast
 import DriverProvider, { useDriverContext } from '../context/DriverContext';
 import { Toaster } from 'react-hot-toast';
 import { ROLES } from '../config/navConfig';
-import FloatingDisputeButton from '../components/shared/FloatingDisputeButton';
 import { useSettings } from '../context/SettingsContext';
 
-
-const LiveTrackingWrapper = () => {
-  const {
-    acceptedTrips,
-    driverLocation,
-    setCurrentPickupTripId,
-    setTripStep,
-    setStatus
-  } = useDriverContext();
-  const navigate = useNavigate();
-  const [showComplete, setShowComplete] = useState(false);
-  const [completedTripData, setCompletedTripData] = useState(null);
-
-  const mainTrip = acceptedTrips?.length > 0 ? acceptedTrips[0] : null;
-
-  // S'il n'y a plus de trajet actif et qu'on n'est pas en train de voir l'écran de fin
-  if (!mainTrip && !showComplete) return <Navigate to="/chauffeur/tracking" replace />;
-
-  if (showComplete) {
-    return (
-      <TrajetComplete
-        role="driver"
-        trip={completedTripData || mainTrip}
-        driver={{ name: "Vous", location: driverLocation }}
-        onBack={() => setShowComplete(false)}
-        onPaymentSuccess={() => {
-          // Une fois payé, le chauffeur peut retourner au dashboard
-          navigate("/chauffeur");
-          // ✅ Suggestion 2: Libérer le chauffeur quand le trajet se termine (via socket)
-          // This logic should ideally be in DriverContext or triggered by a context method
-          // For now, we'll simulate the effect here if it's not handled by a socket event
-          console.log("🏁 [ChauffeurApp] Trajet terminé, libération du statut (simulé)");
-          setCurrentPickupTripId(null);
-          setTripStep("idle");
-          setStatus("available");
-        }}
-      />
-    );
-  }
-
-  return (
-    <TrajetEnTempReel
-      role="driver"
-      trip={mainTrip}
-      driver={{
-        name: "Vous",
-        location: driverLocation,
-        currentLocation: driverLocation,
-        rating: 4.9,
-        vehicle: { brand: "Toyota", model: "Van", plate: "TK-001-GK" },
-      }}
-      onBack={() => navigate("/chauffeur/tracking")}
-      onEndTrip={async () => {
-        // ✅ Priorité aux IDs Mongoose (_id) pour éviter les erreurs 400
-        const tripId = mainTrip?._id || mainTrip?.reservationId || mainTrip?.id;
-
-        if (tripId) {
-          // Verrouiller les données avant de terminer
-          setCompletedTripData(mainTrip);
-
-          try {
-            console.log("🏁 [ChauffeurApp] Tentative de clôture du trajet ID:", tripId);
-            const response = await tripService.complete(tripId);
-            console.log("✅ [ChauffeurApp] Trajet clôturé avec succès:", response.data);
-          } catch (err) {
-            console.error("❌ [ChauffeurApp] Erreur 400/500 lors de la clôture:", err.response?.data || err.message);
-            // On peut logger plus d'infos si besoin: err.response?.status
-          }
-        }
-        setShowComplete(true);
-      }}
-    />
-  );
-};
-
-const DriverAutoOnline = () => {
-  const context = useDriverContext();
-  const isOnline = context?.isOnline;
-  const setOnline = context?.setOnline;
-
-  useEffect(() => {
-    if (setOnline && !isOnline) {
-      console.log("♻️ [ChauffeurApp] Passage en ligne automatique");
-      setOnline(true);
-    }
-  }, [isOnline, setOnline]);
-
-  return null;
-};
-
-const ChauffeurDisputeButton = () => {
-  const { acceptedTrips } = useDriverContext();
-  const mainTrip = acceptedTrips?.length > 0 ? acceptedTrips[0] : null;
-
-  return (
-    <FloatingDisputeButton
-      currentTrip={mainTrip}
-      role="chauffeur"
-      offset={10}
-    />
-  );
-};
+import LiveTrackingWrapper from './chauffeur/LiveTrackingWrapper';
+import DriverAutoOnline from './chauffeur/DriverAutoOnline';
 
 function DriverAppContent() {
   const { settings } = useSettings();
@@ -158,7 +54,7 @@ function DriverAppContent() {
   const navigate = useNavigate();
   const { tripStep } = useDriverContext();
 
-  // ✅ REDIRECTION AUTOMATIQUE (Demande utilisateur)
+  // Redirection automatique vers le suivi en direct
   useEffect(() => {
     const isOnLive = location.pathname.includes("live-tracking");
     if (tripStep === 'in_progress' && !isOnLive) {
@@ -248,7 +144,7 @@ function DriverAppContent() {
 
         {!isLiveTracking && (
           <footer className="border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-gray-800/40 backdrop-blur-sm px-6 py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-3">
               <p className="text-slate-600 dark:text-slate-300 text-sm mb-2 md:mb-0">
                 © {new Date().getFullYear()} {platform.name || 'TakaTaka'} Driver. Tous droits réservés.
               </p>
