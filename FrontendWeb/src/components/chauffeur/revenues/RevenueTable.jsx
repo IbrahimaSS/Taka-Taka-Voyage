@@ -1,17 +1,16 @@
 import { useTranslation } from 'react-i18next';
 import { Calendar, Car, CheckCircle2, Hourglass, Eye } from 'lucide-react';
+import Card from '../../admin/ui/Card';
+import Badge from '../../admin/ui/Badge';
 import { getPaymentIcon, getPaymentLabel } from './paymentMethodUtils';
 
 const PayoutBadge = ({ verse, t }) => (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${verse
-        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-        : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-        }`}>
+    <Badge variant={verse ? 'success' : 'warning'} size="xs" className="shrink-0 gap-1">
         {verse
             ? <><CheckCircle2 className="w-3 h-3" /> {t('revenues.paid')}</>
             : <><Hourglass className="w-3 h-3" /> {t('revenues.pending')}</>
         }
-    </span>
+    </Badge>
 );
 
 // Carte mobile (< lg) : une course = une carte empilée, lisible sans defiler horizontalement
@@ -56,7 +55,7 @@ const RevenueTable = ({ filteredData, formatAmount, formatDate, onViewRide }) =>
     const { t } = useTranslation();
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <Card padding="p-0" animate={false} className="!rounded-xl !shadow-lg dark:!border-gray-700 overflow-hidden">
             <div className="hidden lg:block border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-6 py-4">
                 <div className="grid grid-cols-12 gap-4 text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     <div className="col-span-2">{t('revenues.date')}</div>
@@ -129,7 +128,7 @@ const RevenueTable = ({ filteredData, formatAmount, formatDate, onViewRide }) =>
                     </div>
                 )}
             </div>
-        </div>
+        </Card>
     );
 };
 
