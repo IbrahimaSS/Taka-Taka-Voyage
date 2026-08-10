@@ -58,7 +58,7 @@ const SearchIndicator = ({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed bottom-20 md:bottom-6 left-0 right-0 z-[9998] px-3 sm:px-4 pointer-events-none flex justify-center"
+        className="fixed bottom-40 md:bottom-6 left-0 right-0 z-[9998] px-3 sm:px-4 pointer-events-none flex justify-center"
       >
         <div className="w-full max-w-lg pointer-events-auto">
           {/* CAS 1: RECHERCHE EN COURS */}
@@ -108,7 +108,7 @@ const SearchIndicator = ({
 
                 {tripDetails && (
                   <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                    <span className="truncate min-w-0 flex-1">{tripDetails.pickup}</span>
+                    <span className="truncate min-w-0 flex-1 ">{tripDetails.pickup}</span>
                     <span className="shrink-0 text-gray-400 dark:text-gray-500">→</span>
                     <span className="truncate min-w-0 flex-1 text-right">{tripDetails.destination}</span>
                   </div>
