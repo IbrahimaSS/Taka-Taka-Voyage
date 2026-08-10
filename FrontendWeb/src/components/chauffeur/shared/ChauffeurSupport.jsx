@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-    Headphones, Phone, Mail, MessageCircle, HelpCircle,
-    FileText, ChevronDown, Upload, Send, MessageSquare,
-    FileDown, ShieldCheck, Zap, DollarSign
+    Headphones, Phone, MessageCircle, HelpCircle,
+    ChevronDown, Send, MessageSquare, CheckCircle
 } from 'lucide-react';
 
 // Composants réutilisables
-import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../../admin/ui/Card';
+import Card, { CardHeader, CardTitle, CardContent } from '../../admin/ui/Card';
 import Button from '../../admin/ui/Bttn';
 import Badge from '../../admin/ui/Badge';
 import Modal from '../../admin/ui/Modal';
@@ -55,7 +54,7 @@ const ChauffeurSupport = () => {
             icon: Phone,
             color: 'text-green-600',
             bgColor: 'bg-green-100',
-            action: () => { }
+            action: () => window.open('tel:+224623000000')
         },
         {
             id: 2,
@@ -163,14 +162,14 @@ const ChauffeurSupport = () => {
                         {contactChannels.map(channel => (
                             <Card key={channel.id} className="surface transition-transform hover:-translate-y-1 cursor-pointer" onClick={channel.action}>
                                 <CardContent className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-14 h-14 ${channel.bgColor} rounded-2xl flex items-center justify-center`}>
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className={`w-14 h-14 ${channel.bgColor} rounded-2xl flex items-center justify-center shrink-0`}>
                                             <channel.icon className={`w-7 h-7 ${channel.color}`} />
                                         </div>
-                                        <div>
-                                            <p className="font-extrabold text-gray-900 dark:text-gray-100">{channel.name}</p>
-                                            <p className="text-primary-600 dark:text-primary-400 font-bold">{channel.description}</p>
-                                            <p className="text-xs text-gray-500">{channel.availability}</p>
+                                        <div className="min-w-0">
+                                            <p className="font-extrabold text-gray-900 dark:text-gray-100 truncate">{channel.name}</p>
+                                            <p className="text-primary-600 dark:text-primary-400 font-bold truncate">{channel.description}</p>
+                                            <p className="text-xs text-gray-500 truncate">{channel.availability}</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -193,7 +192,5 @@ const ChauffeurSupport = () => {
         </div>
     );
 };
-
-const CheckCircle = ({ className }) => <ShieldCheck className={className} />;
 
 export default ChauffeurSupport;
