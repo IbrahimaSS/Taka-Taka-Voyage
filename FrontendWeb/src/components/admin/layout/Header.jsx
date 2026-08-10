@@ -182,9 +182,7 @@ export default function Header({
                   <span>{i18n.language === 'en' ? 'Live' : 'Suivi'}</span>
                 </Link>
               )}
-              <div className="hidden md:block">
-                <AvailabilityToggle />
-              </div>
+              <AvailabilityToggle />
               <LanguageSwitcher variant="simple" />
             </div>
           )}
