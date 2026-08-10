@@ -64,7 +64,7 @@ const DriverRentalSection = ({ onToast }) => {
           <button
             key={cat.id}
             onClick={() => setActiveFlotteCategory(cat.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all whitespace-nowrap font-bold text-sm ${
+            className={`flex items-center gap-2 px-4 min-h-[44px] rounded-xl border-2 transition-all whitespace-nowrap font-bold text-sm shrink-0 ${
               activeFlotteCategory === cat.id
                 ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg'
                 : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
@@ -108,14 +108,14 @@ const DriverRentalSection = ({ onToast }) => {
                   </div>
                 </div>
                 <CardContent className="p-5">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h4 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                  <div className="flex justify-between items-start gap-3 mb-4">
+                    <div className="min-w-0">
+                      <h4 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">
                         {v.marque} {v.modele}
                       </h4>
-                      <p className="text-xs text-slate-400 font-mono">{v.immatriculation}</p>
+                      <p className="text-xs text-slate-400 font-mono truncate">{v.immatriculation}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p className="text-xl font-black text-emerald-600">{formatPrix(v.prix_jour)}</p>
                       <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">par jour</p>
                     </div>
