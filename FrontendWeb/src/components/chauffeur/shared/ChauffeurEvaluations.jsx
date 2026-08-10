@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-    Star, Filter, Award, Clock, MessageSquare, Handshake,
-    CheckCircle, Crown, Users, User, Car, ChevronDown,
-    ThumbsUp, ShieldCheck
-} from 'lucide-react';
+import { Star, Award, User, ThumbsUp } from 'lucide-react';
 
 // Composants réutilisables
 import Card, { CardHeader, CardTitle, CardContent, CardFooter } from '../../admin/ui/Card';
@@ -56,6 +52,10 @@ const ChauffeurEvaluations = () => {
         ]
     };
 
+    const filteredEvaluations = filter === 'all'
+        ? receivedEvaluations
+        : receivedEvaluations.filter(evalItem => evalItem.rating === Number(filter));
+
     const renderStars = (rating) => (
         <div className="flex items-center gap-0.5">
             {[...Array(5)].map((_, i) => (
@@ -69,14 +69,14 @@ const ChauffeurEvaluations = () => {
             <div className="lg:col-span-2 space-y-6">
                 <Card className="surface border-none shadow-sm">
                     <CardHeader>
-                        <div className="flex justify-between items-center">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                             <CardTitle>Avis des Passagers</CardTitle>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 {['all', '5', '4', '3'].map(f => (
                                     <button
                                         key={f}
                                         onClick={() => setFilter(f)}
-                                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${filter === f ? 'bg-primary-600 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-200'}`}
+                                        className={`px-4 min-h-[44px] rounded-xl text-sm font-bold transition-all ${filter === f ? 'bg-primary-600 text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 hover:bg-gray-200'}`}
                                     >
                                         {f === 'all' ? 'Tous' : `${f} ★`}
                                     </button>
@@ -85,7 +85,11 @@ const ChauffeurEvaluations = () => {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        {receivedEvaluations.map((evalItem, idx) => (
+                        {filteredEvaluations.length === 0 ? (
+                            <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">
+                                Aucun avis pour ce filtre.
+                            </p>
+                        ) : filteredEvaluations.map((evalItem, idx) => (
                             <motion.div
                                 key={evalItem.id}
                                 initial={{ opacity: 0, x: -20 }}
@@ -93,17 +97,17 @@ const ChauffeurEvaluations = () => {
                                 transition={{ delay: idx * 0.1 }}
                                 className="p-6 rounded-2xl bg-gray-50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-700/50"
                             >
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
+                                <div className="flex justify-between items-start gap-3 mb-4">
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
                                             <User className="w-6 h-6 text-primary-600" />
                                         </div>
-                                        <div>
-                                            <p className="font-extrabold text-gray-900 dark:text-gray-100">{evalItem.passenger.name}</p>
+                                        <div className="min-w-0">
+                                            <p className="font-extrabold text-gray-900 dark:text-gray-100 truncate">{evalItem.passenger.name}</p>
                                             <p className="text-xs text-gray-500">{evalItem.date}</p>
                                         </div>
                                     </div>
-                                    {renderStars(evalItem.rating)}
+                                    <div className="shrink-0">{renderStars(evalItem.rating)}</div>
                                 </div>
                                 <p className="text-gray-700 dark:text-gray-300 text-sm italic mb-4">"{evalItem.comment}"</p>
                                 <div className="flex flex-wrap gap-2">
@@ -115,7 +119,7 @@ const ChauffeurEvaluations = () => {
                         ))}
                     </CardContent>
                     <CardFooter>
-                        <Pagination currentPage={currentPage} totalPages={12} onPageChange={setCurrentPage} />
+                        <Pagination currentPage={currentPage} totalPages={Math.max(1, Math.ceil(filteredEvaluations.length / 10))} onPageChange={setCurrentPage} />
                     </CardFooter>
                 </Card>
             </div>
