@@ -1,12 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { Filter } from 'lucide-react';
+import Card from '../../admin/ui/Card';
 import { getPaymentIcon, getPaymentLabel } from './paymentMethodUtils';
 
 const RevenueFilters = ({ selectedPeriod, setSelectedPeriod, selectedPaymentMethod, setSelectedPaymentMethod }) => {
     const { t } = useTranslation();
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4">
+        <Card padding="p-4" animate={false} className="!rounded-xl !shadow-lg dark:!border-gray-700">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                     <Filter className="w-5 h-5 text-gray-400 dark:text-gray-500 shrink-0" />
@@ -46,7 +47,7 @@ const RevenueFilters = ({ selectedPeriod, setSelectedPeriod, selectedPaymentMeth
                     </div>
                 </div>
             </div>
-        </div>
+        </Card>
     );
 };
 
