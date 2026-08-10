@@ -1,22 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Clock,
-  Bell,
-  Car,
-  DollarSign,
-  Activity
-} from 'lucide-react';
-import UserLocationMap from '../maps/UserLocationMap';
+import { Clock, Bell, Car, DollarSign } from 'lucide-react';
 import { useDriverContext } from '../../context/DriverContext';
-import { GeolocationService } from '../../services/geolocation';
 import { tripService } from '../../services/tripService';
 import { useTranslation } from 'react-i18next';
+import DriverStatCard from './dashboard/DriverStatCard';
+import LocationCard from './dashboard/LocationCard';
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
   // Contexte chauffeur pour le temps réel
-  const { isOnline, pendingRequestsCount, stats: driverStats } = useDriverContext();
+  const { isOnline, tripRequests } = useDriverContext();
+  const pendingRequestsCount = tripRequests?.length || 0;
 
   // État pour les statistiques
   const [stats, setStats] = useState({
@@ -26,7 +21,10 @@ export default function Dashboard() {
     dailyRevenue: 0
   });
 
-  // Fetch Dashboard Stats
+  // Fetch Dashboard Stats (rafraichi toutes les minutes, source unique de verite
+  // pour onlineSince - une simulation locale par increment existait en plus et
+  // rentrait en concurrence avec ce fetch sur le meme intervalle de 60s, causant
+  // un bref affichage d'une valeur incorrecte avant d'etre ecrasee par la vraie)
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -52,44 +50,6 @@ export default function Dashboard() {
     return () => clearInterval(intervalData);
   }, []);
 
-  // Simuler la mise à jour du temps en ligne (visuel)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStats(prev => ({
-        ...prev,
-        onlineSince: incrementTime(prev.onlineSince)
-      }));
-    }, 60000); // Mise à jour toutes les minutes
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fonction pour incrémenter le temps
-  const incrementTime = (currentTime) => {
-    if (!currentTime) return "0min";
-    const match = currentTime.match(/(\d+)h\s+(\d+)min/) || currentTime.match(/(\d+)min/);
-
-    if (match) {
-      if (match.length === 3) {
-        let hours = parseInt(match[1]);
-        let minutes = parseInt(match[2]) + 1;
-        if (minutes >= 60) {
-          hours += 1;
-          minutes = 0;
-        }
-        return `${hours}h ${minutes}min`;
-      } else if (match.length === 2) {
-        let minutes = parseInt(match[1]) + 1;
-        if (minutes >= 60) {
-          return `1h 0min`;
-        }
-        return `${minutes}min`;
-      }
-
-    }
-    return currentTime;
-  };
-
   return (
     <div className="space-y-6">
       {/* Titre */}
@@ -100,64 +60,47 @@ export default function Dashboard() {
 
       {/* Les 4 cartes de statistiques */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Carte 1: En ligne depuis */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow duration-300">
-          <div className="flex items-start justify-between mb-4">
-            <div className="p-2 rounded-lg bg-green-50">
-              <Clock className="w-6 h-6 text-blue-500 dark:text-blue-400" />
-            </div>
-            <div className="text-xs bg-blue-500/10 dark:bg-blue-500/20 text-blue-500 dark:text-blue-400 rounded-full px-2 py-1">
-              <Activity className="w-3 h-3 inline-block mr-1" />
-              {isOnline ? t('common.online') : t('common.offline')}
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1 dark:text-white">{stats.onlineSince}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.online_since')}</p>
-        </div>
-
-        {/* Carte 2: Demandes reçues */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 hover:shadow-xl transition-shadow duration-300">
-          <div className="flex items-start justify-between mb-4">
-            <div className="p-2 rounded-lg bg-green-50">
-              <Bell className="w-6 h-6 text-green-500 dark:text-green-400" />
-            </div>
-            <div className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded-full">
-              {t('common.today')}
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1 dark:text-white">{stats.requestsReceived}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.requests_received')}</p>
-        </div>
-
-        {/* Carte 3: Courses effectuées */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 hover:shadow-xl transition-shadow duration-300">
-          <div className="flex items-start justify-between mb-4">
-            <div className="p-2 rounded-lg bg-amber-50">
-              <Car className="w-6 h-6 text-amber-500" />
-            </div>
-            <div className="text-xs bg-amber-500/10 text-amber-600 px-2 py-1 rounded-full">
-              {t('common.today')}
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1 dark:text-white">{stats.tripsCompleted}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.trips_completed_today')}</p>
-        </div>
-
-        {/* Carte 4: Revenus journaliers */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 hover:shadow-xl transition-shadow duration-300">
-          <div className="flex items-start justify-between mb-4">
-            <div className="p-2 rounded-lg bg-emerald-50">
-              <DollarSign className="w-6 h-6 text-emerald-500" />
-            </div>
-            <div className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-1 rounded-full">
-              {t('common.today')}
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1 dark:text-white">
-            {stats.dailyRevenue.toLocaleString(i18n.language === 'en' ? 'en-US' : 'fr-FR')} {t('common.currency_symbol_short')}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.daily_revenue')}</p>
-        </div>
+        <DriverStatCard
+          icon={Clock}
+          iconBg="bg-green-50"
+          iconColor="text-blue-500 dark:text-blue-400"
+          badgeBg="bg-blue-500/10 dark:bg-blue-500/20"
+          badgeColor="text-blue-500 dark:text-blue-400"
+          badge={isOnline ? t('common.online') : t('common.offline')}
+          showActivityIcon
+          value={stats.onlineSince}
+          label={t('dashboard.online_since')}
+        />
+        <DriverStatCard
+          icon={Bell}
+          iconBg="bg-green-50"
+          iconColor="text-green-500 dark:text-green-400"
+          badgeBg="bg-green-500/10"
+          badgeColor="text-green-500"
+          badge={t('common.today')}
+          value={stats.requestsReceived}
+          label={t('dashboard.requests_received')}
+        />
+        <DriverStatCard
+          icon={Car}
+          iconBg="bg-amber-50"
+          iconColor="text-amber-500"
+          badgeBg="bg-amber-500/10"
+          badgeColor="text-amber-600"
+          badge={t('common.today')}
+          value={stats.tripsCompleted}
+          label={t('dashboard.trips_completed_today')}
+        />
+        <DriverStatCard
+          icon={DollarSign}
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-500"
+          badgeBg="bg-emerald-500/10"
+          badgeColor="text-emerald-600"
+          badge={t('common.today')}
+          value={`${stats.dailyRevenue.toLocaleString(i18n.language === 'en' ? 'en-US' : 'fr-FR')} ${t('common.currency_symbol_short')}`}
+          label={t('dashboard.daily_revenue')}
+        />
       </div>
 
       {/* Section actions rapides */}
@@ -166,7 +109,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             to="/chauffeur/trips"
-            className="relative flex items-center justify-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="relative flex items-center justify-center gap-2 p-4 min-h-[44px] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <Bell className="w-5 h-5 text-blue-500" />
             <span className="font-medium text-gray-800 dark:text-white">{t('dashboard.view_requests')}</span>
@@ -179,7 +122,7 @@ export default function Dashboard() {
 
           <Link
             to="/chauffeur/trips"
-            className="flex items-center justify-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="flex items-center justify-center gap-2 p-4 min-h-[44px] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <Car className="w-5 h-5 text-green-500" />
             <span className="font-medium text-gray-800 dark:text-white">{t('nav.mes_trajets')}</span>
@@ -187,7 +130,7 @@ export default function Dashboard() {
 
           <Link
             to="/chauffeur/revenues"
-            className="flex items-center justify-center gap-2 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="flex items-center justify-center gap-2 p-4 min-h-[44px] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <DollarSign className="w-5 h-5 text-amber-500" />
             <span className="font-medium text-gray-800 dark:text-white">{t('dashboard.view_revenues')}</span>
@@ -195,65 +138,6 @@ export default function Dashboard() {
         </div>
       </div>
       <LocationCard />
-    </div>
-  );
-}
-
-// Composant de localisation en temps réel
-function LocationCard() {
-  const { t } = useTranslation();
-  const [userLocation, setUserLocation] = useState({
-    lat: 9.6412, // Conakry, Guinée par défaut
-    lng: -13.5784,
-    address: "Mamou, Guinée"
-  });
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Obtenir la position de l'utilisateur
-  useEffect(() => {
-    const fetchLocation = async () => {
-      try {
-        const position = await GeolocationService.getCurrentPosition();
-        setUserLocation({
-          lat: position.lat,
-          lng: position.lng,
-          address: t('dashboard.current_position')
-        });
-      } catch (error) {
-        console.log("Erreur de géolocalisation:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLocation();
-  }, [t]);
-
-  if (isLoading) {
-    return (
-      <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-        <p className="text-gray-600 dark:text-gray-400">{t('dashboard.locating_msg')}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-6">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-        {/* En-tête */}
-        <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-blue-500/5 to-green-500/5">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-white">{t('dashboard.position_guinea')}</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {userLocation.address} | {userLocation.lat.toFixed(4)}°, {userLocation.lng.toFixed(4)}°
-          </p>
-        </div>
-
-        {/* Carte OpenStreetMap */}
-        <div className="relative h-96">
-          <UserLocationMap lat={userLocation.lat} lng={userLocation.lng} height={384} />
-        </div>
-      </div>
     </div>
   );
 }
