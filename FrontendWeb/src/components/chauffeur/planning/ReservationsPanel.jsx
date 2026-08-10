@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Calendar, Car as CarIcon, Clock, MapPin, Eye, MoreVertical } from 'lucide-react';
+import Card from '../../admin/ui/Card';
 import ReservationActionMenu from './ReservationActionMenu';
 
 const StatusBadge = ({ status, getStatusColor }) => (
@@ -79,7 +80,7 @@ const ReservationsPanel = ({
 
   return (
     <div className="lg:col-span-2 space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+      <Card padding="p-4 sm:p-6" animate={false} className="!rounded-xl !shadow-lg dark:!border-gray-700">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="min-w-0">
             <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -104,9 +105,9 @@ const ReservationsPanel = ({
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <Card padding="p-0" animate={false} className="!rounded-xl !shadow-lg dark:!border-gray-700 overflow-hidden">
         <div className="hidden lg:block border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-6 py-3">
           <div className="grid grid-cols-12 gap-4">
             <div className="col-span-3 font-medium text-gray-700 dark:text-gray-300">{t('planning.passenger')}</div>
@@ -199,7 +200,7 @@ const ReservationsPanel = ({
             </div>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 };
