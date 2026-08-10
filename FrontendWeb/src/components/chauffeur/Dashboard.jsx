@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Bell, Car, DollarSign } from 'lucide-react';
+import { Clock, Bell, Car, DollarSign, Calendar } from 'lucide-react';
 import { useDriverContext } from '../../context/DriverContext';
 import { tripService } from '../../services/tripService';
 import { useTranslation } from 'react-i18next';
-import DriverStatCard from './dashboard/DriverStatCard';
+import StatCard from '../admin/layout/StatCard';
 import LocationCard from './dashboard/LocationCard';
 
 export default function Dashboard() {
@@ -60,46 +60,29 @@ export default function Dashboard() {
 
       {/* Les 4 cartes de statistiques */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <DriverStatCard
+        <StatCard
           icon={Clock}
-          iconBg="bg-green-50"
-          iconColor="text-blue-500 dark:text-blue-400"
-          badgeBg="bg-blue-500/10 dark:bg-blue-500/20"
-          badgeColor="text-blue-500 dark:text-blue-400"
-          badge={isOnline ? t('common.online') : t('common.offline')}
-          showActivityIcon
+          title={t('dashboard.online_since')}
           value={stats.onlineSince}
-          label={t('dashboard.online_since')}
+          description={isOnline ? t('common.online') : t('common.offline')}
         />
-        <DriverStatCard
+        <StatCard
           icon={Bell}
-          iconBg="bg-green-50"
-          iconColor="text-green-500 dark:text-green-400"
-          badgeBg="bg-green-500/10"
-          badgeColor="text-green-500"
-          badge={t('common.today')}
+          title={t('dashboard.requests_received')}
           value={stats.requestsReceived}
-          label={t('dashboard.requests_received')}
+          description={t('common.today')}
         />
-        <DriverStatCard
+        <StatCard
           icon={Car}
-          iconBg="bg-amber-50"
-          iconColor="text-amber-500"
-          badgeBg="bg-amber-500/10"
-          badgeColor="text-amber-600"
-          badge={t('common.today')}
+          title={t('dashboard.trips_completed_today')}
           value={stats.tripsCompleted}
-          label={t('dashboard.trips_completed_today')}
+          description={t('common.today')}
         />
-        <DriverStatCard
+        <StatCard
           icon={DollarSign}
-          iconBg="bg-emerald-50"
-          iconColor="text-emerald-500"
-          badgeBg="bg-emerald-500/10"
-          badgeColor="text-emerald-600"
-          badge={t('common.today')}
+          title={t('dashboard.daily_revenue')}
           value={`${stats.dailyRevenue.toLocaleString(i18n.language === 'en' ? 'en-US' : 'fr-FR')} ${t('common.currency_symbol_short')}`}
-          label={t('dashboard.daily_revenue')}
+          description={t('common.today')}
         />
       </div>
 
@@ -121,11 +104,12 @@ export default function Dashboard() {
           </Link>
 
           <Link
-            to="/chauffeur/trips"
+            to="/chauffeur/planning"
             className="flex items-center justify-center gap-2 p-4 min-h-[44px] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
-            <Car className="w-5 h-5 text-green-500" />
-            <span className="font-medium text-gray-800 dark:text-white">{t('nav.mes_trajets')}</span>
+            <Calendar className="w-5 h-5 text-green-500" />
+            {/*  Mon planing */}
+            <span className="font-medium text-gray-800 dark:text-white">Mes Planings</span>
           </Link>
 
           <Link
