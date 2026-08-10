@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Car, User, MapPin, Navigation, Clock, Calendar } from 'lucide-react';
+import Card from '../../admin/ui/Card';
 import { STATUS_CONFIG } from './TripStatusFilters';
 
 const TripCard = ({ trip, onAccept, onRefuse, onContinue }) => {
@@ -7,7 +8,11 @@ const TripCard = ({ trip, onAccept, onRefuse, onContinue }) => {
     const config = STATUS_CONFIG[trip.status] || { color: 'bg-gray-100', icon: <Car className="w-4 h-4" /> };
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all duration-300">
+        <Card
+            padding="p-0"
+            animate={false}
+            className="!rounded-3xl !border-gray-100 dark:!border-gray-700 overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all duration-300"
+        >
             {/* Top: Status & Fare */}
             <div className="px-4 sm:px-6 py-4 flex items-center justify-between gap-2 bg-gray-50/50 dark:bg-gray-900/30 border-b border-gray-100 dark:border-gray-700">
                 <div className="flex items-center gap-3 min-w-0">
@@ -134,7 +139,7 @@ const TripCard = ({ trip, onAccept, onRefuse, onContinue }) => {
                     )}
                 </div>
             </div>
-        </div>
+        </Card>
     );
 };
 
