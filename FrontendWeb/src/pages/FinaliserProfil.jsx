@@ -4,6 +4,7 @@ import { apiClient } from '../services/apiClient';
 import { useNavigate } from 'react-router-dom';
 import { Phone, User, CheckCircle2, ChevronRight, LogOut, Car } from 'lucide-react';
 import { API_ROUTES } from '../services/apiRoutes';
+import Button from '../components/admin/ui/Bttn';
 
 const FinaliserProfil = () => {
     const { user, setUser, logout, checkAuth } = useAuth();
@@ -125,10 +126,11 @@ const FinaliserProfil = () => {
                         )}
 
                         <div>
-                            <button
+                            <Button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-14 bg-gradient-to-r from-primaryGreen-start to-primaryBlue-start text-white font-bold rounded-2xl shadow-xl shadow-primaryGreen-start/20 transform transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 overflow-hidden group"
+                                fullWidth
+                                className="!h-14 !bg-gradient-to-r !from-primaryGreen-start !to-primaryBlue-start !rounded-2xl !shadow-xl shadow-primaryGreen-start/20 active:scale-95 gap-3 overflow-hidden group"
                             >
                                 {isLoading ? (
                                     <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />
@@ -138,7 +140,7 @@ const FinaliserProfil = () => {
                                         <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                     </>
                                 )}
-                            </button>
+                            </Button>
                         </div>
                     </form>
 
