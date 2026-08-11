@@ -39,6 +39,7 @@ const ChauffeurApp = lazy(() => import('./pages/ChauffeurApp'));
 const Passenger = lazy(() => import('./pages/Passager'));
 const Connexion = lazy(() => import('./pages/Connexion'));
 const Inscription = lazy(() => import('./pages/Inscription'));
+const MotDePasseOublie = lazy(() => import('./pages/MotDePasseOublie'));
 const DownloadApp = lazy(() => import('./pages/DownloadApp'));
 const GuidePage = lazy(() => import('./pages/GuidePage'));
 
@@ -75,6 +76,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/connexion" element={<Connexion />} />
             <Route path="/inscription" element={<Inscription />} />
+            <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
             <Route path="/telecharger" element={<DownloadApp />} />
             <Route path="/guide" element={<GuidePage />} />
             <Route path="/finaliser-profil" element={
