@@ -57,7 +57,7 @@ const Connexion = () => {
               </div>
             </div>
 
-            <div className="p-6 md:p-8 w-full max-w-4xl">
+            <div className="p-6 md:p-8 w-full">
               <div className="mb-8">
                 <h2 className="text-2xl text-center font-bold text-gray-900 dark:text-white mb-2">Se connecter</h2>
                 <p className="text-gray-600 text-center dark:text-gray-400">Accédez à votre compte {platform.name || 'Taka Taka'}</p>

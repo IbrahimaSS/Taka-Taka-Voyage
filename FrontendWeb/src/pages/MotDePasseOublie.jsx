@@ -62,7 +62,7 @@ const MotDePasseOublie = () => {
               </div>
             </div>
 
-            <div className="p-6 md:p-8 w-full max-w-4xl">
+            <div className="p-6 md:p-8 w-full">
               {currentStep === 1 && (
                 <StepIdentifiant
                   identifiant={identifiant}
