@@ -1,14 +1,14 @@
 // src/components/passager/BookingSection.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Car, Calendar, Loader } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import 'leaflet/dist/leaflet.css';
 
 // Composants UI réutilisables
 import Card, { CardHeader, CardTitle, CardContent } from '../admin/ui/Card';
 import Progress from '../admin/ui/Progress';
+import Loading from '../admin/ui/Loading';
 
 // Services
 import { GeolocationService } from '../../services/geolocation';
@@ -20,8 +20,16 @@ import { useAddressSearch, isValidLatLng } from './booking/useAddressSearch';
 import { useBookingPricing } from './booking/useBookingPricing';
 import { useRecentTrips } from './booking/useRecentTrips';
 import BookingForm from './booking/BookingForm';
-import BookingMap from './booking/BookingMap';
 import RecentTripsCard from './booking/RecentTripsCard';
+
+// BookingSection ("home", onglet par defaut a la connexion) reste eager,
+// mais react-leaflet (~150 kB avec le CSS) qu'il embarque via BookingMap est
+// isole dans son propre chunk - le reste de l'ecran (formulaire, historique)
+// s'affiche immediatement, seule la carte a un court etat de chargement.
+// leaflet/dist/leaflet.css est deja importe par BookingMap.jsx lui-meme :
+// l'import ici etait redondant et aurait sinon charge le CSS en eager quand
+// meme, annulant l'effet du lazy sur le JS.
+const BookingMap = lazy(() => import('./booking/BookingMap'));
 
 const BookingSection = ({
   onBookTrip,
@@ -327,21 +335,27 @@ const BookingSection = ({
           transition={{ delay: 0.1 }}
           className="space-y-6"
         >
-          <BookingMap
-            t={t}
-            mapCenter={mapCenter}
-            mapRef={mapRef}
-            selectionMode={selectionMode}
-            onMapSelection={handleMapSelection}
-            userLocation={userLocation}
-            pickupLocation={pickupLocation}
-            destinationLocation={destinationLocation}
-            formData={formData}
-            shouldShowDriver={shouldShowDriver}
-            currentDriver={currentDriver}
-            locateUser={locateUser}
-            isLoadingGeolocation={isLoading.geolocation}
-          />
+          <Suspense fallback={
+            <div className="bg-white passenger-glass dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+              <Loading className="h-[430px] sm:h-[580px]" text="Chargement de la carte..." />
+            </div>
+          }>
+            <BookingMap
+              t={t}
+              mapCenter={mapCenter}
+              mapRef={mapRef}
+              selectionMode={selectionMode}
+              onMapSelection={handleMapSelection}
+              userLocation={userLocation}
+              pickupLocation={pickupLocation}
+              destinationLocation={destinationLocation}
+              formData={formData}
+              shouldShowDriver={shouldShowDriver}
+              currentDriver={currentDriver}
+              locateUser={locateUser}
+              isLoadingGeolocation={isLoading.geolocation}
+            />
+          </Suspense>
         </motion.div>
       </div>
 
