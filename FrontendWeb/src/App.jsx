@@ -2,19 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 
 // Layouts
-import AdminApp from './pages/AdminApp';
 import PublicProviders from './PublicProviders';
 
 
 // Pages
 import HomePage from './pages/HomePage';
-import ChauffeurApp from './pages/ChauffeurApp';
-import Connexion from './pages/Connexion';
-import Inscription from './pages/Inscription';
-import Passenger from './pages/Passager';
 import FinaliserProfil from './pages/FinaliserProfil';
-import DownloadApp from './pages/DownloadApp';
-import GuidePage from './pages/GuidePage';
 import { PassengerProvider } from './context/PassengerContext';
 
 import NotFound from './pages/NotFound';
@@ -35,6 +28,19 @@ const ValidationReussie = lazy(() => import('./components/validation/ValidationR
 // le site public pour un visiteur anonyme qui n'ouvre jamais le widget - le
 // plus gros fichier du repo, en lazy pour le sortir du chunk critique initial.
 const AssistantIA = lazy(() => import('./components/assistant/AssistantIA'));
+
+// Coquilles de role (Admin/Chauffeur/Passager) + pages secondaires - mutuellement
+// exclusives selon la session (un chauffeur ne charge jamais le bundle Admin,
+// un visiteur anonyme ne charge ni l'un ni l'autre). HomePage reste eager :
+// c'est la vraie page d'atterrissage, la mettre en lazy ajouterait un
+// aller-retour reseau pour zero benefice.
+const AdminApp = lazy(() => import('./pages/AdminApp'));
+const ChauffeurApp = lazy(() => import('./pages/ChauffeurApp'));
+const Passenger = lazy(() => import('./pages/Passager'));
+const Connexion = lazy(() => import('./pages/Connexion'));
+const Inscription = lazy(() => import('./pages/Inscription'));
+const DownloadApp = lazy(() => import('./pages/DownloadApp'));
+const GuidePage = lazy(() => import('./pages/GuidePage'));
 
 // Composant de chargement
 const LoadingSpinner = () => (
