@@ -1,9 +1,28 @@
 import { Car, CheckCircle, XCircle } from 'lucide-react';
 import { documentTypes, vehicleTypes } from './useDriverRegistrationForm';
 
+// Classes completes et statiques (pas de template litteral dynamique type
+// `border-${accent}-500`) pour rester visibles au scan JIT de Tailwind.
+const VEHICLE_ACCENT_CLASSES = {
+  blue: {
+    selected: 'border-blue-500 bg-blue-50 dark:bg-blue-900/20',
+    label: 'text-blue-700 dark:text-blue-400',
+  },
+  amber: {
+    selected: 'border-amber-500 bg-amber-50 dark:bg-amber-900/20',
+    label: 'text-amber-700 dark:text-amber-400',
+  },
+  indigo: {
+    selected: 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20',
+    label: 'text-indigo-700 dark:text-indigo-400',
+  },
+};
+
 // Colonne droite (type de vehicule + formulaire + recapitulatif) - extraite
-// de InscriptionChauffeur.jsx (decomposition), aucun changement de
-// comportement.
+// de InscriptionChauffeur.jsx (decomposition). UI/UX et responsive revus :
+// chaque type de vehicule a sa propre couleur d'accent (au lieu du meme
+// bleu partout), rangee horizontale compacte sur mobile / carte centree
+// des sm:, icone agrandie pour mieux mettre en valeur les illustrations.
 const VehicleInfoForm = ({ driverData, validationErrors, onVehicleChange }) => {
   return (
     <div className="space-y-6">
@@ -20,27 +39,30 @@ const VehicleInfoForm = ({ driverData, validationErrors, onVehicleChange }) => {
               Type de véhicule
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {vehicleTypes.map((type) => (
-                <button
-                  type="button"
-                  key={type.value}
-                  onClick={() => onVehicleChange('type', type.value)}
-                  className={`p-4 rounded-xl border-2 transition-all ${driverData.vehicle.type === type.value
-                    ? `border-blue-500 bg-gradient-to-r ${type.color} bg-opacity-10`
-                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
-                    }`}
-                >
-                  <div className="w-16 h-12 mb-3 mx-auto flex items-center justify-center">
-                    <img src={type.icon} alt={type.label} className="max-w-full max-h-full object-contain drop-shadow-md" />
-                  </div>
-                  <span className={`text-sm font-medium ${driverData.vehicle.type === type.value
-                    ? 'text-blue-600 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300'
-                    }`}>
-                    {type.label}
-                  </span>
-                </button>
-              ))}
+              {vehicleTypes.map((type) => {
+                const isSelected = driverData.vehicle.type === type.value;
+                const accent = VEHICLE_ACCENT_CLASSES[type.accent];
+                return (
+                  <button
+                    type="button"
+                    key={type.value}
+                    onClick={() => onVehicleChange('type', type.value)}
+                    aria-pressed={isSelected}
+                    className={`min-h-[44px] p-3 sm:p-4 rounded-xl border-2 transition-all flex items-center gap-3 sm:flex-col sm:gap-0 sm:text-center ${isSelected
+                      ? accent.selected
+                      : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
+                      }`}
+                  >
+                    <div className="w-14 h-11 sm:w-20 sm:h-16 sm:mb-3 sm:mx-auto shrink-0 flex items-center justify-center">
+                      <img src={type.icon} alt={type.label} className="max-w-full max-h-full object-contain drop-shadow-md" />
+                    </div>
+                    <span className={`text-sm font-medium ${isSelected ? accent.label : 'text-gray-700 dark:text-gray-300'
+                      }`}>
+                      {type.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

@@ -54,13 +54,13 @@ const DocumentUploadList = ({
                   </p>
 
                   {driverData[doc.key] ? (
-                    <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <div className="flex items-center justify-between gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
                           <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-800 dark:text-white">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
                             {driverData[doc.key].name}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -68,20 +68,22 @@ const DocumentUploadList = ({
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 shrink-0">
                         {previewUrls[doc.key] && (
                           <button
                             onClick={() => window.open(previewUrls[doc.key], '_blank')}
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                            className="w-11 h-11 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                             title="Voir"
+                            aria-label="Voir le document"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                         )}
                         <button
                           onClick={() => onRemoveFile(doc.key)}
-                          className="p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
+                          className="w-11 h-11 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
                           title="Supprimer"
+                          aria-label="Supprimer le document"
                         >
                           <X className="w-4 h-4 text-red-600 dark:text-red-400" />
                         </button>

@@ -50,10 +50,16 @@ export const documentTypes = [
   }
 ];
 
+// "accent" pilote la couleur distinctive de chaque carte (voir
+// VEHICLE_ACCENT_CLASSES dans VehicleInfoForm.jsx) - avant, les 3 types
+// partageaient le meme degrade plat (from-blue-100 to-blue-100, donc pas
+// vraiment un degrade) et le meme bleu de selection, aucune distinction
+// visuelle entre eux. Couleur choisie pour rester coherente avec
+// l'illustration de chaque vehicule (moto bleue, taxi jaune, berline bleu nuit).
 export const vehicleTypes = [
-  { value: 'moto', label: 'Moto-taxi', icon: '/assets/images/vehicles/moto.png', color: ' bg-gradient-to-r from-blue-100 to-blue-100' },
-  { value: 'taxi', label: 'Taxi', icon: '/assets/images/vehicles/taxi.png', color: 'bg-gradient-to-r from-blue-100 to-blue-100' },
-  { value: 'voiture_privé', label: 'Voiture privée', icon: '/assets/images/vehicles/car.png', color: 'bg-gradient-to-r from-blue-100 to-blue-100' }
+  { value: 'moto', label: 'Moto-taxi', icon: '/assets/images/vehicles/moto.png', accent: 'blue' },
+  { value: 'taxi', label: 'Taxi', icon: '/assets/images/vehicles/taxi.png', accent: 'amber' },
+  { value: 'voiture_privé', label: 'Voiture privée', icon: '/assets/images/vehicles/car.png', accent: 'indigo' }
 ];
 
 export const useDriverRegistrationForm = ({ onSubmit, showToast }) => {
