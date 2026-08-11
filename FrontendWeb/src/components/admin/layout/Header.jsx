@@ -111,11 +111,11 @@ export default function Header({
     <header className="glass-header bg-white/90 dark:bg-gray-800  border-b-2 border-gray-200/30 dark:border-gray-900 shadow-sm animate-fade-in-down sticky top-0 z-30 px-4 md:px-6 py-3">
       <div className="flex items-center justify-between gap-3">
         {/* Left */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={onMenuToggle}
-            className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl surface hover:bg-gray-50 dark:hover:bg-gray-700 ring-primary"
+            className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl surface hover:bg-gray-50 dark:hover:bg-gray-700 ring-primary shrink-0"
             aria-label="Ouvrir le menu"
             type="button"
           >
@@ -125,7 +125,7 @@ export default function Header({
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={onSidebarToggle}
-            className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-xl surface dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 ring-primary"
+            className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-xl surface dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 ring-primary shrink-0"
             aria-label="Réduire/étendre la sidebar"
             type="button"
           >
@@ -160,7 +160,7 @@ export default function Header({
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-1 md:gap-2.5">
+        <div className="flex items-center gap-1 md:gap-2.5 shrink-0">
           {/* Toggle Disponibilité */}
           {role === ROLES.CHAUFFEUR && (
             <div className="flex items-center gap-1 sm:gap-2">
