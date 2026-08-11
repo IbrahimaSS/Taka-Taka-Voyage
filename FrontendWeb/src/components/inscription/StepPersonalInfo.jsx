@@ -90,7 +90,7 @@ const StepPersonalInfo = ({
           </div>
           {/* Genre liste deroulante */}
           <div className="">
-            <label htmlFor="genre" onChange={onChange} className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">Genre</label>
+            <label htmlFor="genre" className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">Genre</label>
             <select value={formData.genre} name="genre" className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 focus:ring-blue-500/50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:border-transparent transition-all" id="genre" onChange={onChange}>
               <option value="">Genre</option>
               <option value="MASCULIN">MASCULIN</option>

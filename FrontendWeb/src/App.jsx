@@ -18,6 +18,7 @@ import PlatformMonitor from './components/notifications/PlatformMonitor';
 import ReservationReminder from './components/notifications/ReservationReminder';
 import OfflineBanner from './components/common/OfflineBanner';
 import NouveauVehiculeAlerte from './components/common/NouveauVehiculeAlerte';
+import FullScreenSpinner from './components/common/FullScreenSpinner';
 
 
 
@@ -43,18 +44,6 @@ const MotDePasseOublie = lazy(() => import('./pages/MotDePasseOublie'));
 const DownloadApp = lazy(() => import('./pages/DownloadApp'));
 const GuidePage = lazy(() => import('./pages/GuidePage'));
 
-// Composant de chargement
-const LoadingSpinner = () => (
-  <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-    <div className="text-center">
-      <div className="w-16 h-16 border-4 border-t-primaryGreen-start border-r-primaryBlue-start border-b-primaryGreen-end border-l-primaryBlue-end rounded-full animate-spin mx-auto mb-4"></div>
-      <p className="text-slate-600 dark:text-slate-300">Chargement...</p>
-    </div>
-  </div>
-);
-
-
-
 // Composant principal
 export default function App() {
   return (
@@ -69,7 +58,7 @@ export default function App() {
       </Suspense>
       <OfflineBanner />
       <NouveauVehiculeAlerte />
-      <Suspense fallback={<LoadingSpinner />}>
+      <Suspense fallback={<FullScreenSpinner />}>
         <Routes>
           {/* PUBLIC */}
           <Route element={<PublicProviders />}>

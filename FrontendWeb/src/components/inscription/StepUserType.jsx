@@ -30,7 +30,7 @@ const StepUserType = ({ userType, onSelect, error, onNext, showToast }) => {
           onClick={() => onSelect('passenger')}
         >
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-900/10 flex items-center justify-center mb-4 mx-auto">
-            <User className="text-blue-600 dark:text-blue-400 text-2xl" />
+            <User className="text-blue-600 dark:text-blue-400" size={24} />
           </div>
           <h3 className={`text-lg font-bold text-center mb-3 ${userType === 'passenger' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>Passager</h3>
           <p className={`text-center text-sm mb-4 ${userType === 'passenger' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'}`}>
@@ -62,7 +62,7 @@ const StepUserType = ({ userType, onSelect, error, onNext, showToast }) => {
           onClick={() => onSelect('driver')}
         >
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/30 dark:to-green-900/10 flex items-center justify-center mb-4 mx-auto">
-            <Car className="text-green-600 dark:text-green-400 text-2xl" />
+            <Car className="text-green-600 dark:text-green-400" size={24} />
           </div>
           <h3 className={`text-lg font-bold text-center mb-3 ${userType === 'driver' ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>Chauffeur</h3>
           <p className={`text-center text-sm mb-4 ${userType === 'driver' ? 'text-green-700 dark:text-green-300' : 'text-gray-600 dark:text-gray-400'}`}>
