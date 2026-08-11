@@ -1,8 +1,10 @@
-import { User, Car, CheckCircle, AlertTriangle, Info, ArrowRight } from 'lucide-react';
+import { User, Car, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Button from '../admin/ui/Bttn';
 
-const StepUserType = ({ userType, onSelect, error, onNext, showToast }) => {
+// Selectionner une carte declenche directement l'etape suivante (voir
+// useInscriptionFlow.js:handleUserTypeSelect) - pas de bouton "Continuer"
+// ici, un seul clic suffit pour choisir son profil.
+const StepUserType = ({ userType, onSelect, error, showToast }) => {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -93,20 +95,6 @@ const StepUserType = ({ userType, onSelect, error, onNext, showToast }) => {
           </div>
         </div>
       )}
-
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="primary"
-          size="lg"
-          onClick={onNext}
-          disabled={!userType}
-          icon={ArrowRight}
-          iconSize="medium"
-        >
-          Continuer
-        </Button>
-      </div>
     </>
   );
 };

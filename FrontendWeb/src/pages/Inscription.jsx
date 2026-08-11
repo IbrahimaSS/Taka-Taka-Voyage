@@ -27,7 +27,7 @@ const Inscription = () => {
     showTermsModal, setShowTermsModal,
     toast, setToast,
     handleUserTypeSelect, handleInputChange, handleOtpChange, handleOtpKeyDown, handleTermsChange,
-    handleNextStep, handlePrevStep, resendOtp, handleSubmit, handleDriverFinalSubmit,
+    handleNextStep, handlePrevStep, handleConfirmStepModal, resendOtp, handleSubmit, handleDriverFinalSubmit,
     getProgressPercentage, isPasswordMatch, getStepModalContent,
   } = useInscriptionFlow();
 
@@ -51,10 +51,7 @@ const Inscription = () => {
       <ConfirmModal
         isOpen={showStepModal}
         onClose={() => setShowStepModal(false)}
-        onConfirm={() => {
-          handleNextStep();
-          setShowStepModal(false);
-        }}
+        onConfirm={handleConfirmStepModal}
         title={getStepModalContent().title}
         message={getStepModalContent().content}
         type="info"
@@ -156,7 +153,6 @@ const Inscription = () => {
                       userType={userType}
                       onSelect={handleUserTypeSelect}
                       error={validationErrors.userType}
-                      onNext={handleNextStep}
                       showToast={showToast}
                     />
                   </motion.div>

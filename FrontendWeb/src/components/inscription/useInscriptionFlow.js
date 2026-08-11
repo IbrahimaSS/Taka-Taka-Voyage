@@ -64,13 +64,12 @@ export const useInscriptionFlow = () => {
     typeProfil: userType === 'driver' ? 'CHAUFFEUR' : 'PASSAGER',
   });
 
+  // Selectionner une carte ouvre directement la modale de confirmation
+  // d'etape, sans toast intermediaire ni clic sur "Continuer" - un seul
+  // clic pour choisir son profil et passer a l'etape suivante.
   const handleUserTypeSelect = (type) => {
     setUserType(type);
-    showToast('Type de compte sélectionné',
-      type === 'passenger'
-        ? 'Vous avez choisi le compte Passager'
-        : 'Vous avez choisi le compte Chauffeur',
-      'success');
+    setShowStepModal(true);
   };
 
   const handleInputChange = (e) => {
@@ -234,11 +233,6 @@ export const useInscriptionFlow = () => {
       return;
     }
 
-    if (currentStep === 1 && userType) {
-      setShowStepModal(true);
-      return;
-    }
-
     if (currentStep === 2) {
       setIsSubmitting(true);
       try {
@@ -264,6 +258,14 @@ export const useInscriptionFlow = () => {
 
   const handlePrevStep = () => {
     setCurrentStep(prev => prev - 1);
+  };
+
+  // Confirmation de la modale d'etape 1 (choix du profil) : avance
+  // directement a l'etape 2, sans repasser par la validation/logique de
+  // handleNextStep (qui ne concerne plus que les etapes 2+).
+  const handleConfirmStepModal = () => {
+    setCurrentStep(prev => prev + 1);
+    setShowStepModal(false);
   };
 
   const resendOtp = async () => {
@@ -455,7 +457,7 @@ export const useInscriptionFlow = () => {
     showTermsModal, setShowTermsModal,
     toast, setToast,
     handleUserTypeSelect, handleInputChange, handleOtpChange, handleOtpKeyDown, handleTermsChange,
-    handleNextStep, handlePrevStep, resendOtp, handleSubmit, handleDriverFinalSubmit,
+    handleNextStep, handlePrevStep, handleConfirmStepModal, resendOtp, handleSubmit, handleDriverFinalSubmit,
     getProgressPercentage, isPasswordMatch, getStepModalContent,
   };
 };
