@@ -28,6 +28,7 @@ import { useWalletBalance } from './header/useWalletBalance';
 import { useHeaderAdminAlerts } from './header/useHeaderAdminAlerts';
 import NotificationsDropdown from './header/NotificationsDropdown';
 import ProfileDropdown from './header/ProfileDropdown';
+import MoreActionsDropdown from './header/MoreActionsDropdown';
 
 export default function Header({
   currentDate,
@@ -188,11 +189,21 @@ export default function Header({
             </div>
           )}
 
+          {/* Regroupement Theme + QR Scanner sous un seul bouton sur < sm
+              (la rangee d'icones ne tient plus a plat en dessous de cette
+              largeur), inchange a partir de sm */}
+          <MoreActionsDropdown
+            theme={theme}
+            toggleTheme={toggleTheme}
+            showQrScanner={role === ROLES.CHAUFFEUR}
+            onOpenScanner={() => setShowScanner(true)}
+          />
+
           {/* Theme */}
           <button
             type="button"
             onClick={toggleTheme}
-            className="inline-flex  h-10 w-10 items-center justify-center rounded-xl surface hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 ring-primary"
+            className="hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-xl surface hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 ring-primary"
             aria-label="Changer le thème"
           >
             {theme === 'dark' ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-slate-700" />}
@@ -203,7 +214,7 @@ export default function Header({
             <button
               type="button"
               onClick={() => setShowScanner(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 ring-emerald-500 transition-all shadow-sm border border-emerald-100/50 dark:border-emerald-800/30"
+              className="hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 ring-emerald-500 transition-all shadow-sm border border-emerald-100/50 dark:border-emerald-800/30"
               aria-label="Scanner un ticket"
               title="Scanner un QR Code"
             >
