@@ -97,16 +97,17 @@ const StatCard = ({
 
       <div className="relative z-10 ">
         {/* En-tête avec titre et icône */}
-        <div className="flex  items-start justify-between mb-4">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-2 truncate">
               {title}
-
             </p>
-            <p className={clsx(
-              'font-bold text-gray-800  transition-all duration-300 group-hover:text-gray-900 dark:group-hover:text-gray-50 dark:text-gray-100',
-              compact ? 'text-2xl' : 'text-3xl'
-            )}>
+            <p
+              title={typeof value === 'string' || typeof value === 'number' ? String(value) : undefined}
+              className={clsx(
+                'font-bold text-gray-800 truncate transition-all duration-300 group-hover:text-gray-900 dark:group-hover:text-gray-50 dark:text-gray-100',
+                compact ? 'text-2xl' : 'text-3xl'
+              )}>
               {value}
             </p>
           </div>
@@ -115,7 +116,7 @@ const StatCard = ({
           <motion.div
             whileHover={{ rotate: 10, scale: 1.1 }}
             className={clsx(
-              'w-12 h-12 rounded-xl flex items-center justify-center shadow-sm transition-all duration-300 group-hover:shadow-md',
+              'w-12 h-12 rounded-xl flex items-center justify-center shadow-sm transition-all duration-300 group-hover:shadow-md shrink-0',
               config.iconBg
             )}
           >
