@@ -1,13 +1,19 @@
 // src/components/sections/Dashboard.jsx
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { useDashboardData } from './dashboard/useDashboardData';
 import { buildMonthlyRevenueConfig, buildServiceDistributionConfig } from './dashboard/dashboardChartConfigs';
 import DashboardHero from './dashboard/DashboardHero';
 import DashboardStatsGrid from './dashboard/DashboardStatsGrid';
-import DashboardChartsSection from './dashboard/DashboardChartsSection';
 import RecentTripsTable from './dashboard/RecentTripsTable';
+import Loading from '../ui/Loading';
+
+// Dashboard est la vue par defaut d'Admin (reste eager), mais chart.js/auto
+// (~207 kB) qu'utilise DashboardChartsSection via ChartCard est isole dans
+// son propre chunk : le reste du dashboard (hero, stats, tableau) s'affiche
+// immediatement, seule la zone graphiques a un court etat de chargement.
+const DashboardChartsSection = lazy(() => import('./dashboard/DashboardChartsSection'));
 
 const Dashboard = ({ showToast }) => {
   const { t, i18n } = useTranslation();
@@ -33,12 +39,14 @@ const Dashboard = ({ showToast }) => {
 
       <DashboardStatsGrid dashboardData={dashboardData} t={t} />
 
-      <DashboardChartsSection
-        t={t}
-        timeRange={timeRange}
-        monthlyRevenueConfig={monthlyRevenueConfig}
-        serviceDistributionConfig={serviceDistributionConfig}
-      />
+      <Suspense fallback={<Loading className="min-h-[380px]" size="sm" text="Chargement des graphiques..." />}>
+        <DashboardChartsSection
+          t={t}
+          timeRange={timeRange}
+          monthlyRevenueConfig={monthlyRevenueConfig}
+          serviceDistributionConfig={serviceDistributionConfig}
+        />
+      </Suspense>
 
       <RecentTripsTable trips={trips} t={t} i18n={i18n} />
     </div>
