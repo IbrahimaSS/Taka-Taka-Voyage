@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useLayoutEffect } from 'react';
 import {
     Download, Printer, ZoomIn, ZoomOut,
     Maximize2, X, Check, MapPin, Phone,
@@ -13,8 +13,40 @@ import { apiClient } from '../../../services/apiClient';
 const PremiumInvoice = ({ payment, onClose }) => {
     const { settings } = useSettings();
     const { t } = useTranslation();
-    const [zoom, setZoom] = useState(0.85); // Légèrement dézoomé par défaut pour tout voir
+    const [zoom, setZoom] = useState(0.85); // Valeur de repli avant la 1ere mesure du conteneur
     const printRef = useRef();
+    const canvasWrapperRef = useRef();
+    const hasUserZoomedRef = useRef(false);
+
+    // Format A4 (210mm) converti en px CSS (~96dpi), utilisé uniquement pour
+    // calculer un zoom "fit-to-width" a l'affichage. Le canevas imprime/exporte
+    // toujours en vraies unites mm (voir handlePrint) : ce calcul ne touche
+    // jamais au rendu papier/PDF, seulement a l'aperçu ecran.
+    const A4_WIDTH_PX = 793.7;
+
+    // Auto-fit : la facture (format A4 fixe, necessaire pour l'impression et
+    // la valeur juridique du document) est mise a l'echelle pour tenir dans
+    // la largeur reelle disponible sur mobile/tablette, comme un lecteur PDF.
+    // S'arrete des que l'utilisateur zoome manuellement pour respecter son choix.
+    useLayoutEffect(() => {
+        const wrapper = canvasWrapperRef.current;
+        if (!wrapper) return;
+
+        const fitToWidth = () => {
+            if (hasUserZoomedRef.current) return;
+            const style = window.getComputedStyle(wrapper);
+            const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+            const availableWidth = wrapper.clientWidth - paddingX;
+            if (availableWidth <= 0) return;
+            const fitZoom = Math.min(1, Math.max(0.3, availableWidth / A4_WIDTH_PX));
+            setZoom(fitZoom);
+        };
+
+        fitToWidth();
+        const observer = new ResizeObserver(fitToWidth);
+        observer.observe(wrapper);
+        return () => observer.disconnect();
+    }, []);
 
     const platformName = 'Taka Taka';
     const platformLogo = settings?.platform?.logo;
@@ -87,8 +119,8 @@ const PremiumInvoice = ({ payment, onClose }) => {
         printWindow.focus();
     };
 
-    const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 1.5));
-    const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.5));
+    const handleZoomIn = () => { hasUserZoomedRef.current = true; setZoom(prev => Math.min(prev + 0.1, 1.5)); };
+    const handleZoomOut = () => { hasUserZoomedRef.current = true; setZoom(prev => Math.max(prev - 0.1, 0.3)); };
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
@@ -98,19 +130,22 @@ const PremiumInvoice = ({ payment, onClose }) => {
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="bg-white dark:bg-slate-950 w-full max-w-6xl h-[95vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800"
             >
-                {/* Header / Toolbar */}
-                <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 shadow-sm z-10">
-                    <div className="flex items-center gap-4 text-slate-800 dark:text-slate-100">
-                        <div className="flex items-center gap-3">
-                            <span className={`p-2 ${softGradient} rounded-lg shadow-lg`}>
-                                <Printer className="w-5 h-5 text-white" />
-                            </span>
-                            <div className="flex flex-col">
-                                <h2 className="text-base font-bold leading-tight">Facture Premium Taka Taka</h2>
-                                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Format Professionnel A4</span>
-                            </div>
+                {/* Header / Toolbar - empile en 2 lignes sur mobile (< sm) pour que
+                    les boutons Imprimer/PDF/Fermer restent toujours visibles et
+                    cliquables (avant : rangee unique qui debordait et coupait ces
+                    boutons hors du cadre, rendant la modale impossible a fermer) */}
+                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-slate-900 shadow-sm z-10">
+                    <div className="flex items-center gap-3 min-w-0 text-slate-800 dark:text-slate-100">
+                        <span className={`p-2 ${softGradient} rounded-lg shadow-lg shrink-0`}>
+                            <Printer className="w-5 h-5 text-white" />
+                        </span>
+                        <div className="flex flex-col min-w-0">
+                            <h2 className="text-base font-bold leading-tight truncate">Facture Premium Taka Taka</h2>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold truncate">Format Professionnel A4</span>
                         </div>
-                        <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2 hidden md:block" />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1 border border-slate-200/50 dark:border-slate-700/50">
                             <button
                                 onClick={handleZoomOut}
@@ -130,34 +165,38 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                 <ZoomIn className="w-4 h-4" />
                             </button>
                         </div>
-                    </div>
 
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={handlePrint}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white hover:bg-black transition-all font-bold text-sm rounded-xl"
-                        >
-                            <Printer className="w-4 h-4" />
-                            <span className="hidden sm:inline">Imprimer</span>
-                        </button>
-                        <button
-                            onClick={handlePrint}
-                            className={`flex items-center gap-2 px-5 py-2.5 ${softGradient} text-white rounded-xl transition-all font-bold text-sm shadow-lg shadow-blue-500/20`}
-                        >
-                            <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">PDF</span>
-                        </button>
-                        <button
-                            onClick={onClose}
-                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all text-slate-500"
-                        >
-                            <X className="w-6 h-6" />
-                        </button>
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <button
+                                onClick={handlePrint}
+                                className="flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-slate-900 text-white hover:bg-black transition-all font-bold text-sm rounded-xl"
+                            >
+                                <Printer className="w-4 h-4" />
+                                <span className="hidden sm:inline">Imprimer</span>
+                            </button>
+                            <button
+                                onClick={handlePrint}
+                                className={`flex items-center gap-2 px-3 sm:px-5 py-2.5 ${softGradient} text-white rounded-xl transition-all font-bold text-sm shadow-lg shadow-blue-500/20`}
+                            >
+                                <Download className="w-4 h-4" />
+                                <span className="hidden sm:inline">PDF</span>
+                            </button>
+                            <button
+                                onClick={onClose}
+                                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all text-slate-500 shrink-0"
+                                aria-label="Fermer"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 {/* Invoice Canvas */}
-                <div className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-950/50 p-4 md:p-8 flex justify-center items-start scrollbar-hide">
+                <div
+                    ref={canvasWrapperRef}
+                    className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-950/50 p-4 md:p-8 flex justify-center items-start scrollbar-hide"
+                >
                     <div
                         ref={printRef}
                         className="bg-white shadow-[0_0_50px_-12px_rgba(0,0,0,0.15)] origin-top transition-transform duration-300 relative border-box overflow-hidden"
