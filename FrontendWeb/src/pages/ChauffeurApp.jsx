@@ -104,7 +104,7 @@ function DriverAppContent() {
       )}
 
       <div
-        className={`flex-1 transition-all duration-300 ease-in-out ${!isLiveTracking && sidebarCollapsed ? "lg:ml-20" : !isLiveTracking ? "lg:ml-72" : "ml-0"
+        className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${!isLiveTracking && sidebarCollapsed ? "lg:ml-20" : !isLiveTracking ? "lg:ml-72" : "ml-0"
           }`}
       >
         {!isLiveTracking && (
