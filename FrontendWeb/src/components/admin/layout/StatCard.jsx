@@ -4,6 +4,21 @@ import { motion } from 'framer-motion';
 import { Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
 import clsx from 'clsx';
 
+// Reduit progressivement la taille de police selon la longueur de la valeur
+// pour toujours l'afficher en entier sur une ligne (pas de "..." qui coupe
+// un montant/chiffre), plutot qu'une taille fixe qui force la troncature.
+const getValueFontSize = (value, compact) => {
+  const length = (typeof value === 'string' || typeof value === 'number') ? String(value).length : 0;
+  const tiers = compact
+    ? ['text-2xl', 'text-xl', 'text-lg', 'text-base', 'text-sm']
+    : ['text-3xl', 'text-2xl', 'text-xl', 'text-lg', 'text-base'];
+  if (length <= 6) return tiers[0];
+  if (length <= 10) return tiers[1];
+  if (length <= 14) return tiers[2];
+  if (length <= 18) return tiers[3];
+  return tiers[4];
+};
+
 const StatCard = ({
   title,
   value,
@@ -106,7 +121,7 @@ const StatCard = ({
               title={typeof value === 'string' || typeof value === 'number' ? String(value) : undefined}
               className={clsx(
                 'font-bold text-gray-800 truncate transition-all duration-300 group-hover:text-gray-900 dark:group-hover:text-gray-50 dark:text-gray-100',
-                compact ? 'text-2xl' : 'text-3xl'
+                getValueFontSize(value, compact)
               )}>
               {value}
             </p>
