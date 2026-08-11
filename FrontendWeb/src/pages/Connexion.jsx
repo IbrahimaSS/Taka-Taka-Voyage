@@ -125,7 +125,7 @@ const Connexion = () => {
     // Password validation
     if (!formData.password) {
       errors.password = 'Ce champ est requis';
-    } else if (formData.password.length < 6) {
+    } else if (formData.password.length < 8) {
       errors.password = 'Le mot de passe doit contenir au moins 8 caractères';
     }
 

@@ -304,7 +304,7 @@ const Inscription = () => {
 
   const autoVerifyOtp = async (otp) => {
     try {
-      await authService.verifyOtp({ telephone: formData.phone.replace(/\\s/g, ''), code: otp });
+      await authService.verifyOtp({ telephone: formData.phone.replace(/\s/g, ''), code: otp });
       setOtpVerified(true);
       showToast('Code correct', 'Vérification réussie !', 'success');
     } catch (error) {

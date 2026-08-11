@@ -51,7 +51,7 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
     {
       key: 'photo',
       label: 'Photo du vehicule',
-      description: 'Tes claire et indentifiable',
+      description: 'Très claire et identifiable',
       required: true,
       accept: 'image/*,.pdf',
       maxSize: 2,
@@ -275,7 +275,7 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
       </div>
 
       {/* Contenu en deux colonnes */}
-      <div className="md:max-w-10xl w-full mx-auto  grid grid-cols-1 lg:grid-cols-2 gap-8  scrollbar-thin overflow-auto h-[65vh]">
+      <div className="w-full mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 scrollbar-thin overflow-auto max-h-[65vh]">
         {/* Colonne gauche : Documents */}
         <div className="space-y-6">
           <div className="  border-gray-100 dark:border-gray-700 p-6">
@@ -624,7 +624,7 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
           onClick={onBack}
           icon={ArrowLeft}
           iconSize="medium"
-          fullWidth={window.innerWidth < 640}
+          className="w-full sm:w-auto"
         >
           Retour
         </Button>
@@ -638,7 +638,7 @@ const InscriptionChauffeur = ({ onBack, onSubmit, formData, showToast }) => {
           loading={isSubmitting}
           icon={!isSubmitting ? ChevronRight : undefined}
           iconSize="medium"
-          fullWidth={window.innerWidth < 640}
+          className="w-full sm:w-auto"
         >
           {isSubmitting ? 'Enregistrement...' : 'Finaliser l\'inscription'}
         </Button>
