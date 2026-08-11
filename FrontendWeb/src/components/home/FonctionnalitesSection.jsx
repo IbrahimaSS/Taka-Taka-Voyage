@@ -9,7 +9,7 @@ import {
   CheckCircle, 
   ArrowRight 
 } from 'lucide-react';
-import Button from '../../ui/Buttons';
+import Button from '../admin/ui/HomeButton';
 
 
 const FonctionnalitesSection = () => {

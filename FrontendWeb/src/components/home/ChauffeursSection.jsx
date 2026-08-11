@@ -7,7 +7,7 @@ import {
   Info, 
   Star 
 } from 'lucide-react';
-import Button from '../../ui/Buttons';
+import Button from '../admin/ui/HomeButton';
 import FeatureCard from '../admin/ui/FeatureCard';
 
 const ChauffeursSection = () => {

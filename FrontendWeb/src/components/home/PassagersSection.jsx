@@ -10,7 +10,7 @@ import {
   CarFront, 
   Users, 
 } from 'lucide-react';
-import Button from '../../ui/Buttons';
+import Button from '../admin/ui/HomeButton';
 import FeatureCard from '../admin/ui/FeatureCard';
 
 const PassagersSection = ({ selectedOption, setSelectedOption }) => {

@@ -13,8 +13,8 @@ import {
   Loader2,
   CheckCircle
 } from 'lucide-react';
-import Button from '../../ui/Buttons';
-import Card from '../../ui/Card';
+import Button from '../admin/ui/HomeButton';
+import Card from '../admin/ui/HomeCard';
 import { apiClient } from '../../services/apiClient';
 
 const ContactSection = () => {

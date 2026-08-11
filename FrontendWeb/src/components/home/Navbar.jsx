@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { BookOpen, Car, Download, LogIn, Menu, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-import Button from '../../ui/Buttons';
+import Button from '../admin/ui/HomeButton';
 import { ThemeToggle } from '../admin/ui/ThemeToggle';
 import { cn } from '../../utils/cn';
 import { useSettings } from '../../context/SettingsContext';

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Download, PlayCircle, Star, Users, Car, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
-import Button from '../../ui/Buttons';
-import Card from '../../ui/Card';
+import Button from '../admin/ui/HomeButton';
+import Card from '../admin/ui/HomeCard';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
 import { apiClient } from '../../services/apiClient';

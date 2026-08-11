@@ -1,15 +1,18 @@
 import React from 'react';
-import { cn } from '../utils/cn';
+import { cn } from '../../../utils/cn';
 
 /**
- * Simple Card (Accueil/Auth/Chauffeur)
+ * Carte "glassmorphism" du site public (Accueil).
+ * Distincte de Card.jsx (style plat back-office) : fond degrade translucide,
+ * backdrop-blur - une fusion des deux aurait demande des surcharges CSS
+ * fragiles pour un gain marginal (seulement 2 usages), donc laissee separee.
  *
  * Props kept for backward compatibility:
  * - hover (default true)
  * - gradient (default true)
  * - padding (default true)
  */
-const Card = ({
+const HomeCard = ({
   children,
   className = '',
   hover = true,
@@ -37,4 +40,4 @@ const Card = ({
   );
 };
 
-export default Card;
+export default HomeCard;

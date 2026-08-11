@@ -5,7 +5,7 @@ import { X, Calendar, Info, ShieldCheck, Wallet, ChevronRight, Loader2, CheckCir
 import { useAuth } from '../../context/AuthContext';
 import { locationService } from '../../services/locationService';
 import { getFullAssetURL } from '../../utils/urlHelper';
-import Button from '../../ui/Buttons';
+import Button from '../admin/ui/HomeButton';
 
 const ReservationLocationModal = ({ isOpen, onClose, vehicule }) => {
   const { isAuthenticated } = useAuth();

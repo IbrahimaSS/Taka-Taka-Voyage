@@ -13,7 +13,7 @@ import {
   Globe
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import Button from '../../ui/Buttons';
+import Button from '../admin/ui/HomeButton';
 
 import { useSettings } from '../../context/SettingsContext';
 

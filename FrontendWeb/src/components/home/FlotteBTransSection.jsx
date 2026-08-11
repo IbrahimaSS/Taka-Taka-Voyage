@@ -21,7 +21,7 @@ import {
   CircleDot,
   Loader2
 } from 'lucide-react';
-import Button from '../../ui/Buttons';
+import Button from '../admin/ui/HomeButton';
 import { locationService } from '../../services/locationService';
 import { getFullAssetURL } from '../../utils/urlHelper';
 import { socketService } from '../../services/socketService';

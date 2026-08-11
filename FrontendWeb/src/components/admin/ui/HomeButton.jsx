@@ -1,13 +1,15 @@
 import React from 'react';
-import { cn } from '../utils/cn';
+import { cn } from '../../../utils/cn';
 
 /**
- * Button (shared for Accueil/Auth/Chauffeur)
+ * Bouton du site public (Accueil). Distinct de Bttn.jsx (style back-office) :
+ * variantes/tailles/convention d'icone incompatibles - une fusion aurait
+ * demande de reecrire les 9 appelants sans gain reel, donc laisse separe.
  *
  * Variants kept for backward compatibility:
  * - primary | secondary | accent | outline | ghost | gradientMix
  */
-const Button = ({
+const HomeButton = ({
   children,
   variant = 'primary',
   size = 'md',
@@ -81,18 +83,4 @@ const Button = ({
   );
 };
 
-export default Button;
-
-// Optional showcase (not used in production screens; kept for dev)
-export const ButtonShowcase = () => (
-  <div className="p-8 space-y-6">
-    <div className="flex flex-wrap gap-3">
-      <Button variant="primary">Primary</Button>
-      <Button variant="secondary">Secondary</Button>
-      <Button variant="accent">Accent</Button>
-      <Button variant="outline">Outline</Button>
-      <Button variant="ghost">Ghost</Button>
-      <Button variant="gradientMix">Gradient</Button>
-    </div>
-  </div>
-);
+export default HomeButton;
