@@ -163,7 +163,7 @@ export default function Header({
         <div className="flex items-center gap-1 md:gap-2.5">
           {/* Toggle Disponibilité */}
           {role === ROLES.CHAUFFEUR && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
                 onClick={() => navigate('/chauffeur/wallet')}
                 className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/30 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 transition-all shrink-0"
@@ -176,10 +176,11 @@ export default function Header({
               {tripInProgress && (
                 <Link
                   to="/chauffeur/live-tracking"
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-blue-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all animate-pulse"
+                  className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-green-500 to-blue-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all animate-pulse shrink-0"
+                  title={i18n.language === 'en' ? 'Live' : 'Suivi'}
                 >
-                  <Navigation className="h-4 w-4" />
-                  <span>{i18n.language === 'en' ? 'Live' : 'Suivi'}</span>
+                  <Navigation className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">{i18n.language === 'en' ? 'Live' : 'Suivi'}</span>
                 </Link>
               )}
               <AvailabilityToggle />

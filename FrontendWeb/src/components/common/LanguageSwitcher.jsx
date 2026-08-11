@@ -11,7 +11,7 @@ const languages = [
     { code: 'malinke', name: 'Malinké (Maninka)', flag: 'gn' }
 ];
 
-const LanguageSwitcher = ({ position = 'bottom' }) => {
+const LanguageSwitcher = ({ position = 'bottom', variant = 'full' }) => {
     const { i18n } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -40,23 +40,38 @@ const LanguageSwitcher = ({ position = 'bottom' }) => {
 
     return (
         <div className="relative" ref={dropdownRef}>
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200/50 dark:border-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all group"
-            >
-                <img
-                    src={getFlagUrl(currentLang.flag)}
-                    alt={currentLang.name}
-                    className="w-4 h-3 object-cover rounded-[1px]"
-                />
-                <span className="text-[11px] font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {currentLang.name.split(' (')[0]}
-                </span>
-                <ChevronDown
-                    size={10}
-                    className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
-                />
-            </button>
+            {variant === 'simple' ? (
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl surface hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 ring-primary shrink-0"
+                    aria-label="Changer de langue"
+                    title={currentLang.name.split(' (')[0]}
+                >
+                    <img
+                        src={getFlagUrl(currentLang.flag)}
+                        alt={currentLang.name}
+                        className="w-5 h-4 object-cover rounded-[2px]"
+                    />
+                </button>
+            ) : (
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200/50 dark:border-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all group"
+                >
+                    <img
+                        src={getFlagUrl(currentLang.flag)}
+                        alt={currentLang.name}
+                        className="w-4 h-3 object-cover rounded-[1px]"
+                    />
+                    <span className="text-[11px] font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {currentLang.name.split(' (')[0]}
+                    </span>
+                    <ChevronDown
+                        size={10}
+                        className={`text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                </button>
+            )}
 
             <AnimatePresence>
                 {isOpen && (
