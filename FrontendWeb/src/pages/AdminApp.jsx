@@ -1,5 +1,5 @@
 // src/App.jsx - VERSION MODERNE COMPLÈTE
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 // UI Components
 import Toast from '../components/admin/ui/Toast';
 import Modal from '../components/admin/ui/Modal';
+import Loading from '../components/admin/ui/Loading';
 
 import { adminRoutes } from './adminapp/adminRoutes';
 import { useAdminSocketNotifications } from './adminapp/useAdminSocketNotifications';
@@ -113,44 +114,46 @@ function AdminApp() {
           <div className="content-container">
             {/* Main Content Area */}
             <AnimatePresence mode="wait">
-              <Routes location={location} key={location.pathname}>
-                {/* Route par défaut pour /admin */}
-                <Route index element={
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Dashboard showToast={showToast} />
-                  </motion.div>
-                } />
-
-                {/* Les autres routes - elles sont maintenant relatives à /admin */}
-                {adminRoutes.map(({ path, Component }) => (
-                  <Route key={path} path={path} element={
+              <Suspense fallback={<Loading className="min-h-[60vh]" />}>
+                <Routes location={location} key={location.pathname}>
+                  {/* Route par défaut pour /admin */}
+                  <Route index element={
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
                     >
-                      <Component showToast={showToast} />
+                      <Dashboard showToast={showToast} />
                     </motion.div>
                   } />
-                ))}
 
-                {/* Route pour /admin directement (dashboard) */}
-                <Route path="" element={
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Dashboard showToast={showToast} />
-                  </motion.div>
-                } />
-              </Routes>
+                  {/* Les autres routes - elles sont maintenant relatives à /admin */}
+                  {adminRoutes.map(({ path, Component }) => (
+                    <Route key={path} path={path} element={
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                      >
+                        <Component showToast={showToast} />
+                      </motion.div>
+                    } />
+                  ))}
+
+                  {/* Route pour /admin directement (dashboard) */}
+                  <Route path="" element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Dashboard showToast={showToast} />
+                    </motion.div>
+                  } />
+                </Routes>
+              </Suspense>
             </AnimatePresence>
           </div>
         </main>
