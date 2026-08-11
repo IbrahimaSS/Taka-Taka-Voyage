@@ -12,33 +12,36 @@ const Badge = ({
 }) => {
   const baseClasses = 'inline-flex items-center rounded-full font-medium transition-colors';
 
+  // Style "doux" : seul le texte (et le point) porte la couleur, le fond
+  // reste tres clair/neutre - plus lisible et plus moderne qu'un fond plein
+  // colore avec du texte blanc.
   const variants = {
-    default: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100',
-    primary: 'bg-gradient-to-r from-blue-500 to-blue-600 text-white',
-    secondary: 'bg-gradient-to-r from-teal-500 to-teal-600 text-white',
-    success: 'bg-gradient-to-r from-green-500 to-green-600 text-white',
-    danger: 'bg-gradient-to-r from-red-500 to-red-600 text-white',
-    warning: 'bg-gradient-to-r from-amber-500 to-amber-600 text-white',
-    info: 'bg-gradient-to-r from-blue-400 to-blue-500 text-white',
+    default: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+    primary: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400',
+    secondary: 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400',
+    success: 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400',
+    danger: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400',
+    warning: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400',
+    info: 'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-400',
     outline: 'border-2 border-blue-600 bg-transparent text-blue-700',
-    admin: 'bg-gradient-to-r from-purple-600 to-purple-700 text-white',
-    supervisor: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white',
-    agent: 'bg-gradient-to-r from-teal-600 to-teal-700 text-white',
-    slate: 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200',
+    admin: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400',
+    supervisor: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400',
+    agent: 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400',
+    slate: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300',
   };
 
   const dotColors = {
     default: 'bg-gray-500',
-    primary: 'bg-blue-200',
-    secondary: 'bg-teal-200',
-    success: 'bg-green-200',
-    danger: 'bg-red-200',
-    warning: 'bg-amber-200',
-    info: 'bg-blue-100',
+    primary: 'bg-blue-500',
+    secondary: 'bg-teal-500',
+    success: 'bg-green-500',
+    danger: 'bg-red-500',
+    warning: 'bg-amber-500',
+    info: 'bg-sky-500',
     outline: 'bg-blue-600',
-    admin: 'bg-purple-200',
-    supervisor: 'bg-blue-200',
-    agent: 'bg-teal-200',
+    admin: 'bg-purple-500',
+    supervisor: 'bg-indigo-500',
+    agent: 'bg-teal-500',
     slate: 'bg-slate-500',
   };
 
