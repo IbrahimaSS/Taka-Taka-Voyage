@@ -2,8 +2,8 @@ import React, { useRef, useState, useLayoutEffect } from 'react';
 import {
     Download, Printer, ZoomIn, ZoomOut,
     Maximize2, X, Check, MapPin, Phone,
-    Mail, Globe, Calendar, Hash, User,
-    Car, CreditCard, ShieldCheck, Hourglass
+    Mail, Calendar, User,
+    Car, ShieldCheck, Hourglass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +27,9 @@ const PremiumInvoice = ({ payment, onClose }) => {
     // Auto-fit : la facture (format A4 fixe, necessaire pour l'impression et
     // la valeur juridique du document) est mise a l'echelle pour tenir dans
     // la largeur reelle disponible sur mobile/tablette, comme un lecteur PDF.
-    // S'arrete des que l'utilisateur zoome manuellement pour respecter son choix.
+    // S'arrete des que l'utilisateur zoome manuellement pour respecter son choix
+    // (bouton "Ajuster" pour revenir explicitement au fit-to-width).
+    const fitToWidthRef = useRef(() => {});
     useLayoutEffect(() => {
         const wrapper = canvasWrapperRef.current;
         if (!wrapper) return;
@@ -36,17 +38,34 @@ const PremiumInvoice = ({ payment, onClose }) => {
             if (hasUserZoomedRef.current) return;
             const style = window.getComputedStyle(wrapper);
             const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-            const availableWidth = wrapper.clientWidth - paddingX;
+            // Plafonne par window.innerWidth : la modale est "fixed inset-0",
+            // le canevas ne peut jamais avoir reellement plus de place que le
+            // viewport, meme si clientWidth est mesure avant la mise en page
+            // finale de l'animation d'entree de la modale.
+            const measuredWidth = Math.min(wrapper.clientWidth, window.innerWidth);
+            const availableWidth = measuredWidth - paddingX;
             if (availableWidth <= 0) return;
             const fitZoom = Math.min(1, Math.max(0.3, availableWidth / A4_WIDTH_PX));
             setZoom(fitZoom);
         };
+        fitToWidthRef.current = fitToWidth;
 
         fitToWidth();
+        const raf = requestAnimationFrame(fitToWidth);
         const observer = new ResizeObserver(fitToWidth);
         observer.observe(wrapper);
-        return () => observer.disconnect();
+        window.addEventListener('resize', fitToWidth);
+        return () => {
+            cancelAnimationFrame(raf);
+            observer.disconnect();
+            window.removeEventListener('resize', fitToWidth);
+        };
     }, []);
+
+    const handleResetZoom = () => {
+        hasUserZoomedRef.current = false;
+        fitToWidthRef.current();
+    };
 
     const platformName = 'Taka Taka';
     const platformLogo = settings?.platform?.logo;
@@ -163,6 +182,14 @@ const PremiumInvoice = ({ payment, onClose }) => {
                                 title="Zoom avant"
                             >
                                 <ZoomIn className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={handleResetZoom}
+                                className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all text-slate-600 dark:text-slate-400 border-l border-slate-200/70 dark:border-slate-700/70 ml-0.5"
+                                title="Ajuster à la largeur"
+                                aria-label="Ajuster à la largeur"
+                            >
+                                <Maximize2 className="w-4 h-4" />
                             </button>
                         </div>
 
