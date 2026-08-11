@@ -14,7 +14,6 @@ import Bttn from "../components/admin/ui/Bttn";
 import Loading from "../components/admin/ui/Loading";
 
 import Dashboard from "../components/chauffeur/Dashboard";
-import CommunityHub from "../components/community/CommunityHub";
 import TripNotificationToast from "../components/chauffeur/TripNotificationToast";
 import DriverProvider, { useDriverContext } from '../context/DriverContext';
 import { Toaster } from 'react-hot-toast';
@@ -23,9 +22,11 @@ import { useSettings } from '../context/SettingsContext';
 
 import DriverAutoOnline from './chauffeur/DriverAutoOnline';
 
-// Routes non-index : Dashboard reste eager (vue par defaut), CommunityHub
-// reste eager (aussi monte en overlay ailleurs dans l'app). Les 13 autres
-// n'apparaissent qu'a la demande, une seule a la fois via react-router.
+// Routes non-index : Dashboard reste eager (vue par defaut). Les 14 autres,
+// dont CommunityHub (route "community", ici utilise uniquement en page
+// pleine ecran, pas en overlay comme dans Passager.jsx), n'apparaissent
+// qu'a la demande, une seule a la fois via react-router.
+const CommunityHub = lazy(() => import("../components/community/CommunityHub"));
 const Trajets = lazy(() => import("../components/chauffeur/Trajets"));
 const HistoriqueTrajet = lazy(() => import("../components/chauffeur/HistoriqueTrajet"));
 const Planning = lazy(() => import("../components/chauffeur/Planning"));
