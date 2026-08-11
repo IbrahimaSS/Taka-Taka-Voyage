@@ -23,7 +23,6 @@ import NotFound from './pages/NotFound';
 import AuthGuard from './components/auth/AuthGuard';
 import PlatformMonitor from './components/notifications/PlatformMonitor';
 import ReservationReminder from './components/notifications/ReservationReminder';
-import AssistantIA from './components/assistant/AssistantIA';
 import OfflineBanner from './components/common/OfflineBanner';
 import NouveauVehiculeAlerte from './components/common/NouveauVehiculeAlerte';
 
@@ -32,6 +31,10 @@ import NouveauVehiculeAlerte from './components/common/NouveauVehiculeAlerte';
 // Composants chargés paresseusement
 const ValidationEnAttente = lazy(() => import('./components/validation/ValidationEnAttente'));
 const ValidationReussie = lazy(() => import('./components/validation/ValidationReussie'));
+// AssistantIA (1126 lignes) est monte sans condition sur TOUTE page, y compris
+// le site public pour un visiteur anonyme qui n'ouvre jamais le widget - le
+// plus gros fichier du repo, en lazy pour le sortir du chunk critique initial.
+const AssistantIA = lazy(() => import('./components/assistant/AssistantIA'));
 
 // Composant de chargement
 const LoadingSpinner = () => (
@@ -51,7 +54,12 @@ export default function App() {
     <BrowserRouter>
       <PlatformMonitor />
       <ReservationReminder />
-      <AssistantIA />
+      {/* fallback null : widget flottant sans coquille visible avant montage,
+          un spinner plein ecran serait pire que rien puisque le reste de la
+          page est deja interactif */}
+      <Suspense fallback={null}>
+        <AssistantIA />
+      </Suspense>
       <OfflineBanner />
       <NouveauVehiculeAlerte />
       <Suspense fallback={<LoadingSpinner />}>
