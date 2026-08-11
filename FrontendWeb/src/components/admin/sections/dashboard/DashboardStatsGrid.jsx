@@ -39,7 +39,9 @@ const DashboardStatsGrid = ({ dashboardData, t }) => {
     },
     {
       title: t('dashboard.total_revenue') || 'Revenus Totaux',
-      value: dashboardData?.revenusTotal ? (dashboardData.revenusTotal).toLocaleString() + ` ${t('common.currency_symbol') || 'GNF'}` : `0 ${t('common.currency_symbol') || 'GNF'}`,
+      compactValue: true,
+      rawValue: dashboardData?.revenusTotal || 0,
+      unit: t('common.currency_symbol') || 'GNF',
       icon: Wallet,
       color: 'amber',
       trend: 'up',

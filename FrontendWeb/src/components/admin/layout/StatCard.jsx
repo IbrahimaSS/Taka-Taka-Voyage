@@ -1,8 +1,10 @@
 // src/components/layout/StatCard.jsx - DESIGN MODERNE ET FLUIDE
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
 import clsx from 'clsx';
+import { formatCompactNumber, formatFullNumber } from '../../../utils/formatNumber';
 
 // Reduit progressivement la taille de police selon la longueur de la valeur
 // pour toujours l'afficher en entier sur une ligne (pas de "..." qui coupe
@@ -19,6 +21,42 @@ const getValueFontSize = (value, compact) => {
   return tiers[4];
 };
 
+// Infobulle portee via createPortal (document.body) pour ne jamais etre
+// rognee par le overflow-hidden de la carte, quelle que soit sa position
+// dans la grille. Affichee au survol (desktop) et au tap (mobile, pas de
+// hover tactile).
+const ValueTooltip = ({ anchorRef, visible, children }) => {
+  const [coords, setCoords] = useState(null);
+
+  useEffect(() => {
+    if (!visible || !anchorRef.current) return undefined;
+    const update = () => {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setCoords({ top: rect.top, left: rect.left + rect.width / 2 });
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [visible, anchorRef]);
+
+  if (!visible || !coords) return null;
+
+  return createPortal(
+    <div
+      className="fixed z-[9999] -translate-x-1/2 -translate-y-full -mt-2 px-3 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-700 text-white text-xs font-bold shadow-xl pointer-events-none whitespace-nowrap"
+      style={{ top: coords.top, left: coords.left }}
+    >
+      {children}
+      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-900 dark:border-t-gray-700" />
+    </div>,
+    document.body
+  );
+};
+
 const StatCard = ({
   title,
   value,
@@ -33,7 +71,14 @@ const StatCard = ({
   percentage,
   progress,
   description,
-  subtitle
+  subtitle,
+  // Mode compact optionnel : affiche rawValue au format "1,5 M" au lieu du
+  // nombre complet, avec une infobulle montrant la valeur exacte au survol/
+  // tap. N'affecte rien tant que compactValue n'est pas explicitement passe
+  // a true par l'appelant (comportement par defaut inchange).
+  compactValue = false,
+  rawValue,
+  unit = ''
 }) => {
   const caption = description || subtitle;
   const hasProgress = typeof progress === 'number';
@@ -59,6 +104,26 @@ const StatCard = ({
 
   const config = colorConfig.personalise;
 
+  const isCompactMode = compactValue && typeof rawValue === 'number' && !Number.isNaN(rawValue);
+  const displayValue = isCompactMode
+    ? `${formatCompactNumber(rawValue)}${unit ? ` ${unit}` : ''}`
+    : value;
+  const fullValueText = isCompactMode
+    ? `${formatFullNumber(rawValue)}${unit ? ` ${unit}` : ''}`
+    : (typeof value === 'string' || typeof value === 'number' ? String(value) : '');
+
+  const valueRef = useRef(null);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  useEffect(() => {
+    if (!showTooltip) return undefined;
+    const onDocDown = (e) => {
+      if (valueRef.current && !valueRef.current.contains(e.target)) setShowTooltip(false);
+    };
+    document.addEventListener('mousedown', onDocDown);
+    return () => document.removeEventListener('mousedown', onDocDown);
+  }, [showTooltip]);
+
   // Composant avec ou sans animation
   const CardComponent = animated ? motion.div : 'div';
   const animationProps = animated ? {
@@ -76,7 +141,7 @@ const StatCard = ({
   // Skeleton loading state
   if (loading) {
     return (
-      <div className="stat-card p-6">
+      <div className="stat-card h-full p-6">
         <div className="animate-pulse space-y-4">
           <div className="flex justify-between">
             <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/3"></div>
@@ -93,7 +158,7 @@ const StatCard = ({
     <CardComponent
       {...animationProps}
       className={clsx(
-        'stat-card dark:border-gray-900 group relative overflow-hidden cursor-pointer transition-all duration-300',
+        'stat-card h-full dark:border-gray-900 group relative overflow-hidden cursor-pointer transition-all duration-300',
         highlight && 'ring-2 ring-primary-500/20',
         onClick && 'hover:shadow-lg',
         compact ? 'p-4' : 'p-6'
@@ -118,13 +183,27 @@ const StatCard = ({
               {title}
             </p>
             <p
-              title={typeof value === 'string' || typeof value === 'number' ? String(value) : undefined}
+              ref={valueRef}
+              title={fullValueText || undefined}
+              onMouseEnter={() => isCompactMode && setShowTooltip(true)}
+              onMouseLeave={() => isCompactMode && setShowTooltip(false)}
+              onClick={(e) => {
+                if (!isCompactMode) return;
+                e.stopPropagation();
+                setShowTooltip((v) => !v);
+              }}
               className={clsx(
                 'font-bold text-gray-800 truncate transition-all duration-300 group-hover:text-gray-900 dark:group-hover:text-gray-50 dark:text-gray-100',
-                getValueFontSize(value, compact)
+                isCompactMode && 'cursor-help',
+                getValueFontSize(displayValue, compact)
               )}>
-              {value}
+              {displayValue}
             </p>
+            {isCompactMode && (
+              <ValueTooltip anchorRef={valueRef} visible={showTooltip}>
+                {fullValueText}
+              </ValueTooltip>
+            )}
           </div>
 
           {/* Icône avec animation */}
@@ -191,4 +270,3 @@ export const StatCardHighlight = (props) => <StatCard {...props} highlight spark
 export const StatCardInteractive = (props) => <StatCard {...props} animated onClick={props.onClick} />;
 
 export default StatCard;
-

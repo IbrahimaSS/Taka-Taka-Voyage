@@ -102,7 +102,7 @@ const Revenues = ({ onToast }) => {
                 </div>
             ) : (
                 <>
-                    <RevenueSummaryCards summaryData={summaryData} formatAmount={formatAmount} />
+                    <RevenueSummaryCards summaryData={summaryData} />
 
                     <CommissionBanner totalCommission={totalCommission} totalNet={totalNet} formatAmount={formatAmount} />
 

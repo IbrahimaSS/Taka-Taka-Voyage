@@ -81,7 +81,9 @@ export default function Dashboard() {
         <StatCard
           icon={DollarSign}
           title={t('dashboard.daily_revenue')}
-          value={`${stats.dailyRevenue.toLocaleString(i18n.language === 'en' ? 'en-US' : 'fr-FR')} ${t('common.currency_symbol_short')}`}
+          compactValue
+          rawValue={stats.dailyRevenue}
+          unit={t('common.currency_symbol_short')}
           description={t('common.today')}
         />
       </div>
