@@ -1,5 +1,5 @@
 // src/pages/ChauffeurApp.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Routes, Route, useLocation, Navigate, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -11,29 +11,34 @@ import Header from "../components/admin/layout/Header";
 import Toast from "../components/admin/ui/Toast";
 import Modal from "../components/admin/ui/Modal";
 import Bttn from "../components/admin/ui/Bttn";
+import Loading from "../components/admin/ui/Loading";
 
 import Dashboard from "../components/chauffeur/Dashboard";
-import Trajets from "../components/chauffeur/Trajets";
-import HistoriqueTrajet from "../components/chauffeur/HistoriqueTrajet";
-import Planning from "../components/chauffeur/Planning";
-import Revenues from "../components/chauffeur/Revenues.jsx";
-import ChauffeurProfile from "../components/chauffeur/shared/ChauffeurProfile";
-import ChauffeurSettings from "../components/chauffeur/shared/ChauffeurSettings";
-import ChauffeurSupport from "../components/chauffeur/shared/ChauffeurSupport";
-import ChauffeurEvaluations from "../components/chauffeur/shared/ChauffeurEvaluations";
-import ChauffeurTracking from "../components/chauffeur/ChauffeurTracking";
-import Wallet from "../components/chauffeur/Wallet";
-import DriverRentalSection from "../components/chauffeur/DriverRentalSection";
 import CommunityHub from "../components/community/CommunityHub";
-import RentalHistory from "../components/passager/RentalHistory";
 import TripNotificationToast from "../components/chauffeur/TripNotificationToast";
 import DriverProvider, { useDriverContext } from '../context/DriverContext';
 import { Toaster } from 'react-hot-toast';
 import { ROLES } from '../config/navConfig';
 import { useSettings } from '../context/SettingsContext';
 
-import LiveTrackingWrapper from './chauffeur/LiveTrackingWrapper';
 import DriverAutoOnline from './chauffeur/DriverAutoOnline';
+
+// Routes non-index : Dashboard reste eager (vue par defaut), CommunityHub
+// reste eager (aussi monte en overlay ailleurs dans l'app). Les 13 autres
+// n'apparaissent qu'a la demande, une seule a la fois via react-router.
+const Trajets = lazy(() => import("../components/chauffeur/Trajets"));
+const HistoriqueTrajet = lazy(() => import("../components/chauffeur/HistoriqueTrajet"));
+const Planning = lazy(() => import("../components/chauffeur/Planning"));
+const Revenues = lazy(() => import("../components/chauffeur/Revenues.jsx"));
+const ChauffeurProfile = lazy(() => import("../components/chauffeur/shared/ChauffeurProfile"));
+const ChauffeurSettings = lazy(() => import("../components/chauffeur/shared/ChauffeurSettings"));
+const ChauffeurSupport = lazy(() => import("../components/chauffeur/shared/ChauffeurSupport"));
+const ChauffeurEvaluations = lazy(() => import("../components/chauffeur/shared/ChauffeurEvaluations"));
+const ChauffeurTracking = lazy(() => import("../components/chauffeur/ChauffeurTracking"));
+const Wallet = lazy(() => import("../components/chauffeur/Wallet"));
+const DriverRentalSection = lazy(() => import("../components/chauffeur/DriverRentalSection"));
+const RentalHistory = lazy(() => import("../components/passager/RentalHistory"));
+const LiveTrackingWrapper = lazy(() => import('./chauffeur/LiveTrackingWrapper'));
 
 function DriverAppContent() {
   const { settings } = useSettings();
@@ -121,23 +126,25 @@ function DriverAppContent() {
         <main className={isLiveTracking ? "h-screen" : "content-padding"}>
           <div className="content-container">
             <AnimatePresence mode="wait">
-              <Routes location={location} key={location.pathname}>
-                <Route index element={<Dashboard onToast={showToast} onModal={showModal} />} />
-                <Route path="trips" element={<Trajets onToast={showToast} onModal={showModal} />} />
-                <Route path="community" element={<CommunityHub isFullPage={true} />} />
-                <Route path="history" element={<HistoriqueTrajet onToast={showToast} onModal={showModal} />} />
-                <Route path="revenues" element={<Revenues onToast={showToast} onModal={showModal} />} />
-                <Route path="tracking" element={<ChauffeurTracking />} />
-                <Route path="live-tracking" element={<LiveTrackingWrapper />} />
-                <Route path="planning" element={<Planning onToast={showToast} onModal={showModal} />} />
-                <Route path="wallet" element={<Wallet />} />
-                <Route path="settings" element={<ChauffeurSettings onToast={showToast} onModal={showModal} />} />
-                <Route path="evaluations" element={<ChauffeurEvaluations onToast={showToast} onModal={showModal} />} />
-                <Route path="support" element={<ChauffeurSupport onToast={showToast} onModal={showModal} />} />
-                <Route path="profil" element={<ChauffeurProfile onToast={showToast} onModal={showModal} />} />
-                <Route path="locations" element={<DriverRentalSection onToast={showToast} />} />
-                <Route path="rental-history" element={<RentalHistory onToast={showToast} onModal={showModal} />} />
-              </Routes>
+              <Suspense fallback={<Loading className="min-h-[60vh]" />}>
+                <Routes location={location} key={location.pathname}>
+                  <Route index element={<Dashboard onToast={showToast} onModal={showModal} />} />
+                  <Route path="trips" element={<Trajets onToast={showToast} onModal={showModal} />} />
+                  <Route path="community" element={<CommunityHub isFullPage={true} />} />
+                  <Route path="history" element={<HistoriqueTrajet onToast={showToast} onModal={showModal} />} />
+                  <Route path="revenues" element={<Revenues onToast={showToast} onModal={showModal} />} />
+                  <Route path="tracking" element={<ChauffeurTracking />} />
+                  <Route path="live-tracking" element={<LiveTrackingWrapper />} />
+                  <Route path="planning" element={<Planning onToast={showToast} onModal={showModal} />} />
+                  <Route path="wallet" element={<Wallet />} />
+                  <Route path="settings" element={<ChauffeurSettings onToast={showToast} onModal={showModal} />} />
+                  <Route path="evaluations" element={<ChauffeurEvaluations onToast={showToast} onModal={showModal} />} />
+                  <Route path="support" element={<ChauffeurSupport onToast={showToast} onModal={showModal} />} />
+                  <Route path="profil" element={<ChauffeurProfile onToast={showToast} onModal={showModal} />} />
+                  <Route path="locations" element={<DriverRentalSection onToast={showToast} />} />
+                  <Route path="rental-history" element={<RentalHistory onToast={showToast} onModal={showModal} />} />
+                </Routes>
+              </Suspense>
             </AnimatePresence>
           </div>
         </main>
