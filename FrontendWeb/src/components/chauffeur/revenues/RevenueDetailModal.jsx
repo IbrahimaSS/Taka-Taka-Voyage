@@ -10,7 +10,7 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-white mx-auto dark:bg-gray-800 rounded-3xl w-full max-w-lg shadow-2xl border border-gray-200 dark:border-gray-700 max-h-[97vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
                 {/* Header */}
                 <div className="px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2 bg-gray-50 dark:bg-gray-900/50">
                     <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 min-w-0 truncate">
@@ -25,7 +25,7 @@ const RevenueDetailModal = ({ isOpen, onClose, ride, formatAmount, formatDate, g
                     </button>
                 </div>
 
-                <div className="p-4 sm:p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+                <div className="p-4 sm:p-6 space-y-6 ">
                     {/* Passager Section */}
                     <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
                         <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-3">{t('revenues.passenger')}</p>
