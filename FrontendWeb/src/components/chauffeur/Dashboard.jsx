@@ -64,7 +64,7 @@ export default function Dashboard() {
           icon={Clock}
           title={t('dashboard.online_since')}
           value={stats.onlineSince}
-          description={isOnline ? t('common.online') : t('common.offline')}
+          // description={isOnline ? t('common.online') : t('common.offline')}
         />
         <StatCard
           icon={Bell}
