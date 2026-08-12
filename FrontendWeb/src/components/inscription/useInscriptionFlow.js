@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { chauffeurService } from '../../services/chauffeurService';
 
@@ -38,6 +38,22 @@ export const useInscriptionFlow = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [toast, setToast] = useState({ show: false, title: '', message: '', type: 'info' });
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Pre-selection du profil quand on arrive depuis les cartes rapides de
+  // Connexion.jsx (/inscription?type=passenger ou ?type=driver) : memes
+  // valeurs que userType, donc on rejoue exactement le geste d'un clic sur
+  // la carte correspondante (selection + ouverture directe de la modale de
+  // confirmation), au lieu de laisser l'etape 1 vide malgre l'intention
+  // explicite du lien.
+  useEffect(() => {
+    const type = searchParams.get('type');
+    if (type === 'passenger' || type === 'driver') {
+      setUserType(type);
+      setShowStepModal(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let interval;

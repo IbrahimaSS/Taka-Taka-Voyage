@@ -1,4 +1,5 @@
 import { Shield, Mail, Lock, Clock, ArrowLeft } from 'lucide-react';
+import Button from '../admin/ui/Bttn';
 
 // Etape de verification 2FA/OTP - extraite de pages/Connexion.jsx.
 // Fix responsive au passage : les 6 cases OTP utilisaient une largeur fixe
@@ -7,12 +8,15 @@ import { Shield, Mail, Lock, Clock, ArrowLeft } from 'lucide-react';
 // (6 x 52px + espacements ~= 372px, avant meme le padding du conteneur).
 // Remplace par une taille responsive (44px mobile, 56px des sm:) qui tient
 // confortablement des 320px tout en gardant des cibles tactiles >= 44px.
+// Porte son propre bouton principal (avant : bouton partage rendu par
+// pages/Connexion.jsx en dehors de cette etape).
 const ConnexionOtpStep = ({
   otpCode,
   maskedPhone,
   maskedEmail,
   resendCooldown,
   isLoading,
+  loginSuccess,
   onOtpChange,
   onOtpKeyDown,
   onResendOtp,
@@ -103,6 +107,18 @@ const ConnexionOtpStep = ({
           ></div>
         </div>
       </div>
+
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        fullWidth
+        loading={isLoading}
+        disabled={otpCode.join('').length < 6}
+        className={loginSuccess ? '!bg-gradient-to-r !from-green-600 !to-green-700' : ''}
+      >
+        {isLoading ? 'Vérification...' : loginSuccess ? 'Connecté !' : 'Valider le code'}
+      </Button>
 
       <div className="flex flex-col gap-3 pt-2">
         <button

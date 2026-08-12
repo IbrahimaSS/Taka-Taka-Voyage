@@ -1,5 +1,4 @@
 import { Car, Shield } from 'lucide-react';
-import Button from '../components/admin/ui/Bttn';
 import Toast from '../components/admin/ui/Toast';
 import { useSettings } from '../context/SettingsContext';
 import { useConnexionForm } from '../components/connexion/useConnexionForm';
@@ -57,7 +56,7 @@ const Connexion = () => {
               </div>
             </div>
 
-            <div className="p-6 md:p-8 w-full">
+            <div className="p-6 md:p-20 w-full">
               <div className="mb-8">
                 <h2 className="text-2xl text-center font-bold text-gray-900 dark:text-white mb-2">Se connecter</h2>
                 <p className="text-gray-600 text-center dark:text-gray-400">Accédez à votre compte {platform.name || 'Taka Taka'}</p>
@@ -71,6 +70,7 @@ const Connexion = () => {
                     maskedEmail={maskedEmail}
                     resendCooldown={resendCooldown}
                     isLoading={isLoading}
+                    loginSuccess={loginSuccess}
                     onOtpChange={handleOtpChange}
                     onOtpKeyDown={handleOtpKeyDown}
                     onResendOtp={handleResendOtp}
@@ -89,20 +89,10 @@ const Connexion = () => {
                     showToast={showToast}
                     platform={platform}
                     navigate={navigate}
+                    isLoading={isLoading}
+                    loginSuccess={loginSuccess}
                   />
                 )}
-
-                <Button
-                  type="submit"
-                  variant={"primary"}
-                  size="lg"
-                  fullWidth
-                  loading={isLoading}
-                  disabled={requires2FA && otpCode.join('').length < 6}
-                  className={loginSuccess ? '!bg-gradient-to-r !from-green-600 !to-green-700' : ''}
-                >
-                  {isLoading ? 'Vérification...' : loginSuccess ? 'Connecté !' : requires2FA ? 'Valider le code' : 'Se connecter'}
-                </Button>
               </form>
 
               {/* Security Footer */}

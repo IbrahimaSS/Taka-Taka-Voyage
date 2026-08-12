@@ -1,4 +1,4 @@
-import { Mail, Lock, Eye, EyeOff, Info, Check, Smartphone } from 'lucide-react';
+import { Lock, Eye, EyeOff, Info, Check, Smartphone } from 'lucide-react';
 import Button from '../admin/ui/Bttn';
 
 // Logo Google officiel (4 chemins couleur) - remplace un SVG casse qui ne
@@ -20,10 +20,11 @@ const FacebookIcon = () => (
 );
 
 // Champs identifiant/mot de passe + "se souvenir de moi" + mot de passe
-// oublie + connexion sociale + lien inscription - extrait de
-// pages/Connexion.jsx. Icone Google corrigee (voir GoogleIcon ci-dessus),
-// lien mot de passe oublie pointe desormais vers le vrai flux frontend
-// (au lieu de /forgot-password, route inexistante -> 404 garanti).
+// oublie + bouton principal + connexion sociale + lien inscription - extrait
+// de pages/Connexion.jsx. Icone Google corrigee (voir GoogleIcon ci-dessus),
+// lien mot de passe oublie pointe vers le vrai flux frontend. Bouton
+// "Se connecter" repositionne juste apres la case/lien (au lieu du bas du
+// formulaire) pour rester l'action la plus proche du chemin principal.
 const ConnexionLoginForm = ({
   formData,
   validationErrors,
@@ -36,12 +37,14 @@ const ConnexionLoginForm = ({
   showToast,
   platform,
   navigate,
+  isLoading,
+  loginSuccess,
 }) => {
   return (
     <>
       <div>
         <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium flex items-center">
-          Numéro de téléphone / Adresse Email
+          Téléphone / Email
           <button
             type="button"
             onClick={() => showToast('Format accepté', 'Utilisez votre numéro (9 chiffres) ou votre email', 'info')}
@@ -70,9 +73,6 @@ const ConnexionLoginForm = ({
         {validationErrors.phone && (
           <p className="text-red-500 text-sm mt-1">{validationErrors.phone}</p>
         )}
-        <p className="text-gray-500 dark:text-gray-400 text-xs mt-2">
-          Entrez votre numéro de téléphone (9 chiffres) ou votre adresse email
-        </p>
       </div>
 
       <div>
@@ -106,9 +106,6 @@ const ConnexionLoginForm = ({
         {validationErrors.password && (
           <p className="text-red-500 text-sm mt-1">{validationErrors.password}</p>
         )}
-        <p className="text-gray-500 dark:text-gray-400 text-xs mt-2">
-          Le mot de passe doit contenir au moins 8 caractères
-        </p>
       </div>
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
@@ -139,6 +136,18 @@ const ConnexionLoginForm = ({
         </a>
       </div>
 
+      {/* Bouton principal - juste apres la case/lien, chemin principal */}
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        fullWidth
+        loading={isLoading}
+        className={loginSuccess ? '!bg-gradient-to-r !from-green-600 !to-green-700' : ''}
+      >
+        {isLoading ? 'Vérification...' : loginSuccess ? 'Connecté !' : 'Se connecter'}
+      </Button>
+
       {/* Divider */}
       <div className="relative my-8">
         <div className="absolute inset-0 flex items-center">
@@ -157,9 +166,9 @@ const ConnexionLoginForm = ({
           type="button"
           variant="outline"
           onClick={() => onSocialLogin('Google')}
-          icon={GoogleIcon}
+          icon={GoogleIcon}         
         >
-          Google
+          <span className='ms-2 text-sm'>Google</span>
         </Button>
 
         <Button
@@ -168,7 +177,7 @@ const ConnexionLoginForm = ({
           onClick={() => onSocialLogin('Facebook')}
           icon={FacebookIcon}
         >
-          Facebook
+           <span className='ms-2 text-sm'>Facebook</span>    
         </Button>
       </div>
 
