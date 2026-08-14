@@ -5,8 +5,22 @@ dist-ssr/
 *.local
 .env
 .env.*
+!.env.example
+!.env.*.example
 .DS_Store
 Thumbs.db
+
+# Documents internes de gestion de projet (pas destinés au dépôt)
+PLAN_DE_REPRISE_V1_PROD_DETAILLE.docx
+CLAUDE.md
+RAPPORT_AVANCEMENT_PERSONNE_A.pdf
+
+# Résidu généré par le runtime React Native/Hermes pendant les sessions de debug
+com.facebook.react.runtime.ReactInstance
+
+# Fichiers uploadés (photos, documents) — migrés vers Cloudinary (Sprint 3),
+# plus aucune config d'upload n'écrit sur ce dossier.
+BackendGeneral/uploads/
 
 # Secrets
 BackendGeneral/serviceAccountKey.json

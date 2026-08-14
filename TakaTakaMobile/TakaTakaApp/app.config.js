@@ -1,0 +1,79 @@
+// Expo charge automatiquement les fichiers .env (SDK 49+) avant d'évaluer
+// ce fichier : GOOGLE_MAPS_API_KEY vient de TakaTakaApp/.env (non versionné,
+// voir .env.example pour la liste des variables attendues).
+module.exports = {
+  expo: {
+    plugins: [
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission: "Autoriser $(PRODUCT_NAME) à utiliser votre position en arrière-plan.",
+          locationAlwaysPermission: "Autoriser $(PRODUCT_NAME) à utiliser votre position en arrière-plan.",
+          locationWhenInUsePermission: "Autoriser $(PRODUCT_NAME) à utiliser votre position.",
+          isAndroidBackgroundLocationEnabled: true
+        }
+      ],
+      "expo-localization",
+      "expo-audio"
+    ],
+    name: "TakaTakaApp",
+    slug: "TakaTakaApp",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/logo/LogoTT.png",
+    userInterfaceStyle: "light",
+    edgeToEdgeEnabled: true,
+    newArchEnabled: true,
+    splash: {
+      image: "./assets/logo/LogoTT.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff"
+    },
+    ios: {
+      config: {
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || ""
+      },
+      supportsTablet: true,
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription: "Cette application a besoin de votre position pour trouver des trajets à proximité.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Cette application a besoin de votre position pour le suivi en temps réel des trajets.",
+        UIBackgroundModes: [
+          "location"
+        ]
+      }
+    },
+    android: {
+      package: "com.takataka.voyage",
+      versionCode: 2,
+      config: {
+        googleMaps: {
+          apiKey: process.env.GOOGLE_MAPS_API_KEY || ""
+        }
+      },
+      adaptiveIcon: {
+        foregroundImage: "./assets/logo/LogoTT.png",
+        backgroundColor: "#ffffff"
+      },
+      permissions: [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    web: {
+      favicon: "./assets/favicon.png"
+    },
+    extra: {
+      eas: {
+        projectId: "a83ec69d-cd4d-4e84-99d8-4cc778069a76"
+      }
+    }
+  }
+};
