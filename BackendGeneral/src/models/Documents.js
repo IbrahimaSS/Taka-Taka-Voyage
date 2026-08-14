@@ -44,4 +44,8 @@ const documentSchema = new mongoose.Schema(
     }
 );
 
+// Un chauffeur n'a qu'un seul document par type — empêche les doublons créés par
+// des upserts concurrents ou des retries (vérifié : aucun doublon existant en base).
+documentSchema.index({ chauffeur: 1, type: 1 }, { unique: true });
+
 module.exports = mongoose.model("Document", documentSchema);

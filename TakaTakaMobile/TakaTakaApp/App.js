@@ -29,6 +29,7 @@ import { colors } from './constants/colors';
 import { SCREENS } from './constants/screens';
 import { useApp } from './AppContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { startUploadQueueSync, stopUploadQueueSync } from './services/uploadQueueSync';
 
 // Composant AppContent qui contient toute la logique
 function AppContent() {
@@ -73,6 +74,15 @@ function AppContent() {
       }
     };
     checkExistingSession();
+  }, []);
+
+  // ============================
+  // FILE D'ATTENTE D'UPLOAD HORS-LIGNE : démarrée une seule fois pour toute la
+  // durée de vie de l'app (écoute la connectivité + tente une synchro immédiate).
+  // ============================
+  useEffect(() => {
+    startUploadQueueSync();
+    return () => stopUploadQueueSync();
   }, []);
 
   // Redirection automatique pour les chauffeurs en attente

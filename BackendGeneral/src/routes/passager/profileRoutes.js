@@ -11,6 +11,7 @@ const {
 const { verifierToken } = require("../../middlewares/authMiddlewares");
 const { verifierStatutActif } = require("../../middlewares/statutMiddlewares");
 const uploadPhoto = require("../../middlewares/uploadPhoto");
+const { checkUploadIdempotency } = require("../../middlewares/checkUploadIdempotency");
 
 /**
  * @swagger
@@ -66,6 +67,7 @@ router.put(
     "/profil",
     verifierToken,
     verifierStatutActif,
+    checkUploadIdempotency,
     uploadPhoto.single("photoUrl"),
     updateProfil
 );

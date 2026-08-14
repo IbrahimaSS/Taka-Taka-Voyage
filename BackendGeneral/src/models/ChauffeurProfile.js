@@ -110,4 +110,25 @@ const chauffeurProfileSchema = new mongoose.Schema(
     }
 );
 
+// Suppression en cascade : sans ça, les documents (collection Document) d'un
+// chauffeur supprimé restent orphelins en base indéfiniment (constaté lors d'un
+// audit — des ChauffeurProfile supprimés manuellement avaient laissé des Document
+// sans aucun profil à rattacher). Couvre les deux façons habituelles de supprimer
+// dans ce projet : findByIdAndDelete/findOneAndDelete, et deleteMany en masse.
+// Mongoose 9 : middleware asynchrone sans callback "next" (on retourne une
+// promesse, elle est automatiquement attendue avant de poursuivre la suppression).
+chauffeurProfileSchema.pre("findOneAndDelete", async function () {
+    const profile = await this.model.findOne(this.getQuery()).select("_id");
+    if (profile) {
+        await mongoose.model("Document").deleteMany({ chauffeur: profile._id });
+    }
+});
+
+chauffeurProfileSchema.pre("deleteMany", async function () {
+    const profiles = await this.model.find(this.getQuery()).select("_id");
+    if (profiles.length > 0) {
+        await mongoose.model("Document").deleteMany({ chauffeur: { $in: profiles.map((p) => p._id) } });
+    }
+});
+
 module.exports = mongoose.model("ChauffeurProfile", chauffeurProfileSchema);

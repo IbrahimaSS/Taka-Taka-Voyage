@@ -1,21 +1,18 @@
-const fs = require("fs");
-const path = require("path");
 const multer = require("multer");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("../config/cloudinary");
 
-const uploadDir = path.join(__dirname, "..", "..", "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname || "");
-    const name = `${file.fieldname}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
-    cb(null, name);
-  },
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => ({
+    folder: "takataka/documents-chauffeur",
+    // "auto" : Cloudinary détecte lui-même image vs PDF (ce champ accepte les deux).
+    resource_type: "auto",
+    allowed_formats: ["jpg", "jpeg", "png", "webp", "pdf"],
+    public_id: `${file.fieldname}-${req.utilisateur?._id || "anonyme"}-${Date.now()}`,
+    // Ignoré par Cloudinary pour les PDF (resource_type "raw"), appliqué aux images.
+    transformation: [{ quality: "auto", fetch_format: "auto" }],
+  }),
 });
 
 const fileFilter = (req, file, cb) => {

@@ -4,6 +4,7 @@ const Paiement = require("../../models/Paiements");
 const { validationResult } = require("express-validator");
 const { deleteFile } = require("../../utils/fileUtils");
 const { logActivity } = require("../../utils/logger");
+const { sendIdempotentResponse } = require("../../utils/idempotency");
 
 /* ===================== PROFIL ===================== */
 
@@ -76,10 +77,12 @@ exports.updateProfil = async (req, res) => {
 
         // Gestion de la photo de profil si elle est envoyée
         if (req.file) {
+            // Note : deleteFile() ne sait supprimer qu'un fichier local — no-op silencieux
+            // si l'ancienne photo est déjà sur Cloudinary (nettoyage Cloudinary à prévoir séparément).
             if (req.utilisateur.photoUrl) {
                 deleteFile(req.utilisateur.photoUrl);
             }
-            donnees.photoUrl = `/uploads/profiles/${req.file.filename}`;
+            donnees.photoUrl = req.file.path; // URL Cloudinary complète
         }
 
         // Unicité email / téléphone
@@ -118,7 +121,7 @@ exports.updateProfil = async (req, res) => {
             navigateur: req.headers["user-agent"] || "Unknown"
         });
 
-        return res.status(200).json({
+        return sendIdempotentResponse(req, res, 200, {
             succes: true,
             message: "Profil mis à jour avec succès",
             utilisateur: {

@@ -5,6 +5,7 @@ const { verifierToken } = require("../../middlewares/authMiddlewares");
 const { autoriserRoles } = require("../../middlewares/roleMiddlewares");
 const { upload } = require("../../middlewares/upload");
 const uploadPhoto = require("../../middlewares/uploadPhoto");
+const { checkUploadIdempotency } = require("../../middlewares/checkUploadIdempotency");
 const {
   updateVehicule,
   uploadDocuments,
@@ -63,6 +64,7 @@ router.put(
   "/profile",
   verifierToken,
   autoriserRoles("CHAUFFEUR"),
+  checkUploadIdempotency,
   uploadPhoto.single("photoUrl"),
   updateProfil
 );
@@ -171,6 +173,7 @@ router.post(
   "/documents",
   verifierToken,
   autoriserRoles("CHAUFFEUR"),
+  checkUploadIdempotency,
   upload.fields([
     { name: "photo", maxCount: 1 },
     { name: "license", maxCount: 1 },

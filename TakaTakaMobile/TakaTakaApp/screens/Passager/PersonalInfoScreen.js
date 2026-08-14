@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -19,6 +19,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../../AppContext';
 import * as ImagePicker from 'expo-image-picker';
 import { apiClient } from '../../services/apiClient';
+import { enqueueUpload } from '../../services/uploadQueue';
+import { onUploadQueueItemSuccess, processQueueOnce } from '../../services/uploadQueueSync';
 
 export default function PersonalInfoScreen({ navigation }) {
     const { user, updateUser, darkMode, theme } = useApp();
@@ -47,6 +49,18 @@ export default function PersonalInfoScreen({ navigation }) {
     };
 
     const [formData, setFormData] = useState(getInitialFormData());
+
+    // Si la photo mise en file d'attente plus tôt (hors ligne ou réseau instable)
+    // finit par être envoyée avec succès, on rafraîchit l'URL réelle (Cloudinary)
+    // renvoyée par le backend — jusque-là, l'aperçu local (formData.photo) suffit.
+    useEffect(() => {
+        const unsubscribe = onUploadQueueItemSuccess((item, response) => {
+            if (item.fileFieldName === 'photoUrl' && response?.utilisateur?.photoUrl) {
+                updateUser({ ...user, photoUrl: response.utilisateur.photoUrl, photo: response.utilisateur.photoUrl });
+            }
+        });
+        return unsubscribe;
+    }, [user]);
 
     const handlePickImage = async () => {
         if (!isEditing) return;
@@ -78,47 +92,93 @@ export default function PersonalInfoScreen({ navigation }) {
 
         setLoading(true);
         try {
+            const isNewPhoto = formData.photo && formData.photo.startsWith('file://');
+
+            // La photo est mise en file d'attente EN PREMIER, avant toute tentative
+            // réseau : c'est une simple copie locale de fichier, elle ne peut pas
+            // échouer pour cause de connexion. Si on l'avait fait après la tentative
+            // de mise à jour du texte, une coupure réseau aurait arrêté la fonction
+            // avant même que la photo ne soit mise en attente — annulant tout
+            // l'intérêt de la file hors-ligne.
+            if (isNewPhoto) {
+                const filename = formData.photo.split('/').pop();
+                const match = /\.(\w+)$/.exec(filename);
+                const mimeType = match ? `image/${match[1]}` : 'image/jpeg';
+
+                await enqueueUpload({
+                    localUri: formData.photo,
+                    endpoint: '/passager/profile/profil',
+                    method: 'PUT',
+                    fileFieldName: 'photoUrl',
+                    fileName: filename,
+                    mimeType,
+                });
+
+                // Tentative d'envoi immédiate, sans bloquer l'écran (pas de "await") : si
+                // la connexion est déjà là, la photo part tout de suite au lieu d'attendre
+                // un futur changement d'état réseau ou un redémarrage de l'app. Si ça
+                // échoue (hors ligne), l'élément reste simplement en file, sans conséquence.
+                processQueueOnce();
+            }
+
+            // Champs texte : tentative de mise à jour immédiate. Contrairement à la
+            // photo, ce n'est pas mis en file d'attente (hors périmètre : seuls les
+            // médias en ont besoin) — si ça échoue faute de réseau, la photo reste
+            // quand même en attente d'envoi, elle n'est pas perdue.
             const data = new FormData();
             data.append('prenom', formData.prenom.trim());
             data.append('nom', formData.nom.trim());
             data.append('email', formData.email.trim());
             data.append('telephone', formData.phone.trim());
 
-            if (formData.photo && formData.photo.startsWith('file://')) {
-                const filename = formData.photo.split('/').pop();
-                const match = /\.(\w+)$/.exec(filename);
-                const type = match ? `image/${match[1]}` : `image`;
-                data.append('photoUrl', {
-                    uri: formData.photo,
-                    name: filename,
-                    type: type,
-                });
-            }
-
             const response = await apiClient('/passager/profile/profil', {
                 method: 'PUT',
                 body: data,
             });
 
-            if (response.succes) {
-                // Mettre à jour l'état local via AppContext
-                const updatedUser = {
-                    ...user,
-                    prenom: response.utilisateur.prenom,
-                    nom: response.utilisateur.nom,
-                    name: `${response.utilisateur.prenom} ${response.utilisateur.nom}`,
-                    email: response.utilisateur.email,
-                    telephone: response.utilisateur.telephone,
-                    phone: response.utilisateur.telephone,
-                    photoUrl: response.utilisateur.photoUrl,
-                    photo: response.utilisateur.photoUrl,
-                };
-                updateUser(updatedUser);
-                setIsEditing(false);
-                Alert.alert('Succès', 'Vos informations ont été mises à jour avec succès.');
-            } else {
-                Alert.alert('Erreur', response.error || 'Impossible de mettre à jour le profil');
+            setIsEditing(false);
+
+            if (!response.succes) {
+                if (isNewPhoto) {
+                    // On ne met PAS formData.photo (URI locale file://) dans l'état global
+                    // (AppContext) : d'autres écrans affichent user.photo/photoUrl en
+                    // supposant une vraie URL (Cloudinary ou chemin serveur), pas un fichier
+                    // local — ça casserait leur affichage. L'aperçu local reste cantonné à
+                    // cet écran (formData.photo, déjà utilisé pour son propre <Image>).
+                    Alert.alert(
+                        'Photo mise en attente',
+                        'Pas de connexion pour le moment : votre photo sera envoyée dès que possible. Les autres informations n\'ont pas été enregistrées, réessayez plus tard.'
+                    );
+                } else {
+                    Alert.alert('Erreur', response.error || 'Impossible de mettre à jour le profil');
+                }
+                return;
             }
+
+            // Mettre à jour l'état local via AppContext. Tant qu'une nouvelle photo est
+            // en attente d'envoi, on garde l'ancienne URL (réelle, exploitable par tous
+            // les écrans) dans l'état global — l'URI locale ne sert qu'à l'aperçu de cet
+            // écran (formData.photo). La vraie nouvelle URL Cloudinary arrivera via
+            // onUploadQueueItemSuccess une fois l'envoi confirmé.
+            const updatedUser = {
+                ...user,
+                prenom: response.utilisateur.prenom,
+                nom: response.utilisateur.nom,
+                name: `${response.utilisateur.prenom} ${response.utilisateur.nom}`,
+                email: response.utilisateur.email,
+                telephone: response.utilisateur.telephone,
+                phone: response.utilisateur.telephone,
+                photoUrl: response.utilisateur.photoUrl,
+                photo: response.utilisateur.photoUrl,
+            };
+            updateUser(updatedUser);
+
+            Alert.alert(
+                'Succès',
+                isNewPhoto
+                    ? 'Vos informations ont été mises à jour. La nouvelle photo sera envoyée dès que la connexion le permet.'
+                    : 'Vos informations ont été mises à jour avec succès.'
+            );
         } catch (error) {
             console.error('Update profile error:', error);
             Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour.');

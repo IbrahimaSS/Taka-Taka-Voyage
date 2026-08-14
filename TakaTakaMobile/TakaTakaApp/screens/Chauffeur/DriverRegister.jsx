@@ -23,6 +23,8 @@ import { styles } from './DriverRegister.styles';
 import { PLATFORM } from '../../constants/platform';
 import { useApp } from '../../AppContext';
 import { apiClient } from '../../services/apiClient';
+import { enqueueUpload } from '../../services/uploadQueue';
+import { processQueueOnce } from '../../services/uploadQueueSync';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
@@ -359,48 +361,40 @@ export default function DriverRegister({ onBack, onLogin, onSuccess }) {
                 }
             });
 
-            // 4. Upload des documents
-            const formDataDocs = new FormData();
-            if (vehicleImage) {
-                formDataDocs.append('photo', {
-                    uri: Platform.OS === 'ios' ? vehicleImage.replace('file://', '') : vehicleImage,
-                    name: 'vehicle.jpg',
-                    type: 'image/jpeg'
-                });
-            }
-            if (uploadedDocs['license']) {
-                formDataDocs.append('license', {
-                    uri: Platform.OS === 'ios' ? uploadedDocs['license'].replace('file://', '') : uploadedDocs['license'],
-                    name: 'license.jpg',
-                    type: 'image/jpeg'
-                });
-            }
-            if (uploadedDocs['piece_identite']) {
-                formDataDocs.append('idCard', {
-                    uri: Platform.OS === 'ios' ? uploadedDocs['piece_identite'].replace('file://', '') : uploadedDocs['piece_identite'],
-                    name: 'idcard.jpg',
-                    type: 'image/jpeg'
-                });
-            }
-            if (uploadedDocs['carte_grise']) {
-                formDataDocs.append('carRegistration', {
-                    uri: Platform.OS === 'ios' ? uploadedDocs['carte_grise'].replace('file://', '') : uploadedDocs['carte_grise'],
-                    name: 'carte_grise.jpg',
-                    type: 'image/jpeg'
-                });
-            }
-            if (uploadedDocs['assurance']) {
-                formDataDocs.append('insurance', {
-                    uri: Platform.OS === 'ios' ? uploadedDocs['assurance'].replace('file://', '') : uploadedDocs['assurance'],
-                    name: 'assurance.jpg',
-                    type: 'image/jpeg'
+            // 4. Mise en file d'attente des documents (envoi résilient hors-ligne)
+            //
+            // Chaque document est mis en file séparément plutôt qu'envoyé en un seul
+            // FormData combiné : si la connexion est instable, un document qui échoue
+            // n'empêche pas les autres de partir, et chacun est retenté indépendamment
+            // (voir services/uploadQueue.js et uploadQueueSync.js). Cette étape ne fait
+            // qu'écrire localement — quasi instantanée, l'inscription peut se terminer
+            // même hors ligne, les documents partiront dès que la connexion reviendra.
+            const documentsAEnvoyer = [
+                vehicleImage && { fileFieldName: 'photo', uri: vehicleImage, name: 'vehicle.jpg' },
+                uploadedDocs['license'] && { fileFieldName: 'license', uri: uploadedDocs['license'], name: 'license.jpg' },
+                uploadedDocs['piece_identite'] && { fileFieldName: 'idCard', uri: uploadedDocs['piece_identite'], name: 'idcard.jpg' },
+                uploadedDocs['carte_grise'] && { fileFieldName: 'carRegistration', uri: uploadedDocs['carte_grise'], name: 'carte_grise.jpg' },
+                uploadedDocs['assurance'] && { fileFieldName: 'insurance', uri: uploadedDocs['assurance'], name: 'assurance.jpg' },
+            ].filter(Boolean);
+
+            for (const doc of documentsAEnvoyer) {
+                // On garde l'URI complète (avec "file://") pour la copie locale — le
+                // retrait du préfixe pour iOS se fait plus tard, juste avant l'envoi
+                // réseau (voir uploadQueueSync.js), pas ici.
+                await enqueueUpload({
+                    localUri: doc.uri,
+                    endpoint: '/chauffeur/documents',
+                    method: 'POST',
+                    fileFieldName: doc.fileFieldName,
+                    fileName: doc.name,
+                    mimeType: 'image/jpeg',
                 });
             }
 
-            await apiClient('/chauffeur/documents', {
-                method: 'POST',
-                body: formDataDocs
-            });
+            // Tentative d'envoi immédiate de toute la file (pas seulement ces documents),
+            // sans bloquer l'écran : si la connexion est là, tout part tout de suite au
+            // lieu d'attendre un futur changement d'état réseau ou un redémarrage de l'app.
+            processQueueOnce();
 
             // Une fois terminé, on appelle onSuccess pour aller sur la page d'attente
             if (onSuccess) onSuccess();

@@ -1,6 +1,7 @@
 const Utilisateurs = require("../../models/Utilisateurs");
 const { deleteFile } = require("../../utils/fileUtils");
 const { logActivity } = require("../../utils/logger");
+const { sendIdempotentResponse } = require("../../utils/idempotency");
 
 // VOIR MON PROFILE
 exports.getProfile = async (req, res) => {
@@ -75,10 +76,12 @@ exports.updateProfile = async (req, res) => {
 
         // ===== PHOTO DE PROFIL (FACULTATIF) =====
         if (req.file) {
+            // Note : deleteFile() ne sait supprimer qu'un fichier local — no-op silencieux
+            // si l'ancienne photo est déjà sur Cloudinary (nettoyage Cloudinary à prévoir séparément).
             if (user.photoUrl) {
                 deleteFile(user.photoUrl);
             }
-            user.photoUrl = `/uploads/profiles/${req.file.filename}`;
+            user.photoUrl = req.file.path; // URL Cloudinary complète
         }
 
         await user.save();
@@ -95,7 +98,7 @@ exports.updateProfile = async (req, res) => {
             navigateur: req.headers["user-agent"] || "Unknown"
         });
 
-        return res.json({
+        return sendIdempotentResponse(req, res, 200, {
             succes: true,
             message: "Profil mis à jour",
             utilisateur: {

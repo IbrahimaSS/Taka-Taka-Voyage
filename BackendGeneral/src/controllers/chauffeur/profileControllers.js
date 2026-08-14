@@ -6,6 +6,7 @@ const Trajet = require("../../models/Trajets");
 const Paiement = require("../../models/Paiements");
 const { deleteFile } = require("../../utils/fileUtils");
 const { logActivity } = require("../../utils/logger");
+const { sendIdempotentResponse } = require("../../utils/idempotency");
 
 const mapTypeVehicule = (type) => {
   const v = String(type || "").toLowerCase();
@@ -144,10 +145,13 @@ exports.updateProfil = async (req, res) => {
 
     // Gestion de la photo de profil si elle est envoyée
     if (req.file) {
+      // Note : deleteFile() ne sait supprimer qu'un fichier local. Si l'ancienne
+      // photo est déjà sur Cloudinary, l'appel est un no-op silencieux (pas d'erreur,
+      // mais l'ancien fichier reste sur Cloudinary) — nettoyage Cloudinary à prévoir séparément.
       if (req.utilisateur.photoUrl) {
         deleteFile(req.utilisateur.photoUrl);
       }
-      donnees.photoUrl = `/uploads/profiles/${req.file.filename}`;
+      donnees.photoUrl = req.file.path; // URL Cloudinary complète
     }
 
     // Unicité email / téléphone
@@ -186,7 +190,7 @@ exports.updateProfil = async (req, res) => {
       navigateur: req.headers["user-agent"] || "Unknown"
     });
 
-    return res.status(200).json({
+    return sendIdempotentResponse(req, res, 200, {
       succes: true,
       message: "Profil mis à jour avec succès",
       utilisateur: {
@@ -272,8 +276,8 @@ exports.updateVehicule = async (req, res) => {
 exports.uploadDocuments = async (req, res) => {
   try {
     const files = req.files || {};
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const toUrl = (file) => `${baseUrl}/uploads/${file.filename}`;
+    // Cloudinary renvoie déjà l'URL complète et publique dans file.path.
+    const toUrl = (file) => file.path;
     const profile = await ensureProfile(req.utilisateur._id);
     const docsToCreate = [];
 
@@ -335,7 +339,7 @@ exports.uploadDocuments = async (req, res) => {
       console.error("⚠️ Erreur notification socket admin:", socketErr.message);
     }
 
-    return res.json({
+    return sendIdempotentResponse(req, res, 200, {
       succes: true,
       message: "Documents enregistrés",
       profil: profile,

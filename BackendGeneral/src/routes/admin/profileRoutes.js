@@ -5,6 +5,7 @@ const { verifierToken } = require("../../middlewares/authMiddlewares");
 const { autoriserRoles } = require("../../middlewares/roleMiddlewares.js");
 const profileController = require("../../controllers/admin/profileControllers");
 const uploadPhoto = require("../../middlewares/uploadPhoto");
+const { checkUploadIdempotency } = require("../../middlewares/checkUploadIdempotency");
 // ====================== PROFILE ADMIN ======================
 
 /**
@@ -58,6 +59,7 @@ router.put(
     "/profile",
     verifierToken,
     autoriserRoles("ADMIN"),
+    checkUploadIdempotency,
     uploadPhoto.single("photoUrl"),
     profileController.updateProfile
 );
