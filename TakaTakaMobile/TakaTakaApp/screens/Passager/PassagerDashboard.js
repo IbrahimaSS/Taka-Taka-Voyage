@@ -416,12 +416,39 @@ export default function PassagerDashboard({ onBack, onLogout, setCurrentScreen, 
     const requestLocationPermission = async () => {
         try {
             let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status === 'granted') {
-                let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High, });
-                const { latitude, longitude } = location.coords;
-                setUserLocation({ latitude, longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 });
+            if (status !== 'granted') {
+                // Refus de permission : message clair plutôt que de rester silencieux,
+                // avec un raccourci direct vers les réglages de l'app.
+                Alert.alert(
+                    'Localisation désactivée',
+                    'Pour afficher votre position sur la carte, autorisez l\'accès à la localisation dans les paramètres de l\'application.',
+                    [
+                        { text: 'Plus tard', style: 'cancel' },
+                        { text: 'Ouvrir les paramètres', onPress: () => Linking.openSettings() },
+                    ]
+                );
+                return;
             }
-        } catch (error) { console.error('Location error:', error); }
+
+            const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+            const { latitude, longitude } = location.coords;
+            setUserLocation({ latitude, longitude, latitudeDelta: 0.005, longitudeDelta: 0.005 });
+        } catch (error) {
+            // Permission accordée mais position indisponible (service de localisation/GPS
+            // désactivé au niveau de l'appareil, ou signal introuvable) : message
+            // d'information à l'utilisateur plutôt qu'une erreur technique silencieuse.
+            // "console.log" et pas "console.error" : ça évite le bandeau d'erreur
+            // intrusif de LogBox pour un cas déjà géré proprement par l'alerte ci-dessous.
+            console.log('Location error:', error.message);
+            Alert.alert(
+                'Position indisponible',
+                'Impossible d\'obtenir votre position actuelle. Vérifiez que la localisation est activée sur votre appareil, puis réessayez.',
+                [
+                    { text: 'OK', style: 'cancel' },
+                    { text: 'Réessayer', onPress: () => requestLocationPermission() },
+                ]
+            );
+        }
     };
 
 

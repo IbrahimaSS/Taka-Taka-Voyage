@@ -562,7 +562,10 @@ export default function DriverDashboard({ onLogout, setCurrentScreen }) {
                 Alert.alert('Permission refusée', 'La localisation est nécessaire pour fonctionner');
             }
         } catch (error) {
-            console.error('Location error:', error);
+            // Cas prévu (service de localisation désactivé, GPS indisponible) : simple
+            // log, pas "console.error" — ça évite le bandeau d'erreur intrusif de
+            // LogBox pour quelque chose déjà correctement géré par l'alerte ci-dessous.
+            console.log('Location error:', error.message);
             Alert.alert('Erreur', 'Impossible d\'accéder à la localisation');
         } finally {
             setLoadingLocation(false);

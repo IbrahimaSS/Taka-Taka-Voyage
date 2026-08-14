@@ -15,7 +15,8 @@ import {
     Modal,
     RefreshControl,
     TextInput,
-    FlatList
+    FlatList,
+    Linking
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -263,22 +264,39 @@ export default function AdminDashboard({ onLogout, setCurrentScreen }) {
         try {
             setLoadingLocation(true);
             let { status } = await Location.requestForegroundPermissionsAsync();
-            
-            if (status === 'granted') {
-                let location = await Location.getCurrentPositionAsync({
-                    accuracy: Location.Accuracy.High,
-                });
-                
-                const { latitude, longitude } = location.coords;
-                setAdminLocation({
-                    latitude,
-                    longitude,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05,
-                });
+
+            if (status !== 'granted') {
+                Alert.alert(
+                    'Localisation désactivée',
+                    'Pour afficher votre position sur la carte, autorisez l\'accès à la localisation dans les paramètres de l\'application.',
+                    [
+                        { text: 'Plus tard', style: 'cancel' },
+                        { text: 'Ouvrir les paramètres', onPress: () => Linking.openSettings() },
+                    ]
+                );
+                return;
             }
+
+            let location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.High,
+            });
+
+            const { latitude, longitude } = location.coords;
+            setAdminLocation({
+                latitude,
+                longitude,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+            });
         } catch (error) {
-            console.error('Location error:', error);
+            // Cas prévu (service de localisation désactivé, GPS indisponible) : simple
+            // log, pas "console.error" — ça évite le bandeau d'erreur intrusif de
+            // LogBox pour quelque chose déjà correctement géré par l'alerte ci-dessous.
+            console.log('Location error:', error.message);
+            Alert.alert(
+                'Position indisponible',
+                'Impossible d\'obtenir votre position actuelle. Vérifiez que la localisation est activée sur votre appareil, puis réessayez.'
+            );
         } finally {
             setLoadingLocation(false);
         }
